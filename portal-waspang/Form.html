@@ -940,6 +940,9 @@
       .header-actions { width: auto; gap: 6px; }
       header .btn-header { padding: 7px 11px; }
       .container { padding: 0 10px; margin: 12px auto; }
+      /* Tiga tombol header muat di layar HP: Pengaturan jadi ikon saja, lalu "Portal FTTH" jadi "FTTH". */
+      @media (max-width: 480px) { header .btn-header { padding: 7px 9px; } header .btn-header .hb-label { display: none; } }
+      @media (max-width: 380px) { header .btn-header .hb-long { display: none; } .header-logo-img { height: 34px; } }
       .card { padding: 16px 14px 18px; margin-bottom: 12px; }
       .section-title { font-size: 15px; }
       .form-group input, .form-group select, .form-group textarea { font-size: 16px; padding: 11px 10px; min-height: 46px; }
@@ -1009,10 +1012,12 @@
       </div>
       <div class="header-actions">
         <!-- Portal FTTH dibuka di halaman PWA (tanpa banner Google); login FTTH yang tersimpan di perangkat dipakai otomatis. -->
-        <a class="btn-header" href="https://buanamenara.github.io/portal-ftth/?p=ftth" target="_top">🏠 Portal FTTH</a>
-        <button type="button" class="btn-header" onclick="openConfigModal()">
-          ⚙️ Pengaturan
+        <a class="btn-header" href="https://buanamenara.github.io/portal-ftth/?p=ftth" target="_top"><span>🏠 <span class="hb-long">Portal </span>FTTH</span></a>
+        <button type="button" class="btn-header" onclick="openConfigModal()" title="Pengaturan" aria-label="Pengaturan">
+          ⚙️<span class="hb-label"> Pengaturan</span>
         </button>
+        <!-- Keluar: sesi Waspang di HP ini dihapus dan Gateway mengakhiri sesinya (kembali ke halaman login). -->
+        <a class="btn-header" href="https://buanamenara.github.io/portal-ftth/?logout=1" target="_top" onclick="logoutWaspang()">🚪 Keluar</a>
       </div>
     </div>
   </header>
@@ -1045,14 +1050,8 @@
           <div class="form-group">
             <label for="dailyClusterSelect">Pilih Cluster / Site Name *</label>
             <select id="dailyClusterSelect" onchange="onDailyClusterChange()" required>
-              <option value="">-- Belum ada cluster (Silakan upload BOQ) --</option>
-              <option value="CUSTOM">-- Ketik Cluster Baru --</option>
+              <option value="">-- Memuat cluster dari DATA BASE... --</option>
             </select>
-          </div>
-
-          <div class="form-group" id="dailyCustomClusterRow" style="display: none;">
-            <label for="dailyCustomCluster">Nama Cluster Baru *</label>
-            <input type="text" id="dailyCustomCluster" placeholder="Contoh: KAIBAHAN RW 03 DAN 04 PEKALONGAN" oninput="renderTelegramPreview()">
           </div>
 
           <div class="input-row">
@@ -1067,9 +1066,9 @@
           </div>
 
           <div class="input-row">
-            <div class="form-group" id="dailyCableLinesGroup">
-              <label for="dailyCableLines">Line Cable (Status Line Aktif Cluster) *</label>
-              <input type="text" id="dailyCableLines" value="4 Line (Line A, Line B, Line C, Line D)" placeholder="Contoh: 4 Line (Line A, Line B, Line C, Line D)" required oninput="renderTelegramPreview()">
+            <div class="form-group">
+              <label for="dailySow">SOW *</label>
+              <select id="dailySow" onchange="onDailyClusterChange()" required style="font-weight: 600;"></select>
             </div>
             <div class="form-group">
               <label for="dailyTopology">Topology *</label>
@@ -1354,9 +1353,13 @@
 
           <div class="form-group">
             <label for="boqTargetCluster">Pilih Cluster yang Ingin Disesuaikan *</label>
-            <select id="boqTargetCluster" onchange="loadBoqForSelectedCluster()" style="font-weight: 600;">
+            <select id="boqTargetCluster" onchange="onBoqClusterChange()" style="font-weight: 600;">
               <option value="">-- Memuat cluster... --</option>
             </select>
+          </div>
+          <div class="form-group">
+            <label for="boqTargetSow">SOW *</label>
+            <select id="boqTargetSow" onchange="loadBoqForSelectedCluster()" style="font-weight: 600;"></select>
           </div>
 
           <div style="overflow-x: auto; margin-top: 10px;">
@@ -1423,7 +1426,7 @@
           
           <div class="form-grid-2">
             <div class="form-group">
-              <label for="photoSiteSelect">Pilih Site Name (106 Site Unik dari 129 Data SOW Master) *</label>
+              <label for="photoSiteSelect">Pilih Site Name (dari DATA BASE) *</label>
               <select id="photoSiteSelect" onchange="onPhotoSiteChange()" required style="font-weight: 600;">
                 <!-- Populated dynamically from Database -->
               </select>
@@ -1437,11 +1440,6 @@
               <option value="Zain">Zain</option>
             </select>
             </div>
-          </div>
-
-          <div class="form-group" id="photoCustomSiteRow" style="display: none;">
-            <label for="photoCustomSite">Ketik Site Name Baru (Jika tidak ada di list) *</label>
-            <input type="text" id="photoCustomSite" placeholder="Contoh: KAIBAHAN RW 03 DAN 04" oninput="updatePhotoDestPreview()">
           </div>
 
           <!-- PILIHAN SOW (SCOPE OF WORK) -->
@@ -2527,40 +2525,56 @@
 ];
 
     // Helper Klasifikasi SOW: Cluster vs Non-Cluster (Subfeeder, FWA, Mainfeeder, Hubfeeder, Uplink)
+    // Teks SOW -> Cluster, Subfeeder, Mainfeeder, Hubfeeder, Uplink atau FWA ('' bila tidak dikenali).
+    function normSow(v) {
+      const sh = String(v || '').trim().toLowerCase();
+      if (!sh) return '';
+      if (sh.includes('subfeeder') || sh.includes('sub feeder') || sh.includes('sf')) return 'Subfeeder';
+      if (sh.includes('mainfeeder') || sh.includes('main feeder') || sh.includes('main_feeder')) return 'Mainfeeder';
+      if (sh.includes('hubfeeder') || sh.includes('hub feeder') || sh.includes('hub_feeder')) return 'Hubfeeder';
+      if (sh.includes('uplink') || sh.includes('up link')) return 'Uplink';
+      if (sh.includes('fwa')) return 'FWA';
+      if (sh.includes('cluster')) return 'Cluster';
+      return '';
+    }
+    function cleanSiteName(name) {
+      return String(name || '').replace(/[\u200B-\u200D\uFEFF\u2060]/g, '').trim();
+    }
+    // SOW yang tercatat untuk nama ini di DATA BASE (urutan sheet).
+    function sowsForName(name) {
+      if (typeof MASTER_DATABASE_SOW === 'undefined' || !Array.isArray(MASTER_DATABASE_SOW)) return [];
+      const k = normalizeClusterKey(name), out = [];
+      MASTER_DATABASE_SOW.forEach(item => {
+        const so = normSow(item.sow) || String(item.sow || '').trim();
+        if (so && normalizeClusterKey(item.name) === k && !out.includes(so)) out.push(so);
+      });
+      return out;
+    }
+    // Id cluster di portal = nama DATA BASE. Untuk nama yang punya beberapa SOW, SOW selain Cluster diberi awalan
+    // (mis. "SUBFEEDER - <nama>"), sama seperti data yang sudah tersimpan di HP.
+    function siteId(name, sow) {
+      const n = cleanSiteName(name), so = normSow(sow);
+      if (!n || !so || getSowType(n) === so) return n;
+      return so.toUpperCase() + ' - ' + n;
+    }
+
     function getSowType(name, sowHint) {
-      if (sowHint && String(sowHint).trim().length > 0) {
-        const sh = String(sowHint).trim().toLowerCase();
-        if (sh.includes('subfeeder') || sh.includes('sub feeder') || sh.includes('sf')) return 'Subfeeder';
-        if (sh.includes('mainfeeder') || sh.includes('main feeder') || sh.includes('main_feeder')) return 'Mainfeeder';
-        if (sh.includes('hubfeeder') || sh.includes('hub feeder') || sh.includes('hub_feeder')) return 'Hubfeeder';
-        if (sh.includes('uplink') || sh.includes('up link')) return 'Uplink';
-        if (sh.includes('fwa')) return 'FWA';
-        if (sh.includes('cluster')) return 'Cluster';
-      }
+      const hinted = normSow(sowHint);
+      if (hinted) return hinted;
       if (!name) return 'Cluster';
-      const s = String(name).trim().toLowerCase();
-      if (s.startsWith('subfeeder') || s.includes('subfeeder') || s.includes('sub feeder') || s.includes('boq sf') || s.includes('_sf_')) return 'Subfeeder';
-      if (s.startsWith('fwa') || s.includes('fwa -') || s.includes('fwa_') || s.includes('fwa ')) return 'FWA';
-      if (s.startsWith('mainfeeder') || s.includes('mainfeeder') || s.includes('main feeder') || s.includes('main_feeder')) return 'Mainfeeder';
-      if (s.startsWith('hubfeeder') || s.includes('hubfeeder') || s.includes('hub feeder') || s.includes('hub_feeder')) return 'Hubfeeder';
-      if (s.startsWith('uplink') || s.includes('uplink') || s.includes('up link')) return 'Uplink';
-      
-      if (typeof MASTER_DATABASE_SOW !== 'undefined' && Array.isArray(MASTER_DATABASE_SOW)) {
-        const clean = normalizeClusterKey(name);
-        const found = MASTER_DATABASE_SOW.find(item => {
-          const dbClean = normalizeClusterKey(item.name);
-          return clean === dbClean;
-        });
-        if (found && found.sow) {
-          const st = found.sow.toLowerCase();
-          if (st.includes('subfeeder')) return 'Subfeeder';
-          if (st.includes('mainfeeder')) return 'Mainfeeder';
-          if (st.includes('hubfeeder')) return 'Hubfeeder';
-          if (st.includes('uplink')) return 'Uplink';
-          if (st.includes('fwa')) return 'FWA';
-          if (st.includes('cluster')) return 'Cluster';
-        }
-      }
+      const raw = cleanSiteName(name);
+      const pre = raw.match(/^(subfeeder|fwa|mainfeeder|hubfeeder|uplink)(\s*-\s*|\s+)/i);
+      if (pre) return normSow(pre[1]);
+      const sows = sowsForName(raw);
+      if (sows.length === 1) return sows[0];
+      if (sows.includes('Cluster')) return 'Cluster';
+      if (sows.length) return sows[0];
+      const s = raw.toLowerCase();
+      if (s.includes('subfeeder') || s.includes('sub feeder') || s.includes('boq sf') || s.includes('_sf_')) return 'Subfeeder';
+      if (s.startsWith('[fwa]') || s.includes('fwa -') || s.includes('fwa_') || s.includes('fwa ')) return 'FWA';
+      if (s.includes('mainfeeder') || s.includes('main feeder') || s.includes('main_feeder')) return 'Mainfeeder';
+      if (s.includes('hubfeeder') || s.includes('hub feeder') || s.includes('hub_feeder')) return 'Hubfeeder';
+      if (s.includes('uplink') || s.includes('up link')) return 'Uplink';
       return 'Cluster';
     }
 
@@ -3017,6 +3031,8 @@
       return null;
     }
     function clearWsSession() { try { localStorage.removeItem(STORAGE_WS_SESSION); } catch (e) {} }
+    // Tombol Keluar: lupakan sesi Gateway di HP ini; tautannya membuka Gateway dengan ?logout=1 (sesi Gateway diakhiri).
+    function logoutWaspang() { WS_SESSION = null; clearWsSession(); }
     function isRpmSession() { return !!(WS_SESSION && WS_SESSION.role === 'rpm'); }
     async function initWsSession() {
       WS_SESSION = loadWsSession();
@@ -3364,7 +3380,8 @@
       const text = 
 `*DAILY REPORT EMR – BMI*
 Date  : ${formatDateDMY(dateVal)}
-Cluster Name : ${e(cluster)}
+Cluster Name : ${e(boqSiteName(cluster))}
+SOW : ${e(getSowType(cluster))}
 Start Implementation : ${formatDateDMY(startImplVal)}
 Topology : ${e(topology)}
 PIC : ${e(pic)}
@@ -3659,39 +3676,36 @@ ${e(todayActivity)}`;
     }
 
     function onDailyClusterChange() {
-      const sel = document.getElementById('dailyClusterSelect').value;
-      document.getElementById('dailyCustomClusterRow').style.display = (sel === 'CUSTOM') ? 'block' : 'none';
-
-      // Update cluster status & preview
+      const name = document.getElementById('dailyClusterSelect').value;
+      const sowSel = document.getElementById('dailySow');
+      fillSowSelect(sowSel, name, sowSel ? sowSel.value : '');
+      const sow = sowSel ? sowSel.value : '';
 
       renderDailyTable();
       renderTelegramPreview();
       refreshSharedTotals(getActiveDailyCluster());
 
-      // Sinkronkan pilihan Site ke Menu 3 (Foto)
-      if (sel && sel !== 'CUSTOM') {
-        const photoSel = document.getElementById('photoSiteSelect');
-        if (photoSel && photoSel.value !== sel) {
-          for (let i = 0; i < photoSel.options.length; i++) {
-            if (photoSel.options[i].value === sel) {
-              photoSel.selectedIndex = i;
-              updateSowSelectorForSite(sel);
-              updateFatLineTabsAndPills();
-              handlePhotoCategoryChange();
-              updatePhotoDestPreview();
-              break;
-            }
-          }
+      // Sinkronkan Site & SOW ke Menu 3 (Foto)
+      const photoSel = document.getElementById('photoSiteSelect');
+      if (name && photoSel) {
+        if (photoSel.value !== name && Array.from(photoSel.options).some(o => o.value === name)) {
+          photoSel.value = name;
+          updateSowSelectorForSite(name);
+          updateFatLineTabsAndPills();
+          handlePhotoCategoryChange();
+          updatePhotoDestPreview();
+        }
+        const ps = document.getElementById('photoSowSelect');
+        if (ps && sow && ps.value !== sow && Array.from(ps.options).some(o => o.value === sow)) {
+          ps.value = sow;
+          onPhotoSowChange();
         }
       }
     }
 
     function getActiveDailyCluster() {
-      const sel = document.getElementById('dailyClusterSelect').value;
-      if (sel === 'CUSTOM') {
-        return document.getElementById('dailyCustomCluster').value.trim() || 'CLUSTER_BARU';
-      }
-      return sel;
+      const sowSel = document.getElementById('dailySow');
+      return siteId(document.getElementById('dailyClusterSelect').value, sowSel ? sowSel.value : '');
     }
 
     // ==========================================
@@ -3733,8 +3747,10 @@ ${e(todayActivity)}`;
         }, false);
       }
 
-      // 1. Inisialisasi dropdown cluster terlebih dahulu
+      // 1. Inisialisasi dropdown cluster terlebih dahulu (salinan DATA BASE di HP, lalu diperbarui dari sheet)
+      loadCachedDatabaseSites();
       refreshAllClusterDropdowns();
+      refreshDatabaseSites();
 
       // Setup Drag & Drop untuk Upload Foto Dokumentasi
       const photoDropZone = document.querySelector('.upload-zone');
@@ -4439,11 +4455,59 @@ ${e(todayActivity)}`;
     function getMasterDatabaseSites() {
       const dbSites = [];
       MASTER_DATABASE_SOW.forEach(item => {
-        if (!dbSites.includes(item.name)) {
-          dbSites.push(item.name);
-        }
+        const n = cleanSiteName(item.name);
+        if (n && !dbSites.includes(n)) dbSites.push(n);
       });
       return dbSites;
+    }
+
+    // Daftar site & SOW = tab DATA BASE di spreadsheet FTTH. Salinan terakhir di HP dipakai dulu, lalu diperbarui dari server.
+    const STORAGE_DATABASE_SITES = 'waspang_database_sites_v1';
+    function applyDatabaseSites(list) {
+      if (!Array.isArray(list)) return false;
+      const rows = list.filter(it => it && cleanSiteName(it.name) && String(it.sow || '').trim());
+      if (!rows.length) return false;
+      MASTER_DATABASE_SOW.length = 0;
+      rows.forEach((it, i) => MASTER_DATABASE_SOW.push({ no: i + 1, name: cleanSiteName(it.name), sow: normSow(it.sow) || String(it.sow).trim(), region: it.region || '' }));
+      return true;
+    }
+    function loadCachedDatabaseSites() {
+      try { applyDatabaseSites(JSON.parse(localStorage.getItem(STORAGE_DATABASE_SITES) || 'null')); } catch (e) {}
+    }
+    async function refreshDatabaseSites() {
+      const cfg = getConfig();
+      if (!cfg.scriptUrl) return;
+      try {
+        const res = await fetch(cfg.scriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'GET_SITES' })
+        });
+        const d = await res.json();
+        if (d.status !== 'success') return;
+        const sig = () => JSON.stringify(MASTER_DATABASE_SOW.map(it => [it.name, it.sow]));
+        const before = sig(), dailyBefore = getActiveDailyCluster();
+        if (!applyDatabaseSites(d.sites)) return;
+        try { localStorage.setItem(STORAGE_DATABASE_SITES, JSON.stringify(d.sites)); } catch (e) {}
+        if (sig() === before) return;
+        refreshAllClusterDropdowns();
+        renderMasterSowTable(document.getElementById('sowTableSearchInp') ? document.getElementById('sowTableSearchInp').value : '');
+        if (getActiveDailyCluster() !== dailyBefore) onDailyClusterChange();
+        else { renderDailyTable(); renderTelegramPreview(); }
+        loadBoqForSelectedCluster();
+      } catch (e) {}
+    }
+    function escOpt(v) {
+      return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    // Pilihan SOW untuk nama site (dari DATA BASE); prefer dipakai bila tersedia.
+    function fillSowSelect(sel, name, prefer) {
+      if (!sel) return;
+      let sows = sowsForName(name);
+      if (!sows.length) sows = [getSowType(name)];
+      sel.innerHTML = sows.map(so => `<option value="${escOpt(so)}">${escOpt(so)}</option>`).join('');
+      const p = normSow(prefer);
+      sel.value = sows.includes(p) ? p : sows[0];
     }
 
     function getBoqRegisteredClusters() {
@@ -4502,75 +4566,53 @@ ${e(todayActivity)}`;
       return sows;
     }
 
+    // Semua pilihan cluster/site = nama di DATA BASE; SOW dipilih di kolom SOW. preferredSelection = id cluster (boleh berawalan SOW).
     function refreshAllClusterDropdowns(preferredSelection) {
-      const boqClusters = getBoqRegisteredClusters();
-      const masterSites = getMasterDatabaseSites();
-
-      // 1. Daily Cluster Select
-      const dailySelect = document.getElementById('dailyClusterSelect');
-      if (dailySelect) {
-        let optHtml = '';
-        if (boqClusters.length > 0) {
-          optHtml += '<optgroup label="-- Cluster Target BOQ Plan Aktif --">' +
-            boqClusters.map(c => `<option value="${c}">${c}</option>`).join('') +
-            '</optgroup>';
-          optHtml += '<optgroup label="-- Site Proyek (Database Master SOW) --">' +
-            masterSites.filter(s => !boqClusters.includes(s)).map(s => `<option value="${s}">${s}</option>`).join('') +
-            '</optgroup>';
-        } else {
-          optHtml += '<optgroup label="-- Site Proyek (Database Master SOW) --">' +
-            masterSites.map(s => `<option value="${s}">${s}</option>`).join('') +
-            '</optgroup>';
-        }
-        optHtml += '<option value="CUSTOM">-- Ketik Cluster / Site Baru --</option>';
-        dailySelect.innerHTML = optHtml;
-
-        const curVal = preferredSelection || dailySelect.value;
-        if (curVal && (boqClusters.includes(curVal) || masterSites.includes(curVal) || curVal === 'CUSTOM')) {
-          dailySelect.value = curVal;
-        }
+      const names = getMasterDatabaseSites();
+      const pref = preferredSelection ? { name: boqSiteName(preferredSelection), sow: getSowType(preferredSelection) } : null;
+      const optHtml = names.length
+        ? names.map(n => `<option value="${escOpt(n)}">${escOpt(n)}</option>`).join('')
+        : '<option value="">-- DATA BASE belum termuat --</option>';
+      function fill(selId, sowId) {
+        const sel = document.getElementById(selId);
+        if (!sel) return;
+        const sowSel = sowId ? document.getElementById(sowId) : null;
+        const prevName = cleanSiteName(sel.value), prevSow = sowSel ? sowSel.value : '';
+        sel.innerHTML = optHtml;
+        const want = (pref && names.includes(pref.name)) ? pref.name : prevName;
+        sel.value = names.includes(want) ? want : (names[0] || '');
+        if (sowSel) fillSowSelect(sowSel, sel.value, (pref && pref.name === sel.value) ? pref.sow : prevSow);
       }
-
-      // 2. BOQ Target Cluster Select
-      const boqSelect = document.getElementById('boqTargetCluster');
-      if (boqSelect) {
-        let optHtml = '';
-        if (boqClusters.length > 0) {
-          optHtml += '<optgroup label="-- Cluster Target BOQ Plan Aktif --">' +
-            boqClusters.map(c => `<option value="${c}">${c}</option>`).join('') +
-            '</optgroup>';
-          optHtml += '<optgroup label="-- Pilih Site Lain dari Database Master SOW --">' +
-            masterSites.filter(s => !boqClusters.includes(s)).map(s => `<option value="${s}">${s}</option>`).join('') +
-            '</optgroup>';
-        } else {
-          optHtml += '<optgroup label="-- Pilih Site dari Database Master SOW (106 Site Unik) --">' +
-            masterSites.map(s => `<option value="${s}">${s}</option>`).join('') +
-            '</optgroup>';
-        }
-        optHtml += '<option value="CUSTOM">-- Ketik Cluster Baru --</option>';
-        boqSelect.innerHTML = optHtml;
-        const curVal = preferredSelection || boqSelect.value || (boqClusters[0] || masterSites[0]);
-        if (curVal && (boqClusters.includes(curVal) || masterSites.includes(curVal) || curVal === 'CUSTOM')) {
-          boqSelect.value = curVal;
-        }
-      }
-
-      // 3. Photo Site Select
-      const photoSelect = document.getElementById('photoSiteSelect');
-      if (photoSelect) {
-        const curVal = preferredSelection || photoSelect.value || masterSites[0];
-        photoSelect.innerHTML = masterSites.map(c => `<option value="${c}">${c}</option>`).join('') +
-          '<option value="CUSTOM">-- Ketik Site Lain --</option>';
-        if (masterSites.includes(curVal) || curVal === 'CUSTOM') photoSelect.value = curVal;
+      fill('dailyClusterSelect', 'dailySow');
+      fill('boqTargetCluster', 'boqTargetSow');
+      const photoSow = document.getElementById('photoSowSelect');
+      const prevPhotoSow = photoSow ? photoSow.value : '';
+      fill('photoSiteSelect', null);
+      const ps = document.getElementById('photoSiteSelect');
+      if (ps && ps.value) {
+        updateSowSelectorForSite(ps.value);
+        const so = (pref && pref.name === ps.value) ? pref.sow : prevPhotoSow;
+        if (photoSow && Array.from(photoSow.options).some(o => o.value === so)) { photoSow.value = so; onPhotoSowChange(); }
       }
     }
 
     // Variabel runtime untuk baris material yang sedang diedit
     let currentManualEditingRows = [];
 
+    // Cluster di tab BOQ Plan = nama DATA BASE + SOW.
+    function getBoqTargetCluster() {
+      const sel = document.getElementById('boqTargetCluster'), sowSel = document.getElementById('boqTargetSow');
+      return sel ? siteId(sel.value, sowSel ? sowSel.value : '') : '';
+    }
+    function onBoqClusterChange() {
+      const sel = document.getElementById('boqTargetCluster'), sowSel = document.getElementById('boqTargetSow');
+      if (sel) fillSowSelect(sowSel, sel.value, sowSel ? sowSel.value : '');
+      loadBoqForSelectedCluster();
+    }
+
     // Muat Tabel Penyesuaian Material Manual untuk Cluster Terpilih
     function loadBoqForSelectedCluster(fromSheet) {
-      const cluster = document.getElementById('boqTargetCluster').value;
+      const cluster = getBoqTargetCluster();
       const tbody = document.getElementById('boqSubmitTableBody');
       if (!tbody) return;
 
@@ -4599,7 +4641,7 @@ ${e(todayActivity)}`;
       fetchClusterData(cluster).then(d => {
         if (!d || !d.plan) return;
         applySharedPlan(cluster, d.plan);
-        if (document.getElementById('boqTargetCluster').value !== cluster) return;
+        if (getBoqTargetCluster() !== cluster) return;
         if (JSON.stringify(getClusterItems(cluster)) === before) return;
         if (JSON.stringify(currentManualEditingRows) !== snapshot) return;
         loadBoqForSelectedCluster(true);
@@ -4612,7 +4654,7 @@ ${e(todayActivity)}`;
       const tbody = document.getElementById('boqSubmitTableBody');
       if (!tbody) return;
 
-      const cluster = document.getElementById('boqTargetCluster') ? document.getElementById('boqTargetCluster').value : '';
+      const cluster = getBoqTargetCluster();
       const isTargetCluster = isClusterSow(cluster);
 
       if (currentManualEditingRows.length === 0) {
@@ -4671,7 +4713,7 @@ ${e(todayActivity)}`;
     }
 
     function addNewMaterialRow() {
-      const cluster = document.getElementById('boqTargetCluster').value;
+      const cluster = getBoqTargetCluster();
       if (!cluster) {
         alert("Pilih cluster terlebih dahulu!");
         return;
@@ -4732,7 +4774,7 @@ ${e(todayActivity)}`;
 
     // Simpan Perubahan Material BOQ Cluster
     async function saveBoqSubmitTable() {
-      const cluster = document.getElementById('boqTargetCluster').value;
+      const cluster = getBoqTargetCluster();
       if (!cluster) {
         alert("Pilih cluster terlebih dahulu sebelum menyimpan!");
         return;
@@ -4870,8 +4912,6 @@ ${e(todayActivity)}`;
 
     function onPhotoSiteChange() {
       const site = getActivePhotoSite();
-      const sel = document.getElementById('photoSiteSelect').value;
-      document.getElementById('photoCustomSiteRow').style.display = (sel === 'CUSTOM') ? 'block' : 'none';
 
       // Update SOW selector berdasarkan site yang dipilih
       updateSowSelectorForSite(site);
@@ -4879,23 +4919,18 @@ ${e(todayActivity)}`;
       updateFatLineTabsAndPills();
       handlePhotoCategoryChange();
       updatePhotoDestPreview();
+      syncDailyFromPhoto_();
+    }
 
-      // Sinkronkan ke Menu 1 (Daily Report) jika bukan CUSTOM
-      if (sel && sel !== 'CUSTOM') {
-        const dailySel = document.getElementById('dailyClusterSelect');
-        if (dailySel && dailySel.value !== sel) {
-          for (let i = 0; i < dailySel.options.length; i++) {
-            if (dailySel.options[i].value === sel) {
-              dailySel.selectedIndex = i;
-              const custRow = document.getElementById('dailyCustomClusterRow');
-              if (custRow) custRow.style.display = 'none';
-              if (typeof renderDailyTable === 'function') renderDailyTable();
-              if (typeof renderTelegramPreview === 'function') renderTelegramPreview();
-              break;
-            }
-          }
-        }
-      }
+    // Sinkronkan Site & SOW Menu 3 (Foto) ke Menu 1 (Daily Report).
+    function syncDailyFromPhoto_() {
+      const site = getActivePhotoSite(), sow = getActivePhotoSow();
+      const dailySel = document.getElementById('dailyClusterSelect'), dailySow = document.getElementById('dailySow');
+      if (!dailySel || !Array.from(dailySel.options).some(o => o.value === site)) return;
+      if (dailySel.value === site && (!dailySow || dailySow.value === sow)) return;
+      dailySel.value = site;
+      fillSowSelect(dailySow, site, sow);
+      onDailyClusterChange();
     }
 
     function updateFatLineTabsAndPills() {
@@ -5071,12 +5106,7 @@ ${e(todayActivity)}`;
 
     function getActivePhotoSite() {
       const sel = document.getElementById('photoSiteSelect');
-      if (!sel) return 'JATI BARU RT 04 BANJARMASIN';
-      if (sel.value === 'CUSTOM') {
-        const cust = document.getElementById('photoCustomSite');
-        return (cust && cust.value.trim()) ? cust.value.trim() : 'SITE_BARU';
-      }
-      return sel.value || 'JATI BARU RT 04 BANJARMASIN';
+      return (sel && sel.value) ? sel.value : '';
     }
 
     function getActivePhotoSow() {
@@ -5096,6 +5126,7 @@ ${e(todayActivity)}`;
 
       updatePhotoDestPreview();
       updateSelectedPhotoFileNames();
+      syncDailyFromPhoto_();
     }
 
     function setPhotoSowPill(sow) {
@@ -5209,63 +5240,29 @@ ${e(todayActivity)}`;
       if (typeof MASTER_DATABASE_SOW === 'undefined' || !Array.isArray(MASTER_DATABASE_SOW)) return;
       const item = MASTER_DATABASE_SOW.find(it => it.no === no);
       if (!item) return;
+      const name = cleanSiteName(item.name);
 
-      // 1. Sinkronkan Site di Menu 3 (Foto)
+      // 1. Site & SOW di Menu 3 (Foto)
       const siteSel = document.getElementById('photoSiteSelect');
-      if (siteSel) {
-        let found = false;
-        for (let i = 0; i < siteSel.options.length; i++) {
-          if (siteSel.options[i].value === item.name) {
-            siteSel.selectedIndex = i;
-            found = true;
-            break;
-          }
-        }
-        if (!found) {
-          siteSel.value = 'CUSTOM';
-          const custInp = document.getElementById('photoCustomSite');
-          if (custInp) custInp.value = item.name;
-        }
+      if (siteSel && Array.from(siteSel.options).some(o => o.value === name)) {
+        siteSel.value = name;
+        updateSowSelectorForSite(name);
+        updateFatLineTabsAndPills();
+        handlePhotoCategoryChange();
+        updatePhotoDestPreview();
       }
-
-      onPhotoSiteChange();
-
-      // 2. Sinkronkan SOW di Menu 3 (Foto)
       const sowSel = document.getElementById('photoSowSelect');
       if (sowSel) {
         sowSel.value = item.sow;
-        onPhotoSowChange();
+        onPhotoSowChange();   // ikut menyinkronkan Menu 1 (Daily Report)
       }
 
-      // 3. Sinkronkan Cluster di Menu 1 (Daily Report)
-      const dailySel = document.getElementById('dailyClusterSelect');
-      if (dailySel) {
-        for (let i = 0; i < dailySel.options.length; i++) {
-          if (dailySel.options[i].value === item.name) {
-            dailySel.selectedIndex = i;
-            break;
-          }
-        }
-        if (typeof onDailyClusterChange === 'function') {
-          const custRow = document.getElementById('dailyCustomClusterRow');
-          if (custRow) custRow.style.display = 'none';
-          renderDailyTable();
-          renderTelegramPreview();
-        }
-      }
-
-      // 4. Sinkronkan Cluster di Menu 2 (BOQ Plan)
+      // 2. Cluster & SOW di Menu 2 (BOQ Plan)
       const boqSel = document.getElementById('boqTargetCluster');
-      if (boqSel) {
-        for (let i = 0; i < boqSel.options.length; i++) {
-          if (boqSel.options[i].value === item.name) {
-            boqSel.selectedIndex = i;
-            break;
-          }
-        }
-        if (typeof loadBoqForSelectedCluster === 'function') {
-          loadBoqForSelectedCluster();
-        }
+      if (boqSel && Array.from(boqSel.options).some(o => o.value === name)) {
+        boqSel.value = name;
+        fillSowSelect(document.getElementById('boqTargetSow'), name, item.sow);
+        loadBoqForSelectedCluster();
       }
 
       // Re-render tabel agar baris aktif langsung ter-highlight
