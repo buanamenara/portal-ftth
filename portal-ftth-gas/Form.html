@@ -385,11 +385,12 @@
     .hint.bad { color: #c5221f; }
     .row { display: flex; gap: 12px; flex-wrap: wrap; position: relative; }
     .row > div { flex: 1; min-width: 150px; }
-    button.primary {
+    button.primary, a.primary {
       margin-top: 22px; padding: 11px 28px; background: var(--gold); color: #fff; font-weight: bold;
       border: none; border-radius: 4px; cursor: pointer; font-size: 14px;
     }
-    button.primary:hover { background: var(--gold-dark); }
+    button.primary:hover, a.primary:hover { background: var(--gold-dark); }
+    a.primary { display: inline-block; text-decoration: none; text-align: center; box-sizing: border-box; }
     button.primary:disabled { background: #b5ae9f; cursor: not-allowed; }
     button.ghost {
       margin-top: 22px; margin-left: 8px; padding: 10px 20px; background: #fff; color: var(--navy); font-weight: bold;
@@ -512,7 +513,7 @@
       input[type=text], input[type=password], input[type=date], input[type=number], select, input[type=file] { font-size: 16px; padding: 11px 10px; min-height: 46px; }
       .row { gap: 0; }
       .row > div { flex: 1 1 100%; min-width: 0; }
-      button.primary { display: block; width: 100%; font-size: 16px; padding: 14px 16px; min-height: 48px; margin-top: 18px; }
+      button.primary, a.primary { display: block; width: 100%; font-size: 16px; padding: 14px 16px; min-height: 48px; margin-top: 18px; }
       button.ghost { display: block; width: 100%; margin-left: 0; margin-top: 10px; min-height: 48px; font-size: 16px; }
       button.small { min-height: 42px; padding: 8px 14px; font-size: 13px; }
       .chips button { min-height: 40px; padding: 8px 16px; }
@@ -694,20 +695,12 @@
   </script>
 
   <!-- ===== BERANDA ===== -->
-  <!-- ===== MASUK (Username & Password) ===== -->
+  <!-- ===== BELUM MASUK: login hanya di Gateway (Portal Terpadu BMI); tidak ada form username/password di sini ===== -->
   <div id="viewLogin">
     <div class="card">
-      <h2>Masuk</h2>
       <p class="desc" id="loginNote">Memeriksa akses...</p>
-      <div id="loginForm" style="display:none">
-        <label for="loginUsername">Username</label>
-        <input type="text" id="loginUsername" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Masukkan username">
-        <label for="loginPassword" style="margin-top:10px">Password</label>
-        <input type="password" id="loginPassword" autocomplete="current-password" spellcheck="false" placeholder="Masukkan password">
-        <div id="loginMsg" class="hint bad"></div>
-        <button type="button" class="primary" id="loginBtn">Masuk</button>
-        <div class="hint" style="margin-top:12px">Masuk dengan Username &amp; Password yang diberikan oleh admin portal.</div>
-      </div>
+      <!-- Cadangan bila halaman tidak dibuka dari aplikasi (PWA) sehingga pengalihan otomatis tidak jalan -->
+      <a class="primary" id="gatewayLink" href="https://buanamenara.github.io/portal-ftth/" target="_top" style="display:none">Buka Portal Terpadu BMI</a>
     </div>
   </div>
   <div id="appShell" style="display:none">
@@ -1419,7 +1412,7 @@
         return function () {
           var args = [ACCESS].concat(Array.prototype.slice.call(arguments));
           var r = google.script.run.withFailureHandler(function (err) {
-            if (err && /kode akses|username atau password|belum ada user/i.test(err.message || '') && ACCESS) requireLogin('Sesi berakhir. Masuk kembali dengan Username & Password.');
+            if (err && /kode akses|username atau password|belum ada user/i.test(err.message || '') && ACCESS) requireLogin('Sesi berakhir.');
             if (fh) fh(err);
           });
           if (sh) r = r.withSuccessHandler(sh);
@@ -1429,7 +1422,13 @@
     }
     var GSR = makeRun(null, null);
 
-    function requireLogin(msg) {
+    // Halaman aplikasi (PWA) yang membingkai semua portal; hanya halaman ini yang menerima permintaan pindah ke Gateway.
+    var SHELL_ORIGIN_ = 'https://buanamenara.github.io';
+    var CAME_WITH_SSO_ = false;   // dibuka dari Gateway dengan tiket: jangan alihkan balik otomatis (cegah bolak-balik)
+    // Belum/tidak lagi masuk: tidak ada form login di Portal FTTH. Minta aplikasi membuka Gateway,
+    // yang langsung mengembalikan ke Portal FTTH bila sesi Gateway masih ada. opts.logout = keluar juga dari Gateway.
+    function requireLogin(msg, opts) {
+      opts = opts || {};
       ACCESS = '';
       ROLE = '';
       USER_NAME = '';
@@ -1445,14 +1444,14 @@
       if ($('userDropdown')) $('userDropdown').classList.remove('open');
       $('logoutLink').style.display = 'none';
       $('waspangLink').style.display = 'none';
-      $('loginNote').textContent = 'Masukkan Username & Password untuk memakai portal.';
-      $('loginForm').style.display = 'block';
-      $('loginMsg').textContent = msg || '';
-      $('loginUsername').value = '';
-      $('loginPassword').value = '';
+      var auto = opts.logout || !CAME_WITH_SSO_;
+      $('loginNote').textContent = (msg ? msg + ' ' : '') + (auto ? 'Membuka Portal Terpadu BMI...' : 'Silakan masuk lagi lewat Portal Terpadu BMI.');
+      $('gatewayLink').style.display = auto ? 'none' : '';
       $('adminPwOld').value = ''; $('adminPwNew').value = ''; $('adminPwNew2').value = ''; $('adminPwMsg').textContent = '';
       showView('viewLogin');
-      setTimeout(function () { try { $('loginUsername').focus(); } catch (e) { /* abaikan */ } }, 100);
+      if (!auto) return;
+      try { window.top.postMessage({ bmi: 'gateway', go: opts.logout ? '' : 'ftth', logout: !!opts.logout }, SHELL_ORIGIN_); } catch (e) { /* abaikan */ }
+      setTimeout(function () { if (!ACCESS) $('gatewayLink').style.display = ''; }, 3000);
     }
     function enterPortal() {
       $('logoutLink').style.display = 'inline';
@@ -1473,43 +1472,18 @@
       if (!cpLoaded) { cpLoaded = true; loadCheckpoint(); }
       if (!window.__clockStarted) { window.__clockStarted = true; updateClock_(); setInterval(updateClock_, 30000); }
     }
-    function tryLogin() {
-      var username = $('loginUsername').value.trim();
-      var password = $('loginPassword').value;
-      if (!username || !password) { $('loginMsg').textContent = 'Username dan password wajib diisi.'; return; }
-      PREFETCH = null;
-      $('loginBtn').disabled = true;
-      $('loginBtn').textContent = 'Memeriksa...';
-      $('loginMsg').textContent = '';
-      google.script.run
-        .withSuccessHandler(function (res) {
-          ROLE = (res.role === 'rpm') ? 'rpm' : 'admin';
-          ROLE_RAW = res.role || '';
-          ACCESS = res.code;
-          USER_NAME = res.name || '';
-          $('loginBtn').disabled = false; $('loginBtn').textContent = 'Masuk';
-          accessSet(res.code);
-          try { localStorage.setItem('bmiUserName', USER_NAME); } catch (e) {}
-          enterPortal();
-        })
-        .withFailureHandler(function (err) {
-          $('loginBtn').disabled = false; $('loginBtn').textContent = 'Masuk';
-          ACCESS = '';
-          $('loginMsg').textContent = (err && err.message) ? err.message : 'Gagal masuk. Coba lagi.';
-        })
-        .loginUser(username, password);
-    }
     // Dibuka dari Gateway (?sso=tiket): masuk otomatis tanpa username/password. Selain itu pakai sesi tersimpan.
     function initAccess() {
       try {
         google.script.url.getLocation(function (loc) {
           var t = loc && loc.parameter ? loc.parameter.sso : '';
+          CAME_WITH_SSO_ = !!t;
           if (t) ssoEnter_(String(t)); else initAccessSaved_();
         });
       } catch (e) { initAccessSaved_(); }
     }
     function ssoEnter_(ticket) {
-      $('loginNote').textContent = 'Masuk lewat Gateway...';
+      $('loginNote').textContent = 'Masuk dari Portal Terpadu BMI...';
       google.script.run
         .withSuccessHandler(function (res) {
           ROLE = (res.role === 'rpm') ? 'rpm' : 'admin';
@@ -1519,6 +1493,7 @@
           accessSet(res.code);
           try { localStorage.setItem('bmiUserName', USER_NAME); } catch (e) {}
           startPrefetch_(res.code);
+          CAME_WITH_SSO_ = false;   // tiket berhasil: sesi berakhir nanti boleh dialihkan ke Gateway lagi
           enterPortal();
         })
         .withFailureHandler(function () { initAccessSaved_(); })
@@ -1539,7 +1514,7 @@
         })
         .withFailureHandler(function (err) {
           var m = (err && err.message) ? err.message : '';
-          if (/kode akses|username atau password|belum ada user/i.test(m)) requireLogin('Sesi berakhir. Masuk kembali dengan Username & Password.');
+          if (/kode akses|username atau password|belum ada user/i.test(m)) requireLogin('Sesi berakhir.');
           else { ACCESS = ''; $('loginNote').textContent = 'Tidak bisa terhubung ke server. Muat ulang halaman.'; }
         })
         .checkAccess(saved);
@@ -1725,12 +1700,9 @@
     document.addEventListener('click', function () {
       var d = $('mapLinkDropdown'); if (d) d.classList.remove('open');
     });
-    $('logoutLink').addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); requireLogin(''); });
+    $('logoutLink').addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); requireLogin('', { logout: true }); });
     $('userBlock').addEventListener('click', function (e) { e.stopPropagation(); $('userDropdown').classList.toggle('open'); });
     document.addEventListener('click', function () { var ud = $('userDropdown'); if (ud) ud.classList.remove('open'); });
-    $('loginBtn').addEventListener('click', tryLogin);
-    $('loginUsername').addEventListener('keydown', function (e) { if (e.key === 'Enter') tryLogin(); });
-    $('loginPassword').addEventListener('keydown', function (e) { if (e.key === 'Enter') tryLogin(); });
     initAccess();
 
     google.script.run
