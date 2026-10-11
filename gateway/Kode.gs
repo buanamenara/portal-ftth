@@ -22,7 +22,7 @@ var CONFIG = {
     waspang: {
       title: 'Portal Waspang',
       desc: 'Daily Report EMR, progres BOQ, dokumentasi foto lapangan',
-      url: 'https://script.google.com/macros/s/AKfycbw4TJYefbBIloBS4Kztyv2lClvmngtIMotFbSLfp_E6ptKjv0qVwDBg_ppR1fY8zGKG/exec'
+      url: 'https://script.google.com/macros/s/AKfycbw4TJYefbBIIoBS4Kztyv2lClvmngtIMotFbSLfp_E6ptKjv0qVwDBg_ppR1fY8zGKG/exec'
     }
   },
   // Portal yang boleh dibuka tiap role (kolom Role di sheet USERS). Urutan pertama = portal utama role itu.
