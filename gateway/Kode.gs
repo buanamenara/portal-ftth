@@ -1,5 +1,5 @@
 /**
- * GATEWAY - Portal Terpadu BMI (PT Buana Menara Indonesia)
+ * GATEWAY - FTTH Project Control Portal (PT Buana Menara Indonesia)
  * Project Apps Script terpisah: hanya login + menu. Portal dibuka di dalam halaman PWA (GitHub Pages)
  * supaya banner Google Apps Script tidak muncul, dan Portal FTTH ikut masuk otomatis lewat tiket sekali pakai.
  *
@@ -44,7 +44,7 @@ function doGet(e) {
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }
   return HtmlService.createHtmlOutputFromFile('Form')
-    .setTitle('Portal Terpadu BMI')
+    .setTitle('FTTH Project Control Portal - Buana Menara Indonesia')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
