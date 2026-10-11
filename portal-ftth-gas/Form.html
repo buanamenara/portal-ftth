@@ -1457,7 +1457,7 @@
     function enterPortal() {
       $('logoutLink').style.display = 'inline';
       // Portal Waspang dibuka di halaman PWA (tanpa banner Google); hanya untuk role yang juga punya akses Waspang di Gateway.
-      $('waspangLink').style.display = (ROLE === 'rpm' || ROLE_RAW === 'waspang') ? '' : 'none';
+      $('waspangLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'waspang') ? 'block' : 'none';
       $('navRpm').style.display = (ROLE === 'rpm') ? '' : 'none';
       $('navAdministration').style.display = '';
       $('navLogHistory').style.display = (ROLE === 'rpm') ? '' : 'none';
