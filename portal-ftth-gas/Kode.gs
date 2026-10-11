@@ -73,13 +73,11 @@ function cacheGetChunked_(cache, key) {
   return parts.join('');
 }
 function getLogoDataUri_() {
-  var cache = CacheService.getScriptCache(), key = 'logoDataUri_' + LOGO_FILE_NAME;
+  var cache = CacheService.getScriptCache(), key = 'logoDataUri_id1';
   var cached = cacheGetChunked_(cache, key);
   if (cached) return cached;
-  var files = DriveApp.getFilesByName(LOGO_FILE_NAME);
-  if (!files.hasNext()) files = DriveApp.getFilesByName('15.png');
-  if (!files.hasNext()) return '';
-  var blob = files.next().getBlob();
+  var blob;
+  try { blob = DriveApp.getFileById('1MgNk82btJrRILpiaPNv3CHL4eJuJGeWB').getBlob(); } catch (e) { return ''; }
   var uri = 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes());
   try { cachePutChunked_(cache, key, uri, 21600); } catch (e) { /* gagal menyimpan cache (mis. logo sangat besar); tetap dikirim tanpa cache */ }
   return uri;
