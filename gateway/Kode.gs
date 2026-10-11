@@ -17,7 +17,7 @@ var CONFIG = {
   SHELL_URL: 'https://buanamenara.github.io/portal-ftth/',
   PORTALS: {
     ftth: { title: 'Portal FTTH', desc: 'Submit BOQ, BA Transaksi, Rekap BA, Saldo Gudang, BA Pekerjaan RPM', sso: true },
-    waspang: { title: 'Portal Waspang', desc: 'Daily Report EMR, progres BOQ, dokumentasi foto lapangan', sso: false }
+    waspang: { title: 'Portal Waspang', desc: 'Daily Report EMR, progres BOQ, dokumentasi foto lapangan', sso: true }
   },
   // Portal yang boleh dibuka tiap role (kolom Role di sheet USERS). Urutan pertama = portal utama role itu.
   ROLE_PORTALS: {
@@ -26,16 +26,20 @@ var CONFIG = {
     waspang: ['waspang', 'ftth']
   },
   SESSION_TTL: 21600,   // detik; batas maksimal CacheService (6 jam)
-  TICKET_TTL: 120       // detik; tiket masuk otomatis ke Portal FTTH, sekali pakai
+  TICKET_TTL: 120       // detik; tiket masuk otomatis ke portal ber-sso, sekali pakai
 };
 
 function doGet(e) {
-  // Dipanggil server Portal FTTH (UrlFetchApp) untuk menukar tiket dengan username. Tiket langsung dihapus.
+  // Dipanggil server Portal FTTH / Waspang (UrlFetchApp) untuk menukar tiket dengan username, role dan nama. Tiket langsung dihapus.
   if (e && e.parameter && e.parameter.sso_verify) {
     var t = String(e.parameter.sso_verify), out = { ok: false };
     if (/^[A-Za-z0-9]{32,80}$/.test(t)) {
       var cache = CacheService.getScriptCache(), uname = cache.get('tk_' + t);
-      if (uname) { cache.remove('tk_' + t); out = { ok: true, username: uname }; }
+      if (uname) {
+        cache.remove('tk_' + t);
+        var r = findUser_(uname);
+        out = { ok: true, username: uname, role: r ? String(r[3]).trim().toLowerCase() : '', name: r ? String(r[2]).trim() : '' };
+      }
     }
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }

@@ -980,9 +980,15 @@
               </span>
               <span>Menampilkan <strong id="dailyVisibleCount">0</strong> item pekerjaan (item yang tidak digunakan disembunyikan otomatis).</span>
             </div>
-            <button type="button" class="btn-header" onclick="toggleDailyFilter()" id="btnDailyFilterToggle" style="font-size: 0.72rem; padding: 4px 10px; background: #fff; border: 1px solid var(--border); color: #475569; font-weight: 600;">
-              👁️ Lihat Semua Item
-            </button>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <!-- Hanya tampil untuk akun RPM yang membuka Waspang dari Gateway -->
+              <button type="button" class="btn-header" onclick="toggleOwnerMode()" id="btnOwnerModeToggle" style="display: none; font-size: 0.72rem; padding: 4px 10px; background: #fff; border: 1px solid var(--border); color: #475569; font-weight: 600;">
+                ✏️ Edit Total (RPM)
+              </button>
+              <button type="button" class="btn-header" onclick="toggleDailyFilter()" id="btnDailyFilterToggle" style="font-size: 0.72rem; padding: 4px 10px; background: #fff; border: 1px solid var(--border); color: #475569; font-weight: 600;">
+                👁️ Lihat Semua Item
+              </button>
+            </div>
           </div>
 
           <div class="table-responsive-wrapper"><table class="achieve-table">
@@ -2801,40 +2807,128 @@
 
     let isOwnerMode = false;
 
+    // Edit Total hanya untuk akun RPM (dikenali dari tiket Gateway, diperiksa lagi di server saat menyimpan).
     function toggleOwnerMode() {
       if (isOwnerMode) {
         isOwnerMode = false;
-        showToast("🔒 Mode Pemilik dimatikan. Kolom Total terkunci kembali.");
-        updateOwnerModeUI();
-        renderDailyTable();
+        showToast("🔒 Edit Total dikunci kembali.");
+      } else if (!isRpmSession()) {
+        alert("Total hanya bisa diedit oleh akun RPM. Buka Portal Waspang dari Gateway dengan akun RPM.");
+        return;
       } else {
-        const pin = prompt("🔐 Masukkan PIN Pemilik untuk membuka hak edit Total Kumulatif (Default: 8888):");
-        if (pin === null) return;
-        if (pin === "8888" || pin === "1234" || pin === "admin" || pin === "bmi2024") {
-          isOwnerMode = true;
-          showToast("👑 Mode Pemilik Aktif! Kolom Total Kumulatif sekarang dapat diedit langsung.");
-          updateOwnerModeUI();
-          renderDailyTable();
-        } else {
-          alert("❌ PIN Pemilik salah! Hak edit kolom Total hanya untuk pemilik.");
-        }
+        isOwnerMode = true;
+        showToast("✏️ Edit Total aktif. Perubahan tersimpan untuk semua perangkat.");
       }
+      updateOwnerModeUI();
+      renderDailyTable();
     }
 
     function updateOwnerModeUI() {
+      if (!isRpmSession()) isOwnerMode = false;
       const btn = document.getElementById('btnOwnerModeToggle');
       if (btn) {
+        btn.style.display = isRpmSession() ? '' : 'none';
         if (isOwnerMode) {
-          btn.innerHTML = '👑 Mode Pemilik Aktif (Total Terbuka) - Kunci 🔒';
+          btn.innerHTML = '✏️ Edit Total Aktif - Kunci 🔒';
           btn.style.background = '#fef3c7';
           btn.style.borderColor = '#d97706';
           btn.style.color = '#92400e';
         } else {
-          btn.innerHTML = '🔐 Mode Pemilik (Kunci Total)';
-          btn.style.background = '#f8fafc';
-          btn.style.borderColor = '#cbd5e1';
+          btn.innerHTML = '✏️ Edit Total (RPM)';
+          btn.style.background = '#fff';
+          btn.style.borderColor = '';
           btn.style.color = '#475569';
         }
+      }
+    }
+
+    // Simpan Total yang diedit RPM ke sheet bersama (saat kolom selesai diubah).
+    async function onOwnerTotalCommit(itemKey) {
+      if (!isOwnerMode) return;
+      const cluster = getActiveDailyCluster();
+      const elTotal = document.getElementById(`inp_total_${itemKey}`);
+      const elToday = document.getElementById(`inp_today_${itemKey}`);
+      if (!elTotal) return;
+      const today = elToday ? (parseInt(elToday.value) || 0) : 0;
+      const stored = Math.max(0, (parseInt(elTotal.value) || 0) - today);
+      try {
+        const res = await fetch(getConfig().scriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'SET_TOTAL', session: WS_SESSION && WS_SESSION.session, cluster: cluster, key: itemKey, total: stored })
+        });
+        const d = await res.json();
+        if (d.status === 'success') {
+          showToast("✅ Total tersimpan untuk semua perangkat.");
+        } else {
+          alert("Total tidak tersimpan: " + (d.message || 'Unknown error'));
+          if (/sesi habis|hanya akun rpm/i.test(d.message || '')) { WS_SESSION = null; clearWsSession(); updateOwnerModeUI(); }
+          refreshSharedTotals(cluster);
+        }
+      } catch (err) {
+        alert("Total tidak tersimpan (koneksi): " + err.message);
+      }
+    }
+
+    // ===== Sesi dari Gateway: hanya untuk mengenali akun RPM. Waspang tetap bisa dipakai tanpa login. =====
+    const STORAGE_WS_SESSION = 'waspang_gateway_session_v1';
+    let WS_SESSION = null;
+    function loadWsSession() {
+      try {
+        const s = JSON.parse(localStorage.getItem(STORAGE_WS_SESSION) || 'null');
+        if (s && s.session && s.exp > Date.now()) return s;
+      } catch (e) {}
+      return null;
+    }
+    function clearWsSession() { try { localStorage.removeItem(STORAGE_WS_SESSION); } catch (e) {} }
+    function isRpmSession() { return !!(WS_SESSION && WS_SESSION.role === 'rpm'); }
+    async function initWsSession() {
+      WS_SESSION = loadWsSession();
+      let ticket = '';
+      try {
+        ticket = await new Promise(resolve => google.script.url.getLocation(loc => resolve((loc && loc.parameter && loc.parameter.sso) || '')));
+      } catch (e) {}
+      if (ticket) {
+        try {
+          const res = await fetch(getConfig().scriptUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'SSO_LOGIN', ticket: ticket })
+          });
+          const d = await res.json();
+          if (d.status === 'success') {
+            WS_SESSION = { session: d.session, role: d.role, name: d.name, exp: Date.now() + 6 * 3600 * 1000 - 60000 };
+            try { localStorage.setItem(STORAGE_WS_SESSION, JSON.stringify(WS_SESSION)); } catch (e) {}
+          }
+        } catch (e) {}
+      }
+      updateOwnerModeUI();
+    }
+
+    // ===== Total bersama dari sheet PROGRES TOTAL; disalin ke penyimpanan perangkat sebagai cache =====
+    async function refreshSharedTotals(cluster) {
+      const cfg = getConfig();
+      if (!cluster || !cfg.scriptUrl) return;
+      try {
+        const res = await fetch(cfg.scriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'GET_TOTALS', cluster: cluster })
+        });
+        const d = await res.json();
+        // Belum ada di sheet: pakai angka di perangkat ini (dikirim sebagai angka awal saat Daily Report).
+        if (d.status === 'success' && d.found) applySharedTotals(cluster, d.totals);
+      } catch (e) {}
+    }
+    function applySharedTotals(cluster, totals) {
+      const storeKey = STORAGE_PREV_PROGRESS + '_' + cluster.toLowerCase();
+      let prev = {};
+      try { prev = JSON.parse(localStorage.getItem(storeKey) || '{}') || {}; } catch (e) {}
+      Object.keys(totals || {}).forEach(k => { prev[k] = Number(totals[k]) || 0; });
+      try { localStorage.setItem(storeKey, JSON.stringify(prev)); } catch (e) {}
+      if (getActiveDailyCluster() === cluster) {
+        renderDailyTable();
+        renderTelegramPreview();
       }
     }
 
@@ -2862,11 +2956,12 @@
     }
 
     function saveItemTotalCumulative(cluster, itemKey, totalVal) {
-      const cleanKey = normalizeClusterKey(cluster);
-      const raw = localStorage.getItem(STORAGE_PREV_PROGRESS + '_' + cleanKey);
+      // Kunci sama dengan getPreviousCumulative supaya angka yang diedit benar-benar terbaca lagi.
+      const storeKey = STORAGE_PREV_PROGRESS + '_' + cluster.toLowerCase();
+      const raw = localStorage.getItem(storeKey);
       const prev = raw ? JSON.parse(raw) : {};
       prev[itemKey] = totalVal;
-      localStorage.setItem(STORAGE_PREV_PROGRESS + '_' + cleanKey, JSON.stringify(prev));
+      localStorage.setItem(storeKey, JSON.stringify(prev));
     }
 
     let lastDailyTableCluster = null;
@@ -2938,8 +3033,8 @@
               ? 'border: 2px solid #d97706 !important; background: #fffbeb !important; font-weight: 800 !important; cursor: text;' 
               : '';
             const totalTitle = isOwnerMode 
-              ? '👑 Mode Pemilik: Anda dapat mengedit total kumulatif ini secara langsung' 
-              : 'Terkunci (Hanya Pemilik yang dapat mengedit total langsung)';
+              ? '✏️ Edit Total (RPM): perubahan tersimpan untuk semua perangkat' 
+              : 'Terkunci (hanya akun RPM yang dapat mengedit Total)';
 
             htmlRows += `
               <tr>
@@ -2951,7 +3046,7 @@
                   <input type="number" id="inp_today_${item.key}" min="0" value="${initialToday}" oninput="onDailyValChange('${item.key}')" class="daily-box daily-box-input">
                 </td>
                 <td style="text-align: center;">
-                  <input type="number" id="inp_total_${item.key}" min="0" value="${total}" ${totalReadOnly} style="${totalStyle}" oninput="onOwnerTotalInput('${item.key}')" class="daily-box daily-box-total" title="${totalTitle}">
+                  <input type="number" id="inp_total_${item.key}" min="0" value="${total}" ${totalReadOnly} style="${totalStyle}" oninput="onOwnerTotalInput('${item.key}')" onchange="onOwnerTotalCommit('${item.key}')" class="daily-box daily-box-total" title="${totalTitle}">
                 </td>
                 <td style="text-align: center;">
                   <div class="daily-box daily-box-plan" id="txt_plan_${item.key}">${planVal}</div>
@@ -3190,6 +3285,15 @@ ${todayActivity}`;
 
       const text = generateDailyTelegramText();
 
+      // Today per item, plus Total di perangkat ini sebagai angka awal untuk item yang belum ada di sheet.
+      const reportCluster = getActiveDailyCluster();
+      const todayByKey = {}, baseByKey = {};
+      document.querySelectorAll('#dailyTableBody input[id^="inp_today_"]').forEach(el => {
+        const key = el.id.slice('inp_today_'.length);
+        todayByKey[key] = parseInt(el.value) || 0;
+        baseByKey[key] = getPreviousCumulative(reportCluster, key);
+      });
+
       try {
         const res = await fetch(cfg.scriptUrl, {
           method: 'POST',
@@ -3197,13 +3301,24 @@ ${todayActivity}`;
           body: JSON.stringify({
             action: 'DAILY_REPORT',
             chatId: cfg.chatId,
-            text: text
+            text: text,
+            cluster: reportCluster,
+            today: todayByKey,
+            base: baseByKey,
+            by: (document.getElementById('dailyPic').value || '').trim()
           })
         });
         const d = await res.json();
         if (d.status === 'success') {
           showToast("🎉 Daily Report EMR berhasil terkirim ke Telegram!");
-          saveCurrentProgressAsCumulative();
+          if (d.totals) {
+            // Total bersama dari server sudah termasuk Today: simpan, lalu kosongkan Today.
+            applySharedTotals(reportCluster, d.totals);
+            lastDailyTableCluster = null;
+            renderDailyTable();
+          } else {
+            saveCurrentProgressAsCumulative();
+          }
         } else {
           alert("Gagal kirim: " + (d.message || 'Unknown error'));
         }
@@ -3314,6 +3429,7 @@ ${todayActivity}`;
 
       renderDailyTable();
       renderTelegramPreview();
+      refreshSharedTotals(getActiveDailyCluster());
 
       // Sinkronkan pilihan Site ke Menu 3 (Foto)
       if (sel && sel !== 'CUSTOM') {
@@ -3415,6 +3531,9 @@ ${todayActivity}`;
       switchTab('daily');
       renderMasterSowTable();
       updateDriveConnectionBanner();
+      // 3. Total bersama dari sheet & sesi RPM dari Gateway
+      refreshSharedTotals(getActiveDailyCluster());
+      initWsSession();
     });
 
     function cleanClusterNameFromFilename(fname) {

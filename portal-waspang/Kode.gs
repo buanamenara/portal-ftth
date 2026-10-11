@@ -1,7 +1,10 @@
 var CONFIG = {
   WASPANG_SPREADSHEET_ID: "1ZlSlITeC9zi-m894gQYUUn4YMfP6_8B_Jtep5a33OjA",
   DOKUMENTASI_FOLDER_ID: "1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ", // folder "DOKUMENTASI FTTH" di Google Drive
-  TELEGRAM_CHAT_ID: "@ReportBMI"
+  TELEGRAM_CHAT_ID: "@ReportBMI",
+  // Gateway Portal Terpadu BMI: menukar tiket sekali pakai dengan username & role (untuk mengenali akun RPM).
+  GATEWAY_URL: "https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec",
+  TOTALS_SHEET: "PROGRES TOTAL"   // Total kumulatif bersama per cluster & item
 };
 
 // Token bot Telegram TIDAK ditulis di kode (repo ini publik). Simpan di Script Properties:
@@ -44,6 +47,15 @@ function doPost(e) {
         break;
       case 'SYNC_BOQ_EXCEL':
         result = syncMasterBoqToSheet_(payload.clusters);
+        break;
+      case 'SSO_LOGIN':
+        result = ssoLogin_(payload.ticket);
+        break;
+      case 'GET_TOTALS':
+        result = getTotals_(payload.cluster);
+        break;
+      case 'SET_TOTAL':
+        result = setTotalByRpm_(payload);
         break;
       default:
         result = { status: 'error', message: 'Action tidak dikenali: ' + payload.action };
@@ -253,7 +265,13 @@ function sendDailyReportEMR_(payload) {
   }
 
   logDailyReportToSheet_(text);
-  return { status: 'success' };
+  if (!payload.cluster) return { status: 'success' };
+  // Laporan sudah terkirim: tambahkan Today ke Total bersama. Gagal di sini tidak membatalkan laporan.
+  try {
+    return { status: 'success', totals: addDailyToTotals_(payload) };
+  } catch (err) {
+    return { status: 'success', totalsError: err.toString() };
+  }
 }
 
 function logDailyReportToSheet_(text) {
@@ -316,4 +334,117 @@ function syncMasterBoqToSheet_(clusters) {
   } catch (err) {
     return { status: 'error', message: err.toString() };
   }
+}
+
+// ===================== TOTAL BERSAMA (sheet PROGRES TOTAL) =====================
+// Total kumulatif per cluster & item disimpan di sheet supaya semua HP memakai angka yang sama.
+// Daily Report menambahkan Today; hanya akun RPM (masuk lewat Gateway) yang boleh mengubah Total langsung.
+
+function totalsSheet_() {
+  var ss = getWaspangSpreadsheet_();
+  var sh = ss.getSheetByName(CONFIG.TOTALS_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(CONFIG.TOTALS_SHEET);
+    sh.appendRow(['Cluster', 'Key', 'Total', 'Diperbarui', 'Oleh', 'Keterangan']);
+  }
+  return sh;
+}
+
+function totalsClusterKey_(name) {
+  return cleanClusterNameForSync_(name).toLowerCase();
+}
+
+// {key: {row, total}} untuk satu cluster (row = nomor baris di sheet).
+function readClusterTotals_(sh, cluster) {
+  var ck = totalsClusterKey_(cluster), out = {};
+  var last = sh.getLastRow();
+  var rows = last >= 2 ? sh.getRange(2, 1, last - 1, 3).getValues() : [];
+  rows.forEach(function (r, i) {
+    if (totalsClusterKey_(r[0]) === ck) out[String(r[1]).trim()] = { row: i + 2, total: Number(r[2]) || 0 };
+  });
+  return out;
+}
+
+function getTotals_(cluster) {
+  if (!totalsClusterKey_(cluster)) return { status: 'error', message: 'Cluster kosong.' };
+  var cur = readClusterTotals_(totalsSheet_(), cluster), totals = {};
+  Object.keys(cur).forEach(function (k) { totals[k] = cur[k].total; });
+  return { status: 'success', found: Object.keys(totals).length > 0, totals: totals };
+}
+
+// changes: {key: total baru}. Baris yang sudah ada diperbarui, yang belum ada ditambahkan.
+function writeTotals_(sh, cluster, cur, changes, by, note) {
+  var now = new Date(), name = cleanClusterNameForSync_(cluster);
+  Object.keys(changes).forEach(function (k) {
+    var vals = [name, k, changes[k], now, by || '', note || ''];
+    if (cur[k]) sh.getRange(cur[k].row, 1, 1, vals.length).setValues([vals]);
+    else { sh.appendRow(vals); cur[k] = { row: sh.getLastRow(), total: changes[k] }; }
+    cur[k].total = changes[k];
+  });
+}
+
+function toCount_(v) {
+  var n = Math.floor(Number(v));
+  return n > 0 ? n : 0;
+}
+
+// Total baru = Total di sheet + Today. Item yang belum ada di sheet memakai angka awal dari HP pelapor (base).
+function addDailyToTotals_(payload) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var sh = totalsSheet_(), cur = readClusterTotals_(sh, payload.cluster);
+    var today = payload.today || {}, base = payload.base || {}, changes = {}, keys = {};
+    Object.keys(today).concat(Object.keys(base)).forEach(function (k) { keys[String(k).trim()] = true; });
+    Object.keys(keys).forEach(function (k) {
+      var t = toCount_(today[k]);
+      if (!cur[k]) changes[k] = toCount_(base[k]) + t;
+      else if (t > 0) changes[k] = cur[k].total + t;
+    });
+    writeTotals_(sh, payload.cluster, cur, changes, payload.by || 'Daily Report', 'Daily Report');
+    var totals = {};
+    Object.keys(cur).forEach(function (k) { totals[k] = cur[k].total; });
+    return totals;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Masuk lewat Gateway: tiket sekali pakai ditukar dengan sesi Waspang (6 jam) berisi username & role.
+function ssoLogin_(ticket) {
+  var t = String(ticket || '');
+  if (!/^[A-Za-z0-9]{32,80}$/.test(t)) return { status: 'error', message: 'Tiket tidak valid.' };
+  var out = {};
+  try {
+    out = JSON.parse(UrlFetchApp.fetch(CONFIG.GATEWAY_URL + '?sso_verify=' + t, { muteHttpExceptions: true }).getContentText());
+  } catch (e) {}
+  if (!out.ok || !out.username) return { status: 'error', message: 'Sesi Gateway sudah habis. Silakan login lagi.' };
+  var sid = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+  var sess = { username: String(out.username), role: String(out.role || '').toLowerCase(), name: String(out.name || out.username) };
+  CacheService.getScriptCache().put('ws_' + sid, JSON.stringify(sess), 21600);
+  return { status: 'success', session: sid, role: sess.role, name: sess.name };
+}
+
+function wsSession_(sid) {
+  if (!/^[A-Za-z0-9]{32,80}$/.test(String(sid || ''))) return null;
+  var raw = CacheService.getScriptCache().get('ws_' + sid);
+  return raw ? JSON.parse(raw) : null;
+}
+
+function setTotalByRpm_(payload) {
+  var s = wsSession_(payload.session);
+  if (!s) return { status: 'error', message: 'Sesi habis. Buka Portal Waspang lagi dari Gateway.' };
+  if (s.role !== 'rpm') return { status: 'error', message: 'Hanya akun RPM yang boleh mengubah Total.' };
+  var key = String(payload.key || '').trim(), total = Number(payload.total);
+  if (!totalsClusterKey_(payload.cluster) || !key || !(total >= 0)) return { status: 'error', message: 'Data Total tidak lengkap.' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var sh = totalsSheet_(), cur = readClusterTotals_(sh, payload.cluster), ch = {};
+    ch[key] = Math.floor(total);
+    writeTotals_(sh, payload.cluster, cur, ch, s.name || s.username, 'Edit RPM');
+  } finally {
+    lock.releaseLock();
+  }
+  return { status: 'success' };
 }
