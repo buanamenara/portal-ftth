@@ -2608,6 +2608,43 @@
     function getConfig() {
       return { chatId: DEFAULT_CONFIG.chatId, scriptUrl: DEFAULT_CONFIG.scriptUrl };
     }
+
+    // Tombol "Kirim ke WhatsApp": setelah Daily Report / foto terkirim ke Telegram, WhatsApp dibuka dengan teks laporan
+    // yang sudah terisi; waspang memilih grup lalu menekan Kirim. Disiapkan 11-10-2026 tapi BELUM AKTIF:
+    // ubah ke true hanya setelah pemilik portal setuju.
+    const WA_SHARE_ENABLED = false;
+
+    function waShareUrl(text) {
+      return 'https://wa.me/?text=' + encodeURIComponent(String(text || '').replace(/`/g, ''));
+    }
+
+    function closeWaShare() {
+      const el = document.getElementById('waShareModal');
+      if (el) el.style.display = 'none';
+    }
+
+    function showWaShare(title, text) {
+      if (!WA_SHARE_ENABLED || !text) return;
+      let el = document.getElementById('waShareModal');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'waShareModal';
+        el.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); z-index:99999; align-items:center; justify-content:center; padding:16px;';
+        el.innerHTML = `
+          <div style="background:#fff; border-radius:12px; max-width:420px; width:100%; padding:18px; box-shadow:0 20px 40px rgba(0,0,0,0.3);">
+            <div style="font-weight:800; color:#0f172a; font-size:0.95rem;">✅ <span id="waShareTitle"></span> terkirim ke Telegram</div>
+            <div style="font-size:0.8rem; color:#475569; margin:6px 0 14px;">Bagikan juga ke grup WhatsApp? Pilih grupnya di WhatsApp, lalu tekan Kirim.</div>
+            <a id="waShareLink" href="#" target="_blank" rel="noopener" onclick="setTimeout(closeWaShare, 300)"
+               style="display:block; text-align:center; background:#25d366; color:#fff; padding:11px; border-radius:8px; font-weight:800; text-decoration:none;">🟢 Kirim ke WhatsApp</a>
+            <button type="button" onclick="closeWaShare()"
+               style="display:block; width:100%; margin-top:8px; background:none; border:1px solid #cbd5e1; color:#475569; padding:9px; border-radius:8px; font-weight:600; cursor:pointer;">Nanti saja</button>
+          </div>`;
+        document.body.appendChild(el);
+      }
+      document.getElementById('waShareTitle').textContent = title;
+      document.getElementById('waShareLink').href = waShareUrl(text);
+      el.style.display = 'flex';
+    }
     const STORAGE_BOQ_CUSTOM = 'waspang_custom_boq_v9';
     const STORAGE_PREV_PROGRESS = 'waspang_prev_progress_v9';
 
@@ -3436,6 +3473,7 @@ ${e(todayActivity)}`;
       }
 
       const text = generateDailyTelegramText(true);
+      const waText = generateDailyTelegramText(); // teks tanpa "\" untuk WhatsApp, diambil sebelum kolom Today dikosongkan
 
       // Today per item, plus Total di perangkat ini sebagai saldo awal bila cluster belum punya baris di DAILY REPORT EMR.
       const reportCluster = getActiveDailyCluster();
@@ -3480,6 +3518,7 @@ ${e(todayActivity)}`;
         const d = await res.json();
         if (d.status === 'success') {
           showToast("🎉 Daily Report EMR berhasil terkirim ke Telegram!");
+          showWaShare('Daily Report', waText);
           if (d.totals) {
             // Total bersama dari server sudah termasuk Today: simpan, lalu kosongkan Today.
             applySharedTotals(reportCluster, d.totals);
@@ -5593,6 +5632,7 @@ ${e(todayActivity)}`;
             statusBox.innerHTML = `⚠️ <strong>Foto terkirim ke Telegram</strong>, namun gagal masuk ke Google Drive karena: ${driveErrorMsg}`;
           }
         }
+        showWaShare(photoItems.length + ' foto', caption + (driveSuccess ? '\n📁 *Folder Foto* : ' + (returnedFolderUrl || 'https://drive.google.com/drive/folders/1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ') : ''));
         photoItems = [];
         renderPhotoGallery();
         const nEl = document.getElementById('photoNotes');
