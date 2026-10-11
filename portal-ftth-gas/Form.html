@@ -591,7 +591,7 @@
         <div class="user-text"><span class="user-name" id="userName">Tim Admin</span><span class="user-sub" id="userSub">Admin</span></div>
         <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg>
         <div class="user-dropdown" id="userDropdown">
-          <a href="https://buanamenara.github.io/portal-ftth/?p=waspang" target="_top" id="waspangLink" style="display:none">Portal Waspang</a>
+          <a href="https://buanamenara.github.io/portal-ftth/?go=waspang" target="_top" id="waspangLink" style="display:none">Portal Waspang</a>
           <a href="#" id="logoutLink" style="display:none">Keluar</a>
         </div>
       </div>
@@ -1455,7 +1455,7 @@
     }
     function enterPortal() {
       $('logoutLink').style.display = 'inline';
-      // Portal Waspang dibuka di halaman PWA (tanpa banner Google); hanya untuk role yang juga punya akses Waspang di Gateway.
+      // Portal Waspang dibuka lewat Gateway (?go=waspang) supaya membawa tiket: Waspang mengenali akun RPM untuk edit Total.
       $('waspangLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'waspang') ? 'block' : 'none';
       $('navRpm').style.display = (ROLE === 'rpm') ? '' : 'none';
       $('navAdministration').style.display = '';

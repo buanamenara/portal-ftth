@@ -11,6 +11,10 @@ Gateway dengan `?go=ftth`; bila sesi Gateway masih ada, Gateway langsung mengemb
 tiket baru. "Keluar" di Portal FTTH membuka Gateway dengan `?logout=1`, yang juga mengakhiri sesi Gateway.
 Portal FTTH yang dibuka dengan tiket tidak mengalihkan balik otomatis, supaya tidak bolak-balik.
 
+Portal Waspang juga menerima tiket (tanpa form login; Waspang tetap bisa dipakai tanpa tiket). Server Waspang
+menukarnya lewat `?sso_verify=`, yang mengembalikan username, role dan nama, untuk mengenali akun RPM:
+hanya RPM yang boleh mengubah Total di sheet "PROGRES TOTAL" (spreadsheet Waspang).
+
 Akses per role diatur di `CONFIG.ROLE_PORTALS` (Kode.gs):
 
 | Role    | Portal                      |

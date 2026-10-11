@@ -22,13 +22,13 @@
 <iframe id="portal" title="Portal Terpadu BMI" allow="clipboard-write; fullscreen"></iframe>
 <script>
 // Semua portal dibuka di dalam bingkai ini supaya banner Google Apps Script tidak muncul.
-// ?p=ftth|waspang memilih portal (tanpa p = Gateway). ?t= tiket sekali pakai dari Gateway untuk masuk otomatis ke Portal FTTH.
+// ?p=ftth|waspang memilih portal (tanpa p = Gateway). ?t= tiket sekali pakai dari Gateway (Portal FTTH: masuk otomatis; Portal Waspang: mengenali akun RPM).
 (function () {
-  var V = '45';   // penanda versi supaya perangkat tidak memakai salinan lama
+  var V = '46';   // penanda versi supaya perangkat tidak memakai salinan lama
   var PORTALS = {
     gateway: { title: 'Portal Terpadu BMI', url: 'https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec' },
     ftth: { title: 'Portal FTTH', sso: true, url: 'https://script.google.com/macros/s/AKfycbwO25NZjRNu11QfyZQDGp1ZAPHdR-PwMwrc3U09lGUQ03KH91bNUl178-A7F246fm_djw/exec' },
-    waspang: { title: 'Portal Waspang', url: 'https://script.google.com/macros/s/AKfycbw4TJYefbBIIoBS4Kztyv2lClvmngtIMotFbSLfp_E6ptKjv0qVwDBg_ppR1fY8zGKG/exec' }
+    waspang: { title: 'Portal Waspang', sso: true, url: 'https://script.google.com/macros/s/AKfycbw4TJYefbBIIoBS4Kztyv2lClvmngtIMotFbSLfp_E6ptKjv0qVwDBg_ppR1fY8zGKG/exec' }
   };
   var q = new URLSearchParams(location.search);
   var key = q.get('p');
