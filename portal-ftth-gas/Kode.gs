@@ -4388,7 +4388,7 @@ function loginUser(username, password) {
   if (!u) failAccess_();
   return { code: code, role: u.role, name: u.nama, area: u.area };
 }
-// Masuk lewat Gateway Portal Terpadu BMI (login sekali): halaman membawa tiket sekali pakai (?sso=...) dari Gateway.
+// Masuk lewat Gateway FTTH Project Control Portal (login sekali): halaman membawa tiket sekali pakai (?sso=...) dari Gateway.
 // Tiket dicek ke Gateway (bukan ke browser), lalu sesi dibuat sama seperti loginUser.
 var GATEWAY_URL_ = 'https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec';
 function ssoLogin(ticket) {

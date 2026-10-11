@@ -1,4 +1,4 @@
-# Gateway - Portal Terpadu BMI
+# Gateway - FTTH Project Control Portal
 
 Project Apps Script terpisah: login sekali (sheet USERS yang sama dengan Portal FTTH), lalu menu
 portal sesuai role. Tombol menu membuka halaman PWA (`index.html`, `?p=<portal>`), yang memuat portal di
@@ -25,7 +25,7 @@ Akses per role diatur di `CONFIG.ROLE_PORTALS` (Kode.gs):
 | waspang | Portal Waspang, Portal FTTH |
 
 ## Pasang
-1. script.google.com > New project, beri nama "Gateway Portal Terpadu BMI".
+1. script.google.com > New project, beri nama "Gateway FTTH Project Control Portal" (project yang live masih bernama "Gateway Portal Terpadu BMI").
 2. Ganti isi `Code.gs` dengan `Kode.gs`; tambah file HTML bernama `Form` dan isi dengan `Form.html`.
 3. Deploy > New deployment > Web app. Execute as: Me. Who has access: Anyone. Izinkan akses Spreadsheet.
 4. Update berikutnya: Deploy > Manage deployments > Edit > Version: New version > Deploy, lalu hard refresh.
