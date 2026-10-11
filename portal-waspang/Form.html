@@ -1663,14 +1663,14 @@
       <div class="card" style="margin-top: 14px;">
         <div class="section-title" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;" onclick="toggleSowTableCard()">
           <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-            <span>📋</span> <strong>Tabel Master SOW Proyek</strong> (129 Data SOW / 106 Site Unik)
+            <span>📋</span> <strong>Tabel Master SOW Proyek</strong>
             <span id="sowTableCountBadge" style="background: #e2e8f0; color: #334155; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;">129 Data SOW (106 Site)</span>
           </div>
           <span style="font-size: 0.74rem; color: #64748b; margin-left: auto;" id="sowToggleHint">[Buka / Tutup Tabel]</span>
         </div>
         <div id="sowTableContent" style="display: block;">
           <p style="font-size: 0.74rem; color: #475569; margin-bottom: 8px; line-height: 1.4;">
-            Daftar lengkap <strong>129 data SOW</strong> (mencakup 106 site proyek unik) dari sheet MASTER BOQ CLUSTER. <strong>Klik pada baris mana saja</strong> untuk langsung menyinkronkan Site Name &amp; SOW ke Menu Dokumentasi Foto, Menu Daily Report, dan Menu BOQ sekaligus.
+            Daftar lengkap Site Name &amp; SOW dari tab <strong>DATA BASE</strong> (spreadsheet Portal FTTH); site baru di DATA BASE ikut muncul di sini. <strong>Klik pada baris mana saja</strong> untuk langsung menyinkronkan Site Name &amp; SOW ke Menu Dokumentasi Foto, Menu Daily Report, dan Menu BOQ sekaligus.
           </p>
           <div style="margin-bottom: 8px;">
             <input type="text" id="sowTableSearchInp" placeholder="🔍 Cari Site Name atau SOW (contoh: Jati Baru, Astambul, Cluster, Subfeeder)..." oninput="filterSowTable()" style="padding: 8px 12px; font-size: 0.8rem;">
@@ -1774,6 +1774,23 @@
   <div class="toast" id="toastMessage">Tersimpan!</div>
 
   <script>
+    // Data uji dihapus 11-10-2026: sekali saat halaman dibuka, data Waspang lama di HP ini dikosongkan (BOQ Plan, Total,
+    // tanda Selesai, jumlah FAT, daftar cluster). Pengaturan, sesi Gateway dan daftar site dari DATA BASE tetap.
+    const WASPANG_DATA_RESET = '2026-10-11';
+    (function resetTestData() {
+      try {
+        if (localStorage.getItem('waspang_data_reset') === WASPANG_DATA_RESET) return;
+        const keep = ['waspang_ftth_config_v9', 'waspang_gateway_session_v1', 'waspang_database_sites_v1'];
+        const del = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('waspang_') && !keep.includes(k)) del.push(k);
+        }
+        del.forEach(k => localStorage.removeItem(k));
+        localStorage.setItem('waspang_data_reset', WASPANG_DATA_RESET);
+      } catch (e) {}
+    })();
+
     // Tab Switching Function (Navigasi Antar Menu)
     function switchTab(tab) {
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -2582,94 +2599,9 @@
       return getSowType(name, sowHint) === 'Cluster';
     }
 
-    // Master BOQ Data (Bersih Kosong untuk Input Baru - Sesuai BoM AE Resmi)
-    const DEFAULT_BOQ_DATA = {
-      "jati baru rt 01 dan 02 astambul banjarmasin": [
-        { key: "pole_7_4", name: "Pole 7/4 or 7/5", cat: "Install Pole", unit: "Btg", volume: 1 },
-        { key: "pole_7_3", name: "Pole 7/3", cat: "Install Pole", unit: "Btg", volume: 12 },
-        { key: "digging_hole", name: "Digging Pole", cat: "Install Pole", unit: "Titik", volume: 13 },
-        { key: "casting_pole", name: "Casting Pole", cat: "Install Pole", unit: "Titik", volume: 13 },
-        { key: "cable_36c", name: "Cable 36C Line A", cat: "Pulling cable", unit: "meter", volume: 1202 },
-        { key: "fdt_48", name: "FDT 48", cat: "Electrical", unit: "Unit", volume: 1 },
-        { key: "fat_line_a", name: "FAT Line A", cat: "Electrical", unit: "Unit", volume: 12 },
-        { key: "suspension_48", name: "Suspension 48", cat: "Install Aksesories", unit: "pcs", volume: 12 },
-        { key: "pole_clam", name: "Pole Clam", cat: "Install Aksesories", unit: "pcs", volume: 13 },
-        { key: "dead_end", name: "Dead End", cat: "Install Aksesories", unit: "pcs", volume: 26 },
-        { key: "plat_belt", name: "Plat Belt", cat: "Install Aksesories", unit: "pcs", volume: 24 },
-        { key: "stopping", name: "Stopping", cat: "Install Aksesories", unit: "pcs", volume: 48 }
-      ],
-      "jati baru rt 04 banjarmasin": [
-        { key: "pole_7_4", name: "Pole 7/4 or 7/5", cat: "Install Pole", unit: "Btg", volume: 1 },
-        { key: "pole_7_3", name: "Pole 7/3", cat: "Install Pole", unit: "Btg", volume: 8 },
-        { key: "pole_7_25", name: "Pole 7/2,5", cat: "Install Pole", unit: "Btg", volume: 4 },
-        { key: "digging_hole", name: "Digging Pole", cat: "Install Pole", unit: "Titik", volume: 13 },
-        { key: "casting_pole", name: "Casting Pole", cat: "Install Pole", unit: "Titik", volume: 13 },
-        { key: "cable_24c_line_a", name: "Cable 24C Line A", cat: "Pulling cable", unit: "meter", volume: 704 },
-        { key: "slingwire_6mm", name: "Sling Wire 6mm", cat: "Pulling cable", unit: "meter", volume: 219 },
-        { key: "fdt_48", name: "FDT 48", cat: "Electrical", unit: "Unit", volume: 1 },
-        { key: "fat_line_a", name: "FAT Line A", cat: "Electrical", unit: "Unit", volume: 7 },
-        { key: "suspension_48", name: "Suspension 48", cat: "Install Aksesories", unit: "pcs", volume: 17 },
-        { key: "pole_clam", name: "Pole Clam", cat: "Install Aksesories", unit: "pcs", volume: 8 },
-        { key: "dead_end", name: "Dead End", cat: "Install Aksesories", unit: "pcs", volume: 16 },
-        { key: "plat_belt", name: "Plat Belt", cat: "Install Aksesories", unit: "pcs", volume: 24 },
-        { key: "stopping", name: "Stopping", cat: "Install Aksesories", unit: "pcs", volume: 48 },
-        { key: "buldogrip", name: "Buldogrip", cat: "Install Aksesories", unit: "pcs", volume: 24 }
-      ],
-      "subfeeder - jati baru rt 01 dan 02 astambul banjarmasin": [
-        { key: "pole_7_4", name: "Pole 7/4 or 7/5", cat: "Install Pole", unit: "Btg", volume: 25 },
-        { key: "digging_hole", name: "Digging Pole", cat: "Install Pole", unit: "Titik", volume: 25 },
-        { key: "casting_pole", name: "Casting Pole", cat: "Install Pole", unit: "Titik", volume: 25 },
-        { key: "cable_24c", name: "Cable 24C", cat: "Pulling cable", unit: "meter", volume: 1395 }
-      ],
-      "subfeeder - jati baru rt 03 sungai tabuk banjarmasin": [
-        { key: "pole_7_4", name: "Pole 7/4 or 7/5", cat: "Install Pole", unit: "Btg", volume: 12 },
-        { key: "digging_hole", name: "Digging Pole", cat: "Install Pole", unit: "Titik", volume: 12 },
-        { key: "casting_pole", name: "Casting Pole", cat: "Install Pole", unit: "Titik", volume: 12 },
-        { key: "cable_24c", name: "Cable 24C", cat: "Pulling cable", unit: "meter", volume: 1540 }
-      ],
-      "subfeeder jati baru rt 04 banjarmasin": [
-        { key: "pole_7_4", name: "Pole 7/4 or 7/5", cat: "Install Pole", unit: "Btg", volume: 1 },
-        { key: "digging_hole", name: "Digging Pole", cat: "Install Pole", unit: "Titik", volume: 1 },
-        { key: "casting_pole", name: "Casting Pole", cat: "Install Pole", unit: "Titik", volume: 1 },
-        { key: "cable_24c", name: "Cable 24C", cat: "Pulling cable", unit: "meter", volume: 157 }
-      ],
-      "subfeeder - abumbun jaya rt 02 dan 03 banjarmasin": [
-        { key: "pole_7_4", name: "Pole 7/4 or 7/5", cat: "Install Pole", unit: "Btg", volume: 32 },
-        { key: "digging_hole", name: "Digging Pole", cat: "Install Pole", unit: "Titik", volume: 32 },
-        { key: "casting_pole", name: "Casting Pole", cat: "Install Pole", unit: "Titik", volume: 32 },
-        { key: "cable_24c", name: "Cable 24C", cat: "Pulling cable", unit: "meter", volume: 2403 },
-        { key: "jc_48", name: "JC 48 C", cat: "Electrical", unit: "Unit", volume: 1 },
-        { key: "suspension_48", name: "Suspension 48", cat: "Install Aksesories", unit: "pcs", volume: 39 },
-        { key: "pole_clam", name: "Pole Clam", cat: "Install Aksesories", unit: "pcs", volume: 12 },
-        { key: "dead_end", name: "Dead End", cat: "Install Aksesories", unit: "pcs", volume: 42 },
-        { key: "slack_hanger", name: "Slack Hanger", cat: "Install Aksesories", unit: "pcs", volume: 4 },
-        { key: "plat_belt", name: "Plat Belt", cat: "Install Aksesories", unit: "pcs", volume: 43 },
-        { key: "stopping", name: "Stopping", cat: "Install Aksesories", unit: "pcs", volume: 86 }
-      ],
-      "abumbun jaya rt 02 dan 03 banjarmasin": [
-        { key: "pole_7_4", name: "Pole 7/4 or 7/5", cat: "Install Pole", unit: "Btg", volume: 1 },
-        { key: "pole_7_3", name: "Pole 7/3", cat: "Install Pole", unit: "Btg", volume: 48 },
-        { key: "pole_7_25", name: "Pole 7/2,5", cat: "Install Pole", unit: "Btg", volume: 130 },
-        { key: "digging_hole", name: "Digging Pole", cat: "Install Pole", unit: "Titik", volume: 179 },
-        { key: "casting_pole", name: "Casting Pole", cat: "Install Pole", unit: "Titik", volume: 179 },
-        { key: "slingwire_6mm", name: "Sling Wire 6mm", cat: "Pulling cable", unit: "meter", volume: 1997 },
-        { key: "fdt_72", name: "FDT 72", cat: "Electrical", unit: "Unit", volume: 1 },
-        { key: "fat_line_a", name: "FAT Line A", cat: "Electrical", unit: "Unit", volume: 8 },
-        { key: "fat_line_b", name: "FAT Line B", cat: "Electrical", unit: "Unit", volume: 7 },
-        { key: "fat_line_c", name: "FAT Line C", cat: "Electrical", unit: "Unit", volume: 18 },
-        { key: "jc_48", name: "JC 48 C", cat: "Electrical", unit: "Unit", volume: 1 },
-        { key: "suspension_48", name: "Suspension 48", cat: "Install Aksesories", unit: "pcs", volume: 117 },
-        { key: "pole_clam", name: "Pole Clam", cat: "Install Aksesories", unit: "pcs", volume: 62 },
-        { key: "dead_end", name: "Dead End", cat: "Install Aksesories", unit: "pcs", volume: 124 },
-        { key: "slack_hanger", name: "Slack Hanger", cat: "Install Aksesories", unit: "pcs", volume: 34 },
-        { key: "plat_belt", name: "Plat Belt", cat: "Install Aksesories", unit: "pcs", volume: 151 },
-        { key: "stopping", name: "Stopping", cat: "Install Aksesories", unit: "pcs", volume: 302 },
-        { key: "buldogrip", name: "Buldogrip", cat: "Install Aksesories", unit: "pcs", volume: 228 },
-        { key: "cable_24c_line_a", name: "Cable 24C Line A", cat: "Pulling cable", unit: "meter", volume: 1842 },
-        { key: "cable_24c_line_b", name: "Cable 24C Line B", cat: "Pulling cable", unit: "meter", volume: 1947 },
-        { key: "cable_48c_line_c", name: "Cable 48C Line C", cat: "Pulling cable", unit: "meter", volume: 4835 }
-      ]
-    };
+    // BOQ Plan tidak lagi tertanam di halaman: Plan setiap cluster diisi waspang di menu BOQ dan disimpan di tab
+    // MASTER BOQ CLUSTER (data contoh lama dihapus 11-10-2026 karena hanya pengujian).
+    const DEFAULT_BOQ_DATA = {};
 
     let photoItems = [];
     const STORAGE_CONFIG = 'waspang_ftth_config_v9';
