@@ -3531,7 +3531,7 @@
     });
 
     // Tanda tangan Mandor tersimpan per nama Mandor (dipakai otomatis di setiap BA untuk Mandor itu)
-    function rpNorm(s) { return String(s || '').replace(/[-]/g, '').replace(/\s+/g, ' ').trim().toLowerCase(); }
+    function rpNorm(s) { return String(s || '').replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').replace(/\s+/g, ' ').trim().toLowerCase(); }
     function rpMandorHasSign() { var k = rpNorm($('rpMandor').value); return !!k && rp.mandorSigns.some(function (n) { return rpNorm(n) === k; }); }
     function rpMandorInfo() {
       var nm = $('rpMandor').value.trim(), el = $('rpSignMInfo');
