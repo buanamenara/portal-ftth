@@ -56,6 +56,12 @@ function doPost(e) {
       case 'SET_TOTAL':
         result = setTotalByRpm_(payload);
         break;
+      case 'GET_CLUSTER':
+        result = getClusterData_(payload);
+        break;
+      case 'SET_DONE':
+        result = setDone_(payload);
+        break;
       default:
         result = { status: 'error', message: 'Action tidak dikenali: ' + payload.action };
     }
@@ -78,7 +84,8 @@ var MATERIAL_HEADERS_ = ['Pole 7/4 (NP 7m + 4")', 'Pole 7/3 (NP 7m + 3")', 'Pole
   'Digging Pole', 'Casting Pole', 'Cable 24C', 'Cable 36C', 'Cable 48C', 'Cable 96C', 'Cable 144C', 'Sling Wire 6mm',
   'HDPE 40/30 (40/34)', 'FDT 48', 'FDT 72', 'FAT (16 Port)', 'JC 48 C', 'JC 144 C', 'Suspension 48', 'Suspension 144',
   'Pole Clamp', 'Dead End', 'Dead End 144', 'Slack Hanger', 'Plat Belt', 'Stopping', 'Buldogrip'];
-var MASTER_BOQ_HEADER_ = ['No', 'Cluster Name', 'SOW'].concat(MATERIAL_HEADERS_);
+// Rincian Item = volume per item portal (item per line terpisah), Selesai = item yang sudah ditandai selesai.
+var MASTER_BOQ_HEADER_ = ['No', 'Cluster Name', 'SOW'].concat(MATERIAL_HEADERS_).concat(['Rincian Item', 'Selesai']);
 // Rincian Item (paling kanan) mencatat angka per item portal, mis. "cable_24c_line_a=3; fat_line_b=1",
 // supaya Total per line tetap terbaca walau kolom materialnya digabung.
 var DAILY_REPORT_HEADER_ = ['Timestamp', 'Tanggal', 'Cluster Name', 'SOW', 'Start Implementation', 'Topology', 'Subcont', 'PIC',
@@ -406,14 +413,184 @@ function recordDailyReport_(payload) {
   }
 }
 
-// ===================== SYNC_BOQ_EXCEL =====================
+// ===================== NAMA CLUSTER =====================
 
 function cleanClusterNameForSync_(raw) {
   return String(raw || '').replace(/[\u200B-\u200D\uFEFF\u2060]/g, '').trim();
 }
 
-// BOQ Plan dari portal mengisi kolom material pada baris Cluster Name + SOW di tabel MASTER BOQ CLUSTER
-// (item per line dijumlahkan ke kolom materialnya). Cluster yang belum ada ditambahkan di bawah tabel.
+// ===================== BOQ PLAN & SELESAI (tab MASTER BOQ CLUSTER) =====================
+// Satu baris per Cluster Name + SOW. Kolom material berisi volume plan (item per line dijumlahkan), Rincian Item
+// berisi volume per item portal, dan Selesai berisi item yang sudah ditandai selesai ("-" = belum ada).
+// Semua HP membaca plan dan status dari sini saat cluster dibuka. Angka material boleh diubah langsung di sheet.
+
+function boqSheet_() {
+  return sheetWithHeader_('MASTER BOQ CLUSTER', MASTER_BOQ_HEADER_);
+}
+
+function boqData_(sh, h) {
+  var last = sh.getLastRow();
+  return last >= 2 ? sh.getRange(2, 1, last - 1, h.width).getValues() : [];
+}
+
+// Indeks baris (di data) untuk Cluster Name + SOW, -1 bila belum ada.
+function boqRowIndex_(data, h, name, sow) {
+  var cName = h.idx['cluster name'], cSow = h.idx['sow'];
+  var n = cleanClusterNameForSync_(name).toLowerCase(), so = String(sow || 'Cluster').trim().toLowerCase();
+  for (var i = 0; i < data.length; i++) {
+    if (cleanClusterNameForSync_(data[i][cName]).toLowerCase() === n && String(data[i][cSow]).trim().toLowerCase() === so) return i;
+  }
+  return -1;
+}
+
+// Cluster yang belum ada ditambahkan di bawah tabel dengan No berikutnya.
+function appendBoqRow_(sh, h, data, name, sow) {
+  var cNo = h.idx['no'], row = [], maxNo = 0;
+  for (var j = 0; j < h.width; j++) row.push('');
+  data.forEach(function (d) { maxNo = Math.max(maxNo, Number(d[cNo]) || 0); });
+  if (cNo !== undefined) row[cNo] = maxNo + 1;
+  row[h.idx['cluster name']] = cleanClusterNameForSync_(name);
+  row[h.idx['sow']] = String(sow || 'Cluster').trim();
+  data.push(row);
+  sh.getRange(data.length + 1, 1, 1, h.width).setValues([row]);
+  return data.length - 1;
+}
+
+// Tulis beberapa sel di satu baris ({indeks kolom: isi}); kolom yang berurutan ditulis sekaligus.
+function writeCells_(sh, rowNum, rowData, cells) {
+  var cols = Object.keys(cells).map(Number).sort(function (a, b) { return a - b; });
+  for (var i = 0; i < cols.length;) {
+    var j = i;
+    while (j + 1 < cols.length && cols[j + 1] === cols[j] + 1) j++;
+    var vals = [];
+    for (var k = i; k <= j; k++) {
+      vals.push(cells[cols[k]]);
+      if (rowData) rowData[cols[k]] = cells[cols[k]];
+    }
+    sh.getRange(rowNum, cols[i] + 1, 1, vals.length).setValues([vals]);
+    i = j + 1;
+  }
+}
+
+// [{col: judul normal, idx: indeks kolom, baseKey}] untuk kolom material yang ada di sheet.
+function materialCols_(h) {
+  var out = [], seen = {};
+  Object.keys(MATERIAL_COLUMNS_).forEach(function (k) {
+    var col = MATERIAL_COLUMNS_[k];
+    if (h.idx[col] !== undefined && !seen[col]) { seen[col] = true; out.push({ col: col, idx: h.idx[col], baseKey: k }); }
+  });
+  return out;
+}
+
+// Angka di kolom material = patokan. part = {key: angka per item}; selisihnya masuk ke item pertama
+// (bila berkurang, dikurangi berurutan mulai item pertama).
+function splitCell_(part, ks, v) {
+  var sum = 0;
+  ks.forEach(function (k) { sum += part[k]; });
+  var diff = v - sum;
+  if (diff >= 0) { part[ks[0]] += diff; return part; }
+  ks.forEach(function (k) {
+    var d = Math.min(-diff, Math.max(0, part[k]));
+    part[k] -= d;
+    diff += d;
+  });
+  part[ks[0]] += diff;
+  return part;
+}
+
+// Item BOQ Plan -> "pole_7_4=1; cable_24c_line_a=704; mat_17=5 @Kabel Drop|meter|Lain-lain"
+// (nama, satuan dan kategori hanya ditulis untuk item di luar katalog material).
+function planRincianText_(items) {
+  return (items || []).filter(function (it) { return it && String(it.key || '').trim(); }).map(function (it) {
+    var k = String(it.key).trim(), t = rincianKey_(k) + '=' + (Number(it.volume) || 0);
+    if (!materialColumn_(k) && it.name) {
+      t += ' @' + [it.name, it.unit || '', it.cat || ''].map(function (x) { return String(x).replace(/[;|@=]/g, ' ').trim(); }).join('|');
+    }
+    return t;
+  }).join('; ');
+}
+
+function parsePlanRincian_(text) {
+  var out = { vols: {}, meta: {}, order: [] };
+  String(text || '').split(';').forEach(function (part) {
+    var m = part.match(/^\s*([^=@]+?)\s*=\s*(-?\d+(?:\.\d+)?)\s*(?:@(.*))?$/);
+    if (!m) return;
+    var k = m[1];
+    try { k = decodeURIComponent(k); } catch (e) {}
+    if (!(k in out.vols)) { out.vols[k] = 0; out.order.push(k); }
+    out.vols[k] += Number(m[2]);
+    if (m[3]) {
+      var p = m[3].split('|');
+      out.meta[k] = { name: (p[0] || '').trim(), unit: (p[1] || '').trim(), cat: (p[2] || '').trim() };
+    }
+  });
+  return out;
+}
+
+function parseDone_(v) {
+  var t = String(v == null ? '' : v).trim();
+  if (!t || t === '-') return [];
+  return t.split(';').map(function (k) { return k.trim(); }).filter(Boolean);
+}
+
+// Plan satu baris. local = item BOQ Plan di HP ([{key, volume}], urutan plan): dipakai untuk membagi angka material
+// yang belum punya Rincian Item (mis. diketik langsung di sheet) ke item per line yang sama dengan di HP.
+// -> {found, items: [{key, volume, name?, unit?, cat?}], done: [key], doneSet}
+function planFromRow_(h, row, local) {
+  var cRin = h.idx['rincian item'], cDone = h.idx['selesai'], mats = materialCols_(h);
+  var rin = cRin === undefined ? parsePlanRincian_('') : parsePlanRincian_(row[cRin]);
+  var doneRaw = cDone === undefined ? '' : String(row[cDone] == null ? '' : row[cDone]).trim();
+  var plan = { found: false, items: [], done: parseDone_(doneRaw), doneSet: doneRaw !== '' };
+  var hasData = rin.order.length > 0 || mats.some(function (m) { return cellNumber_(row[m.idx]) !== 0; });
+  if (!hasData) return plan;
+
+  var localVol = {}, localKeys = [];
+  (local || []).forEach(function (it) {
+    var k = it && String(it.key || '').trim();
+    if (!k) return;
+    if (!(k in localVol)) { localVol[k] = 0; localKeys.push(k); }
+    localVol[k] += Number(it.volume) || 0;
+  });
+  var vol = {}, order = [];
+  function put(k, n) {
+    if (!(k in vol)) { vol[k] = 0; order.push(k); }
+    vol[k] += n;
+  }
+  function noColumn(k) {
+    var col = materialColumn_(k);
+    return !col || h.idx[col] === undefined;
+  }
+  // Item tanpa kolom material di sheet: angka dari Rincian Item. Baris yang belum punya Rincian Item (plan lama)
+  // tidak bisa memuat item itu, jadi item tambahan yang sudah ada di HP tetap dipakai.
+  if (rin.order.length) rin.order.forEach(function (k) { if (noColumn(k)) put(k, rin.vols[k]); });
+  else localKeys.forEach(function (k) { if (noColumn(k) && localVol[k]) put(k, localVol[k]); });
+  mats.forEach(function (m) {
+    var v = cellNumber_(row[m.idx]), part = {};
+    var ks = rin.order.filter(function (k) { return materialColumn_(k) === m.col; });
+    if (ks.length) ks.forEach(function (k) { part[k] = rin.vols[k]; });
+    else if (v) {
+      ks = localKeys.filter(function (k) { return materialColumn_(k) === m.col; });
+      ks.forEach(function (k) { part[k] = localVol[k]; });
+      if (!ks.length) { ks = [m.baseKey]; part[m.baseKey] = 0; }
+    }
+    if (!ks.length) return;
+    splitCell_(part, ks, v);
+    ks.forEach(function (k) { put(k, part[k]); });
+  });
+  // Urutan: urutan Rincian Item, lalu item lain. Item bervolume 0 hanya dipertahankan bila tercatat di Rincian Item.
+  var keys = rin.order.filter(function (k) { return k in vol; })
+    .concat(order.filter(function (k) { return rin.order.indexOf(k) < 0; }));
+  plan.found = true;
+  plan.items = keys.filter(function (k) { return vol[k] !== 0 || (k in rin.vols); }).map(function (k) {
+    var it = { key: k, volume: Math.round(vol[k] * 1000) / 1000 };
+    if (rin.meta[k]) { it.name = rin.meta[k].name; it.unit = rin.meta[k].unit; it.cat = rin.meta[k].cat; }
+    return it;
+  });
+  return plan;
+}
+
+// BOQ Plan dari portal (simpan manual atau impor Excel) menggantikan plan cluster itu: kolom material diisi ulang
+// (material yang tidak ada di plan dikosongkan) dan Rincian Item ditulis. Tanda Selesai tidak berubah.
 function syncMasterBoqToSheet_(clusters) {
   if (!clusters || !clusters.length) {
     return { status: 'error', message: 'Tidak ada data cluster untuk disinkronkan.' };
@@ -421,46 +598,67 @@ function syncMasterBoqToSheet_(clusters) {
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
-    var sh = sheetWithHeader_('MASTER BOQ CLUSTER', MASTER_BOQ_HEADER_), h = sheetHeader_(sh);
-    var cNo = h.idx['no'], cName = h.idx['cluster name'], cSow = h.idx['sow'];
-    var last = sh.getLastRow();
-    var data = last >= 2 ? sh.getRange(2, 1, last - 1, h.width).getValues() : [];
+    var sh = boqSheet_(), h = sheetHeader_(sh), mats = materialCols_(h), cRin = h.idx['rincian item'];
+    var data = boqData_(sh, h);
 
     clusters.forEach(function (cl) {
       var name = cleanClusterNameForSync_(cl.name || cl.fullName);
       var sow = String(cl.sow || 'Cluster').trim();
       if (!name) return;
+      var items = (cl.items || []).filter(function (it) { return it && String(it.key || '').trim(); });
       var vols = {};
-      (cl.items || []).forEach(function (it) { vols[it.key] = (vols[it.key] || 0) + (Number(it.volume) || 0); });
+      items.forEach(function (it) { vols[it.key] = (vols[it.key] || 0) + (Number(it.volume) || 0); });
       var byCol = sumByMaterial_(vols);
 
-      var r = -1;
-      for (var i = 0; i < data.length; i++) {
-        if (cleanClusterNameForSync_(data[i][cName]).toLowerCase() === name.toLowerCase() &&
-            String(data[i][cSow]).trim().toLowerCase() === sow.toLowerCase()) { r = i; break; }
-      }
-      if (r === -1) {
-        var row = [], maxNo = 0;
-        for (var j = 0; j < h.width; j++) row.push('');
-        data.forEach(function (d) { maxNo = Math.max(maxNo, Number(d[cNo]) || 0); });
-        if (cNo !== undefined) row[cNo] = maxNo + 1;
-        row[cName] = name;
-        row[cSow] = sow;
-        data.push(row);
-        r = data.length - 1;
-        sh.getRange(r + 2, 1, 1, h.width).setValues([row]);
-      }
-      Object.keys(byCol).forEach(function (col) {
-        var c = h.idx[col];
-        if (c === undefined) return;
-        data[r][c] = byCol[col];
-        sh.getRange(r + 2, c + 1).setValue(byCol[col]);
-      });
+      var r = boqRowIndex_(data, h, name, sow);
+      if (r === -1) r = appendBoqRow_(sh, h, data, name, sow);
+      var cells = {};
+      mats.forEach(function (m) { cells[m.idx] = byCol[m.col] || ''; });
+      if (cRin !== undefined) cells[cRin] = planRincianText_(items);
+      writeCells_(sh, r + 2, data[r], cells);
     });
 
     return { status: 'success' };
   } catch (err) {
     return { status: 'error', message: err.toString() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Data satu cluster untuk portal: BOQ Plan + item Selesai (MASTER BOQ CLUSTER) dan Total (DAILY REPORT EMR).
+function getClusterData_(payload) {
+  var name = cleanClusterNameForSync_(payload.name || payload.cluster);
+  if (!name) return { status: 'error', message: 'Cluster kosong.' };
+  var sh = boqSheet_(), h = sheetHeader_(sh), data = boqData_(sh, h);
+  var r = boqRowIndex_(data, h, name, payload.sow);
+  var plan = r === -1 ? { found: false, items: [], done: [], doneSet: false } : planFromRow_(h, data[r], payload.local);
+  var keys = plan.items.map(function (it) { return it.key; }).concat(payload.keys || []);
+  var t = clusterTotals_(dailySheet_(), payload.cluster || name, keys);
+  return { status: 'success', plan: plan, found: t.found, totals: t.totals };
+}
+
+// Tandai / buka tanda Selesai (keys = satu atau beberapa item) untuk semua HP.
+function setDone_(payload) {
+  var name = cleanClusterNameForSync_(payload.name || payload.cluster), sow = String(payload.sow || 'Cluster').trim();
+  var keys = (payload.keys || (payload.key ? [payload.key] : [])).map(function (k) { return String(k || '').trim(); }).filter(Boolean);
+  if (!name || !keys.length) return { status: 'error', message: 'Data Selesai tidak lengkap.' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var sh = boqSheet_(), h = sheetHeader_(sh), cDone = h.idx['selesai'], data = boqData_(sh, h);
+    var r = boqRowIndex_(data, h, name, sow);
+    if (r === -1) r = appendBoqRow_(sh, h, data, name, sow);
+    var cur = parseDone_(data[r][cDone]);
+    keys.forEach(function (k) {
+      var i = cur.indexOf(k);
+      if (payload.done && i < 0) cur.push(k);
+      if (!payload.done && i >= 0) cur.splice(i, 1);
+    });
+    var cells = {};
+    cells[cDone] = cur.length ? cur.join('; ') : '-';
+    writeCells_(sh, r + 2, data[r], cells);
+    return { status: 'success', done: cur };
   } finally {
     lock.releaseLock();
   }
@@ -492,8 +690,12 @@ function cellNumber_(v) {
 // {key item: angka} <-> "cable_24c_line_a=3; fat_line_b=1"
 function rincianText_(byKey) {
   return Object.keys(byKey || {}).filter(function (k) { return String(k).trim() && Number(byKey[k]); }).map(function (k) {
-    return String(k).trim().replace(/[%;=]/g, function (c) { return encodeURIComponent(c); }) + '=' + Number(byKey[k]);
+    return rincianKey_(k) + '=' + Number(byKey[k]);
   }).join('; ');
+}
+
+function rincianKey_(k) {
+  return String(k).trim().replace(/[%;=@]/g, function (c) { return encodeURIComponent(c); });
 }
 
 function parseRincian_(text) {
@@ -549,11 +751,8 @@ function addOpeningBalance_(sh, cluster, sow, base, by) {
 // -> {found, raw: {key: jumlah apa adanya}, totals: {key: jumlah, minimal 0}}
 function clusterTotals_(sh, cluster, keys) {
   var h = sheetHeader_(sh), rows = clusterRows_(sh, h, cluster), cRin = h.idx['rincian item'];
-  var matCols = [], baseKey = {};
-  Object.keys(MATERIAL_COLUMNS_).forEach(function (k) {
-    var col = MATERIAL_COLUMNS_[k];
-    if (h.idx[col] !== undefined && !(col in baseKey)) { matCols.push(col); baseKey[col] = k; }
-  });
+  var mats = materialCols_(h), baseKey = {};
+  mats.forEach(function (m) { baseKey[m.col] = m.baseKey; });
   var amount = {};
   function add(k, n) { if (n) amount[k] = (amount[k] || 0) + n; }
 
@@ -564,21 +763,12 @@ function clusterTotals_(sh, cluster, keys) {
       if (col && h.idx[col] !== undefined) (byCol[col] = byCol[col] || []).push(k);
       else add(k, rin[k]);   // item tanpa kolom material: angka dari Rincian Item
     });
-    matCols.forEach(function (col) {
-      var v = cellNumber_(r[h.idx[col]]), ks = byCol[col] || [];
-      if (!ks.length) { add('#' + col, v); return; }
-      // Kolom material = patokan; selisih dengan Rincian masuk ke item pertama (bila berkurang, dikurangi berurutan).
-      var part = {}, sum = 0;
-      ks.forEach(function (k) { part[k] = rin[k]; sum += rin[k]; });
-      var diff = v - sum;
-      if (diff >= 0) part[ks[0]] += diff;
-      else {
-        ks.forEach(function (k) {
-          var d = Math.min(-diff, Math.max(0, part[k]));
-          part[k] -= d; diff += d;
-        });
-        part[ks[0]] += diff;
-      }
+    mats.forEach(function (m) {
+      var v = cellNumber_(r[m.idx]), ks = byCol[m.col] || [];
+      if (!ks.length) { add('#' + m.col, v); return; }
+      var part = {};
+      ks.forEach(function (k) { part[k] = rin[k]; });
+      splitCell_(part, ks, v);
       ks.forEach(function (k) { add(k, part[k]); });
     });
   });

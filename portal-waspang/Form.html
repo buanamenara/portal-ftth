@@ -2910,6 +2910,10 @@
       const wasDone = isItemMarkedCompleted(cluster, itemKey);
       const newDone = !wasDone;
       setItemMarkedCompleted(cluster, itemKey, newDone);
+      // Status Selesai disimpan di kolom Selesai tab MASTER BOQ CLUSTER supaya sama di semua HP.
+      postDone(cluster, [itemKey], newDone).then(ok => {
+        if (!ok && getConfig().scriptUrl) showToast('⚠️ Status Selesai baru tersimpan di HP ini (koneksi ke sheet gagal).');
+      });
 
       const elToday = document.getElementById(`inp_today_${itemKey}`);
       const todayVal = elToday ? (parseInt(elToday.value) || 0) : 0;
@@ -3049,31 +3053,92 @@
       }
       return keys;
     }
-    async function refreshSharedTotals(cluster) {
+    // Nama site seperti yang dikirim saat menyimpan BOQ Plan (tanpa awalan SOW).
+    function boqSiteName(cluster) {
+      return String(cluster || '')
+        .replace(/[\u200B-\u200D\uFEFF\u2060]/g, '')
+        .replace(/^(subfeeder|fwa|mainfeeder|hubfeeder|uplink)(\s*-\s*|\s+)/i, '')
+        .trim();
+    }
+    // BOQ Plan + tanda Selesai (tab MASTER BOQ CLUSTER) dan Total (tab DAILY REPORT EMR) satu cluster dari server.
+    async function fetchClusterData(cluster) {
       const cfg = getConfig();
-      if (!cluster || !cfg.scriptUrl) return;
+      if (!cluster || !cfg.scriptUrl) return null;
       try {
         const res = await fetch(cfg.scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'GET_TOTALS', cluster: cluster, keys: dailyKeys(cluster) })
+          body: JSON.stringify({ action: 'GET_CLUSTER', cluster: cluster, name: boqSiteName(cluster), sow: getSowType(cluster),
+            keys: dailyKeys(cluster), local: getClusterItems(cluster).map(it => ({ key: it.key, volume: it.volume || 0 })) })
         });
         const d = await res.json();
-        // Cluster belum punya baris di DAILY REPORT EMR: pakai angka di perangkat ini (dicatat sebagai saldo awal saat Daily Report).
-        if (d.status === 'success' && d.found) applySharedTotals(cluster, d.totals);
-      } catch (e) {}
+        return d.status === 'success' ? d : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    async function refreshSharedTotals(cluster) {
+      const d = await fetchClusterData(cluster);
+      if (!d) return;
+      applySharedPlan(cluster, d.plan);
+      // Cluster belum punya baris di DAILY REPORT EMR: pakai angka di perangkat ini (dicatat sebagai saldo awal saat Daily Report).
+      if (d.found) applySharedTotals(cluster, d.totals, true);
+      if (getActiveDailyCluster() === cluster) {
+        renderDailyTable();
+        renderTelegramPreview();
+      }
+    }
+    // BOQ Plan dan tanda Selesai dari sheet (sama untuk semua HP), disimpan di HP sebagai cache.
+    function applySharedPlan(cluster, plan) {
+      if (!plan) return;
+      const ck = normalizeClusterKey(cluster);
+      if (plan.found) {
+        const local = getClusterItems(cluster);
+        const items = (plan.items || []).map(it => {
+          const m = OFFICIAL_MATERIAL_CATALOG.find(c => c.key === it.key) || local.find(c => c.key === it.key) || {};
+          return { key: it.key, name: it.name || m.name || it.key, cat: it.cat || m.cat || 'Lain-lain',
+            unit: it.unit || m.unit || 'pcs', volume: Number(it.volume) || 0 };
+        });
+        try { localStorage.setItem(STORAGE_BOQ_CUSTOM + '_' + ck, JSON.stringify(items)); } catch (e) {}
+      }
+      if (plan.doneSet) {
+        const obj = {};
+        (plan.done || []).forEach(k => { obj[k] = true; });
+        try { localStorage.setItem(STORAGE_COMPLETED_ITEMS + '_' + ck, JSON.stringify(obj)); } catch (e) {}
+      } else {
+        // Kolom Selesai cluster ini masih kosong di sheet: tanda Selesai yang sudah ada di HP ini dicatat sebagai awal.
+        let local = {};
+        try { local = JSON.parse(localStorage.getItem(STORAGE_COMPLETED_ITEMS + '_' + ck) || '{}') || {}; } catch (e) {}
+        const keys = Object.keys(local).filter(k => local[k]);
+        if (keys.length) postDone(cluster, keys, true);
+      }
+    }
+    async function postDone(cluster, keys, done) {
+      const cfg = getConfig();
+      if (!cfg.scriptUrl) return false;
+      try {
+        const res = await fetch(cfg.scriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'SET_DONE', cluster: cluster, name: boqSiteName(cluster), sow: getSowType(cluster), keys: keys, done: !!done })
+        });
+        const d = await res.json();
+        return d.status === 'success';
+      } catch (e) {
+        return false;
+      }
     }
     function dailyItemName(cluster, key) {
       const it = getClusterItems(cluster).find(m => m.key === key) || OFFICIAL_MATERIAL_CATALOG.find(m => m.key === key);
       return it ? it.name : key;
     }
-    function applySharedTotals(cluster, totals) {
+    function applySharedTotals(cluster, totals, noRender) {
       const storeKey = STORAGE_PREV_PROGRESS + '_' + cluster.toLowerCase();
       let prev = {};
       try { prev = JSON.parse(localStorage.getItem(storeKey) || '{}') || {}; } catch (e) {}
       Object.keys(totals || {}).forEach(k => { prev[k] = Number(totals[k]) || 0; });
       try { localStorage.setItem(storeKey, JSON.stringify(prev)); } catch (e) {}
-      if (getActiveDailyCluster() === cluster) {
+      if (!noRender && getActiveDailyCluster() === cluster) {
         renderDailyTable();
         renderTelegramPreview();
       }
@@ -4323,7 +4388,7 @@ ${e(todayActivity)}`;
       renderDailyTable();
       renderTelegramPreview();
       renderBoqSummaryTable();
-      loadBoqForSelectedCluster();
+      loadBoqForSelectedCluster(true);   // plan baru belum ada di sheet: jangan dibaca ulang dulu
 
       // 5. Sinkronkan ke Google Spreadsheet Sheet MASTER BOQ CLUSTER
       const syncCheck = document.getElementById('syncToGoogleSheetCheck');
@@ -4358,7 +4423,7 @@ ${e(todayActivity)}`;
           showToast(`✅ Berhasil disinkronkan ke Spreadsheet MASTER BOQ CLUSTER!`);
         } catch (err) {
           console.warn('Gagal sync ke Google Sheet:', err);
-          showToast(`⚠️ Data lokal tersimpan, koneksi sheet: ${err.message}`);
+          showToast(`⚠️ BOQ Plan belum masuk ke sheet (${err.message}). Simpan ulang saat ada sinyal.`);
         }
       }
 
@@ -4504,7 +4569,7 @@ ${e(todayActivity)}`;
     let currentManualEditingRows = [];
 
     // Muat Tabel Penyesuaian Material Manual untuk Cluster Terpilih
-    function loadBoqForSelectedCluster() {
+    function loadBoqForSelectedCluster(fromSheet) {
       const cluster = document.getElementById('boqTargetCluster').value;
       const tbody = document.getElementById('boqSubmitTableBody');
       if (!tbody) return;
@@ -4526,6 +4591,20 @@ ${e(todayActivity)}`;
       });
 
       renderManualMaterialRows();
+
+      // Ambil plan terbaru dari sheet; tabel digambar ulang hanya bila plan berubah dan belum ada yang diedit.
+      if (fromSheet === true) return;
+      const snapshot = JSON.stringify(currentManualEditingRows);
+      const before = JSON.stringify(getClusterItems(cluster));
+      fetchClusterData(cluster).then(d => {
+        if (!d || !d.plan) return;
+        applySharedPlan(cluster, d.plan);
+        if (document.getElementById('boqTargetCluster').value !== cluster) return;
+        if (JSON.stringify(getClusterItems(cluster)) === before) return;
+        if (JSON.stringify(currentManualEditingRows) !== snapshot) return;
+        loadBoqForSelectedCluster(true);
+        if (getActiveDailyCluster() === cluster) { renderDailyTable(); renderTelegramPreview(); }
+      });
     }
 
     // Render baris material dinamis
@@ -4710,7 +4789,7 @@ ${e(todayActivity)}`;
           showToast(`✅ Berhasil menyimpan ${validRows.length} material BOQ & sinkron ke Sheet MASTER BOQ CLUSTER!`);
         } catch (err) {
           console.warn('Gagal sync ke Google Sheet:', err);
-          showToast(`⚠️ Data lokal tersimpan, koneksi sheet: ${err.message}`);
+          showToast(`⚠️ BOQ Plan belum masuk ke sheet (${err.message}). Simpan ulang saat ada sinyal.`);
         }
       } else {
         showToast(`✅ Berhasil menyimpan ${validRows.length} material BOQ (Penyimpanan Lokal)!`);
