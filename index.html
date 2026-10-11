@@ -19,6 +19,29 @@
 </style>
 </head>
 <body>
-<iframe src="https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec?v=43" title="Portal Terpadu BMI" allow="clipboard-write; fullscreen"></iframe>
+<iframe id="portal" title="Portal Terpadu BMI" allow="clipboard-write; fullscreen"></iframe>
+<script>
+// Semua portal dibuka di dalam bingkai ini supaya banner Google Apps Script tidak muncul.
+// ?p=ftth|waspang memilih portal (tanpa p = Gateway). ?t= tiket sekali pakai dari Gateway untuk masuk otomatis ke Portal FTTH.
+(function () {
+  var V = '44';   // penanda versi supaya perangkat tidak memakai salinan lama
+  var PORTALS = {
+    gateway: { title: 'Portal Terpadu BMI', url: 'https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec' },
+    ftth: { title: 'Portal FTTH', sso: true, url: 'https://script.google.com/macros/s/AKfycbwO25NZjRNu11QfyZQDGp1ZAPHdR-PwMwrc3U09lGUQ03KH91bNUl178-A7F246fm_djw/exec' },
+    waspang: { title: 'Portal Waspang', url: 'https://script.google.com/macros/s/AKfycbw4TJYefbBIIoBS4Kztyv2lClvmngtIMotFbSLfp_E6ptKjv0qVwDBg_ppR1fY8zGKG/exec' }
+  };
+  var q = new URLSearchParams(location.search);
+  var key = q.get('p');
+  if (!Object.prototype.hasOwnProperty.call(PORTALS, key)) key = 'gateway';
+  var t = q.get('t') || '';
+  var src = PORTALS[key].url + '?v=' + V + (PORTALS[key].sso && /^[A-Za-z0-9]{32,80}$/.test(t) ? '&sso=' + t : '');
+  var f = document.getElementById('portal');
+  f.title = PORTALS[key].title;
+  f.src = src;
+  document.title = PORTALS[key].title + ' - Buana Menara Indonesia';
+  // Tiket sudah terpakai: buang dari alamat supaya muat ulang tidak membawanya lagi.
+  if (t) history.replaceState(null, '', location.pathname + (key === 'gateway' ? '' : '?p=' + key));
+})();
+</script>
 </body>
 </html>

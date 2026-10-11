@@ -1,7 +1,10 @@
 # Gateway - Portal Terpadu BMI
 
 Project Apps Script terpisah: login sekali (sheet USERS yang sama dengan Portal FTTH), lalu menu
-portal sesuai role. Tombol menu membuka URL exec Portal FTTH / Portal Waspang (navigasi sungguhan).
+portal sesuai role. Tombol menu membuka halaman PWA (`index.html`, `?p=<portal>`), yang memuat portal di
+dalam bingkainya sehingga banner Google Apps Script tidak muncul. Untuk Portal FTTH, tautan membawa tiket
+sekali pakai (`&t=`, berlaku 2 menit). Portal FTTH menukarnya lewat `ssoLogin()` ke `?sso_verify=` di
+Gateway, jadi user tidak perlu login lagi. Portal Waspang tidak punya login.
 
 Akses per role diatur di `CONFIG.ROLE_PORTALS` (Kode.gs):
 
