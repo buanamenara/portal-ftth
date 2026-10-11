@@ -24,7 +24,7 @@
 // Semua portal dibuka di dalam bingkai ini supaya banner Google Apps Script tidak muncul.
 // ?p=ftth|waspang memilih portal (tanpa p = Gateway). ?t= tiket sekali pakai dari Gateway untuk masuk otomatis ke Portal FTTH.
 (function () {
-  var V = '44';   // penanda versi supaya perangkat tidak memakai salinan lama
+  var V = '45';   // penanda versi supaya perangkat tidak memakai salinan lama
   var PORTALS = {
     gateway: { title: 'Portal Terpadu BMI', url: 'https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec' },
     ftth: { title: 'Portal FTTH', sso: true, url: 'https://script.google.com/macros/s/AKfycbwO25NZjRNu11QfyZQDGp1ZAPHdR-PwMwrc3U09lGUQ03KH91bNUl178-A7F246fm_djw/exec' },
@@ -35,12 +35,27 @@
   if (!Object.prototype.hasOwnProperty.call(PORTALS, key)) key = 'gateway';
   var t = q.get('t') || '';
   var src = PORTALS[key].url + '?v=' + V + (PORTALS[key].sso && /^[A-Za-z0-9]{32,80}$/.test(t) ? '&sso=' + t : '');
+  // Gateway: ?logout=1 mengakhiri sesinya, ?go=<portal> langsung kembali ke portal itu bila sesi masih ada.
+  var go = q.get('go') || '', logout = q.get('logout') === '1';
+  if (key === 'gateway') src += (logout ? '&logout=1' : '') + (go !== 'gateway' && Object.prototype.hasOwnProperty.call(PORTALS, go) ? '&go=' + go : '');
   var f = document.getElementById('portal');
   f.title = PORTALS[key].title;
   f.src = src;
   document.title = PORTALS[key].title + ' - Buana Menara Indonesia';
-  // Tiket sudah terpakai: buang dari alamat supaya muat ulang tidak membawanya lagi.
-  if (t) history.replaceState(null, '', location.pathname + (key === 'gateway' ? '' : '?p=' + key));
+  // Tiket/permintaan sudah terpakai: buang dari alamat supaya muat ulang tidak membawanya lagi.
+  if (t || go || logout) history.replaceState(null, '', location.pathname + (key === 'gateway' ? '' : '?p=' + key));
+
+  // Permintaan dari portal di dalam bingkai (hanya halaman Apps Script):
+  // {bmi:'gateway', go, logout} = buka Gateway (belum masuk / Keluar); {bmi:'open', href} = buka tautan menu Gateway.
+  window.addEventListener('message', function (e) {
+    if (!/^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(e.origin)) return;
+    var d = e.data || {}, base = location.origin + location.pathname;
+    if (d.bmi === 'gateway') {
+      location.replace(base + (d.logout ? '?logout=1' : (Object.prototype.hasOwnProperty.call(PORTALS, d.go) ? '?go=' + d.go : '')));
+    } else if (d.bmi === 'open' && typeof d.href === 'string' && d.href.indexOf(base + '?') === 0) {
+      location.replace(d.href);
+    }
+  });
 })();
 </script>
 </body>

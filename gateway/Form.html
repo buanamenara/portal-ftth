@@ -77,6 +77,8 @@
   var TTL = 6 * 60 * 60 * 1000;   // sama dengan masa sesi di server (tanpa password)
   var REFRESH = 60 * 1000;        // tiket Portal FTTH diperbarui tiap menit selama menu terbuka
   var timer = null;
+  var SHELL_ORIGIN = 'https://buanamenara.github.io';   // halaman aplikasi (PWA) yang membingkai Gateway
+  var GO = '';   // portal yang diminta portal lain (?go=): dibuka otomatis sekali setelah menu siap
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function roleLabel(r) { return r === 'rpm' ? 'RPM' : (r === 'waspang' ? 'Waspang' : 'Admin'); }
@@ -93,6 +95,12 @@
   }
 
   function renderLinks(list) {
+    if (GO) {
+      var go = list.filter(function (p) { return p.key === GO; })[0];
+      GO = '';
+      // Aplikasi (PWA) yang pindah halaman; tautan dibuka di dalam bingkainya seperti klik biasa.
+      if (go) { try { window.top.postMessage({ bmi: 'open', href: go.href }, SHELL_ORIGIN); } catch (e) {} }
+    }
     $('menuGrid').innerHTML = list.map(function (p, i) {
       return '<a class="portal' + (i === 0 ? ' main' : '') + '" href="' + esc(p.href) + '" target="_top">' +
         '<span class="go">Buka &rarr;</span><div class="t">' + esc(p.title) + '</div><div class="d">' + esc(p.desc) + '</div></a>';
@@ -157,8 +165,15 @@
   $('loginUsername').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('loginPassword').focus(); });
   $('btnLogout').addEventListener('click', function () { clearSession(); showLogin(''); });
 
-  var s = loadSession();
-  if (s) showMenu(s); else showLogin('');
+  // ?logout=1: Keluar dari portal lain juga mengakhiri sesi Gateway. ?go=<portal>: langsung kembali ke portal itu.
+  function start(p) {
+    p = p || {};
+    if (p.logout === '1') clearSession();
+    if (/^[a-z]+$/.test(p.go || '')) GO = p.go;
+    var s = loadSession();
+    if (s) showMenu(s); else showLogin('');
+  }
+  try { google.script.url.getLocation(function (loc) { start(loc && loc.parameter); }); } catch (e) { start(); }
 })();
 </script>
 </body>

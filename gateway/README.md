@@ -6,6 +6,11 @@ dalam bingkainya sehingga banner Google Apps Script tidak muncul. Untuk Portal F
 sekali pakai (`&t=`, berlaku 2 menit). Portal FTTH menukarnya lewat `ssoLogin()` ke `?sso_verify=` di
 Gateway, jadi user tidak perlu login lagi. Portal Waspang tidak punya login.
 
+Portal FTTH tidak punya form login. Tanpa sesi, Portal FTTH meminta halaman PWA (`postMessage`) membuka
+Gateway dengan `?go=ftth`; bila sesi Gateway masih ada, Gateway langsung mengembalikan ke Portal FTTH dengan
+tiket baru. "Keluar" di Portal FTTH membuka Gateway dengan `?logout=1`, yang juga mengakhiri sesi Gateway.
+Portal FTTH yang dibuka dengan tiket tidak mengalihkan balik otomatis, supaya tidak bolak-balik.
+
 Akses per role diatur di `CONFIG.ROLE_PORTALS` (Kode.gs):
 
 | Role    | Portal                      |
