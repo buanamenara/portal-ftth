@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --gold: #C9972C; --gold-dark: #A87A1B; --ink: #000000; --bg: #FBF7EE; --muted: #6b6b6b; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; margin: 0; background: var(--bg); color: #222; min-height: 100vh; }
+    .topbar { background: var(--ink); border-bottom: 4px solid var(--gold); padding: 14px 20px; display: flex; align-items: center; gap: 12px; }
+    .topbar img { width: 40px; height: 40px; border-radius: 8px; }
+    .topbar h1 { margin: 0; font-size: 18px; color: #fff; letter-spacing: .5px; }
+    .topbar p { margin: 2px 0 0; font-size: 11px; color: var(--gold); letter-spacing: 1px; }
+    .topbar .right { margin-left: auto; display: none; align-items: center; gap: 10px; color: #fff; font-size: 13px; }
+    .topbar .right.show { display: flex; }
+    .btn-out { background: transparent; border: 1px solid var(--gold); color: var(--gold); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 32px 16px; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,.08); padding: 28px; }
+    .login { max-width: 380px; margin: 24px auto; }
+    .login h2 { margin: 0 0 4px; font-size: 20px; }
+    .login .sub { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
+    label { display: block; font-size: 13px; font-weight: bold; margin: 12px 0 6px; }
+    input { width: 100%; padding: 11px 12px; border: 1px solid #d6d0c2; border-radius: 8px; font-size: 15px; }
+    input:focus { outline: none; border-color: var(--gold); }
+    .btn { width: 100%; margin-top: 20px; padding: 12px; background: var(--gold); color: var(--ink); border: 0; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; }
+    .btn:hover { background: var(--gold-dark); }
+    .btn:disabled { opacity: .6; cursor: wait; }
+    .note { min-height: 18px; margin-top: 12px; font-size: 13px; color: #b42318; }
+    .hello { margin: 0 0 4px; font-size: 20px; }
+    .grid { display: grid; gap: 14px; margin-top: 20px; }
+    a.portal { display: block; text-decoration: none; color: inherit; border: 2px solid #e8e0cc; border-radius: 12px; padding: 18px 20px; background: #fff; transition: border-color .15s, transform .15s; }
+    a.portal:hover { border-color: var(--gold); transform: translateY(-1px); }
+    a.portal.main { border-color: var(--gold); background: #fffaf0; }
+    a.portal .t { font-size: 17px; font-weight: bold; }
+    a.portal .d { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    a.portal .go { float: right; color: var(--gold-dark); font-weight: bold; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 18px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <img src="https://buanamenara.github.io/portal-ftth/icon-192.png" alt="BMI">
+    <div>
+      <h1>PORTAL TERPADU BMI</h1>
+      <p>PT BUANA MENARA INDONESIA</p>
+    </div>
+    <div class="right" id="topRight">
+      <span id="topUser"></span>
+      <button type="button" class="btn-out" id="btnLogout">Keluar</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="card login" id="screenLogin">
+      <h2>Masuk</h2>
+      <p class="sub">Gunakan username dan password yang sama dengan Portal FTTH.</p>
+      <label for="loginUsername">Username</label>
+      <input type="text" id="loginUsername" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Masukkan username">
+      <label for="loginPassword">Password</label>
+      <input type="password" id="loginPassword" autocomplete="current-password" placeholder="Masukkan password">
+      <button type="button" class="btn" id="btnLogin">Masuk</button>
+      <div class="note" id="loginNote"></div>
+    </div>
+
+    <div class="card hidden" id="screenMenu">
+      <p class="hello" id="menuHello"></p>
+      <div class="sub" id="menuSub" style="color:var(--muted);font-size:13px"></div>
+      <div class="grid" id="menuGrid"></div>
+      <p class="hint">Portal FTTH meminta login sekali di perangkat ini, setelah itu tersimpan.</p>
+    </div>
+  </div>
+
+<script>
+(function () {
+  var KEY = 'bmiGatewaySession';
+  var TTL = 12 * 60 * 60 * 1000;   // sesi menu tersimpan 12 jam (tanpa password)
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function roleLabel(r) { return r === 'rpm' ? 'RPM' : (r === 'waspang' ? 'Waspang' : 'Admin'); }
+
+  function saveSession(s) { try { s.exp = Date.now() + TTL; localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }
+  function loadSession() {
+    try {
+      var s = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (s && s.exp > Date.now() && s.portals && s.portals.length) return s;
+      localStorage.removeItem(KEY);
+    } catch (e) {}
+    return null;
+  }
+
+  function showMenu(s) {
+    $('screenLogin').classList.add('hidden');
+    $('screenMenu').classList.remove('hidden');
+    $('topRight').classList.add('show');
+    $('topUser').textContent = s.name + ' (' + roleLabel(s.role) + ')';
+    $('menuHello').textContent = 'Halo, ' + s.name;
+    $('menuSub').textContent = 'Pilih portal yang ingin dibuka' + (s.area ? ' · Area ' + s.area : '') + '.';
+    $('menuGrid').innerHTML = s.portals.map(function (p, i) {
+      return '<a class="portal' + (i === 0 ? ' main' : '') + '" href="' + esc(p.url) + '" target="_top">' +
+        '<span class="go">Buka &rarr;</span><div class="t">' + esc(p.title) + '</div><div class="d">' + esc(p.desc) + '</div></a>';
+    }).join('');
+  }
+
+  function showLogin() {
+    $('screenMenu').classList.add('hidden');
+    $('screenLogin').classList.remove('hidden');
+    $('topRight').classList.remove('show');
+    $('loginPassword').value = '';
+    setTimeout(function () { try { $('loginUsername').focus(); } catch (e) {} }, 100);
+  }
+
+  function tryLogin() {
+    var u = $('loginUsername').value.trim(), p = $('loginPassword').value;
+    if (!u || !p) { $('loginNote').textContent = 'Isi username dan password.'; return; }
+    $('btnLogin').disabled = true;
+    $('loginNote').textContent = '';
+    google.script.run
+      .withSuccessHandler(function (res) {
+        $('btnLogin').disabled = false;
+        $('loginPassword').value = '';
+        saveSession(res);
+        showMenu(res);
+      })
+      .withFailureHandler(function (err) {
+        $('btnLogin').disabled = false;
+        $('loginNote').textContent = (err && err.message) || 'Gagal masuk. Coba lagi.';
+      })
+      .loginUser(u, p);
+  }
+
+  $('btnLogin').addEventListener('click', tryLogin);
+  $('loginPassword').addEventListener('keydown', function (e) { if (e.key === 'Enter') tryLogin(); });
+  $('loginUsername').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('loginPassword').focus(); });
+  $('btnLogout').addEventListener('click', function () { try { localStorage.removeItem(KEY); } catch (e) {} showLogin(); });
+
+  var s = loadSession();
+  if (s) showMenu(s); else showLogin();
+})();
+</script>
+</body>
+</html>
