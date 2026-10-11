@@ -3,7 +3,9 @@ var CONFIG = {
   DOKUMENTASI_FOLDER_ID: "1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ", // folder "DOKUMENTASI FTTH" di Google Drive
   TELEGRAM_CHAT_ID: "@ReportBMI",
   // Gateway FTTH Project Control Portal: menukar tiket sekali pakai dengan username & role (untuk mengenali akun RPM).
-  GATEWAY_URL: "https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec"
+  GATEWAY_URL: "https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec",
+  // Spreadsheet Portal FTTH: daftar site (Name) dan SOW di portal Waspang diambil dari tab DATA BASE.
+  FTTH_SPREADSHEET_ID: "1KblZFDIcG6Jbbo6gy2Mh0vpgEzsgfUhMcwg5A5qtSME"
 };
 
 // Token bot Telegram TIDAK ditulis di kode (repo ini publik). Simpan di Script Properties:
@@ -61,6 +63,9 @@ function doPost(e) {
         break;
       case 'SET_DONE':
         result = setDone_(payload);
+        break;
+      case 'GET_SITES':
+        result = getSites_();
         break;
       default:
         result = { status: 'error', message: 'Action tidak dikenali: ' + payload.action };
@@ -391,11 +396,12 @@ function recordDailyReport_(payload) {
   lock.waitLock(20000);
   try {
     var r = payload.report || {}, sh = dailySheet_(), cluster = payload.cluster;
-    if (cluster) addOpeningBalance_(sh, cluster, r.sow || payload.sow, payload.base, payload.by);
+    var sow = r.sow || payload.sow || sowFromId_(cluster);
+    if (cluster) addOpeningBalance_(sh, cluster, sow, payload.base, payload.by);
     appendDailyRow_(sh, {
       'Tanggal': r.tanggal ? "'" + r.tanggal : '',
-      'Cluster Name': cleanClusterNameForSync_(cluster),
-      'SOW': r.sow || payload.sow || '',
+      'Cluster Name': siteName_(cluster),
+      'SOW': sow || '',
       'Start Implementation': r.startImpl ? "'" + r.startImpl : '',
       'Topology': r.topology || '',
       'Subcont': r.subcont || '-',
@@ -407,7 +413,7 @@ function recordDailyReport_(payload) {
       'Today Activity': r.todayActivity || ''
     }, payload.today);
     if (!cluster) return { status: 'success' };
-    return { status: 'success', totals: clusterTotals_(sh, cluster, payload.keys).totals };
+    return { status: 'success', totals: clusterTotals_(sh, cluster, payload.keys, sow).totals };
   } finally {
     lock.releaseLock();
   }
@@ -417,6 +423,68 @@ function recordDailyReport_(payload) {
 
 function cleanClusterNameForSync_(raw) {
   return String(raw || '').replace(/[\u200B-\u200D\uFEFF\u2060]/g, '').trim();
+}
+
+// Id cluster di portal bisa diberi awalan SOW (mis. "SUBFEEDER - <nama>") bila satu nama punya beberapa SOW.
+var SOW_PREFIX_RE_ = /^(subfeeder|fwa|mainfeeder|hubfeeder|uplink)(\s*-\s*|\s+)/i;
+
+// Nama site seperti di DATA BASE (tanpa awalan SOW).
+function siteName_(raw) {
+  return cleanClusterNameForSync_(raw).replace(SOW_PREFIX_RE_, '').trim();
+}
+
+// Teks SOW -> Cluster, Subfeeder, Mainfeeder, Hubfeeder, Uplink atau FWA ('' bila tidak dikenali).
+function normSow_(v) {
+  var s = String(v || '').trim().toLowerCase();
+  if (!s) return '';
+  if (s.indexOf('subfeeder') >= 0 || s.indexOf('sub feeder') >= 0) return 'Subfeeder';
+  if (s.indexOf('mainfeeder') >= 0 || s.indexOf('main feeder') >= 0) return 'Mainfeeder';
+  if (s.indexOf('hubfeeder') >= 0 || s.indexOf('hub feeder') >= 0) return 'Hubfeeder';
+  if (s.indexOf('uplink') >= 0 || s.indexOf('up link') >= 0) return 'Uplink';
+  if (s.indexOf('fwa') >= 0) return 'FWA';
+  if (s.indexOf('cluster') >= 0) return 'Cluster';
+  return '';
+}
+
+// SOW dari awalan id ('' bila tanpa awalan).
+function sowFromId_(raw) {
+  var m = cleanClusterNameForSync_(raw).match(SOW_PREFIX_RE_);
+  return m ? normSow_(m[1]) : '';
+}
+
+// ===================== DAFTAR SITE (tab DATA BASE di spreadsheet Portal FTTH) =====================
+// Kolom Name dan SOW dicari dari baris judul (baris 1-5); setiap baris di bawahnya = satu site + SOW.
+// Hasil disimpan 10 menit, jadi site baru di DATA BASE muncul di portal paling lama 10 menit kemudian.
+
+function getSites_() {
+  var cache = CacheService.getScriptCache(), hit = cache.get('database_sites_v1');
+  if (hit) return { status: 'success', sites: JSON.parse(hit) };
+  var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('DATA BASE');
+  if (!sh) return { status: 'error', message: 'Tab DATA BASE tidak ditemukan.' };
+  var last = sh.getLastRow(), width = Math.min(sh.getLastColumn(), 40);
+  if (last < 2 || width < 2) return { status: 'error', message: 'Tab DATA BASE kosong.' };
+  var vals = sh.getRange(1, 1, last, width).getValues();
+  var hr = -1, cName = -1, cSow = -1, cReg = -1;
+  for (var i = 0; i < Math.min(5, vals.length) && hr < 0; i++) {
+    var head = vals[i].map(normHeader_);
+    if (head.indexOf('name') >= 0 && head.indexOf('sow') >= 0) {
+      hr = i; cName = head.indexOf('name'); cSow = head.indexOf('sow'); cReg = head.indexOf('region');
+    }
+  }
+  if (hr < 0) return { status: 'error', message: 'Kolom Name / SOW tidak ditemukan di tab DATA BASE.' };
+  var sites = [], seen = {};
+  for (var r = hr + 1; r < vals.length; r++) {
+    var name = cleanClusterNameForSync_(vals[r][cName]).replace(/\s+/g, ' ');
+    var sowRaw = String(vals[r][cSow] || '').trim();
+    if (!name || !sowRaw) continue;
+    var sow = normSow_(sowRaw) || sowRaw, k = name.toLowerCase() + '|' + sow.toLowerCase();
+    if (seen[k]) continue;
+    seen[k] = true;
+    sites.push({ name: name, sow: sow, region: cReg >= 0 ? String(vals[r][cReg] || '').trim() : '' });
+  }
+  if (!sites.length) return { status: 'error', message: 'Tab DATA BASE belum berisi site.' };
+  try { cache.put('database_sites_v1', JSON.stringify(sites), 600); } catch (e) {}
+  return { status: 'success', sites: sites };
 }
 
 // ===================== BOQ PLAN & SELESAI (tab MASTER BOQ CLUSTER) =====================
@@ -634,7 +702,7 @@ function getClusterData_(payload) {
   var r = boqRowIndex_(data, h, name, payload.sow);
   var plan = r === -1 ? { found: false, items: [], done: [], doneSet: false } : planFromRow_(h, data[r], payload.local);
   var keys = plan.items.map(function (it) { return it.key; }).concat(payload.keys || []);
-  var t = clusterTotals_(dailySheet_(), payload.cluster || name, keys);
+  var t = clusterTotals_(dailySheet_(), payload.cluster || name, keys, payload.sow);
   return { status: 'success', plan: plan, found: t.found, totals: t.totals };
 }
 
@@ -674,7 +742,7 @@ function dailySheet_() {
 }
 
 function totalsClusterKey_(name) {
-  return cleanClusterNameForSync_(name).toLowerCase();
+  return siteName_(name).toLowerCase();
 }
 
 function todayText_() {
@@ -719,17 +787,22 @@ function appendDailyRow_(sh, vals, byKey) {
   sh.appendRow(rowByHeader_(sheetHeader_(sh), vals));
 }
 
-function clusterRows_(sh, h, cluster) {
-  var ck = totalsClusterKey_(cluster), cName = h.idx['cluster name'], last = sh.getLastRow();
+// Baris satu site + SOW. Baris tanpa SOW ikut dihitung untuk SOW mana pun dari nama itu.
+function clusterRows_(sh, h, cluster, sow) {
+  var ck = totalsClusterKey_(cluster), cName = h.idx['cluster name'], cSow = h.idx['sow'], last = sh.getLastRow();
   if (!ck || cName === undefined || last < 2) return [];
+  var want = normSow_(sow) || sowFromId_(cluster);
   return sh.getRange(2, 1, last - 1, h.width).getValues().filter(function (r) {
-    return totalsClusterKey_(r[cName]) === ck;
+    if (totalsClusterKey_(r[cName]) !== ck) return false;
+    var rowSow = (cSow === undefined ? '' : normSow_(r[cSow])) || sowFromId_(r[cName]);
+    return !want || !rowSow || rowSow === want;
   });
 }
 
 // Cluster yang belum punya baris: Total yang sudah ada di HP pelapor dicatat dulu sebagai baris saldo awal.
 function addOpeningBalance_(sh, cluster, sow, base, by) {
-  if (clusterRows_(sh, sheetHeader_(sh), cluster).length) return;
+  sow = sow || sowFromId_(cluster);
+  if (clusterRows_(sh, sheetHeader_(sh), cluster, sow).length) return;
   var pos = {};
   Object.keys(base || {}).forEach(function (k) {
     var n = Math.floor(Number(base[k]) || 0);
@@ -738,7 +811,7 @@ function addOpeningBalance_(sh, cluster, sow, base, by) {
   if (!Object.keys(pos).length) return;
   appendDailyRow_(sh, {
     'Tanggal': "'" + todayText_(),
-    'Cluster Name': cleanClusterNameForSync_(cluster),
+    'Cluster Name': siteName_(cluster),
     'SOW': sow || '',
     'PIC': by || '',
     'Ringkasan Pencapaian': 'Saldo awal Total (angka yang sudah ada di HP sebelum Total dicatat di sheet)',
@@ -749,8 +822,8 @@ function addOpeningBalance_(sh, cluster, sow, base, by) {
 // Total satu cluster. keys = item di HP (urutan BOQ Plan). Angka di kolom material yang tidak tercatat per item
 // di Rincian Item (mis. diubah langsung di sheet) masuk ke item pertama di HP untuk material itu.
 // -> {found, raw: {key: jumlah apa adanya}, totals: {key: jumlah, minimal 0}}
-function clusterTotals_(sh, cluster, keys) {
-  var h = sheetHeader_(sh), rows = clusterRows_(sh, h, cluster), cRin = h.idx['rincian item'];
+function clusterTotals_(sh, cluster, keys, sow) {
+  var h = sheetHeader_(sh), rows = clusterRows_(sh, h, cluster, sow), cRin = h.idx['rincian item'];
   var mats = materialCols_(h), baseKey = {};
   mats.forEach(function (m) { baseKey[m.col] = m.baseKey; });
   var amount = {};
@@ -799,7 +872,7 @@ function clusterTotals_(sh, cluster, keys) {
 
 function getTotals_(payload) {
   if (!totalsClusterKey_(payload.cluster)) return { status: 'error', message: 'Cluster kosong.' };
-  var t = clusterTotals_(dailySheet_(), payload.cluster, payload.keys);
+  var t = clusterTotals_(dailySheet_(), payload.cluster, payload.keys, payload.sow);
   return { status: 'success', found: t.found, totals: t.totals };
 }
 
@@ -832,22 +905,22 @@ function setTotalByRpm_(payload) {
   var key = String(payload.key || '').trim(), total = Number(payload.total);
   if (!totalsClusterKey_(payload.cluster) || !key || !(total >= 0)) return { status: 'error', message: 'Data Total tidak lengkap.' };
   total = Math.floor(total);
-  var name = s.name || s.username;
+  var name = s.name || s.username, sow = payload.sow || sowFromId_(payload.cluster);
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
     var sh = dailySheet_();
-    addOpeningBalance_(sh, payload.cluster, payload.sow, payload.base, name);
+    addOpeningBalance_(sh, payload.cluster, sow, payload.base, name);
     var keys = (payload.keys || []).slice();
     if (keys.indexOf(key) < 0) keys.push(key);
-    var cur = clusterTotals_(sh, payload.cluster, keys).raw[key] || 0;
+    var cur = clusterTotals_(sh, payload.cluster, keys, sow).raw[key] || 0;
     if (total !== cur) {
       var by = {};
       by[key] = total - cur;
       appendDailyRow_(sh, {
         'Tanggal': "'" + todayText_(),
-        'Cluster Name': cleanClusterNameForSync_(payload.cluster),
-        'SOW': payload.sow || '',
+        'Cluster Name': siteName_(payload.cluster),
+        'SOW': sow || '',
         'PIC': name,
         'Ringkasan Pencapaian': 'Koreksi Total oleh RPM ' + name + ': ' + (payload.itemName || key) + ' dari ' + cur + ' menjadi ' + total,
         'Today Activity': 'Koreksi Total (RPM)'

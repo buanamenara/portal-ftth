@@ -34,11 +34,18 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.sso_verify) {
     var t = String(e.parameter.sso_verify), out = { ok: false };
     if (/^[A-Za-z0-9]{32,80}$/.test(t)) {
-      var cache = CacheService.getScriptCache(), uname = cache.get('tk_' + t);
-      if (uname) {
+      var cache = CacheService.getScriptCache(), v = cache.get('tk_' + t);
+      if (v) {
         cache.remove('tk_' + t);
-        var r = findUser_(uname);
-        out = { ok: true, username: uname, role: r ? String(r[3]).trim().toLowerCase() : '', name: r ? String(r[2]).trim() : '' };
+        // Tiket menyimpan username, role dan nama sejak dibuat (tanpa membaca sheet USERS lagi, supaya portal cepat terbuka).
+        var info = null;
+        try { info = JSON.parse(v); } catch (err) { /* tiket versi lama: hanya username */ }
+        if (info && info.u) {
+          out = { ok: true, username: info.u, role: info.role || '', name: info.name || '' };
+        } else {
+          var r = findUser_(v);
+          out = { ok: true, username: v, role: r ? String(r[3]).trim().toLowerCase() : '', name: r ? String(r[2]).trim() : '' };
+        }
       }
     }
     return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
@@ -87,12 +94,13 @@ function portalLinks(sid) {
   var uname = /^[A-Za-z0-9]{32,80}$/.test(String(sid || '')) ? cache.get('sid_' + sid) : null;
   var r = uname ? findUser_(uname) : null;
   if (!r || (String(r[5]).trim().toLowerCase() || 'aktif') === 'nonaktif') throw new Error('Sesi habis. Silakan login lagi.');
-  var keys = CONFIG.ROLE_PORTALS[String(r[3]).trim().toLowerCase()] || [];
+  var role = String(r[3]).trim().toLowerCase(), keys = CONFIG.ROLE_PORTALS[role] || [];
+  var info = JSON.stringify({ u: String(uname), role: role, name: String(r[2]).trim() });
   return keys.map(function (k) {
     var p = CONFIG.PORTALS[k], href = CONFIG.SHELL_URL + '?p=' + k;
     if (p.sso) {
       var t = randomId_();
-      cache.put('tk_' + t, uname, CONFIG.TICKET_TTL);
+      cache.put('tk_' + t, info, CONFIG.TICKET_TTL);
       href += '&t=' + t;
     }
     return { key: k, title: p.title, desc: p.desc, href: href };

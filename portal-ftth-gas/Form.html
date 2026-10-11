@@ -8,6 +8,10 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800&display=swap">
   <style>
     :root { --gold: #C9972C; --gold-dark: #A87A1B; --navy: #000000; --bg: #FBF7EE; }
+    /* Masuk otomatis: portal langsung tampil, akses dicek di belakang (garis emas berjalan di atas) */
+    body.entering #appShell, body.entering .topbar-right { pointer-events: none; }
+    body.entering::before { content: ''; position: fixed; top: 0; left: 0; z-index: 1000; height: 3px; width: 35%; background: var(--gold); animation: entering 1s ease-in-out infinite; }
+    @keyframes entering { from { left: -35%; } to { left: 100%; } }
     * { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; margin: 0; background: var(--bg); color: #222; }
     .topbar { position: sticky; top: 0; z-index: 100; background: var(--navy); border-bottom: 4px solid var(--gold); padding: 14px 20px; text-align: center; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 14px; }
@@ -696,7 +700,7 @@
 
   <!-- ===== BERANDA ===== -->
   <!-- ===== BELUM MASUK: login hanya di Gateway (FTTH Project Control Portal); tidak ada form username/password di sini ===== -->
-  <div id="viewLogin">
+  <div id="viewLogin" style="display:none">
     <div class="card">
       <p class="desc" id="loginNote">Memeriksa akses...</p>
       <!-- Cadangan bila halaman tidak dibuka dari aplikasi (PWA) sehingga pengalihan otomatis tidak jalan -->
@@ -1434,11 +1438,12 @@
       USER_NAME = '';
       PREFETCH = null;
       accessSet('');
-      try { localStorage.removeItem('bmiUserName'); } catch (e) {}
+      try { localStorage.removeItem('bmiUserName'); localStorage.removeItem('bmiUserRole'); } catch (e) {}
       cpLoaded = false;
       cpData = [];
       baLoaded = false;
       adminLoaded = false;
+      document.body.classList.remove('entering');
       document.querySelector('.topbar').classList.remove('with-dash');
       $('appShell').style.display = 'none';
       if ($('userDropdown')) $('userDropdown').classList.remove('open');
@@ -1453,7 +1458,8 @@
       try { window.top.postMessage({ bmi: 'gateway', go: opts.logout ? '' : 'ftth', logout: !!opts.logout }, SHELL_ORIGIN_); } catch (e) { /* abaikan */ }
       setTimeout(function () { if (!ACCESS) $('gatewayLink').style.display = ''; }, 3000);
     }
-    function enterPortal() {
+    function enterPortal(pending) {
+      if (!pending) document.body.classList.remove('entering');
       $('logoutLink').style.display = 'inline';
       // Portal Waspang dibuka lewat Gateway (?go=waspang) supaya membawa tiket: Waspang mengenali akun RPM untuk edit Total.
       $('waspangLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'waspang') ? 'block' : 'none';
@@ -1469,7 +1475,7 @@
       $('adminDesc').textContent = (ROLE === 'rpm') ? 'Kelola user, password, dan hak akses portal.' : 'Ubah password akun Anda sendiri.';
       $('appShell').style.display = 'flex';
       showView('viewHome');
-      if (!cpLoaded) { cpLoaded = true; loadCheckpoint(); }
+      if (!pending && !cpLoaded) { cpLoaded = true; loadCheckpoint(); }
       if (!window.__clockStarted) { window.__clockStarted = true; updateClock_(); setInterval(updateClock_, 30000); }
     }
     // Dibuka dari Gateway (?sso=tiket): masuk otomatis tanpa username/password. Selain itu pakai sesi tersimpan.
@@ -1482,17 +1488,42 @@
         });
       } catch (e) { initAccessSaved_(); }
     }
+    // Portal langsung tampil dengan nama & role terakhir di perangkat ini; akses dicek di belakang (tanpa kotak "Masuk").
+    function showShellPending_() {
+      try {
+        USER_NAME = localStorage.getItem('bmiUserName') || '';
+        ROLE_RAW = localStorage.getItem('bmiUserRole') || '';
+      } catch (e) {}
+      ROLE = (ROLE_RAW === 'rpm') ? 'rpm' : 'admin';
+      document.body.classList.add('entering');
+      enterPortal(true);
+    }
+    function accessOk_(res) {
+      ROLE = (res.role === 'rpm') ? 'rpm' : 'admin';
+      ROLE_RAW = res.role || '';
+      USER_NAME = res.name || '';
+      try { localStorage.setItem('bmiUserName', USER_NAME); localStorage.setItem('bmiUserRole', ROLE_RAW); } catch (e) {}
+    }
+    function accessFail_(text) {
+      ACCESS = '';
+      document.body.classList.remove('entering');
+      $('appShell').style.display = 'none';
+      document.querySelector('.topbar').classList.remove('with-dash');
+      $('loginNote').textContent = text;
+      $('gatewayLink').style.display = '';
+      showView('viewLogin');
+    }
     function ssoEnter_(ticket) {
-      $('loginNote').textContent = 'Masuk dari FTTH Project Control Portal...';
+      // Sesi tersimpan di perangkat ini (biasanya user yang sama): data Beranda sudah diminta selagi tiket dicek.
+      var saved = accessGet();
+      if (saved) startPrefetch_(saved);
+      showShellPending_();
       google.script.run
         .withSuccessHandler(function (res) {
-          ROLE = (res.role === 'rpm') ? 'rpm' : 'admin';
-          ROLE_RAW = res.role || '';
+          accessOk_(res);
           ACCESS = res.code;
-          USER_NAME = res.name || '';
           accessSet(res.code);
-          try { localStorage.setItem('bmiUserName', USER_NAME); } catch (e) {}
-          startPrefetch_(res.code);
+          if (res.code !== saved) startPrefetch_(res.code);
           CAME_WITH_SSO_ = false;   // tiket berhasil: sesi berakhir nanti boleh dialihkan ke Gateway lagi
           enterPortal();
         })
@@ -1503,19 +1534,17 @@
       var saved = accessGet();
       if (!saved) { requireLogin(''); return; }
       ACCESS = saved;
-      startPrefetch_(saved);
+      if (!PREFETCH) startPrefetch_(saved);
+      showShellPending_();
       google.script.run
         .withSuccessHandler(function (res) {
-          ROLE = (res.role === 'rpm') ? 'rpm' : 'admin';
-          ROLE_RAW = res.role || '';
-          USER_NAME = res.name || '';
-          try { localStorage.setItem('bmiUserName', USER_NAME); } catch (e) {}
+          accessOk_(res);
           enterPortal();
         })
         .withFailureHandler(function (err) {
           var m = (err && err.message) ? err.message : '';
           if (/kode akses|username atau password|belum ada user/i.test(m)) requireLogin('Sesi berakhir.');
-          else { ACCESS = ''; $('loginNote').textContent = 'Tidak bisa terhubung ke server. Muat ulang halaman.'; }
+          else accessFail_('Tidak bisa terhubung ke server. Muat ulang halaman.');
         })
         .checkAccess(saved);
     }
