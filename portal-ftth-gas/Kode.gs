@@ -1398,7 +1398,7 @@ function setupPortalButton_() {
   var B = SpreadsheetApp.BorderStyle;
 
   var first = sh.getRange(TOP, 2);
-  var exists = /^\s*PORTAL FTTH/.test(String(first.getValue())) || /HYPERLINK\(/i.test(first.getFormula());
+  var exists = /^\s*(PORTAL FTTH|FTTH PROJECT CONTROL PORTAL)/.test(String(first.getValue())) || /HYPERLINK\(/i.test(first.getFormula());
   if (!exists) sh.insertRowsBefore(TOP, ROWS);
 
   var area = sh.getRange(TOP, 1, ROWS, 16);
@@ -1414,22 +1414,22 @@ function setupPortalButton_() {
 
   // Tombol emas (B:D), efek timbul lewat garis tepi
   var btn = sh.getRange(TOP, 2, 4, 3).merge();
-  btn.setFormula('=HYPERLINK("' + PORTAL_URL + '";"BUKA PORTAL FTTH  →")')
+  btn.setFormula('=HYPERLINK("' + PORTAL_URL + '";"BUKA FTTH PROJECT CONTROL PORTAL  →")')
     .setBackground(GOLD).setFontColor(INK).setFontSize(20).setFontWeight('bold').setFontLine('none')
-    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+    .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
   btn.setBorder(true, true, null, null, null, null, '#EBCB7A', B.SOLID_MEDIUM);
   btn.setBorder(null, null, true, true, null, null, '#8A6A1B', B.SOLID_THICK);
 
   // Keterangan (E:O)
   var title = sh.getRange(TOP, 5, 1, 11).merge();
-  title.setValue('   PORTAL FTTH  |  Upload BOQ & BA Material')
+  title.setValue('   FTTH PROJECT CONTROL PORTAL  |  Portal FTTH & Portal Waspang')
     .setFontSize(14).setFontWeight('bold').setFontColor('#FFFFFF').setHorizontalAlignment('left');
   var desc = sh.getRange(TOP + 1, 5, 3, 11).merge();
   desc.setValue(
-    '   Kirim data ke spreadsheet ini lewat web, tanpa mengetik manual:\n' +
-    '   •  Submit BOQ (Excel)  →  DRAWING / WAREHOUSE / OPNAME (dicek ulang dulu sebelum dikirim)\n' +
-    '   •  Warehouse – BA Transaksi (buat BA otomatis: Nomor BA standar, PDF sesuai template)  →  BA TRANSAKSI\n' +
-    '   •  Warehouse – Submit BA Transaksi (upload PDF BA bertanda tangan)  →  BA TRANSAKSI, rekapnya otomatis di REKAP BA (spreadsheet Gudang BMI)')
+    '   Masuk sekali lewat FTTH Project Control Portal, lalu pilih portalnya:\n' +
+    '   •  Portal FTTH – Submit BOQ (Excel)  →  DRAWING / WAREHOUSE / OPNAME (dicek ulang dulu sebelum dikirim)\n' +
+    '   •  Portal FTTH – Warehouse BA Transaksi (buat BA otomatis, upload PDF BA bertanda tangan)  →  BA TRANSAKSI dan REKAP BA (spreadsheet Gudang BMI)\n' +
+    '   •  Portal Waspang – Daily Report EMR, BOQ Plan cluster dan foto lapangan  →  spreadsheet Waspang, Google Drive dan grup Telegram')
     .setFontSize(11).setFontColor(MUTED).setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
 
   SpreadsheetApp.flush();
