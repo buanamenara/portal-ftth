@@ -2966,12 +2966,15 @@
       if (!elTotal) return;
       const today = elToday ? (parseInt(elToday.value) || 0) : 0;
       const stored = Math.max(0, (parseInt(elTotal.value) || 0) - today);
+      // Angka di HP ini dipakai sebagai saldo awal bila cluster belum punya baris di DAILY REPORT EMR.
+      const keys = dailyKeys(cluster), base = {};
+      keys.forEach(k => { base[k] = getPreviousCumulative(cluster, k); });
       try {
         const res = await fetch(getConfig().scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'SET_TOTAL', session: WS_SESSION && WS_SESSION.session, cluster: cluster, key: itemKey, total: stored,
-            sow: getSowType(cluster), itemName: dailyItemName(cluster, itemKey) })
+            sow: getSowType(cluster), itemName: dailyItemName(cluster, itemKey), keys: keys, base: base })
         });
         const d = await res.json();
         if (d.status === 'success') {
@@ -3021,7 +3024,18 @@
       updateOwnerModeUI();
     }
 
-    // ===== Total bersama dari sheet PROGRES TOTAL; disalin ke penyimpanan perangkat sebagai cache =====
+    // ===== Total bersama, dihitung server dari tab DAILY REPORT EMR; disalin ke penyimpanan perangkat sebagai cache =====
+    // Item cluster di HP ini (urutan BOQ Plan), plus item lain yang sedang tampil di tabel Daily.
+    function dailyKeys(cluster) {
+      const keys = getClusterItems(cluster).map(it => it.key);
+      if (lastDailyTableCluster === cluster) {
+        document.querySelectorAll('#dailyTableBody input[id^="inp_today_"]').forEach(el => {
+          const k = el.id.slice('inp_today_'.length);
+          if (!keys.includes(k)) keys.push(k);
+        });
+      }
+      return keys;
+    }
     async function refreshSharedTotals(cluster) {
       const cfg = getConfig();
       if (!cluster || !cfg.scriptUrl) return;
@@ -3029,10 +3043,10 @@
         const res = await fetch(cfg.scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'GET_TOTALS', cluster: cluster })
+          body: JSON.stringify({ action: 'GET_TOTALS', cluster: cluster, keys: dailyKeys(cluster) })
         });
         const d = await res.json();
-        // Belum ada di sheet: pakai angka di perangkat ini (dikirim sebagai angka awal saat Daily Report).
+        // Cluster belum punya baris di DAILY REPORT EMR: pakai angka di perangkat ini (dicatat sebagai saldo awal saat Daily Report).
         if (d.status === 'success' && d.found) applySharedTotals(cluster, d.totals);
       } catch (e) {}
     }
@@ -3410,15 +3424,14 @@ ${todayActivity}`;
 
       const text = generateDailyTelegramText();
 
-      // Today per item, plus Total di perangkat ini sebagai angka awal untuk item yang belum ada di sheet.
+      // Today per item, plus Total di perangkat ini sebagai saldo awal bila cluster belum punya baris di DAILY REPORT EMR.
       const reportCluster = getActiveDailyCluster();
       const reportSow = getSowType(reportCluster);
-      const todayByKey = {}, baseByKey = {}, namesByKey = {};
+      const todayByKey = {}, baseByKey = {};
       document.querySelectorAll('#dailyTableBody input[id^="inp_today_"]').forEach(el => {
         const key = el.id.slice('inp_today_'.length);
         todayByKey[key] = parseInt(el.value) || 0;
         baseByKey[key] = getPreviousCumulative(reportCluster, key);
-        namesByKey[key] = dailyItemName(reportCluster, key);
       });
       // Isi baris tab DAILY REPORT EMR di spreadsheet
       const val = id => (document.getElementById(id) ? document.getElementById(id).value : '').trim();
@@ -3446,7 +3459,7 @@ ${todayActivity}`;
             sow: reportSow,
             today: todayByKey,
             base: baseByKey,
-            names: namesByKey,
+            keys: dailyKeys(reportCluster),
             report: report,
             by: (document.getElementById('dailyPic').value || '').trim()
           })

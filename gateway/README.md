@@ -13,7 +13,8 @@ Portal FTTH yang dibuka dengan tiket tidak mengalihkan balik otomatis, supaya ti
 
 Portal Waspang juga menerima tiket (tanpa form login; Waspang tetap bisa dipakai tanpa tiket). Server Waspang
 menukarnya lewat `?sso_verify=`, yang mengembalikan username, role dan nama, untuk mengenali akun RPM:
-hanya RPM yang boleh mengubah Total di sheet "PROGRES TOTAL" (spreadsheet Waspang).
+hanya RPM yang boleh mengubah Total di portal. Total dihitung dari tab "DAILY REPORT EMR" (spreadsheet Waspang);
+perubahan RPM dicatat sebagai baris koreksi di tab itu.
 
 Akses per role diatur di `CONFIG.ROLE_PORTALS` (Kode.gs):
 
