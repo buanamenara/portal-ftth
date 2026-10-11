@@ -314,7 +314,7 @@
       background-color: #fef9ed !important;
     }
 
-    /* Baris Judul Kategori (Install Pole, Pulling cable, Install Aksesories, ELECTRICAL) */
+    /* Baris Judul Kategori (Install Pole, Pulling cable, Install Aksesories, Electrical) */
     .achieve-table tbody tr.header-row td,
     .achieve-table tbody tr.header-row:hover td,
     .achieve-table .header-row td {
@@ -913,6 +913,10 @@
     .daily-box, .daily-box-unit, .daily-box-input, .daily-box-total, .daily-box-plan { border-color: #cfc7b5; color: #222; }
     .daily-box-total { background: #fbf7ee; }
     .daily-box-input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,151,44,.2); }
+    /* Angka Today dan Total tepat di tengah kotak: tanpa tombol panah angka yang menggeser angka ke kiri */
+    .daily-box-input, .daily-box-total { text-align: center; -moz-appearance: textfield; appearance: textfield; }
+    .daily-box-input::-webkit-outer-spin-button, .daily-box-input::-webkit-inner-spin-button,
+    .daily-box-total::-webkit-outer-spin-button, .daily-box-total::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
     .boq-drop-zone, .upload-zone { border-color: #cfc7b5; background: #fffdf7; border-radius: 8px; }
     .boq-drop-zone:hover, .upload-zone:hover { border-color: var(--gold); background: #fff9e6; box-shadow: none; transform: none; }
@@ -1711,7 +1715,7 @@
             <option value="Pulling cable">Pulling cable</option>
             <option value="Install Pole">Install Pole</option>
             <option value="Install Aksesories">Install Aksesories</option>
-            <option value="ELECTRICAL">ELECTRICAL</option>
+            <option value="Electrical">Electrical</option>
             <option value="Pekerjaan Sipil">Pekerjaan Sipil / Gali</option>
             <option value="Lain-lain">Lain-lain</option>
           </select>
@@ -1833,20 +1837,20 @@
       { key: 'pole_9_4',       name: 'Pole 9/4 or 9/5',  alias: 'NP 9m + 4"',     unit: 'Btg',   cat: 'Install Pole',     terms: ['tiang tunggal 9 meter 4', 'tiang tunggal 9 meter 5', 'pengadaan tiang tunggal 9 meter 4', '9m 4', '9m'] },
       { key: 'digging_hole',   name: 'Digging Pole',     alias: 'Digging Hole / Gali Lubang', unit: 'Titik', cat: 'Install Pole', terms: ['digging pole', 'digging hole', 'gali lubang'] },
       { key: 'casting_pole',   name: 'Casting Pole',     alias: 'Bahan Pondasi',  unit: 'Titik', cat: 'Install Pole',     terms: ['bahan pondasi tiang', 'pondasi tiang', 'casting'] },
-      { key: 'cable_24c_line_a', name: 'Cable 24C Line A', alias: 'Line A - 24C/2T', unit: 'meter', cat: 'Line', terms: ['line a - 24c/2t', 'line a - 24c', 'line a 24c', 'cable 24c line a', 'kabel 24c line a', '24c/2t line a', 'line a'] },
-      { key: 'cable_24c_line_b', name: 'Cable 24C Line B', alias: 'Line B - 24C/2T', unit: 'meter', cat: 'Line', terms: ['line b - 24c/2t', 'line b - 24c', 'line b 24c', 'cable 24c line b', 'kabel 24c line b', '24c/2t line b', 'line b'] },
-      { key: 'cable_24c_line_c', name: 'Cable 24C Line C', alias: 'Line C - 24C/2T', unit: 'meter', cat: 'Line', terms: ['line c - 24c/2t', 'line c - 24c', 'line c 24c', 'cable 24c line c', 'kabel 24c line c', '24c/2t line c', 'line c'] },
-      { key: 'cable_24c_line_d', name: 'Cable 24C Line D', alias: 'Line D - 24C/2T', unit: 'meter', cat: 'Line', terms: ['line d - 24c/2t', 'line d - 24c', 'line d 24c', 'cable 24c line d', 'kabel 24c line d', '24c/2t line d', 'line d'] },
+      { key: 'cable_24c_line_a', name: 'Cable 24C Line A', alias: 'Line A - 24C/2T', unit: 'meter', cat: 'Pulling cable', terms: ['line a - 24c/2t', 'line a - 24c', 'line a 24c', 'cable 24c line a', 'kabel 24c line a', '24c/2t line a', 'line a'] },
+      { key: 'cable_24c_line_b', name: 'Cable 24C Line B', alias: 'Line B - 24C/2T', unit: 'meter', cat: 'Pulling cable', terms: ['line b - 24c/2t', 'line b - 24c', 'line b 24c', 'cable 24c line b', 'kabel 24c line b', '24c/2t line b', 'line b'] },
+      { key: 'cable_24c_line_c', name: 'Cable 24C Line C', alias: 'Line C - 24C/2T', unit: 'meter', cat: 'Pulling cable', terms: ['line c - 24c/2t', 'line c - 24c', 'line c 24c', 'cable 24c line c', 'kabel 24c line c', '24c/2t line c', 'line c'] },
+      { key: 'cable_24c_line_d', name: 'Cable 24C Line D', alias: 'Line D - 24C/2T', unit: 'meter', cat: 'Pulling cable', terms: ['line d - 24c/2t', 'line d - 24c', 'line d 24c', 'cable 24c line d', 'kabel 24c line d', '24c/2t line d', 'line d'] },
 
-      { key: 'cable_36c_line_a', name: 'Cable 36C Line A', alias: 'Line A - 36C/3T', unit: 'meter', cat: 'Line', terms: ['line a - 36c/3t', 'line a - 36c', 'line a 36c', 'cable 36c line a', 'kabel 36c line a', '36c/3t line a'] },
-      { key: 'cable_36c_line_b', name: 'Cable 36C Line B', alias: 'Line B - 36C/3T', unit: 'meter', cat: 'Line', terms: ['line b - 36c/3t', 'line b - 36c', 'line b 36c', 'cable 36c line b', 'kabel 36c line b', '36c/3t line b'] },
-      { key: 'cable_36c_line_c', name: 'Cable 36C Line C', alias: 'Line C - 36C/3T', unit: 'meter', cat: 'Line', terms: ['line c - 36c/3t', 'line c - 36c', 'line c 36c', 'cable 36c line c', 'kabel 36c line c', '36c/3t line c'] },
-      { key: 'cable_36c_line_d', name: 'Cable 36C Line D', alias: 'Line D - 36C/3T', unit: 'meter', cat: 'Line', terms: ['line d - 36c/3t', 'line d - 36c', 'line d 36c', 'cable 36c line d', 'kabel 36c line d', '36c/3t line d'] },
+      { key: 'cable_36c_line_a', name: 'Cable 36C Line A', alias: 'Line A - 36C/3T', unit: 'meter', cat: 'Pulling cable', terms: ['line a - 36c/3t', 'line a - 36c', 'line a 36c', 'cable 36c line a', 'kabel 36c line a', '36c/3t line a'] },
+      { key: 'cable_36c_line_b', name: 'Cable 36C Line B', alias: 'Line B - 36C/3T', unit: 'meter', cat: 'Pulling cable', terms: ['line b - 36c/3t', 'line b - 36c', 'line b 36c', 'cable 36c line b', 'kabel 36c line b', '36c/3t line b'] },
+      { key: 'cable_36c_line_c', name: 'Cable 36C Line C', alias: 'Line C - 36C/3T', unit: 'meter', cat: 'Pulling cable', terms: ['line c - 36c/3t', 'line c - 36c', 'line c 36c', 'cable 36c line c', 'kabel 36c line c', '36c/3t line c'] },
+      { key: 'cable_36c_line_d', name: 'Cable 36C Line D', alias: 'Line D - 36C/3T', unit: 'meter', cat: 'Pulling cable', terms: ['line d - 36c/3t', 'line d - 36c', 'line d 36c', 'cable 36c line d', 'kabel 36c line d', '36c/3t line d'] },
 
-      { key: 'cable_48c_line_a', name: 'Cable 48C Line A', alias: 'Line A - 48C/4T', unit: 'meter', cat: 'Line', terms: ['line a - 48c/4t', 'line a - 48c', 'line a 48c', 'cable 48c line a', 'kabel 48c line a', '48c/4t line a'] },
-      { key: 'cable_48c_line_b', name: 'Cable 48C Line B', alias: 'Line B - 48C/4T', unit: 'meter', cat: 'Line', terms: ['line b - 48c/4t', 'line b - 48c', 'line b 48c', 'cable 48c line b', 'kabel 48c line b', '48c/4t line b'] },
-      { key: 'cable_48c_line_c', name: 'Cable 48C Line C', alias: 'Line C - 48C/4T', unit: 'meter', cat: 'Line', terms: ['line c - 48c/4t', 'line c - 48c', 'line c 48c', 'cable 48c line c', 'kabel 48c line c', '48c/4t line c'] },
-      { key: 'cable_48c_line_d', name: 'Cable 48C Line D', alias: 'Line D - 48C/4T', unit: 'meter', cat: 'Line', terms: ['line d - 48c/4t', 'line d - 48c', 'line d 48c', 'cable 48c line d', 'kabel 48c line d', '48c/4t line d'] },
+      { key: 'cable_48c_line_a', name: 'Cable 48C Line A', alias: 'Line A - 48C/4T', unit: 'meter', cat: 'Pulling cable', terms: ['line a - 48c/4t', 'line a - 48c', 'line a 48c', 'cable 48c line a', 'kabel 48c line a', '48c/4t line a'] },
+      { key: 'cable_48c_line_b', name: 'Cable 48C Line B', alias: 'Line B - 48C/4T', unit: 'meter', cat: 'Pulling cable', terms: ['line b - 48c/4t', 'line b - 48c', 'line b 48c', 'cable 48c line b', 'kabel 48c line b', '48c/4t line b'] },
+      { key: 'cable_48c_line_c', name: 'Cable 48C Line C', alias: 'Line C - 48C/4T', unit: 'meter', cat: 'Pulling cable', terms: ['line c - 48c/4t', 'line c - 48c', 'line c 48c', 'cable 48c line c', 'kabel 48c line c', '48c/4t line c'] },
+      { key: 'cable_48c_line_d', name: 'Cable 48C Line D', alias: 'Line D - 48C/4T', unit: 'meter', cat: 'Pulling cable', terms: ['line d - 48c/4t', 'line d - 48c', 'line d 48c', 'cable 48c line d', 'kabel 48c line d', '48c/4t line d'] },
       { key: 'cable_24c',      name: 'Cable 24C',        alias: '24C',            unit: 'meter', cat: 'Pulling cable',    terms: ['sm g.652.d-adss 24 cores', 'fo core type sm g.652.d-adss 24 cores', '24 cores', '24c', '24/4t'] },
       { key: 'cable_36c',      name: 'Cable 36C',        alias: '36C',            unit: 'meter', cat: 'Pulling cable',    terms: ['sm g.652.d-adss 36 cores', 'fo core type sm g.652.d-adss 36 cores', '36 cores', '36c', '36/3t'] },
       { key: 'cable_48c',      name: 'Cable 48C',        alias: '48C',            unit: 'meter', cat: 'Pulling cable',    terms: ['sm g.652.d-adss 48 cores', 'fo core type sm g.652.d-adss 48 cores', '48 cores', '48c', '48/4t'] },
@@ -1854,15 +1858,15 @@
       { key: 'cable_144c',     name: 'Cable 144C',       alias: '144C',           unit: 'meter', cat: 'Pulling cable',    terms: ['sm g.652.d-adss 144 cores', 'fo core type sm g.652.d-adss 144 cores', '144 cores', '144c'] },
       { key: 'slingwire_6mm',  name: 'Sling Wire 6mm',   alias: 'SlingWire',      unit: 'meter', cat: 'Pulling cable',    terms: ['sling messenger 6', 'strand wire 6', 'sling wire', 'slingwire'] },
       { key: 'hdpe_40_34',     name: 'HDPE 40/34',       alias: 'HDPE 40/30',     unit: 'meter', cat: 'Pulling cable',    terms: ['hdpe 40/34', 'hdpe 40/30', 'hdpe'] },
-      { key: 'fdt_48',         name: 'FDT 48',           alias: 'FDT 48 Core',    unit: 'Unit',  cat: 'ELECTRICAL',       terms: ['48 cores capacity pole mounted fdt', 'fdt 48'] },
-      { key: 'fdt_72',         name: 'FDT 72',           alias: 'FDT 72 Core',    unit: 'Unit',  cat: 'ELECTRICAL',       terms: ['72 cores capacity pole mounted fdt', 'fdt 72'] },
-      { key: 'fat',            name: 'FAT',              alias: 'FAT 16 Port',    unit: 'Unit',  cat: 'ELECTRICAL',       terms: ['pole mounted outdoor type (16 ports type)', 'fat 16', 'fat'] },
-      { key: 'fat_line_a',     name: 'FAT Line A',       alias: 'FAT Line A',     unit: 'Unit',  cat: 'ELECTRICAL',       terms: ['fat line a', 'fat 1:8 line a', 'fat a'] },
-      { key: 'fat_line_b',     name: 'FAT Line B',       alias: 'FAT Line B',     unit: 'Unit',  cat: 'ELECTRICAL',       terms: ['fat line b', 'fat 1:8 line b', 'fat b'] },
-      { key: 'fat_line_c',     name: 'FAT Line C',       alias: 'FAT Line C',     unit: 'Unit',  cat: 'ELECTRICAL',       terms: ['fat line c', 'fat 1:8 line c', 'fat c'] },
-      { key: 'fat_line_d',     name: 'FAT Line D',       alias: 'FAT Line D',     unit: 'Unit',  cat: 'ELECTRICAL',       terms: ['fat line d', 'fat 1:8 line d', 'fat d'] },
-      { key: 'jc_48',          name: 'JC 48 C',          alias: 'Joint Closure 48', unit: 'Unit',cat: 'ELECTRICAL',       terms: ['joint closure type in-line 48', 'fiber optic joint closure type in-line 48', 'joint closure 48', 'jc 48'] },
-      { key: 'jc_144',         name: 'JC 144 C',         alias: 'Joint Closure 144',unit: 'Unit',cat: 'ELECTRICAL',       terms: ['joint closure type in-line 144', 'fiber optic joint closure type in-line 144', 'joint closure 144', 'jc 144'] },
+      { key: 'fdt_48',         name: 'FDT 48',           alias: 'FDT 48 Core',    unit: 'Unit',  cat: 'Electrical',       terms: ['48 cores capacity pole mounted fdt', 'fdt 48'] },
+      { key: 'fdt_72',         name: 'FDT 72',           alias: 'FDT 72 Core',    unit: 'Unit',  cat: 'Electrical',       terms: ['72 cores capacity pole mounted fdt', 'fdt 72'] },
+      { key: 'fat',            name: 'FAT',              alias: 'FAT 16 Port',    unit: 'Unit',  cat: 'Electrical',       terms: ['pole mounted outdoor type (16 ports type)', 'fat 16', 'fat'] },
+      { key: 'fat_line_a',     name: 'FAT Line A',       alias: 'FAT Line A',     unit: 'Unit',  cat: 'Electrical',       terms: ['fat line a', 'fat 1:8 line a', 'fat a'] },
+      { key: 'fat_line_b',     name: 'FAT Line B',       alias: 'FAT Line B',     unit: 'Unit',  cat: 'Electrical',       terms: ['fat line b', 'fat 1:8 line b', 'fat b'] },
+      { key: 'fat_line_c',     name: 'FAT Line C',       alias: 'FAT Line C',     unit: 'Unit',  cat: 'Electrical',       terms: ['fat line c', 'fat 1:8 line c', 'fat c'] },
+      { key: 'fat_line_d',     name: 'FAT Line D',       alias: 'FAT Line D',     unit: 'Unit',  cat: 'Electrical',       terms: ['fat line d', 'fat 1:8 line d', 'fat d'] },
+      { key: 'jc_48',          name: 'JC 48 C',          alias: 'Joint Closure 48', unit: 'Unit',cat: 'Electrical',       terms: ['joint closure type in-line 48', 'fiber optic joint closure type in-line 48', 'joint closure 48', 'jc 48'] },
+      { key: 'jc_144',         name: 'JC 144 C',         alias: 'Joint Closure 144',unit: 'Unit',cat: 'Electrical',       terms: ['joint closure type in-line 144', 'fiber optic joint closure type in-line 144', 'joint closure 144', 'jc 144'] },
       { key: 'suspension_48',  name: 'Suspension 48',    alias: 'Suspension',     unit: 'pcs',   cat: 'Install Aksesories',      terms: ['suspension clamp 48', 'suspension 48', 'suspension clamp', 'suspension'] },
       { key: 'suspension_144', name: 'Suspension 144',   alias: 'Suspension',     unit: 'pcs',   cat: 'Install Aksesories',      terms: ['suspension clamp 144', 'suspension 144'] },
       { key: 'pole_clam',      name: 'Pole Clam',        alias: 'Pole Clamp',     unit: 'pcs',   cat: 'Install Aksesories',      terms: ['pole clamp single', 'pole clamp', 'pole clam'] },
@@ -2571,9 +2575,9 @@
         { key: "pole_7_3", name: "Pole 7/3", cat: "Install Pole", unit: "Btg", volume: 12 },
         { key: "digging_hole", name: "Digging Pole", cat: "Install Pole", unit: "Titik", volume: 13 },
         { key: "casting_pole", name: "Casting Pole", cat: "Install Pole", unit: "Titik", volume: 13 },
-        { key: "cable_36c", name: "Cable 36C Line A", cat: "Line", unit: "meter", volume: 1202 },
-        { key: "fdt_48", name: "FDT 48", cat: "ELECTRICAL", unit: "Unit", volume: 1 },
-        { key: "fat_line_a", name: "FAT Line A", cat: "ELECTRICAL", unit: "Unit", volume: 12 },
+        { key: "cable_36c", name: "Cable 36C Line A", cat: "Pulling cable", unit: "meter", volume: 1202 },
+        { key: "fdt_48", name: "FDT 48", cat: "Electrical", unit: "Unit", volume: 1 },
+        { key: "fat_line_a", name: "FAT Line A", cat: "Electrical", unit: "Unit", volume: 12 },
         { key: "suspension_48", name: "Suspension 48", cat: "Install Aksesories", unit: "pcs", volume: 12 },
         { key: "pole_clam", name: "Pole Clam", cat: "Install Aksesories", unit: "pcs", volume: 13 },
         { key: "dead_end", name: "Dead End", cat: "Install Aksesories", unit: "pcs", volume: 26 },
@@ -2586,10 +2590,10 @@
         { key: "pole_7_25", name: "Pole 7/2,5", cat: "Install Pole", unit: "Btg", volume: 4 },
         { key: "digging_hole", name: "Digging Pole", cat: "Install Pole", unit: "Titik", volume: 13 },
         { key: "casting_pole", name: "Casting Pole", cat: "Install Pole", unit: "Titik", volume: 13 },
-        { key: "cable_24c_line_a", name: "Cable 24C Line A", cat: "Line", unit: "meter", volume: 704 },
+        { key: "cable_24c_line_a", name: "Cable 24C Line A", cat: "Pulling cable", unit: "meter", volume: 704 },
         { key: "slingwire_6mm", name: "Sling Wire 6mm", cat: "Pulling cable", unit: "meter", volume: 219 },
-        { key: "fdt_48", name: "FDT 48", cat: "ELECTRICAL", unit: "Unit", volume: 1 },
-        { key: "fat_line_a", name: "FAT Line A", cat: "ELECTRICAL", unit: "Unit", volume: 7 },
+        { key: "fdt_48", name: "FDT 48", cat: "Electrical", unit: "Unit", volume: 1 },
+        { key: "fat_line_a", name: "FAT Line A", cat: "Electrical", unit: "Unit", volume: 7 },
         { key: "suspension_48", name: "Suspension 48", cat: "Install Aksesories", unit: "pcs", volume: 17 },
         { key: "pole_clam", name: "Pole Clam", cat: "Install Aksesories", unit: "pcs", volume: 8 },
         { key: "dead_end", name: "Dead End", cat: "Install Aksesories", unit: "pcs", volume: 16 },
@@ -2620,7 +2624,7 @@
         { key: "digging_hole", name: "Digging Pole", cat: "Install Pole", unit: "Titik", volume: 32 },
         { key: "casting_pole", name: "Casting Pole", cat: "Install Pole", unit: "Titik", volume: 32 },
         { key: "cable_24c", name: "Cable 24C", cat: "Pulling cable", unit: "meter", volume: 2403 },
-        { key: "jc_48", name: "JC 48 C", cat: "ELECTRICAL", unit: "Unit", volume: 1 },
+        { key: "jc_48", name: "JC 48 C", cat: "Electrical", unit: "Unit", volume: 1 },
         { key: "suspension_48", name: "Suspension 48", cat: "Install Aksesories", unit: "pcs", volume: 39 },
         { key: "pole_clam", name: "Pole Clam", cat: "Install Aksesories", unit: "pcs", volume: 12 },
         { key: "dead_end", name: "Dead End", cat: "Install Aksesories", unit: "pcs", volume: 42 },
@@ -2635,11 +2639,11 @@
         { key: "digging_hole", name: "Digging Pole", cat: "Install Pole", unit: "Titik", volume: 179 },
         { key: "casting_pole", name: "Casting Pole", cat: "Install Pole", unit: "Titik", volume: 179 },
         { key: "slingwire_6mm", name: "Sling Wire 6mm", cat: "Pulling cable", unit: "meter", volume: 1997 },
-        { key: "fdt_72", name: "FDT 72", cat: "ELECTRICAL", unit: "Unit", volume: 1 },
-        { key: "fat_line_a", name: "FAT Line A", cat: "ELECTRICAL", unit: "Unit", volume: 8 },
-        { key: "fat_line_b", name: "FAT Line B", cat: "ELECTRICAL", unit: "Unit", volume: 7 },
-        { key: "fat_line_c", name: "FAT Line C", cat: "ELECTRICAL", unit: "Unit", volume: 18 },
-        { key: "jc_48", name: "JC 48 C", cat: "ELECTRICAL", unit: "Unit", volume: 1 },
+        { key: "fdt_72", name: "FDT 72", cat: "Electrical", unit: "Unit", volume: 1 },
+        { key: "fat_line_a", name: "FAT Line A", cat: "Electrical", unit: "Unit", volume: 8 },
+        { key: "fat_line_b", name: "FAT Line B", cat: "Electrical", unit: "Unit", volume: 7 },
+        { key: "fat_line_c", name: "FAT Line C", cat: "Electrical", unit: "Unit", volume: 18 },
+        { key: "jc_48", name: "JC 48 C", cat: "Electrical", unit: "Unit", volume: 1 },
         { key: "suspension_48", name: "Suspension 48", cat: "Install Aksesories", unit: "pcs", volume: 117 },
         { key: "pole_clam", name: "Pole Clam", cat: "Install Aksesories", unit: "pcs", volume: 62 },
         { key: "dead_end", name: "Dead End", cat: "Install Aksesories", unit: "pcs", volume: 124 },
@@ -2647,9 +2651,9 @@
         { key: "plat_belt", name: "Plat Belt", cat: "Install Aksesories", unit: "pcs", volume: 151 },
         { key: "stopping", name: "Stopping", cat: "Install Aksesories", unit: "pcs", volume: 302 },
         { key: "buldogrip", name: "Buldogrip", cat: "Install Aksesories", unit: "pcs", volume: 228 },
-        { key: "cable_24c_line_a", name: "Cable 24C Line A", cat: "Line", unit: "meter", volume: 1842 },
-        { key: "cable_24c_line_b", name: "Cable 24C Line B", cat: "Line", unit: "meter", volume: 1947 },
-        { key: "cable_48c_line_c", name: "Cable 48C Line C", cat: "Line", unit: "meter", volume: 4835 }
+        { key: "cable_24c_line_a", name: "Cable 24C Line A", cat: "Pulling cable", unit: "meter", volume: 1842 },
+        { key: "cable_24c_line_b", name: "Cable 24C Line B", cat: "Pulling cable", unit: "meter", volume: 1947 },
+        { key: "cable_48c_line_c", name: "Cable 48C Line C", cat: "Pulling cable", unit: "meter", volume: 4835 }
       ]
     };
 
@@ -2684,6 +2688,15 @@
     }
 
     // Helper: Mendapatkan Items/Material yang Aktif untuk Cluster Tertentu
+    // Kategori tampilan: cable per Line masuk Pulling cable; nama lama (Line, ELECTRICAL) yang masih tersimpan di HP ikut disesuaikan.
+    function itemCategory(it) {
+      const c = (it && it.cat) || 'Lain-lain';
+      if (c === 'Line') return 'Pulling cable';
+      if (c === 'ELECTRICAL') return 'Electrical';
+      return c;
+    }
+    function isCableLineKey(k) { return /^cable_.*_line_[a-d]$/.test(String(k || '')); }
+
     function getClusterItems(clusterName) {
       if (!clusterName) return [];
       const cleanKey = normalizeClusterKey(clusterName);
@@ -2725,7 +2738,7 @@
               if (!isCluster && (item.cat === 'Line' || (item.key && (item.key.includes('_line_') || item.key.includes('fat_line_'))))) return;
 
               // Aturan User: Line & FAT Line hanya masukkan yang bervolume > 0
-              if (isCluster && (item.cat === 'Line' || (item.key && item.key.includes('fat_line_'))) && (!item.volume || item.volume <= 0)) return;
+              if (isCluster && (item.cat === 'Line' || (item.key && item.key.includes('_line_'))) && (!item.volume || item.volume <= 0)) return;
 
               sanitized.push(item);
             });
@@ -2747,7 +2760,7 @@
                 const found = OFFICIAL_MATERIAL_CATALOG.find(m => m.key === k);
                 const itemCat = found ? found.cat : 'Lain-lain';
                 if (!isCluster && (itemCat === 'Line' || k.includes('_line_'))) return;
-                if (isCluster && itemCat === 'Line' && (!vol || vol <= 0)) return;
+                if (isCluster && (itemCat === 'Line' || k.includes('_line_')) && (!vol || vol <= 0)) return;
                 arr.push({
                   key: k,
                   name: found ? found.name : k,
@@ -2768,7 +2781,7 @@
                 const found = OFFICIAL_MATERIAL_CATALOG.find(m => m.key === k || m.name.toLowerCase() === k.toLowerCase());
                 const itemCat = found ? found.cat : 'Lain-lain';
                 if (!isCluster && (itemCat === 'Line' || k.includes('_line_'))) return;
-                if (isCluster && itemCat === 'Line' && (!vol || vol <= 0)) return;
+                if (isCluster && (itemCat === 'Line' || k.includes('_line_')) && (!vol || vol <= 0)) return;
                 arr.push({
                   key: found ? found.key : k,
                   name: found ? found.name : k,
@@ -2796,7 +2809,7 @@
               it.unit = found.unit;
             }
             if (!isCluster && (it.cat === 'Line' || (it.key && (it.key.includes('_line_') || it.key.includes('fat_line_'))))) return;
-            if (isCluster && (it.cat === 'Line' || (it.key && it.key.includes('fat_line_'))) && (!it.volume || it.volume <= 0)) return;
+            if (isCluster && (it.cat === 'Line' || (it.key && it.key.includes('_line_'))) && (!it.volume || it.volume <= 0)) return;
             sanitizedFallback.push(it);
           });
           return sanitizedFallback;
@@ -2966,12 +2979,15 @@
       if (!elTotal) return;
       const today = elToday ? (parseInt(elToday.value) || 0) : 0;
       const stored = Math.max(0, (parseInt(elTotal.value) || 0) - today);
+      // Angka di HP ini dipakai sebagai saldo awal bila cluster belum punya baris di DAILY REPORT EMR.
+      const keys = dailyKeys(cluster), base = {};
+      keys.forEach(k => { base[k] = getPreviousCumulative(cluster, k); });
       try {
         const res = await fetch(getConfig().scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'SET_TOTAL', session: WS_SESSION && WS_SESSION.session, cluster: cluster, key: itemKey, total: stored,
-            sow: getSowType(cluster), itemName: dailyItemName(cluster, itemKey) })
+            sow: getSowType(cluster), itemName: dailyItemName(cluster, itemKey), keys: keys, base: base })
         });
         const d = await res.json();
         if (d.status === 'success') {
@@ -3021,7 +3037,18 @@
       updateOwnerModeUI();
     }
 
-    // ===== Total bersama dari sheet PROGRES TOTAL; disalin ke penyimpanan perangkat sebagai cache =====
+    // ===== Total bersama, dihitung server dari tab DAILY REPORT EMR; disalin ke penyimpanan perangkat sebagai cache =====
+    // Item cluster di HP ini (urutan BOQ Plan), plus item lain yang sedang tampil di tabel Daily.
+    function dailyKeys(cluster) {
+      const keys = getClusterItems(cluster).map(it => it.key);
+      if (lastDailyTableCluster === cluster) {
+        document.querySelectorAll('#dailyTableBody input[id^="inp_today_"]').forEach(el => {
+          const k = el.id.slice('inp_today_'.length);
+          if (!keys.includes(k)) keys.push(k);
+        });
+      }
+      return keys;
+    }
     async function refreshSharedTotals(cluster) {
       const cfg = getConfig();
       if (!cluster || !cfg.scriptUrl) return;
@@ -3029,10 +3056,10 @@
         const res = await fetch(cfg.scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'GET_TOTALS', cluster: cluster })
+          body: JSON.stringify({ action: 'GET_TOTALS', cluster: cluster, keys: dailyKeys(cluster) })
         });
         const d = await res.json();
-        // Belum ada di sheet: pakai angka di perangkat ini (dikirim sebagai angka awal saat Daily Report).
+        // Cluster belum punya baris di DAILY REPORT EMR: pakai angka di perangkat ini (dicatat sebagai saldo awal saat Daily Report).
         if (d.status === 'success' && d.found) applySharedTotals(cluster, d.totals);
       } catch (e) {}
     }
@@ -3133,11 +3160,11 @@
         return;
       }
 
-      const categoriesOrder = ['Install Pole', 'Line', 'Pulling cable', 'Install Aksesories', 'ELECTRICAL', 'Pekerjaan Sipil', 'Lain-lain'];
+      const categoriesOrder = ['Install Pole', 'Pulling cable', 'Install Aksesories', 'Electrical', 'Pekerjaan Sipil', 'Lain-lain'];
       let htmlRows = '';
 
       categoriesOrder.forEach(catName => {
-        const catItems = items.filter(it => (it.cat || 'Lain-lain') === catName);
+        const catItems = items.filter(it => itemCategory(it) === catName);
         if (catItems.length > 0) {
           htmlRows += `<tr class="header-row" style="background: var(--bmi-dark) !important; color: #ffffff !important;"><td colspan="6" style="background: var(--bmi-dark) !important; color: #ffffff !important; padding: 9px 12px; font-weight: 800; border-left: 4px solid var(--bmi-gold); font-size: 0.8rem; letter-spacing: 0.4px;">${catName}</td></tr>`;
           catItems.forEach(item => {
@@ -3231,14 +3258,11 @@
       }
 
       // HANYA menampilkan kategori dan material yang digunakan pada cluster ini
-      const categoriesOrder = ['Pekerjaan Sipil', 'Install Pole', 'Line', 'Pulling cable', 'Install Aksesories', 'ELECTRICAL', 'Lain-lain'];
+      const categoriesOrder = ['Pekerjaan Sipil', 'Install Pole', 'Pulling cable', 'Install Aksesories', 'Electrical', 'Lain-lain'];
       let achievLines = [];
 
       categoriesOrder.forEach(catName => {
-        // Jangan tampilkan kategori Line jika bukan cluster (Subfeeder, dsb)
-        if (!isCluster && catName === 'Line') return;
-
-        const catItems = items.filter(it => (it.cat || 'Lain-lain') === catName);
+        const catItems = items.filter(it => itemCategory(it) === catName);
         if (catItems.length > 0) {
           achievLines.push(`\n*${catName}* :`);
           catItems.forEach(it => {
@@ -3410,15 +3434,14 @@ ${todayActivity}`;
 
       const text = generateDailyTelegramText();
 
-      // Today per item, plus Total di perangkat ini sebagai angka awal untuk item yang belum ada di sheet.
+      // Today per item, plus Total di perangkat ini sebagai saldo awal bila cluster belum punya baris di DAILY REPORT EMR.
       const reportCluster = getActiveDailyCluster();
       const reportSow = getSowType(reportCluster);
-      const todayByKey = {}, baseByKey = {}, namesByKey = {};
+      const todayByKey = {}, baseByKey = {};
       document.querySelectorAll('#dailyTableBody input[id^="inp_today_"]').forEach(el => {
         const key = el.id.slice('inp_today_'.length);
         todayByKey[key] = parseInt(el.value) || 0;
         baseByKey[key] = getPreviousCumulative(reportCluster, key);
-        namesByKey[key] = dailyItemName(reportCluster, key);
       });
       // Isi baris tab DAILY REPORT EMR di spreadsheet
       const val = id => (document.getElementById(id) ? document.getElementById(id).value : '').trim();
@@ -3446,7 +3469,7 @@ ${todayActivity}`;
             sow: reportSow,
             today: todayByKey,
             base: baseByKey,
-            names: namesByKey,
+            keys: dailyKeys(reportCluster),
             report: report,
             by: (document.getElementById('dailyPic').value || '').trim()
           })
@@ -3971,7 +3994,7 @@ ${todayActivity}`;
                 lineItems.push({
                   key: `cable_${core}_line_${letter.toLowerCase()}`,
                   name: `Cable ${core.slice(0, 2).toUpperCase()}C Line ${letter}`,
-                  cat: 'Line',
+                  cat: 'Pulling cable',
                   unit: 'meter',
                   volume: Math.round(val)
                 });
@@ -4030,7 +4053,7 @@ ${todayActivity}`;
                   lineItems.push({
                     key: spec.key,
                     name: spec.name,
-                    cat: 'Line',
+                    cat: 'Pulling cable',
                     unit: 'meter',
                     volume: vol
                   });
@@ -4120,7 +4143,7 @@ ${todayActivity}`;
 
           if (valNum > 0) {
             OFFICIAL_MATERIAL_CATALOG.forEach(mat => {
-              if (mat.cat === 'Line') return; // Line di-handle khusus dari Sheet 2
+              if (isCableLineKey(mat.key)) return; // Cable per Line di-handle khusus dari Sheet 2
               if (!rawVolumes[mat.key]) {
                 const matched = mat.terms.some(t => desc.includes(t));
                 if (matched) rawVolumes[mat.key] = valNum;
@@ -4172,7 +4195,7 @@ ${todayActivity}`;
           const hasFatLines = isCluster && sheet2Data && sheet2Data.fatCounts && ((sheet2Data.fatCounts.A || 0) + (sheet2Data.fatCounts.B || 0) + (sheet2Data.fatCounts.C || 0) + (sheet2Data.fatCounts.D || 0) > 0);
 
           OFFICIAL_MATERIAL_CATALOG.forEach(mat => {
-            if (mat.cat === 'Line') return; // Line ditambahkan secara spesifik dari Sheet 2
+            if (isCableLineKey(mat.key)) return; // Cable per Line ditambahkan secara spesifik dari Sheet 2
             if (mat.key.startsWith('fat_line_')) return; // FAT Line ditambahkan secara spesifik dari Sheet 2
 
             // Jika cluster memiliki lineItems dari Sheet 2, JANGAN masukkan kabel penarikan generik (24C/36C/48C)
@@ -4209,7 +4232,7 @@ ${todayActivity}`;
                 clusterItems.push({
                   key: `fat_line_${letter.toLowerCase()}`,
                   name: `FAT Line ${letter}`,
-                  cat: 'ELECTRICAL',
+                  cat: 'Electrical',
                   unit: 'Unit',
                   volume: v
                 });
@@ -4240,10 +4263,10 @@ ${todayActivity}`;
         const totTiang = poleItems.reduce((acc, it) => acc + (it.volume || 0), 0);
         const tiangDetail = poleItems.map(it => `${it.name}: ${it.volume}`).join(', ') || '-';
 
-        const cableItems = items.filter(it => it.cat === 'Pulling cable' || it.cat === 'Line');
+        const cableItems = items.filter(it => itemCategory(it) === 'Pulling cable');
         const cableStr = cableItems.map(it => `${it.name}: ${it.volume}m`).join(', ') || '-';
 
-        const fatItems = items.filter(it => it.cat === 'ELECTRICAL');
+        const fatItems = items.filter(it => itemCategory(it) === 'Electrical');
         const fatStr = fatItems.map(it => `${it.name}: ${it.volume}`).join(', ') || '-';
 
         const accItems = items.filter(it => it.cat === 'Install Aksesories');
@@ -4492,7 +4515,7 @@ ${todayActivity}`;
       // Filter: jika bukan cluster (Subfeeder, FWA, Mainfeeder, Hubfeeder, Uplink), jangan sertakan Line
       currentManualEditingRows = storedItems.filter(it => {
         if (!isTargetCluster && (it.cat === 'Line' || (it.key && (it.key.includes('_line_') || it.key.includes('fat_line_'))))) return false;
-        if (isTargetCluster && (it.cat === 'Line' || (it.key && it.key.includes('fat_line_'))) && (!it.volume || it.volume <= 0)) return false;
+        if (isTargetCluster && (it.cat === 'Line' || (it.key && it.key.includes('_line_'))) && (!it.volume || it.volume <= 0)) return false;
         return true;
       });
 
@@ -4522,7 +4545,7 @@ ${todayActivity}`;
       // Filter katalog material yang tersedia: jika bukan cluster (Subfeeder, dsb), JANGAN tampilkan kategori Line
       const availableCatalog = isTargetCluster 
         ? OFFICIAL_MATERIAL_CATALOG 
-        : OFFICIAL_MATERIAL_CATALOG.filter(m => m.cat !== 'Line' && !m.key.startsWith('fat_line_'));
+        : OFFICIAL_MATERIAL_CATALOG.filter(m => !m.key.includes('_line_'));
 
       tbody.innerHTML = currentManualEditingRows.map((item, idx) => {
         const optionsHtml = availableCatalog.map(m => {
@@ -4545,7 +4568,7 @@ ${todayActivity}`;
             </td>
             <td style="vertical-align: middle;">
               <span id="txt_cat_${idx}" style="background: #f1f5f9; padding: 3px 8px; border-radius: 4px; font-weight: 600; font-size: 0.72rem; color: #334155;">
-                ${item.cat || '-'}
+                ${item.cat ? itemCategory(item) : '-'}
               </span>
             </td>
             <td style="text-align: center; vertical-align: middle;">

@@ -3,8 +3,7 @@ var CONFIG = {
   DOKUMENTASI_FOLDER_ID: "1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ", // folder "DOKUMENTASI FTTH" di Google Drive
   TELEGRAM_CHAT_ID: "@ReportBMI",
   // Gateway Portal Terpadu BMI: menukar tiket sekali pakai dengan username & role (untuk mengenali akun RPM).
-  GATEWAY_URL: "https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec",
-  TOTALS_SHEET: "PROGRES TOTAL"   // Total kumulatif bersama per cluster & item
+  GATEWAY_URL: "https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec"
 };
 
 // Token bot Telegram TIDAK ditulis di kode (repo ini publik). Simpan di Script Properties:
@@ -52,7 +51,7 @@ function doPost(e) {
         result = ssoLogin_(payload.ticket);
         break;
       case 'GET_TOTALS':
-        result = getTotals_(payload.cluster);
+        result = getTotals_(payload);
         break;
       case 'SET_TOTAL':
         result = setTotalByRpm_(payload);
@@ -80,11 +79,12 @@ var MATERIAL_HEADERS_ = ['Pole 7/4 (NP 7m + 4")', 'Pole 7/3 (NP 7m + 3")', 'Pole
   'HDPE 40/30 (40/34)', 'FDT 48', 'FDT 72', 'FAT (16 Port)', 'JC 48 C', 'JC 144 C', 'Suspension 48', 'Suspension 144',
   'Pole Clamp', 'Dead End', 'Dead End 144', 'Slack Hanger', 'Plat Belt', 'Stopping', 'Buldogrip'];
 var MASTER_BOQ_HEADER_ = ['No', 'Cluster Name', 'SOW'].concat(MATERIAL_HEADERS_);
+// Rincian Item (paling kanan) mencatat angka per item portal, mis. "cable_24c_line_a=3; fat_line_b=1",
+// supaya Total per line tetap terbaca walau kolom materialnya digabung.
 var DAILY_REPORT_HEADER_ = ['Timestamp', 'Tanggal', 'Cluster Name', 'SOW', 'Start Implementation', 'Topology', 'Subcont', 'PIC',
-  'Manpower', 'Jam Kerja', 'Ringkasan Pencapaian', 'Today Activity'].concat(MATERIAL_HEADERS_);
+  'Manpower', 'Jam Kerja', 'Ringkasan Pencapaian', 'Today Activity'].concat(MATERIAL_HEADERS_).concat(['Rincian Item']);
 var PHOTO_LOG_HEADER_ = ['Timestamp', 'Tanggal Pelaporan', 'Site Name', 'SOW', 'Mandor', 'Nama Waspang', 'Kategori Pekerjaan',
   'Subfolder / FAT', 'Nama File', 'Koordinat GPS', 'Link Maps', 'Link Foto Drive', 'Link Folder Drive', 'Catatan Lapangan', 'Status Telegram'];
-var TOTALS_HEADER_ = ['Cluster', 'SOW', 'Item', 'Total', 'Diperbarui', 'Oleh', 'Keterangan', 'Key'];
 
 // Item portal -> kolom material (judul yang sudah dinormalkan). Item per line (Cable 24C Line A, FAT Line B, ...)
 // masuk ke kolom material yang sama dan dijumlahkan.
@@ -368,25 +368,26 @@ function sendDailyReportEMR_(payload) {
     return { status: 'error', message: err.toString() };
   }
 
-  logDailyReportToSheet_(payload);
-  if (!payload.cluster) return { status: 'success' };
-  // Laporan sudah terkirim: tambahkan Today ke Total bersama. Gagal di sini tidak membatalkan laporan.
+  // Laporan sudah terkirim: catat di tab DAILY REPORT EMR. Gagal di sini tidak membatalkan laporan.
   try {
-    return { status: 'success', totals: addDailyToTotals_(payload) };
+    return recordDailyReport_(payload);
   } catch (err) {
+    console.error('Log daily report error: ' + err);
     return { status: 'success', totalsError: err.toString() };
   }
 }
 
-// Satu baris per Daily Report di tab DAILY REPORT EMR; kolom material berisi volume Today.
-function logDailyReportToSheet_(payload) {
+// Satu baris per Daily Report di tab DAILY REPORT EMR (kolom material berisi volume Today),
+// lalu Total baru cluster itu dihitung dari tab yang sama.
+function recordDailyReport_(payload) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
   try {
-    var r = payload.report || {};
-    var sh = sheetWithHeader_('DAILY REPORT EMR', DAILY_REPORT_HEADER_);
-    var vals = {
-      'Timestamp': new Date(),
+    var r = payload.report || {}, sh = dailySheet_(), cluster = payload.cluster;
+    if (cluster) addOpeningBalance_(sh, cluster, r.sow || payload.sow, payload.base, payload.by);
+    appendDailyRow_(sh, {
       'Tanggal': r.tanggal ? "'" + r.tanggal : '',
-      'Cluster Name': cleanClusterNameForSync_(payload.cluster),
+      'Cluster Name': cleanClusterNameForSync_(cluster),
       'SOW': r.sow || payload.sow || '',
       'Start Implementation': r.startImpl ? "'" + r.startImpl : '',
       'Topology': r.topology || '',
@@ -397,19 +398,18 @@ function logDailyReportToSheet_(payload) {
       // Halaman lama belum mengirim rincian: simpan seluruh teks laporan di Ringkasan.
       'Ringkasan Pencapaian': payload.report ? (r.ringkasan || '') : (payload.text || ''),
       'Today Activity': r.todayActivity || ''
-    };
-    var byCol = sumByMaterial_(payload.today);
-    Object.keys(byCol).forEach(function (c) { vals[c] = byCol[c]; });
-    sh.appendRow(rowByHeader_(sheetHeader_(sh), vals));
-  } catch (err) {
-    console.error('Log daily report error: ' + err);
+    }, payload.today);
+    if (!cluster) return { status: 'success' };
+    return { status: 'success', totals: clusterTotals_(sh, cluster, payload.keys).totals };
+  } finally {
+    lock.releaseLock();
   }
 }
 
 // ===================== SYNC_BOQ_EXCEL =====================
 
 function cleanClusterNameForSync_(raw) {
-  return String(raw || '').replace(/[​-‍﻿⁠]/g, '').trim();
+  return String(raw || '').replace(/[\u200B-\u200D\uFEFF\u2060]/g, '').trim();
 }
 
 // BOQ Plan dari portal mengisi kolom material pada baris Cluster Name + SOW di tabel MASTER BOQ CLUSTER
@@ -466,103 +466,151 @@ function syncMasterBoqToSheet_(clusters) {
   }
 }
 
-// ===================== TOTAL BERSAMA (sheet PROGRES TOTAL) =====================
-// Total kumulatif per cluster & item disimpan di sheet supaya semua HP memakai angka yang sama.
-// Daily Report menambahkan Today; di portal hanya akun RPM (masuk lewat Gateway) yang boleh mengubah Total.
-// Angka di kolom Total juga boleh diubah langsung di sheet; portal membacanya saat cluster dibuka.
+// ===================== TOTAL (dihitung dari tab DAILY REPORT EMR) =====================
+// Total per cluster & item = jumlah semua baris cluster itu di DAILY REPORT EMR, jadi semua HP memakai angka yang sama.
+// Angka di sheet boleh diubah langsung (atau ditambah baris koreksi); portal membacanya saat cluster dibuka.
+// Di portal hanya akun RPM (masuk lewat Gateway) yang boleh mengubah Total; perubahannya dicatat sebagai baris koreksi.
 
-function totalsSheet_() {
-  var sh = getWaspangSpreadsheet_().getSheetByName(CONFIG.TOTALS_SHEET);
-  if (sh && sh.getLastRow() <= 1) {
-    // Masih kosong: pasang susunan kolom terbaru (Key di paling kanan).
-    var head = TOTALS_HEADER_.slice();
-    while (head.length < sh.getLastColumn()) head.push('');
-    sh.getRange(1, 1, 1, head.length).setValues([head]);
-  }
-  return sheetWithHeader_(CONFIG.TOTALS_SHEET, TOTALS_HEADER_);
+function dailySheet_() {
+  return sheetWithHeader_('DAILY REPORT EMR', DAILY_REPORT_HEADER_);
 }
 
 function totalsClusterKey_(name) {
   return cleanClusterNameForSync_(name).toLowerCase();
 }
 
-// {key: {row, total, vals}} untuk satu cluster (row = nomor baris di sheet, vals = isi barisnya).
-function readClusterTotals_(sh, cluster) {
-  var ck = totalsClusterKey_(cluster), out = {}, h = sheetHeader_(sh);
-  var cC = h.idx['cluster'], cK = h.idx['key'], cT = h.idx['total'];
-  var last = sh.getLastRow();
-  var rows = last >= 2 ? sh.getRange(2, 1, last - 1, h.width).getValues() : [];
-  rows.forEach(function (r, i) {
-    var k = String(r[cK]).trim();
-    if (k && totalsClusterKey_(r[cC]) === ck) out[k] = { row: i + 2, total: toCount_(r[cT]), vals: r };
+function todayText_() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'd/M/yyyy');
+}
+
+function cellNumber_(v) {
+  if (typeof v === 'number') return v;
+  var n = Number(String(v == null ? '' : v).trim());
+  return isFinite(n) ? n : 0;
+}
+
+// {key item: angka} <-> "cable_24c_line_a=3; fat_line_b=1"
+function rincianText_(byKey) {
+  return Object.keys(byKey || {}).filter(function (k) { return String(k).trim() && Number(byKey[k]); }).map(function (k) {
+    return String(k).trim().replace(/[%;=]/g, function (c) { return encodeURIComponent(c); }) + '=' + Number(byKey[k]);
+  }).join('; ');
+}
+
+function parseRincian_(text) {
+  var out = {};
+  String(text || '').split(';').forEach(function (part) {
+    var m = part.match(/^\s*([^=]+?)\s*=\s*(-?\d+(?:\.\d+)?)\s*$/);
+    if (!m) return;
+    var k = m[1];
+    try { k = decodeURIComponent(k); } catch (e) {}
+    out[k] = (out[k] || 0) + Number(m[2]);
   });
   return out;
 }
 
-function getTotals_(cluster) {
-  if (!totalsClusterKey_(cluster)) return { status: 'error', message: 'Cluster kosong.' };
-  var cur = readClusterTotals_(totalsSheet_(), cluster), totals = {};
-  Object.keys(cur).forEach(function (k) { totals[k] = cur[k].total; });
-  return { status: 'success', found: Object.keys(totals).length > 0, totals: totals };
+// vals = {judul kolom: isi}; byKey = {key item: angka} mengisi kolom material dan Rincian Item.
+function appendDailyRow_(sh, vals, byKey) {
+  vals['Timestamp'] = new Date();
+  var byCol = sumByMaterial_(byKey);
+  Object.keys(byCol).forEach(function (c) { vals[c] = byCol[c]; });
+  vals['Rincian Item'] = rincianText_(byKey);
+  sh.appendRow(rowByHeader_(sheetHeader_(sh), vals));
 }
 
-// changes: {key: total baru}. Baris yang sudah ada diperbarui, yang belum ada ditambahkan.
-// meta: {sow, names: {key: nama item}} untuk kolom SOW dan Item.
-function writeTotals_(sh, cluster, cur, changes, by, note, meta) {
-  var h = sheetHeader_(sh), now = new Date(), name = cleanClusterNameForSync_(cluster);
-  var names = (meta && meta.names) || {}, sow = (meta && meta.sow) || '';
-  Object.keys(changes).forEach(function (k) {
-    var vals = { 'Total': changes[k], 'Diperbarui': now, 'Oleh': by || '', 'Keterangan': note || '' };
-    if (cur[k]) {
-      var row = cur[k].vals.slice();
-      while (row.length < h.width) row.push('');
-      if (!String(row[h.idx['item']] || '').trim()) vals['Item'] = names[k] || k;
-      if (!String(row[h.idx['sow']] || '').trim() && sow) vals['SOW'] = sow;
-      Object.keys(vals).forEach(function (col) {
-        var c = h.idx[normHeader_(col)];
-        if (c !== undefined) row[c] = vals[col];
-      });
-      sh.getRange(cur[k].row, 1, 1, h.width).setValues([row]);
-      cur[k].vals = row;
-    } else {
-      vals['Cluster'] = name;
-      vals['SOW'] = sow;
-      vals['Item'] = names[k] || k;
-      vals['Key'] = k;
-      var newRow = rowByHeader_(h, vals);
-      sh.appendRow(newRow);
-      cur[k] = { row: sh.getLastRow(), vals: newRow };
-    }
-    cur[k].total = changes[k];
+function clusterRows_(sh, h, cluster) {
+  var ck = totalsClusterKey_(cluster), cName = h.idx['cluster name'], last = sh.getLastRow();
+  if (!ck || cName === undefined || last < 2) return [];
+  return sh.getRange(2, 1, last - 1, h.width).getValues().filter(function (r) {
+    return totalsClusterKey_(r[cName]) === ck;
   });
 }
 
-function toCount_(v) {
-  var n = Math.floor(Number(v));
-  return n > 0 ? n : 0;
+// Cluster yang belum punya baris: Total yang sudah ada di HP pelapor dicatat dulu sebagai baris saldo awal.
+function addOpeningBalance_(sh, cluster, sow, base, by) {
+  if (clusterRows_(sh, sheetHeader_(sh), cluster).length) return;
+  var pos = {};
+  Object.keys(base || {}).forEach(function (k) {
+    var n = Math.floor(Number(base[k]) || 0);
+    if (n > 0) pos[k] = n;
+  });
+  if (!Object.keys(pos).length) return;
+  appendDailyRow_(sh, {
+    'Tanggal': "'" + todayText_(),
+    'Cluster Name': cleanClusterNameForSync_(cluster),
+    'SOW': sow || '',
+    'PIC': by || '',
+    'Ringkasan Pencapaian': 'Saldo awal Total (angka yang sudah ada di HP sebelum Total dicatat di sheet)',
+    'Today Activity': 'Saldo awal'
+  }, pos);
 }
 
-// Total baru = Total di sheet + Today. Item yang belum ada di sheet memakai angka awal dari HP pelapor (base).
-function addDailyToTotals_(payload) {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(20000);
-  try {
-    var sh = totalsSheet_(), cur = readClusterTotals_(sh, payload.cluster);
-    var today = payload.today || {}, base = payload.base || {}, changes = {}, keys = {};
-    Object.keys(today).concat(Object.keys(base)).forEach(function (k) { keys[String(k).trim()] = true; });
-    Object.keys(keys).forEach(function (k) {
-      var t = toCount_(today[k]);
-      if (!cur[k]) changes[k] = toCount_(base[k]) + t;
-      else if (t > 0) changes[k] = cur[k].total + t;
+// Total satu cluster. keys = item di HP (urutan BOQ Plan). Angka di kolom material yang tidak tercatat per item
+// di Rincian Item (mis. diubah langsung di sheet) masuk ke item pertama di HP untuk material itu.
+// -> {found, raw: {key: jumlah apa adanya}, totals: {key: jumlah, minimal 0}}
+function clusterTotals_(sh, cluster, keys) {
+  var h = sheetHeader_(sh), rows = clusterRows_(sh, h, cluster), cRin = h.idx['rincian item'];
+  var matCols = [], baseKey = {};
+  Object.keys(MATERIAL_COLUMNS_).forEach(function (k) {
+    var col = MATERIAL_COLUMNS_[k];
+    if (h.idx[col] !== undefined && !(col in baseKey)) { matCols.push(col); baseKey[col] = k; }
+  });
+  var amount = {};
+  function add(k, n) { if (n) amount[k] = (amount[k] || 0) + n; }
+
+  rows.forEach(function (r) {
+    var rin = cRin === undefined ? {} : parseRincian_(r[cRin]), byCol = {};
+    Object.keys(rin).forEach(function (k) {
+      var col = materialColumn_(k);
+      if (col && h.idx[col] !== undefined) (byCol[col] = byCol[col] || []).push(k);
+      else add(k, rin[k]);   // item tanpa kolom material: angka dari Rincian Item
     });
-    writeTotals_(sh, payload.cluster, cur, changes, payload.by || 'Daily Report', 'Daily Report',
-      { sow: payload.sow, names: payload.names });
-    var totals = {};
-    Object.keys(cur).forEach(function (k) { totals[k] = cur[k].total; });
-    return totals;
-  } finally {
-    lock.releaseLock();
+    matCols.forEach(function (col) {
+      var v = cellNumber_(r[h.idx[col]]), ks = byCol[col] || [];
+      if (!ks.length) { add('#' + col, v); return; }
+      // Kolom material = patokan; selisih dengan Rincian masuk ke item pertama (bila berkurang, dikurangi berurutan).
+      var part = {}, sum = 0;
+      ks.forEach(function (k) { part[k] = rin[k]; sum += rin[k]; });
+      var diff = v - sum;
+      if (diff >= 0) part[ks[0]] += diff;
+      else {
+        ks.forEach(function (k) {
+          var d = Math.min(-diff, Math.max(0, part[k]));
+          part[k] -= d; diff += d;
+        });
+        part[ks[0]] += diff;
+      }
+      ks.forEach(function (k) { add(k, part[k]); });
+    });
+  });
+
+  var list = [], known = {};
+  (keys || []).forEach(function (k) {
+    k = String(k || '').trim();
+    if (k && !known[k]) { known[k] = true; list.push(k); }
+  });
+  function firstKeyFor(col) {
+    for (var i = 0; i < list.length; i++) if (materialColumn_(list[i]) === col) return list[i];
+    return '';
   }
+  var raw = {};
+  Object.keys(amount).forEach(function (k) {
+    var col = k.charAt(0) === '#' ? k.slice(1) : materialColumn_(k);
+    var to = known[k] ? k : (col && h.idx[col] !== undefined && firstKeyFor(col)) || (k.charAt(0) === '#' ? baseKey[col] : k);
+    raw[to] = (raw[to] || 0) + amount[k];
+  });
+  if (rows.length) list.forEach(function (k) { if (!(k in raw)) raw[k] = 0; });
+  var totals = {};
+  Object.keys(raw).forEach(function (k) {
+    raw[k] = Math.round(raw[k] * 1000) / 1000;
+    totals[k] = Math.max(0, raw[k]);
+  });
+  return { found: rows.length > 0, raw: raw, totals: totals };
+}
+
+function getTotals_(payload) {
+  if (!totalsClusterKey_(payload.cluster)) return { status: 'error', message: 'Cluster kosong.' };
+  var t = clusterTotals_(dailySheet_(), payload.cluster, payload.keys);
+  return { status: 'success', found: t.found, totals: t.totals };
 }
 
 // Masuk lewat Gateway: tiket sekali pakai ditukar dengan sesi Waspang (6 jam) berisi username & role.
@@ -586,20 +634,35 @@ function wsSession_(sid) {
   return raw ? JSON.parse(raw) : null;
 }
 
+// Total yang diubah RPM dicatat sebagai baris koreksi (selisihnya) di DAILY REPORT EMR.
 function setTotalByRpm_(payload) {
   var s = wsSession_(payload.session);
   if (!s) return { status: 'error', message: 'Sesi habis. Buka Portal Waspang lagi dari Gateway.' };
   if (s.role !== 'rpm') return { status: 'error', message: 'Hanya akun RPM yang boleh mengubah Total.' };
   var key = String(payload.key || '').trim(), total = Number(payload.total);
   if (!totalsClusterKey_(payload.cluster) || !key || !(total >= 0)) return { status: 'error', message: 'Data Total tidak lengkap.' };
+  total = Math.floor(total);
+  var name = s.name || s.username;
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    var sh = totalsSheet_(), cur = readClusterTotals_(sh, payload.cluster), ch = {};
-    ch[key] = Math.floor(total);
-    var names = {};
-    names[key] = payload.itemName || '';
-    writeTotals_(sh, payload.cluster, cur, ch, s.name || s.username, 'Edit RPM', { sow: payload.sow, names: names });
+    var sh = dailySheet_();
+    addOpeningBalance_(sh, payload.cluster, payload.sow, payload.base, name);
+    var keys = (payload.keys || []).slice();
+    if (keys.indexOf(key) < 0) keys.push(key);
+    var cur = clusterTotals_(sh, payload.cluster, keys).raw[key] || 0;
+    if (total !== cur) {
+      var by = {};
+      by[key] = total - cur;
+      appendDailyRow_(sh, {
+        'Tanggal': "'" + todayText_(),
+        'Cluster Name': cleanClusterNameForSync_(payload.cluster),
+        'SOW': payload.sow || '',
+        'PIC': name,
+        'Ringkasan Pencapaian': 'Koreksi Total oleh RPM ' + name + ': ' + (payload.itemName || key) + ' dari ' + cur + ' menjadi ' + total,
+        'Today Activity': 'Koreksi Total (RPM)'
+      }, by);
+    }
   } finally {
     lock.releaseLock();
   }
