@@ -1,9 +1,17 @@
 var CONFIG = {
   WASPANG_SPREADSHEET_ID: "1ZlSlITeC9zi-m894gQYUUn4YMfP6_8B_Jtep5a33OjA",
   DOKUMENTASI_FOLDER_ID: "1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ", // folder "DOKUMENTASI FTTH" di Google Drive
-  TELEGRAM_BOT_TOKEN: "8865250499:AAG-NYecilVkaP9dQsE2qgEqKQ-EO6YxfQU",
   TELEGRAM_CHAT_ID: "@ReportBMI"
 };
+
+// Token bot Telegram TIDAK ditulis di kode (repo ini publik). Simpan di Script Properties:
+// Project Settings (ikon roda gigi) > Script Properties > Add script property
+//   Property: TELEGRAM_BOT_TOKEN   Value: <token dari @BotFather>
+function telegramToken_() {
+  var t = PropertiesService.getScriptProperties().getProperty('TELEGRAM_BOT_TOKEN');
+  if (!t) throw new Error('TELEGRAM_BOT_TOKEN belum diisi di Script Properties.');
+  return t;
+}
 
 function doGet(e) {
   if (e && e.parameter && e.parameter.api === 'json') {
@@ -152,7 +160,7 @@ function buildWaspangPhotoCaption_(payload) {
 function sendWaspangPhotosToTelegram_(blobs, caption) {
   try {
     if (blobs.length === 1) {
-      UrlFetchApp.fetch('https://api.telegram.org/bot' + CONFIG.TELEGRAM_BOT_TOKEN + '/sendPhoto', {
+      UrlFetchApp.fetch('https://api.telegram.org/bot' + telegramToken_() + '/sendPhoto', {
         method: 'post',
         payload: {
           chat_id: CONFIG.TELEGRAM_CHAT_ID,
@@ -181,7 +189,7 @@ function sendWaspangPhotosToTelegram_(blobs, caption) {
         formPayload[key] = blob;
       });
       formPayload.media = JSON.stringify(media);
-      UrlFetchApp.fetch('https://api.telegram.org/bot' + CONFIG.TELEGRAM_BOT_TOKEN + '/sendMediaGroup', {
+      UrlFetchApp.fetch('https://api.telegram.org/bot' + telegramToken_() + '/sendMediaGroup', {
         method: 'post',
         payload: formPayload,
         muteHttpExceptions: true
@@ -227,7 +235,7 @@ function sendDailyReportEMR_(payload) {
     return { status: 'error', message: 'Teks Daily Report kosong.' };
   }
   try {
-    var res = UrlFetchApp.fetch('https://api.telegram.org/bot' + CONFIG.TELEGRAM_BOT_TOKEN + '/sendMessage', {
+    var res = UrlFetchApp.fetch('https://api.telegram.org/bot' + telegramToken_() + '/sendMessage', {
       method: 'post',
       payload: {
         chat_id: chatId,
