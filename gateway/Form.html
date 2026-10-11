@@ -68,26 +68,45 @@
       <p class="hello" id="menuHello"></p>
       <div class="sub" id="menuSub" style="color:var(--muted);font-size:13px"></div>
       <div class="grid" id="menuGrid"></div>
-      <p class="hint">Portal FTTH meminta login sekali di perangkat ini, setelah itu tersimpan.</p>
     </div>
   </div>
 
 <script>
 (function () {
   var KEY = 'bmiGatewaySession';
-  var TTL = 12 * 60 * 60 * 1000;   // sesi menu tersimpan 12 jam (tanpa password)
+  var TTL = 6 * 60 * 60 * 1000;   // sama dengan masa sesi di server (tanpa password)
+  var REFRESH = 60 * 1000;        // tiket Portal FTTH diperbarui tiap menit selama menu terbuka
+  var timer = null;
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function roleLabel(r) { return r === 'rpm' ? 'RPM' : (r === 'waspang' ? 'Waspang' : 'Admin'); }
 
-  function saveSession(s) { try { s.exp = Date.now() + TTL; localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }
+  function saveSession(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }
+  function clearSession() { try { localStorage.removeItem(KEY); } catch (e) {} }
   function loadSession() {
     try {
       var s = JSON.parse(localStorage.getItem(KEY) || 'null');
-      if (s && s.exp > Date.now() && s.portals && s.portals.length) return s;
+      if (s && s.sid && s.exp > Date.now()) return s;
       localStorage.removeItem(KEY);
     } catch (e) {}
     return null;
+  }
+
+  function renderLinks(list) {
+    $('menuGrid').innerHTML = list.map(function (p, i) {
+      return '<a class="portal' + (i === 0 ? ' main' : '') + '" href="' + esc(p.href) + '" target="_top">' +
+        '<span class="go">Buka &rarr;</span><div class="t">' + esc(p.title) + '</div><div class="d">' + esc(p.desc) + '</div></a>';
+    }).join('');
+  }
+
+  function refreshLinks(s) {
+    google.script.run
+      .withSuccessHandler(function (list) { renderLinks(list); })
+      .withFailureHandler(function (err) {
+        var m = (err && err.message) || '';
+        if (/sesi habis/i.test(m)) { clearSession(); showLogin(m); }
+      })
+      .portalLinks(s.sid);
   }
 
   function showMenu(s) {
@@ -97,17 +116,19 @@
     $('topUser').textContent = s.name + ' (' + roleLabel(s.role) + ')';
     $('menuHello').textContent = 'Halo, ' + s.name;
     $('menuSub').textContent = 'Pilih portal yang ingin dibuka' + (s.area ? ' · Area ' + s.area : '') + '.';
-    $('menuGrid').innerHTML = s.portals.map(function (p, i) {
-      return '<a class="portal' + (i === 0 ? ' main' : '') + '" href="' + esc(p.url) + '" target="_top">' +
-        '<span class="go">Buka &rarr;</span><div class="t">' + esc(p.title) + '</div><div class="d">' + esc(p.desc) + '</div></a>';
-    }).join('');
+    $('menuGrid').innerHTML = '<div class="d" style="color:var(--muted);font-size:13px">Menyiapkan menu...</div>';
+    refreshLinks(s);
+    if (timer) clearInterval(timer);
+    timer = setInterval(function () { refreshLinks(s); }, REFRESH);
   }
 
-  function showLogin() {
+  function showLogin(msg) {
+    if (timer) { clearInterval(timer); timer = null; }
     $('screenMenu').classList.add('hidden');
     $('screenLogin').classList.remove('hidden');
     $('topRight').classList.remove('show');
     $('loginPassword').value = '';
+    $('loginNote').textContent = msg || '';
     setTimeout(function () { try { $('loginUsername').focus(); } catch (e) {} }, 100);
   }
 
@@ -120,6 +141,7 @@
       .withSuccessHandler(function (res) {
         $('btnLogin').disabled = false;
         $('loginPassword').value = '';
+        res.exp = Date.now() + TTL;
         saveSession(res);
         showMenu(res);
       })
@@ -133,10 +155,10 @@
   $('btnLogin').addEventListener('click', tryLogin);
   $('loginPassword').addEventListener('keydown', function (e) { if (e.key === 'Enter') tryLogin(); });
   $('loginUsername').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('loginPassword').focus(); });
-  $('btnLogout').addEventListener('click', function () { try { localStorage.removeItem(KEY); } catch (e) {} showLogin(); });
+  $('btnLogout').addEventListener('click', function () { clearSession(); showLogin(''); });
 
   var s = loadSession();
-  if (s) showMenu(s); else showLogin();
+  if (s) showMenu(s); else showLogin('');
 })();
 </script>
 </body>

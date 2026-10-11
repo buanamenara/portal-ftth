@@ -1495,7 +1495,32 @@
         })
         .loginUser(username, password);
     }
+    // Dibuka dari Gateway (?sso=tiket): masuk otomatis tanpa username/password. Selain itu pakai sesi tersimpan.
     function initAccess() {
+      try {
+        google.script.url.getLocation(function (loc) {
+          var t = loc && loc.parameter ? loc.parameter.sso : '';
+          if (t) ssoEnter_(String(t)); else initAccessSaved_();
+        });
+      } catch (e) { initAccessSaved_(); }
+    }
+    function ssoEnter_(ticket) {
+      $('loginNote').textContent = 'Masuk lewat Gateway...';
+      google.script.run
+        .withSuccessHandler(function (res) {
+          ROLE = (res.role === 'rpm') ? 'rpm' : 'admin';
+          ROLE_RAW = res.role || '';
+          ACCESS = res.code;
+          USER_NAME = res.name || '';
+          accessSet(res.code);
+          try { localStorage.setItem('bmiUserName', USER_NAME); } catch (e) {}
+          startPrefetch_(res.code);
+          enterPortal();
+        })
+        .withFailureHandler(function () { initAccessSaved_(); })
+        .ssoLogin(ticket);
+    }
+    function initAccessSaved_() {
       var saved = accessGet();
       if (!saved) { requireLogin(''); return; }
       ACCESS = saved;

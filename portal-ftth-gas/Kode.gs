@@ -4388,6 +4388,25 @@ function loginUser(username, password) {
   if (!u) failAccess_();
   return { code: code, role: u.role, name: u.nama, area: u.area };
 }
+// Masuk lewat Gateway Portal Terpadu BMI (login sekali): halaman membawa tiket sekali pakai (?sso=...) dari Gateway.
+// Tiket dicek ke Gateway (bukan ke browser), lalu sesi dibuat sama seperti loginUser.
+var GATEWAY_URL_ = 'https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec';
+function ssoLogin(ticket) {
+  var t = String(ticket || '');
+  if (!/^[A-Za-z0-9]{32,80}$/.test(t)) throw new Error('Tiket Gateway tidak valid. Silakan login lagi.');
+  var res = UrlFetchApp.fetch(GATEWAY_URL_ + '?sso_verify=' + t, { muteHttpExceptions: true });
+  var data = {};
+  try { data = JSON.parse(res.getContentText()); } catch (e) { /* bukan JSON: dianggap gagal */ }
+  var uname = data && data.ok ? String(data.username || '').trim().toLowerCase() : '';
+  var users = uname ? usersAll_() : [];
+  for (var i = 0; i < users.length; i++) {
+    var u = users[i];
+    if (u.username.toLowerCase() === uname && u.status !== 'nonaktif') {
+      return { code: makeCode_(u.username, u.password), role: u.role, name: u.nama, area: u.area };
+    }
+  }
+  throw new Error('Sesi Gateway sudah habis. Silakan login lagi.');
+}
 function adminListUsers(code) {
   requireAdmin_(code);
   return usersAll_().map(function (u) { return { username: u.username, nama: u.nama, role: u.role, area: u.area, status: u.status }; });
