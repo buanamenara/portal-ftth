@@ -110,6 +110,9 @@
       transition: all 0.2s;
     }
 
+    .header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    a.btn-header { text-decoration: none; }
+
     .btn-header:hover {
       background: var(--bmi-gold);
       color: var(--bmi-dark);
@@ -482,6 +485,8 @@
 
     /* Media Queries untuk Mobile (HP) */
     @media (max-width: 680px) {
+      .header-container { flex-wrap: wrap; }
+      .header-actions { width: 100%; justify-content: flex-end; }
       .daily-box {
         height: 30px;
         padding: 0 4px;
@@ -861,9 +866,13 @@
           <p>PT. BUANA MENARA INDONESIA</p>
         </div>
       </div>
-      <button type="button" class="btn-header" onclick="openConfigModal()">
-        ⚙️ Pengaturan
-      </button>
+      <div class="header-actions">
+        <!-- Portal FTTH dibuka di halaman PWA (tanpa banner Google); login FTTH yang tersimpan di perangkat dipakai otomatis. -->
+        <a class="btn-header" href="https://buanamenara.github.io/portal-ftth/?p=ftth" target="_top">🏠 Portal FTTH</a>
+        <button type="button" class="btn-header" onclick="openConfigModal()">
+          ⚙️ Pengaturan
+        </button>
+      </div>
     </div>
   </header>
 
