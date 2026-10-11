@@ -2761,13 +2761,8 @@
       const currentTotal = prevVal + todayVal;
 
       if (newDone) {
-        // Simpan total saat ini ke akumulasi progres lokal
-        try {
-          const rawPrev = localStorage.getItem(STORAGE_PREV_PROGRESS + '_' + cluster.toLowerCase());
-          const prevObj = rawPrev ? JSON.parse(rawPrev) : {};
-          prevObj[itemKey] = currentTotal;
-          localStorage.setItem(STORAGE_PREV_PROGRESS + '_' + cluster.toLowerCase(), JSON.stringify(prevObj));
-        } catch(e) {}
+        // Today TIDAK dilebur ke akumulasi di sini supaya angka Today tetap tampil (dan tidak terhitung dua kali);
+        // akumulasi disimpan saat Daily Report terkirim (saveCurrentProgressAsCumulative).
 
         // Sinkronkan ke Google Sheet MASTER BOQ CLUSTER
         const cfg = getConfig();
@@ -2853,8 +2848,10 @@
       const newTot = parseInt(elTotal.value) || 0;
       const planVal = parseInt(elPlan.innerText) || 0;
 
-      // Simpan total kumulatif langsung ke penyimpanan
-      saveItemTotalCumulative(cluster, itemKey, newTot);
+      // Simpan total kumulatif langsung ke penyimpanan (dikurangi Today yang masih terisi, agar tidak terhitung dua kali)
+      const elTodayOwner = document.getElementById(`inp_today_${itemKey}`);
+      const todayOwner = elTodayOwner ? (parseInt(elTodayOwner.value) || 0) : 0;
+      saveItemTotalCumulative(cluster, itemKey, Math.max(0, newTot - todayOwner));
 
       const isDone = isItemMarkedCompleted(cluster, itemKey);
       const sts = getItemStatus(newTot, planVal, isDone);
@@ -2872,11 +2869,22 @@
       localStorage.setItem(STORAGE_PREV_PROGRESS + '_' + cleanKey, JSON.stringify(prev));
     }
 
+    let lastDailyTableCluster = null;
     function renderDailyTable() {
       const cluster = getActiveDailyCluster();
       const tbody = document.getElementById('dailyTableBody');
       const countEl = document.getElementById('dailyVisibleCount');
       if (!tbody) return;
+
+      // Angka Today yang sudah diisi dipertahankan saat tabel digambar ulang (mis. klik Selesai / Lihat Semua Item);
+      // hanya dikosongkan bila cluster berganti.
+      const keptToday = {};
+      if (lastDailyTableCluster === cluster) {
+        tbody.querySelectorAll('input[id^="inp_today_"]').forEach(el => {
+          keptToday[el.id.slice('inp_today_'.length)] = parseInt(el.value) || 0;
+        });
+      }
+      lastDailyTableCluster = cluster;
 
       let items = getClusterItems(cluster);
 
@@ -2920,7 +2928,7 @@
           catItems.forEach(item => {
             const planVal = item.volume || 0;
             const prevVal = getPreviousCumulative(cluster, item.key);
-            const initialToday = 0;
+            const initialToday = keptToday[item.key] || 0;
             const total = prevVal + initialToday;
             const isDone = isItemMarkedCompleted(cluster, item.key);
             const sts = getItemStatus(total, planVal, isDone);
@@ -3220,6 +3228,9 @@ ${todayActivity}`;
         }
       });
       localStorage.setItem(STORAGE_PREV_PROGRESS + '_' + cluster.toLowerCase(), JSON.stringify(cum));
+      // Today sudah masuk akumulasi: kosongkan kolom Today untuk laporan berikutnya
+      lastDailyTableCluster = null;
+      renderDailyTable();
     }
 
     
