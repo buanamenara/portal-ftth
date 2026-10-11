@@ -1013,9 +1013,6 @@
       <div class="header-actions">
         <!-- Portal FTTH dibuka di halaman PWA (tanpa banner Google); login FTTH yang tersimpan di perangkat dipakai otomatis. -->
         <a class="btn-header" href="https://buanamenara.github.io/portal-ftth/?p=ftth" target="_top"><span>🏠 <span class="hb-long">Portal </span>FTTH</span></a>
-        <button type="button" class="btn-header" onclick="openConfigModal()" title="Pengaturan" aria-label="Pengaturan">
-          ⚙️<span class="hb-label"> Pengaturan</span>
-        </button>
         <!-- Keluar: sesi Waspang di HP ini dihapus dan Gateway mengakhiri sesinya (kembali ke halaman login). -->
         <a class="btn-header" href="https://buanamenara.github.io/portal-ftth/?logout=1" target="_top" onclick="logoutWaspang()">🚪 Keluar</a>
       </div>
@@ -1396,10 +1393,6 @@
     <!-- MENU 3: SUBMIT FOTO DOKUMENTASI KE DRIVE & TELEGRAM -->
     <div id="viewPhoto" style="display: none;">
 
-      <!-- STATUS KONEKSI GOOGLE DRIVE -->
-      <div id="driveConnectionBanner" style="margin-bottom: 12px; padding: 10px 14px; border-radius: 8px; font-size: 0.78rem; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-        <!-- Rendered via JS -->
-      </div>
 
             <!-- SHORTCUT AKSES LANGSUNG GOOGLE DRIVE -->
       <div style="margin-bottom: 12px; padding: 12px 16px; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
@@ -2610,20 +2603,10 @@
       scriptUrl: "https://script.google.com/macros/s/AKfycbw4TJYefbBIIoBS4Kztyv2lClvmngtIMotFbSLfp_E6ptKjv0qVwDBg_ppR1fY8zGKG/exec"
     };
 
+    // Alamat server Waspang dan grup Telegram tetap untuk semua HP. Menu Pengaturan tidak ditampilkan lagi (11-10-2026),
+    // jadi isian lama yang tersimpan di HP (termasuk URL salah ketik "BIlo") tidak dipakai.
     function getConfig() {
-      try {
-        const raw = localStorage.getItem(STORAGE_CONFIG);
-        if (raw) {
-          const p = JSON.parse(raw);
-          // URL lama yang salah ketik ("BIlo") bisa masih tersimpan di perangkat: abaikan dan pakai URL yang benar.
-          const savedUrl = /AKfycbw4TJYefbBIloBS/.test(p.scriptUrl || '') ? '' : p.scriptUrl;
-          return {
-            chatId: p.chatId || DEFAULT_CONFIG.chatId,
-            scriptUrl: savedUrl || DEFAULT_CONFIG.scriptUrl
-          };
-        }
-      } catch (e) {}
-      return DEFAULT_CONFIG;
+      return { chatId: DEFAULT_CONFIG.chatId, scriptUrl: DEFAULT_CONFIG.scriptUrl };
     }
     const STORAGE_BOQ_CUSTOM = 'waspang_custom_boq_v9';
     const STORAGE_PREV_PROGRESS = 'waspang_prev_progress_v9';
