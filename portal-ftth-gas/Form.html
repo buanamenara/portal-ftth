@@ -695,12 +695,12 @@
   </script>
 
   <!-- ===== BERANDA ===== -->
-  <!-- ===== BELUM MASUK: login hanya di Gateway (Portal Terpadu BMI); tidak ada form username/password di sini ===== -->
+  <!-- ===== BELUM MASUK: login hanya di Gateway (FTTH Project Control Portal); tidak ada form username/password di sini ===== -->
   <div id="viewLogin">
     <div class="card">
       <p class="desc" id="loginNote">Memeriksa akses...</p>
       <!-- Cadangan bila halaman tidak dibuka dari aplikasi (PWA) sehingga pengalihan otomatis tidak jalan -->
-      <a class="primary" id="gatewayLink" href="https://buanamenara.github.io/portal-ftth/" target="_top" style="display:none">Buka Portal Terpadu BMI</a>
+      <a class="primary" id="gatewayLink" href="https://buanamenara.github.io/portal-ftth/" target="_top" style="display:none">Buka FTTH Project Control Portal</a>
     </div>
   </div>
   <div id="appShell" style="display:none">
@@ -1445,7 +1445,7 @@
       $('logoutLink').style.display = 'none';
       $('waspangLink').style.display = 'none';
       var auto = opts.logout || !CAME_WITH_SSO_;
-      $('loginNote').textContent = (msg ? msg + ' ' : '') + (auto ? 'Membuka Portal Terpadu BMI...' : 'Silakan masuk lagi lewat Portal Terpadu BMI.');
+      $('loginNote').textContent = (msg ? msg + ' ' : '') + (auto ? 'Membuka FTTH Project Control Portal...' : 'Silakan masuk lagi lewat FTTH Project Control Portal.');
       $('gatewayLink').style.display = auto ? 'none' : '';
       $('adminPwOld').value = ''; $('adminPwNew').value = ''; $('adminPwNew2').value = ''; $('adminPwMsg').textContent = '';
       showView('viewLogin');
@@ -1483,7 +1483,7 @@
       } catch (e) { initAccessSaved_(); }
     }
     function ssoEnter_(ticket) {
-      $('loginNote').textContent = 'Masuk dari Portal Terpadu BMI...';
+      $('loginNote').textContent = 'Masuk dari FTTH Project Control Portal...';
       google.script.run
         .withSuccessHandler(function (res) {
           ROLE = (res.role === 'rpm') ? 'rpm' : 'admin';
