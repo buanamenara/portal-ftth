@@ -3242,7 +3242,12 @@
     }
 
     // Baris *ACHIEVMENT TODAY/TOTAL/BOQ PLAN* per kategori (untuk pesan Telegram dan kolom Ringkasan Pencapaian di sheet).
-    function buildDailyAchievText(cluster) {
+    // Karakter format Telegram (_ * ` [) di nama cluster dan isian diberi "\" supaya Telegram tidak menolak laporan
+    // (banyak nama Feeder/Uplink memakai "_"). Hanya untuk teks yang dikirim; pratinjau dan Salin tetap apa adanya.
+    function tgEsc(v) { return String(v == null ? '' : v).replace(/([_*`\[])/g, '\\$1'); }
+
+    function buildDailyAchievText(cluster, esc) {
+      esc = esc || (v => v);
       const isCluster = isClusterSow(cluster);
       const items = getClusterItems(cluster);
 
@@ -3266,7 +3271,7 @@
         if (catItems.length > 0) {
           achievLines.push(`\n*${catName}* :`);
           catItems.forEach(it => {
-            achievLines.push(`- ${it.name} : ${getRowStr(it.key, it.volume)}`);
+            achievLines.push(`- ${esc(it.name)} : ${getRowStr(it.key, it.volume)}`);
           });
         }
       });
@@ -3274,7 +3279,8 @@
       return achievLines.join('\n').trim();
     }
 
-    function generateDailyTelegramText() {
+    function generateDailyTelegramText(forTelegram) {
+      const e = forTelegram ? tgEsc : (v => v);
       const cluster = getActiveDailyCluster();
       const dateVal = document.getElementById('dailyDate').value;
       const startImplVal = document.getElementById('dailyStartImpl').value;
@@ -3287,25 +3293,25 @@
       const startTime = workHours.split('-')[0]?.trim() || '08.00';
       const endTime = workHours.split('-')[1]?.trim() || '17.00';
 
-      const achievText = buildDailyAchievText(cluster);
+      const achievText = buildDailyAchievText(cluster, e);
 
       // Format Header Telegram Bersih (Tanpa Line Cable redundan & Tanpa Subcont sesuai permintaan user)
       const text = 
 `*DAILY REPORT EMR – BMI*
 Date  : ${formatDateDMY(dateVal)}
-Cluster Name : ${cluster}
+Cluster Name : ${e(cluster)}
 Start Implementation : ${formatDateDMY(startImplVal)}
-Topology : ${topology}
-PIC : ${pic}
-Manpower  : ${manpower}
-Start Work Time : ${startTime}
-End Work Time : ${endTime}
+Topology : ${e(topology)}
+PIC : ${e(pic)}
+Manpower  : ${e(manpower)}
+Start Work Time : ${e(startTime)}
+End Work Time : ${e(endTime)}
 
 *ACHIEVMENT TODAY/TOTAL/BOQ PLAN* 
 ${achievText || 'Belum ada material terdaftar untuk cluster ini'}
 
 *TODAY ACTIVITY*
-${todayActivity}`;
+${e(todayActivity)}`;
 
       return text;
     }
@@ -3432,7 +3438,7 @@ ${todayActivity}`;
         return;
       }
 
-      const text = generateDailyTelegramText();
+      const text = generateDailyTelegramText(true);
 
       // Today per item, plus Total di perangkat ini sebagai saldo awal bila cluster belum punya baris di DAILY REPORT EMR.
       const reportCluster = getActiveDailyCluster();

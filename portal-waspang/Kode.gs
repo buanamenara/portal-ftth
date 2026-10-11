@@ -263,16 +263,12 @@ function sendWaspangPhotosToTelegram_(blobs, caption) {
   var ok = true;
   try {
     if (blobs.length === 1) {
-      return telegramOk_(UrlFetchApp.fetch('https://api.telegram.org/bot' + telegramToken_() + '/sendPhoto', {
-        method: 'post',
-        payload: {
-          chat_id: CONFIG.TELEGRAM_CHAT_ID,
-          caption: caption,
-          parse_mode: 'Markdown',
-          photo: blobs[0]
-        },
-        muteHttpExceptions: true
-      }));
+      return telegramPost_('sendPhoto', {
+        chat_id: CONFIG.TELEGRAM_CHAT_ID,
+        caption: caption,
+        parse_mode: 'Markdown',
+        photo: blobs[0]
+      }).ok === true;
     }
 
     // Telegram sendMediaGroup menerima maksimal 10 item per panggilan — dipecah per 10 jika lebih.
@@ -291,11 +287,7 @@ function sendWaspangPhotosToTelegram_(blobs, caption) {
         formPayload[key] = blob;
       });
       formPayload.media = JSON.stringify(media);
-      ok = telegramOk_(UrlFetchApp.fetch('https://api.telegram.org/bot' + telegramToken_() + '/sendMediaGroup', {
-        method: 'post',
-        payload: formPayload,
-        muteHttpExceptions: true
-      })) && ok;
+      ok = telegramPost_('sendMediaGroup', formPayload).ok === true && ok;
     }
   } catch (err) {
     console.error('Telegram send error: ' + err);
@@ -304,8 +296,25 @@ function sendWaspangPhotosToTelegram_(blobs, caption) {
   return ok;
 }
 
-function telegramOk_(res) {
-  try { return JSON.parse(res.getContentText()).ok === true; } catch (e) { return false; }
+// Kirim ke Telegram. Bila Telegram menolak format Markdown-nya (mis. "_" atau "*" tanpa pasangan di catatan),
+// kirim ulang sebagai teks biasa supaya laporan tetap sampai. -> isi balasan Telegram ({ok, description, ...}).
+function telegramPost_(method, payload) {
+  var url = 'https://api.telegram.org/bot' + telegramToken_() + '/' + method;
+  var json = telegramFetch_(url, payload);
+  if (!json.ok && /parse entities/i.test(json.description || '')) {
+    var plain = {};
+    Object.keys(payload).forEach(function (k) { if (k !== 'parse_mode') plain[k] = payload[k]; });
+    if (plain.media) {
+      plain.media = JSON.stringify(JSON.parse(plain.media).map(function (m) { delete m.parse_mode; return m; }));
+    }
+    json = telegramFetch_(url, plain);
+  }
+  return json;
+}
+
+function telegramFetch_(url, payload) {
+  var res = UrlFetchApp.fetch(url, { method: 'post', payload: payload, muteHttpExceptions: true });
+  try { return JSON.parse(res.getContentText()) || {}; } catch (e) { return {}; }
 }
 
 // Satu baris per foto, mengikuti judul kolom tab LOG FOTO WASPANG.
@@ -351,16 +360,7 @@ function sendDailyReportEMR_(payload) {
     return { status: 'error', message: 'Teks Daily Report kosong.' };
   }
   try {
-    var res = UrlFetchApp.fetch('https://api.telegram.org/bot' + telegramToken_() + '/sendMessage', {
-      method: 'post',
-      payload: {
-        chat_id: chatId,
-        text: text,
-        parse_mode: 'Markdown'
-      },
-      muteHttpExceptions: true
-    });
-    var json = JSON.parse(res.getContentText());
+    var json = telegramPost_('sendMessage', { chat_id: chatId, text: text, parse_mode: 'Markdown' });
     if (!json.ok) {
       return { status: 'error', message: json.description || 'Gagal mengirim ke Telegram.' };
     }
