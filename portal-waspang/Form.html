@@ -2513,9 +2513,11 @@
         const raw = localStorage.getItem(STORAGE_CONFIG);
         if (raw) {
           const p = JSON.parse(raw);
+          // URL lama yang salah ketik ("BIlo") bisa masih tersimpan di perangkat: abaikan dan pakai URL yang benar.
+          const savedUrl = /AKfycbw4TJYefbBIloBS/.test(p.scriptUrl || '') ? '' : p.scriptUrl;
           return {
             chatId: p.chatId || DEFAULT_CONFIG.chatId,
-            scriptUrl: p.scriptUrl || DEFAULT_CONFIG.scriptUrl
+            scriptUrl: savedUrl || DEFAULT_CONFIG.scriptUrl
           };
         }
       } catch (e) {}
