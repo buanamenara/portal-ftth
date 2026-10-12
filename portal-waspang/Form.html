@@ -2845,9 +2845,9 @@
     }
 
     // Tombol "Kirim ke WhatsApp": setelah Daily Report / foto terkirim ke Telegram, WhatsApp dibuka dengan teks laporan
-    // yang sudah terisi; waspang memilih grup lalu menekan Kirim. Disiapkan 11-10-2026 tapi BELUM AKTIF:
-    // ubah ke true hanya setelah pemilik portal setuju.
-    const WA_SHARE_ENABLED = false;
+    // yang sudah terisi; waspang memilih grup lalu menekan Kirim. Diaktifkan atas persetujuan pemilik portal (12-10-2026);
+    // ubah ke false untuk menyembunyikannya lagi.
+    const WA_SHARE_ENABLED = true;
 
     function waShareUrl(text) {
       return 'https://wa.me/?text=' + encodeURIComponent(String(text || '').replace(/`/g, ''));
