@@ -24,6 +24,7 @@ function telegramToken_() {
 }
 
 function doGet(e) {
+  formatDailyOnce_();
   if (e && e.parameter && e.parameter.api === 'json') {
     return ContentService.createTextOutput(JSON.stringify({
       status: "online",
@@ -150,6 +151,7 @@ function sheetWithHeader_(name, header) {
   var h = sheetHeader_(sh);
   header.forEach(function (title) {
     if (!(normHeader_(title) in h.idx)) {
+      if (h.width + 1 > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), 1);
       sh.getRange(1, h.width + 1).setValue(title).setFontWeight('bold');
       h.idx[normHeader_(title)] = h.width++;
     }
@@ -877,12 +879,36 @@ function formatDailyRows_(sh) {
     if (h.idx[k] !== undefined) sh.getRange(2, h.idx[k] + 1, n, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
   });
   sh.setRowHeightsForced(2, n, 21);
-  var cAct = h.idx['today activity'], end = colLetter_(h.width), marks = [];
+  highlightSaldoRows_(sh, h);
+}
+
+// Warna baris lewat format bersyarat, karena warna selang-seling (alternating colors) di tab ini menutupi warna sel biasa.
+function highlightSaldoRows_(sh, h) {
+  var cAct = h.idx['today activity'];
   if (cAct === undefined) return;
-  sh.getRange(2, cAct + 1, n, 1).getValues().forEach(function (r, i) {
-    if (/^(saldo awal|koreksi total)/i.test(String(r[0]).trim())) marks.push('A' + (i + 2) + ':' + end + (i + 2));
+  var f = '=REGEXMATCH(LOWER($' + colLetter_(cAct + 1) + '2&""),"^(saldo awal|koreksi total)")';
+  var rules = sh.getConditionalFormatRules(), at = -1;
+  rules.forEach(function (r, i) {
+    var c = r.getBooleanCondition();
+    if (c && String(c.getCriteriaValues()[0]) === f) at = i;
   });
-  if (marks.length) sh.getRangeList(marks).setBackground('#fff8e1');
+  if (at >= 0 && rules[at].getRanges()[0].getLastColumn() >= h.width) return;
+  var rule = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(f).setBackground('#fff8e1')
+    .setRanges([sh.getRange(2, 1, sh.getMaxRows() - 1, h.width)]).build();
+  if (at >= 0) rules[at] = rule; else rules.push(rule);
+  sh.setConditionalFormatRules(rules);
+}
+
+// Sekali setelah pemasangan: baris DAILY REPORT EMR yang sudah ada ikut dirapikan (hanya tampilan).
+function formatDailyOnce_() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    if (props.getProperty('DAILY_FORMAT_V') === '1') return;
+    formatDailyRows_(dailySheet_());
+    props.setProperty('DAILY_FORMAT_V', '1');
+  } catch (e) {
+    console.error('Format DAILY REPORT EMR: ' + e);
+  }
 }
 
 function colLetter_(n) {
