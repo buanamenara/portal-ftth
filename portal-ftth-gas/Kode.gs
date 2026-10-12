@@ -2539,7 +2539,7 @@ function onEdit(e) {
       if (rg.getColumn() <= 1 && rg.getLastRow() >= 5) regSyncChart_();      // kolom Region diubah: sesuaikan jumlah garis Kurva S
       if (rg.getLastColumn() >= 2) dokOnEdit_(sh, rg);
     }
-    logEditDataBase_(e, rg);
+    if (!logEditByTrigger_()) logEditDataBase_(e, rg);
   } catch (err) { /* jangan mengganggu pengetikan */ }
 }
 
@@ -6809,7 +6809,7 @@ function kirimSaran(code, data) {
 }
 
 
-function getLogHistory(code) { requireRpm_(code); return getLogHistory_(); }
+function getLogHistory(code) { requireRpm_(code); ensureLogEditTrigger_(); return getLogHistory_(); }
 
 // =====================================================================
 // LOG HISTORY: menu read-only (RPM) yang menampilkan siapa yang terakhir mengupdate data,
@@ -6827,7 +6827,7 @@ function rpmStyleLog_(sh) {
   var n = LOG_HEAD.length;
   if (sh.getMaxColumns() < n) sh.insertColumnsAfter(sh.getMaxColumns(), n - sh.getMaxColumns());
   rpmBanner_(sh, n, 'LOG HISTORY', 'Riwayat aktivitas: siapa yang terakhir mengupdate data lewat Portal atau langsung di Spreadsheet.');
-  sh.getRange(2, 2).setValue('Terisi otomatis. Portal = aksi lewat web app (Submit BOQ/BA, BA Gudang, BA Pekerjaan RPM, Administration). Spreadsheet = edit manual langsung di sheet DATA BASE.');
+  sh.getRange(2, 2).setValue('Terisi otomatis. Portal = aksi lewat web app (Submit BOQ/BA, BA Gudang, BA Pekerjaan RPM, Administration). Portal Waspang = Daily Report, foto, BOQ Plan, Selesai, Edit Total. Spreadsheet = edit manual langsung di sheet DATA BASE.');
   rpmHeader_(sh, LOG_HEAD);
   [140, 90, 160, 90, 180, 420].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
   sh.setFrozenRows(4);
@@ -6857,8 +6857,10 @@ function logHistory_(sumber, user, peran, aksi, detail) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sh = ss.getSheetByName(LOG_SH);
     if (!sh) { sh = ss.insertSheet(LOG_SH); rpmStyleLog_(sh); }
-    var row = Math.max(sh.getLastRow() + 1, 5);
-    sh.getRange(row, 1, 1, 6).setValues([[new Date(), sumber, user || '', peran || '', aksi || '', String(detail || '').slice(0, 500)]]);
+    var vals = [new Date(), sumber, user || '', peran || '', aksi || '', String(detail || '').slice(0, 500)];
+    // appendRow: aman bila Portal Waspang atau pemicu edit menulis di saat yang sama (tidak saling menimpa baris).
+    if (sh.getLastRow() >= 4) sh.appendRow(vals); else sh.getRange(5, 1, 1, 6).setValues([vals]);
+    var row = sh.getLastRow();
     sh.getRange(row, 1).setNumberFormat('dd mmm yyyy HH:mm');
     sh.getRange(row, 1, 1, 6).setVerticalAlignment('middle').setWrap(true);
     if (row - 4 > LOG_MAX_ROWS) sh.deleteRow(5);
@@ -6880,9 +6882,10 @@ function editorEmail_() {
 }
 
 // Edit satu sel: dicatat judul kolom + nilai lama -> baru. Edit banyak sel sekaligus (tempel/isi massal): dicatat ringkas.
-function logEditDataBase_(e, rg) {
+function logEditDataBase_(e, rg, who) {
+  who = who || editorEmail_();
   if (rg.getNumRows() > 1 || rg.getNumColumns() > 1) {
-    logHistory_('Spreadsheet', editorEmail_(), '', 'Edit DATA BASE (' + rg.getNumRows() + 'x' + rg.getNumColumns() + ' sel)', rg.getA1Notation());
+    logHistory_('Spreadsheet', who, '', 'Edit DATA BASE (' + rg.getNumRows() + 'x' + rg.getNumColumns() + ' sel)', rg.getA1Notation());
     return;
   }
   var sh = rg.getSheet();
@@ -6891,7 +6894,43 @@ function logEditDataBase_(e, rg) {
   var header = sh.getRange(3, rg.getColumn()).getDisplayValue() || sh.getRange(2, rg.getColumn()).getDisplayValue() || ('kolom ' + dokLetter_(rg.getColumn()));
   var oldVal = e.oldValue !== undefined ? e.oldValue : '';
   var newVal = e.value !== undefined ? e.value : rg.getDisplayValue();
-  logHistory_('Spreadsheet', editorEmail_(), '', 'Edit DATA BASE' + (siteName ? ' - ' + siteName : ''), header + ': "' + oldVal + '" -> "' + newVal + '"');
+  logHistory_('Spreadsheet', who, '', 'Edit DATA BASE' + (siteName ? ' - ' + siteName : ''), header + ': "' + oldVal + '" -> "' + newVal + '"');
+}
+
+// Tab LOG HISTORY diproteksi (hanya pemilik yang boleh menulis), sedangkan onEdit biasa berjalan sebagai akun yang mengedit,
+// sehingga edit DATA BASE dari akun Google lain gagal dicatat. Karena itu dipasang pemicu "Saat diedit" (installable) yang
+// berjalan sebagai pemilik. Pemicu dibuat otomatis saat RPM membuka Log History di portal (web app berjalan sebagai pemilik).
+// Selama pemicu itu aktif (Script Property LOG_EDIT_TRIGGER = 1), onEdit biasa tidak ikut mencatat supaya tidak dobel.
+function logEditByTrigger_() {
+  try { return PropertiesService.getScriptProperties().getProperty('LOG_EDIT_TRIGGER') === '1'; } catch (e) { return false; }
+}
+
+// Dipanggil oleh pemicu edit yang dipasang, bukan langsung oleh pengguna. Email akun lain sering disembunyikan Google
+// (akun Gmail berbeda), maka tampil (tidak diketahui).
+function logDataBaseEdit(e) {
+  try {
+    if (!e || !e.triggerUid || !e.range || typeof e.range.getSheet !== 'function') return;
+    if (e.range.getSheet().getName() !== 'DATA BASE') return;
+    var who = '';
+    try { who = e.user ? e.user.getEmail() : ''; } catch (x) { /* abaikan */ }
+    logEditDataBase_(e, e.range, who || '(tidak diketahui)');
+  } catch (err) { /* jangan mengganggu pengetikan */ }
+}
+
+// Pasang pemicu edit bila belum ada. Hanya bila akun yang menjalankan boleh menulis tab LOG HISTORY. Aman diulang.
+function ensureLogEditTrigger_() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var ada = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'logDataBaseEdit'; });
+    if (!ada) {
+      var ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(LOG_SH);
+      var prot = sh ? sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).concat(sh.getProtections(SpreadsheetApp.ProtectionType.RANGE)) : null;
+      if (!prot || !prot.every(function (p) { return p.canEdit(); })) return false;
+      ScriptApp.newTrigger('logDataBaseEdit').forSpreadsheet(ss).onEdit().create();
+    }
+    if (props.getProperty('LOG_EDIT_TRIGGER') !== '1') props.setProperty('LOG_EDIT_TRIGGER', '1');
+    return true;
+  } catch (e) { return false; }
 }
 
 function getLogHistory_() {
