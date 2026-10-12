@@ -979,8 +979,9 @@ function logWaspang_(p, res) {
     var plain = function (v) { v = String(v || ''); return /^[=+\-@]/.test(v) ? "'" + v : v; };
     sh.appendRow([new Date(), 'Portal Waspang', plain(user), peran, aksi, plain(String(detail).slice(0, 500))]);
     var row = sh.getLastRow();
-    sh.getRange(row, 1).setNumberFormat('dd mmm yyyy HH:mm');
-    sh.getRange(row, 1, 1, 6).setVerticalAlignment('middle').setWrap(true);
+    // Format seluruh kolom Waktu dan 5 baris terakhir: baris lain bisa ditulis bersamaan (pemicu edit/portal lain).
+    sh.getRange(5, 1, row - 4, 1).setNumberFormat('dd mmm yyyy HH:mm');
+    sh.getRange(Math.max(5, row - 4), 1, Math.min(5, row - 4), 6).setVerticalAlignment('middle').setWrap(true);
     if (row - 4 > LOG_MAX_ROWS_) sh.deleteRows(5, row - 4 - LOG_MAX_ROWS_);
   } catch (e) { console.error('LOG HISTORY: ' + e); }
 }

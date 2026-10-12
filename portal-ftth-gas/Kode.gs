@@ -6885,8 +6885,9 @@ function logHistory_(sumber, user, peran, aksi, detail) {
     // appendRow: aman bila Portal Waspang atau pemicu edit menulis di saat yang sama (tidak saling menimpa baris).
     if (sh.getLastRow() >= 4) sh.appendRow(vals); else sh.getRange(5, 1, 1, 6).setValues([vals]);
     var row = sh.getLastRow();
-    sh.getRange(row, 1).setNumberFormat('dd mmm yyyy HH:mm');
-    sh.getRange(row, 1, 1, 6).setVerticalAlignment('middle').setWrap(true);
+    // Format seluruh kolom Waktu dan 5 baris terakhir: baris lain bisa ditulis bersamaan (pemicu edit/portal lain).
+    sh.getRange(5, 1, row - 4, 1).setNumberFormat('dd mmm yyyy HH:mm');
+    sh.getRange(Math.max(5, row - 4), 1, Math.min(5, row - 4), 6).setVerticalAlignment('middle').setWrap(true);
     if (row - 4 > LOG_MAX_ROWS) sh.deleteRow(5);
   } catch (e) { /* jangan sampai gagal mencatat log menghentikan aksi utama */ }
 }
@@ -7001,8 +7002,30 @@ function logSheetEdit(e) {
     }
     var who = '';
     try { who = e.user ? e.user.getEmail() : ''; } catch (x) { /* abaikan */ }
-    logSheetEdit_(e, who || '(tidak diketahui)', label);
+    logSheetEdit_(e, who || driveLastEditor_(id) || '(tidak diketahui)', label);
   } catch (err) { /* jangan mengganggu pengetikan */ }
+}
+
+// Google tidak memberi email akun Gmail lain ke skrip. Gantinya: nama akun Google "terakhir diubah oleh" dari Google Drive,
+// hanya bila datanya baru (diubah < 3 menit lalu dan bukan pemilik). Data Drive kadang tertinggal beberapa detik, maka dicoba
+// sekali lagi. Hasil disimpan 30 detik per spreadsheet supaya ketikan beruntun tidak memanggil Drive tiap sel.
+function driveLastEditor_(ssId) {
+  var cache = CacheService.getScriptCache(), key = 'lastEd_' + ssId;
+  try {
+    var hit = cache.get(key);
+    if (hit) return hit;
+    for (var i = 0; i < 2; i++) {
+      var f = Drive.Files.get(ssId, { fields: 'modifiedTime,lastModifyingUser(displayName,emailAddress,me)' });
+      var u = (f && f.lastModifyingUser) || {}, age = Date.now() - new Date(f.modifiedTime).getTime();
+      if (u.displayName && !u.me && age < 180000) {
+        var name = String(u.displayName) + (u.emailAddress ? ' (' + u.emailAddress + ')' : '');
+        cache.put(key, name, 30);
+        return name;
+      }
+      if (i === 0) Utilities.sleep(3000);
+    }
+  } catch (e) { /* tetap (tidak diketahui) */ }
+  return '';
 }
 // Nama pemicu versi 203 (hanya DATA BASE); tetap ada supaya pemicu yang sudah terpasang ikut mencatat semua tab.
 function logDataBaseEdit(e) { logSheetEdit(e); }
