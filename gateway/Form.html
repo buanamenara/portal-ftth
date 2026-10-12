@@ -92,6 +92,12 @@
 
   function saveSession(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }
   function clearSession() { try { localStorage.removeItem(KEY); } catch (e) {} }
+  // Keluar: sesi di server diakhiri dan tercatat di LOG HISTORY, lalu sesi di HP ini dihapus.
+  function logout() {
+    var s = loadSession();
+    if (s) { try { google.script.run.logoutUser(s.sid); } catch (e) {} }
+    clearSession();
+  }
   function loadSession() {
     try {
       var s = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -170,12 +176,12 @@
   $('btnLogin').addEventListener('click', tryLogin);
   $('loginPassword').addEventListener('keydown', function (e) { if (e.key === 'Enter') tryLogin(); });
   $('loginUsername').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('loginPassword').focus(); });
-  $('btnLogout').addEventListener('click', function () { clearSession(); showLogin(''); });
+  $('btnLogout').addEventListener('click', function () { logout(); showLogin(''); });
 
   // ?logout=1: Keluar dari portal lain juga mengakhiri sesi Gateway. ?go=<portal>: langsung kembali ke portal itu.
   function start(p) {
     p = p || {};
-    if (p.logout === '1') clearSession();
+    if (p.logout === '1') logout();
     if (/^[a-z]+$/.test(p.go || '')) GO = p.go;
     var s = loadSession();
     if (s) showMenu(s); else showLogin('');

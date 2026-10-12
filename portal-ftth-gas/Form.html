@@ -1337,20 +1337,18 @@
   <div id="viewLogHistory" style="display:none">
     <div class="card wide">
       <h2>Log History</h2>
-      <p class="desc">Riwayat siapa yang terakhir mengupdate data, lewat Portal (Submit BOQ/BA, BA Gudang, BA Pekerjaan RPM, Administration), Portal Waspang (Daily Report, foto, BOQ Plan, Selesai, Edit Total) atau langsung di Spreadsheet (edit manual sheet DATA BASE). Hanya RPM yang bisa membuka halaman ini.</p>
+      <p class="desc">Riwayat semua aktivitas: login di Gateway, aksi di Portal FTTH dan Portal Waspang, dan edit manual di semua tab spreadsheet FTTH, Waspang, RPM BMI dan Gudang BMI. Hanya RPM yang bisa membuka halaman ini.</p>
       <div class="row">
         <div><input type="text" id="logQ" placeholder="Cari user, aksi, atau detail..." autocomplete="off"></div>
         <div>
           <select id="logSumber">
             <option value="">Semua sumber</option>
-            <option value="Portal">Portal</option>
-            <option value="Portal Waspang">Portal Waspang</option>
-            <option value="Spreadsheet">Spreadsheet</option>
           </select>
         </div>
         <div><button type="button" class="ghost" id="logRefreshBtn" style="margin-top:4px">Refresh</button></div>
       </div>
       <div id="logCount" class="hint"></div>
+      <div id="logPemicu" class="hint"></div>
       <div style="overflow-x:auto">
       <table>
         <thead><tr><th>Waktu</th><th>Sumber</th><th>User</th><th>Peran</th><th>Aksi</th><th>Detail</th></tr></thead>
@@ -3726,7 +3724,20 @@
     var logData = [];
     function loadLogHistory() {
       $('logTable').innerHTML = '<tr><td colspan="6">Memuat...</td></tr>';
-      GSR.withSuccessHandler(function (list) { logData = list || []; renderLogHistory(); })
+      GSR.withSuccessHandler(function (res) {
+        res = res || {};
+        logData = Array.isArray(res) ? res : (res.rows || []);
+        // Pilihan Sumber diambil dari data (Gateway, Portal, Portal Waspang, Spreadsheet, ...).
+        var sel = $('logSumber'), cur = sel.value, seen = {};
+        sel.innerHTML = '<option value="">Semua sumber</option>' + logData.map(function (r) { return String(r.sumber || ''); })
+          .filter(function (v) { if (!v || seen[v]) return false; seen[v] = 1; return true; }).sort()
+          .map(function (v) { return '<option value="' + esc(v) + '">' + esc(v) + '</option>'; }).join('');
+        if (seen[cur]) sel.value = cur;
+        var p = res.pemicu || [], ok = p.filter(function (x) { return x.ok; }).map(function (x) { return x.nama; });
+        var gagal = p.filter(function (x) { return !x.ok; }).map(function (x) { return x.nama + ' (' + x.pesan + ')'; });
+        $('logPemicu').textContent = (ok.length ? 'Pencatat edit spreadsheet aktif: ' + ok.join(', ') + '. ' : '') + (gagal.length ? 'Belum aktif: ' + gagal.join('; ') + '.' : '');
+        renderLogHistory();
+      })
         .withFailureHandler(function (err) { $('logTable').innerHTML = '<tr><td colspan="6">Gagal memuat: ' + esc(err.message) + '</td></tr>'; })
         .getLogHistory();
     }

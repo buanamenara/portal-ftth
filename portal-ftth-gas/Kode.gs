@@ -2528,18 +2528,18 @@ function dokOnEdit_(sh, rng) {
   }
 }
 
-// Pemicu sederhana (otomatis untuk ketikan/tempel manual). Juga mencatat tiap edit manual di DATA BASE ke LOG HISTORY.
+// Pemicu sederhana (otomatis untuk ketikan/tempel manual). Juga mencatat tiap edit manual (semua tab) ke LOG HISTORY
+// selama pemicu edit yang dipasang belum aktif (lihat logSheetEdit).
 function onEdit(e) {
   try {
     if (!e || !e.range) return;
     var rg = e.range;
     var sh = rg.getSheet();
-    if (sh.getName() !== 'DATA BASE') return;
-    if (rg.getColumn() <= 2) {
+    if (sh.getName() === 'DATA BASE' && rg.getColumn() <= 2) {
       if (rg.getColumn() <= 1 && rg.getLastRow() >= 5) regSyncChart_();      // kolom Region diubah: sesuaikan jumlah garis Kurva S
       if (rg.getLastColumn() >= 2) dokOnEdit_(sh, rg);
     }
-    if (!logEditByTrigger_()) logEditDataBase_(e, rg);
+    if (!logEditByTrigger_()) logSheetEdit_(e, editorEmail_(), '');
   } catch (err) { /* jangan mengganggu pengetikan */ }
 }
 
@@ -4386,6 +4386,7 @@ function loginUser(username, password) {
   var code = makeCode_(String(username || '').trim(), String(password || ''));
   var u = userByCode_(code);
   if (!u) failAccess_();
+  logHistory_('Portal', u.nama || u.username, u.role, 'Login Portal FTTH', u.username);
   return { code: code, role: u.role, name: u.nama, area: u.area };
 }
 // Masuk lewat Gateway FTTH Project Control Portal (login sekali): halaman membawa tiket sekali pakai (?sso=...) dari Gateway.
@@ -4402,6 +4403,7 @@ function ssoLogin(ticket) {
   for (var i = 0; i < users.length; i++) {
     var u = users[i];
     if (u.username.toLowerCase() === uname && u.status !== 'nonaktif') {
+      logHistory_('Portal', u.nama || u.username, u.role, 'Buka Portal FTTH', u.username);
       return { code: makeCode_(u.username, u.password), role: u.role, name: u.nama, area: u.area };
     }
   }
@@ -5066,7 +5068,12 @@ function saveBa(code, base64Data, fileName, data) {
   return res;
 }
 function getBaHistory(code) { requireAccess_(code); return getBaHistory_(scopeOf_(code)); }
-function downloadBaPdf(code, idBa) { requireAccess_(code); return downloadBaPdf_(idBa, scopeOf_(code)); }
+function downloadBaPdf(code, idBa) {
+  requireAccess_(code);
+  var res = downloadBaPdf_(idBa, scopeOf_(code));
+  logHistory_('Portal', logUser_(code), logRole_(code), 'Unduh PDF BA Transaksi', String(idBa || ''));
+  return res;
+}
 
 // ----- BA Masuk (Pembelian / Transfer): dicatat langsung di BA TRANSAKSI, tanpa PDF -----
 var BA_JENIS_MASUK = ['Masuk - Pembelian', 'Masuk - Transfer'];
@@ -5681,9 +5688,24 @@ function rpmCreate(code, data) {
   return res;
 }
 function rpmHistory(code) { requireRpm_(code); return rpmHistory_(); }
-function rpmDownload(code, idBa) { requireRpm_(code); return rpmDownload_(idBa); }
-function rpmSaveSign(code, b64, mime) { requireRpm_(code); return rpmSaveSign_(b64, mime); }
-function rpmSaveMandorSign(code, mandor, b64, mime) { requireRpm_(code); return rpmSaveMandorSign_(mandor, b64, mime); }
+function rpmDownload(code, idBa) {
+  requireRpm_(code);
+  var res = rpmDownload_(idBa);
+  logHistory_('Portal', logUser_(code), logRole_(code), 'Unduh PDF BA Pekerjaan RPM', String(idBa || ''));
+  return res;
+}
+function rpmSaveSign(code, b64, mime) {
+  requireRpm_(code);
+  var res = rpmSaveSign_(b64, mime);
+  logHistory_('Portal', logUser_(code), logRole_(code), 'Simpan Tanda Tangan RPM', '');
+  return res;
+}
+function rpmSaveMandorSign(code, mandor, b64, mime) {
+  requireRpm_(code);
+  var res = rpmSaveMandorSign_(mandor, b64, mime);
+  logHistory_('Portal', logUser_(code), logRole_(code), 'Simpan Tanda Tangan Mandor', String(mandor || ''));
+  return res;
+}
 // ---------- FORM ATP (menu RPM) ----------
 // Satu PDF berisi 2 halaman: Pengajuan Dana ATP + Persetujuan Biaya Entertain.
 var ATP_SHEET_NAME = 'FORM ATP';
@@ -6805,11 +6827,13 @@ function kirimSaran(code, data) {
   sh.getRange(row, 1).setNumberFormat('dd mmm yyyy');
   sh.getRange(row, 1, 1, 6).setVerticalAlignment('middle').setWrap(true);
   SpreadsheetApp.flush();
+  // Masukan boleh tanpa nama: log hanya memakai nama yang diketik, tanpa isi pesan (isi ada di tab KRITIK DAN SARAN).
+  logHistory_('Portal', nama || '(tanpa nama)', peran, 'Kirim Kritik & Saran', '');
   return { ok: true };
 }
 
 
-function getLogHistory(code) { requireRpm_(code); ensureLogEditTrigger_(); return getLogHistory_(); }
+function getLogHistory(code) { requireRpm_(code); return { rows: getLogHistory_(), pemicu: ensureLogEditTrigger_() }; }
 
 // =====================================================================
 // LOG HISTORY: menu read-only (RPM) yang menampilkan siapa yang terakhir mengupdate data,
@@ -6827,7 +6851,7 @@ function rpmStyleLog_(sh) {
   var n = LOG_HEAD.length;
   if (sh.getMaxColumns() < n) sh.insertColumnsAfter(sh.getMaxColumns(), n - sh.getMaxColumns());
   rpmBanner_(sh, n, 'LOG HISTORY', 'Riwayat aktivitas: siapa yang terakhir mengupdate data lewat Portal atau langsung di Spreadsheet.');
-  sh.getRange(2, 2).setValue('Terisi otomatis. Portal = aksi lewat web app (Submit BOQ/BA, BA Gudang, BA Pekerjaan RPM, Administration). Portal Waspang = Daily Report, foto, BOQ Plan, Selesai, Edit Total. Spreadsheet = edit manual langsung di sheet DATA BASE.');
+  sh.getRange(2, 2).setValue('Terisi otomatis. Gateway = login/logout. Portal / Portal Waspang = aksi lewat web app. Spreadsheet = edit manual di semua tab spreadsheet FTTH, Waspang, RPM BMI dan Gudang BMI.');
   rpmHeader_(sh, LOG_HEAD);
   [140, 90, 160, 90, 180, 420].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
   sh.setFrozenRows(4);
@@ -6854,15 +6878,16 @@ function setupLogHistory() { ownerOnly_(); return setupLogHistory_(); }
 // jadi kegagalan di sini dibiarkan saja (try/catch).
 function logHistory_(sumber, user, peran, aksi, detail) {
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ss = logSs_();
     var sh = ss.getSheetByName(LOG_SH);
     if (!sh) { sh = ss.insertSheet(LOG_SH); rpmStyleLog_(sh); }
     var vals = [new Date(), sumber, user || '', peran || '', aksi || '', String(detail || '').slice(0, 500)];
     // appendRow: aman bila Portal Waspang atau pemicu edit menulis di saat yang sama (tidak saling menimpa baris).
     if (sh.getLastRow() >= 4) sh.appendRow(vals); else sh.getRange(5, 1, 1, 6).setValues([vals]);
     var row = sh.getLastRow();
-    sh.getRange(row, 1).setNumberFormat('dd mmm yyyy HH:mm');
-    sh.getRange(row, 1, 1, 6).setVerticalAlignment('middle').setWrap(true);
+    // Format seluruh kolom Waktu dan 5 baris terakhir: baris lain bisa ditulis bersamaan (pemicu edit/portal lain).
+    sh.getRange(5, 1, row - 4, 1).setNumberFormat('dd mmm yyyy HH:mm');
+    sh.getRange(Math.max(5, row - 4), 1, Math.min(5, row - 4), 6).setVerticalAlignment('middle').setWrap(true);
     if (row - 4 > LOG_MAX_ROWS) sh.deleteRow(5);
   } catch (e) { /* jangan sampai gagal mencatat log menghentikan aksi utama */ }
 }
@@ -6897,40 +6922,138 @@ function logEditDataBase_(e, rg, who) {
   logHistory_('Spreadsheet', who, '', 'Edit DATA BASE' + (siteName ? ' - ' + siteName : ''), header + ': "' + oldVal + '" -> "' + newVal + '"');
 }
 
-// Tab LOG HISTORY diproteksi (hanya pemilik yang boleh menulis), sedangkan onEdit biasa berjalan sebagai akun yang mengedit,
-// sehingga edit DATA BASE dari akun Google lain gagal dicatat. Karena itu dipasang pemicu "Saat diedit" (installable) yang
-// berjalan sebagai pemilik. Pemicu dibuat otomatis saat RPM membuka Log History di portal (web app berjalan sebagai pemilik).
-// Selama pemicu itu aktif (Script Property LOG_EDIT_TRIGGER = 1), onEdit biasa tidak ikut mencatat supaya tidak dobel.
+// Spreadsheet utama (tempat tab LOG HISTORY). Pemicu edit untuk spreadsheet lain berjalan dengan spreadsheet aktif = spreadsheet
+// itu, jadi log selalu dibuka lewat ID. Spreadsheet Waspang milik Portal Waspang (project Apps Script terpisah).
+var FTTH_SS_ID_ = '1KblZFDIcG6Jbbo6gy2Mh0vpgEzsgfUhMcwg5A5qtSME';
+var WASPANG_SS_ID_ = '1ZlSlITeC9zi-m894gQYUUn4YMfP6_8B_Jtep5a33OjA';
+function logSs_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return ss && ss.getId() === FTTH_SS_ID_ ? ss : SpreadsheetApp.openById(FTTH_SS_ID_);
+}
+
+// Semua spreadsheet proyek yang edit manualnya dicatat: FTTH (semua tab kecuali LOG HISTORY), Waspang, RPM BMI, Gudang BMI.
+function logEditTargets_() {
+  var p = PropertiesService.getScriptProperties(), list = [{ id: FTTH_SS_ID_, name: 'FTTH' }, { id: WASPANG_SS_ID_, name: 'Waspang' }];
+  if (p.getProperty('RPM_SS_ID')) list.push({ id: p.getProperty('RPM_SS_ID'), name: 'RPM BMI' });
+  if (p.getProperty('BAG_SS_ID')) list.push({ id: p.getProperty('BAG_SS_ID'), name: 'Gudang BMI' });
+  return list;
+}
+
+// Edit manual satu sel: tab, baris (nama site/item bila ada), judul kolom, nilai lama -> baru. Edit banyak sel sekaligus: ringkas.
+// label = nama spreadsheet selain FTTH (kosong untuk FTTH). Isi kolom password/token tidak pernah ditulis ke log.
+function logSheetEdit_(e, who, label) {
+  var rg = e.range, sh = rg.getSheet(), tab = sh.getName();
+  if (!label && tab === LOG_SH) return;
+  if (!label && tab === 'DATA BASE') return logEditDataBase_(e, rg, who);
+  var src = label ? tab + ' (' + label + ')' : tab;
+  if (rg.getNumRows() > 1 || rg.getNumColumns() > 1) {
+    logHistory_('Spreadsheet', who, '', 'Edit ' + src + ' (' + rg.getNumRows() + 'x' + rg.getNumColumns() + ' sel)', rg.getA1Notation());
+    return;
+  }
+  var ctx = editContext_(sh, rg.getRow(), rg.getColumn());
+  var oldVal = e.oldValue !== undefined ? String(e.oldValue) : '';
+  var newVal = e.value !== undefined ? String(e.value) : rg.getDisplayValue();
+  if (/pass|sandi|token|secret|api.?key/i.test(ctx.header)) { oldVal = oldVal ? '***' : ''; newVal = newVal ? '***' : ''; }
+  logHistory_('Spreadsheet', who, '', 'Edit ' + src + (ctx.item ? ' - ' + ctx.item : ''),
+    rg.getA1Notation() + (ctx.header ? ' ' + ctx.header : '') + ': "' + oldVal + '" -> "' + newVal + '"');
+}
+
+// Judul kolom dan nama baris untuk sel (r, c). Sel pilihan di atas tabel (mis. REKON "Name | <site>", "SOW | <sow>"):
+// judul = label di sel kirinya. Selain itu baris judul = baris (1-6) yang memuat kolom Name/Site/Cluster Name/Username
+// (atau Designator); bila tidak ada, baris 3, 4, 1, 2, 5, 6 (pola tab di spreadsheet ini). Nama baris = isi kolom tersebut.
+function editContext_(sh, r, c) {
+  if (r <= 6 && c > 1) {
+    var left = String(sh.getRange(r, c - 1).getDisplayValue()).trim();
+    if (/^(name|nama|sow|site|site name|cluster name|region|gudang)$/i.test(left)) return { header: left, item: '' };
+  }
+  var nr = Math.min(6, r - 1), nc = Math.min(Math.max(sh.getLastColumn(), c), 60);
+  var top = nr > 0 ? sh.getRange(1, 1, nr, nc).getDisplayValues() : [];
+  var cell = function (rr, cc) { return String((top[rr - 1] || [])[cc - 1] || '').trim(); };
+  var nameRow = 0, nameCol = 0;
+  [/^(name|site|site name|cluster name|nama site|username)$/i, /^designator$/i].some(function (re) {
+    for (var hr = 1; hr <= nr; hr++) {
+      for (var cc = 1; cc <= nc; cc++) if (re.test(cell(hr, cc))) { nameRow = hr; nameCol = cc; return true; }
+    }
+    return false;
+  });
+  var header = nameRow ? cell(nameRow, c) : '';
+  if (!header) [3, 4, 1, 2, 5, 6].some(function (h) { if (h <= nr) header = cell(h, c); return !!header; });
+  var item = nameCol && nameCol !== c ? String(sh.getRange(r, nameCol).getDisplayValue()).trim() : '';
+  return { header: (header || 'kolom ' + c).slice(0, 60), item: item.slice(0, 120) };
+}
+
+// LOG HISTORY diproteksi (hanya pemilik yang boleh menulis), sedangkan onEdit biasa berjalan sebagai akun yang mengedit,
+// sehingga edit dari akun Google lain gagal dicatat. Karena itu tiap spreadsheet proyek diberi pemicu "Saat diedit" (installable)
+// yang berjalan sebagai pemilik. Pemicu dibuat otomatis saat RPM membuka Log History di portal (web app berjalan sebagai pemilik).
+// Selama pemicu spreadsheet FTTH aktif (Script Property LOG_EDIT_TRIGGER = 1), onEdit biasa tidak ikut mencatat supaya tidak dobel.
 function logEditByTrigger_() {
   try { return PropertiesService.getScriptProperties().getProperty('LOG_EDIT_TRIGGER') === '1'; } catch (e) { return false; }
 }
 
 // Dipanggil oleh pemicu edit yang dipasang, bukan langsung oleh pengguna. Email akun lain sering disembunyikan Google
 // (akun Gmail berbeda), maka tampil (tidak diketahui).
-function logDataBaseEdit(e) {
+function logSheetEdit(e) {
   try {
-    if (!e || !e.triggerUid || !e.range || typeof e.range.getSheet !== 'function') return;
-    if (e.range.getSheet().getName() !== 'DATA BASE') return;
+    if (!e || !e.triggerUid || !e.range || typeof e.range.getSheet !== 'function' || !e.source) return;
+    var id = e.source.getId(), label = '';
+    if (id !== FTTH_SS_ID_) {
+      logEditTargets_().some(function (t) { if (t.id === id) label = t.name; return !!label; });
+      label = label || e.source.getName();
+    }
     var who = '';
     try { who = e.user ? e.user.getEmail() : ''; } catch (x) { /* abaikan */ }
-    logEditDataBase_(e, e.range, who || '(tidak diketahui)');
+    logSheetEdit_(e, who || driveLastEditor_(id) || '(tidak diketahui)', label);
   } catch (err) { /* jangan mengganggu pengetikan */ }
 }
 
-// Pasang pemicu edit bila belum ada. Hanya bila akun yang menjalankan boleh menulis tab LOG HISTORY. Aman diulang.
-function ensureLogEditTrigger_() {
+// Google tidak memberi email akun Gmail lain ke skrip. Gantinya: nama akun Google "terakhir diubah oleh" dari Google Drive,
+// hanya bila datanya baru (diubah < 3 menit lalu dan bukan pemilik). Data Drive kadang tertinggal beberapa detik, maka dicoba
+// sekali lagi. Hasil disimpan 30 detik per spreadsheet supaya ketikan beruntun tidak memanggil Drive tiap sel.
+function driveLastEditor_(ssId) {
+  var cache = CacheService.getScriptCache(), key = 'lastEd_' + ssId;
   try {
-    var props = PropertiesService.getScriptProperties();
-    var ada = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'logDataBaseEdit'; });
-    if (!ada) {
-      var ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(LOG_SH);
-      var prot = sh ? sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).concat(sh.getProtections(SpreadsheetApp.ProtectionType.RANGE)) : null;
-      if (!prot || !prot.every(function (p) { return p.canEdit(); })) return false;
-      ScriptApp.newTrigger('logDataBaseEdit').forSpreadsheet(ss).onEdit().create();
+    var hit = cache.get(key);
+    if (hit) return hit;
+    for (var i = 0; i < 2; i++) {
+      var f = Drive.Files.get(ssId, { fields: 'modifiedTime,lastModifyingUser(displayName,emailAddress,me)' });
+      var u = (f && f.lastModifyingUser) || {}, age = Date.now() - new Date(f.modifiedTime).getTime();
+      if (u.displayName && !u.me && age < 180000) {
+        var name = String(u.displayName) + (u.emailAddress ? ' (' + u.emailAddress + ')' : '');
+        cache.put(key, name, 30);
+        return name;
+      }
+      if (i === 0) Utilities.sleep(3000);
     }
-    if (props.getProperty('LOG_EDIT_TRIGGER') !== '1') props.setProperty('LOG_EDIT_TRIGGER', '1');
-    return true;
-  } catch (e) { return false; }
+  } catch (e) { /* tetap (tidak diketahui) */ }
+  return '';
+}
+// Nama pemicu versi 203 (hanya DATA BASE); tetap ada supaya pemicu yang sudah terpasang ikut mencatat semua tab.
+function logDataBaseEdit(e) { logSheetEdit(e); }
+
+// Pasang pemicu edit untuk tiap spreadsheet proyek yang belum punya. Hanya bila akun yang menjalankan boleh menulis tab
+// LOG HISTORY. Aman diulang. Hasilnya ditampilkan di halaman Log History.
+function ensureLogEditTrigger_() {
+  var out = [];
+  try {
+    var sh = logSs_().getSheetByName(LOG_SH);
+    var prot = sh ? sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).concat(sh.getProtections(SpreadsheetApp.ProtectionType.RANGE)) : null;
+    if (!prot || !prot.every(function (p) { return p.canEdit(); })) {
+      return [{ nama: 'Semua', ok: false, pesan: 'akun web app tidak boleh menulis tab LOG HISTORY' }];
+    }
+    var trig = ScriptApp.getProjectTriggers();
+    logEditTargets_().forEach(function (t) {
+      try {
+        var ada = trig.some(function (x) {
+          return (x.getHandlerFunction() === 'logSheetEdit' || x.getHandlerFunction() === 'logDataBaseEdit') && x.getTriggerSourceId() === t.id;
+        });
+        if (!ada) ScriptApp.newTrigger('logSheetEdit').forSpreadsheet(t.id).onEdit().create();
+        out.push({ nama: t.name, ok: true });
+      } catch (err) { out.push({ nama: t.name, ok: false, pesan: String(err && err.message || err) }); }
+    });
+    var props = PropertiesService.getScriptProperties();
+    if (out[0] && out[0].ok && props.getProperty('LOG_EDIT_TRIGGER') !== '1') props.setProperty('LOG_EDIT_TRIGGER', '1');
+  } catch (err) { out.push({ nama: 'Pemicu', ok: false, pesan: String(err && err.message || err) }); }
+  return out;
 }
 
 function getLogHistory_() {

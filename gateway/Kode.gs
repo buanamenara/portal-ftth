@@ -13,6 +13,9 @@
 var CONFIG = {
   USERS_SPREADSHEET_ID: '1S8c7A0hPZrJ4bHH6UuUfHY8mkBPvadubtlEV1VuZdHA',   // spreadsheet "RPM BMI - BA Pekerjaan", sheet USERS
   USERS_SHEET_NAME: 'USERS',
+  // Login, login gagal dan logout dicatat di tab LOG HISTORY spreadsheet Portal FTTH (Sumber "Gateway").
+  LOG_SPREADSHEET_ID: '1KblZFDIcG6Jbbo6gy2Mh0vpgEzsgfUhMcwg5A5qtSME',
+  LOG_SHEET_NAME: 'LOG HISTORY',
   // Halaman PWA yang memuat portal di dalam bingkainya (index.html, ?p=<portal>&t=<tiket>).
   SHELL_URL: 'https://buanamenara.github.io/portal-ftth/',
   PORTALS: {
@@ -76,15 +79,51 @@ function loginUser(username, password) {
   var pass = String(password || '');
   if (!String(username || '').trim() || !pass) throw new Error('Username dan password wajib diisi.');
   var r = findUser_(username);
-  if (r && String(r[1]) === pass && (String(r[5]).trim().toLowerCase() || 'aktif') !== 'nonaktif') {
-    var role = String(r[3]).trim().toLowerCase();
-    if (!(CONFIG.ROLE_PORTALS[role] || []).length) throw new Error('Role "' + role + '" belum diberi akses portal. Hubungi admin.');
+  var aktif = r && (String(r[5]).trim().toLowerCase() || 'aktif') !== 'nonaktif';
+  if (r && String(r[1]) === pass && aktif) {
+    var role = String(r[3]).trim().toLowerCase(), name = String(r[2]).trim() || String(r[0]).trim();
+    if (!(CONFIG.ROLE_PORTALS[role] || []).length) {
+      logGateway_(name, role, 'Login gagal', 'role belum diberi akses portal');
+      throw new Error('Role "' + role + '" belum diberi akses portal. Hubungi admin.');
+    }
     var sid = randomId_();
     CacheService.getScriptCache().put('sid_' + sid, String(r[0]).trim(), CONFIG.SESSION_TTL);
-    return { sid: sid, name: String(r[2]).trim() || String(r[0]).trim(), role: role, area: String(r[4]).trim() };
+    logGateway_(name, role, 'Login', String(r[0]).trim());
+    return { sid: sid, name: name, role: role, area: String(r[4]).trim() };
   }
+  // Password yang diketik tidak pernah dicatat; hanya username dan alasannya.
+  logGateway_(String(username).trim().slice(0, 60), r ? String(r[3]).trim().toLowerCase() : '', 'Login gagal',
+    !r ? 'username tidak terdaftar' : (!aktif ? 'akun nonaktif' : 'password salah'));
   Utilities.sleep(1500);   // memperlambat tebak-tebakan password
   throw new Error('Username atau password salah.');
+}
+
+// Dipanggil saat tombol Keluar ditekan (atau ?logout=1 dari portal lain): sesi di server diakhiri dan dicatat.
+function logoutUser(sid) {
+  var cache = CacheService.getScriptCache();
+  var uname = /^[A-Za-z0-9]{32,80}$/.test(String(sid || '')) ? cache.get('sid_' + sid) : null;
+  if (!uname) return { ok: true };
+  cache.remove('sid_' + sid);
+  var r = null;
+  try { r = findUser_(uname); } catch (e) { /* tetap dicatat dengan username */ }
+  logGateway_(r ? (String(r[2]).trim() || uname) : uname, r ? String(r[3]).trim().toLowerCase() : '', 'Logout', uname);
+  return { ok: true };
+}
+
+// Satu baris di LOG HISTORY (Waktu | Sumber | User | Peran | Aksi | Detail). Teks yang diawali = + - @ diberi ' supaya
+// tidak jadi rumus. Gagal mencatat tidak boleh menggagalkan login.
+function logGateway_(user, peran, aksi, detail) {
+  try {
+    var sh = SpreadsheetApp.openById(CONFIG.LOG_SPREADSHEET_ID).getSheetByName(CONFIG.LOG_SHEET_NAME);
+    if (!sh) return;
+    var plain = function (v) { v = String(v || ''); return /^[=+\-@]/.test(v) ? "'" + v : v; };
+    sh.appendRow([new Date(), 'Gateway', plain(user), peran || '', aksi, plain(String(detail || '').slice(0, 200))]);
+    var row = sh.getLastRow();
+    // Format seluruh kolom Waktu dan 5 baris terakhir: baris lain bisa ditulis bersamaan (pemicu edit/portal lain).
+    sh.getRange(5, 1, row - 4, 1).setNumberFormat('dd mmm yyyy HH:mm');
+    sh.getRange(Math.max(5, row - 4), 1, Math.min(5, row - 4), 6).setVerticalAlignment('middle').setWrap(true);
+    if (row - 4 > 2000) sh.deleteRows(5, row - 4 - 2000);
+  } catch (e) { console.error('LOG HISTORY: ' + e); }
 }
 
 // Daftar portal untuk sesi ini, dengan tautan ke halaman PWA. Portal ber-sso membawa tiket baru sekali pakai.

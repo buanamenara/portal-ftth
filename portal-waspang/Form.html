@@ -5883,6 +5883,7 @@ ${e(todayActivity)}`;
       try {
         const payload = {
           action: "CREATE_SITE_FOLDERS",
+          session: wsSid(),
           siteName: site,
           sow: sow,
           lines: ["Line A", "Line B", "Line C", "Line D"],
