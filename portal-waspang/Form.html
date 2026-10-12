@@ -1126,7 +1126,8 @@
       <div class="header-actions">
         <!-- Portal FTTH dibuka di halaman PWA (tanpa banner Google); login FTTH yang tersimpan di perangkat dipakai otomatis. -->
         <a class="btn-header" href="https://buanamenara.github.io/portal-ftth/?p=ftth" target="_top"><span>🏠 <span class="hb-long">Portal </span>FTTH</span></a>
-        <!-- Database: spreadsheet Waspang dan FTTH di tab baru, hanya untuk akun RPM (spreadsheet dibagikan ke akun Google tertentu saja). -->
+        <!-- Database: spreadsheet Waspang dan FTTH di tab baru, untuk akun RPM dan Waspang yang masuk lewat FTTH Project Control Portal.
+             Spreadsheet hanya bisa dibuka akun Google yang diberi akses; akun lain melihat "Minta akses". -->
         <div class="db-menu" id="dbMenu" style="display:none">
           <button type="button" class="btn-header" id="btnDbMenu" onclick="toggleDbMenu(event)">📊 Database ▾</button>
           <div class="db-dropdown" id="dbDropdown">
@@ -3121,7 +3122,7 @@
     function updateOwnerModeUI() {
       if (!isRpmSession()) isOwnerMode = false;
       const dbMenu = document.getElementById('dbMenu');
-      if (dbMenu) dbMenu.style.display = isRpmSession() ? '' : 'none';
+      if (dbMenu) dbMenu.style.display = (WS_SESSION && (WS_SESSION.role === 'rpm' || WS_SESSION.role === 'waspang')) ? '' : 'none';
       const btn = document.getElementById('btnOwnerModeToggle');
       if (btn) {
         btn.style.display = isRpmSession() ? '' : 'none';
