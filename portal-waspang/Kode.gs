@@ -9,7 +9,9 @@ var CONFIG = {
   // Spreadsheet "RPM BMI - BA Pekerjaan": kritik & saran dari Portal Waspang masuk ke tab KRITIK DAN SARAN,
   // tempat yang sama dengan masukan dari Portal FTTH.
   SARAN_SPREADSHEET_ID: "1S8c7A0hPZrJ4bHH6UuUfHY8mkBPvadubtlEV1VuZdHA",
-  SARAN_SHEET_NAME: "KRITIK DAN SARAN"
+  SARAN_SHEET_NAME: "KRITIK DAN SARAN",
+  // Aktivitas Portal Waspang ikut dicatat di tab LOG HISTORY spreadsheet Portal FTTH (tempat yang sama dengan log Portal FTTH).
+  LOG_SHEET_NAME: "LOG HISTORY"
 };
 
 // Token bot Telegram TIDAK ditulis di kode (repo ini publik). Simpan di Script Properties:
@@ -77,6 +79,7 @@ function doPost(e) {
       default:
         result = { status: 'error', message: 'Action tidak dikenali: ' + payload.action };
     }
+    if (result && result.status === 'success') logWaspang_(payload);
   } catch (err) {
     result = { status: 'error', message: err.toString() };
   }
@@ -923,6 +926,50 @@ function kirimSaran_(payload) {
     lock.releaseLock();
   }
   return { status: 'success' };
+}
+
+// Catat aksi Portal Waspang yang berhasil ke LOG HISTORY (spreadsheet Portal FTTH). Nama dan peran diambil dari sesi Gateway;
+// tanpa sesi dipakai nama PIC/Waspang yang diketik. Gagal mencatat tidak boleh menggagalkan aksi utamanya.
+var LOG_MAX_ROWS_ = 2000;
+function logWaspang_(p) {
+  try {
+    var aksi, detail, site = function (raw, sow) { var n = siteName_(raw); return n + (sow ? ' (' + sow + ')' : ''); };
+    switch (p.action) {
+      case 'DAILY_REPORT':
+        aksi = 'Daily Report';
+        detail = site(p.cluster, p.sow || sowFromId_(p.cluster)) + (p.by ? ' - PIC ' + p.by : '');
+        break;
+      case 'UPLOAD_PHOTOS':
+        aksi = 'Upload Foto';
+        detail = site(p.siteName, p.sow) + ' - ' + (p.files || []).length + ' foto' + (p.mainCategory ? ', ' + p.mainCategory : '') + (p.subPath ? ', ' + p.subPath : '');
+        break;
+      case 'SYNC_BOQ_EXCEL':
+        aksi = 'BOQ Plan';
+        detail = (p.clusters || []).map(function (c) { return site(c.name || c.fullName, c.sow); }).join('; ');
+        break;
+      case 'SET_DONE':
+        aksi = p.done ? 'Tandai Selesai' : 'Batal Selesai';
+        detail = site(p.name || p.cluster, p.sow) + ' - ' + (p.items || p.keys || (p.key ? [p.key] : [])).join(', ');
+        break;
+      case 'SET_TOTAL':
+        aksi = 'Edit Total (RPM)';
+        detail = site(p.cluster, p.sow || sowFromId_(p.cluster)) + ' - ' + (p.itemName || p.key) + ' = ' + p.total;
+        break;
+      default:
+        return;
+    }
+    var s = wsSession_(p.session);
+    var user = s ? (s.name || s.username) : (String(p.by || p.waspang || '').trim() || '(tanpa login)');
+    var peran = s ? s.role : '';
+    var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName(CONFIG.LOG_SHEET_NAME);
+    if (!sh) return;
+    var plain = function (v) { v = String(v || ''); return /^[=+\-@]/.test(v) ? "'" + v : v; };
+    sh.appendRow([new Date(), 'Portal Waspang', plain(user), peran, aksi, plain(String(detail).slice(0, 500))]);
+    var row = sh.getLastRow();
+    sh.getRange(row, 1).setNumberFormat('dd mmm yyyy HH:mm');
+    sh.getRange(row, 1, 1, 6).setVerticalAlignment('middle').setWrap(true);
+    if (row - 4 > LOG_MAX_ROWS_) sh.deleteRows(5, row - 4 - LOG_MAX_ROWS_);
+  } catch (e) { console.error('LOG HISTORY: ' + e); }
 }
 
 function wsSession_(sid) {
