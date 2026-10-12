@@ -139,9 +139,15 @@
     $('menuSub').textContent = 'Pilih portal yang ingin dibuka' + (s.area ? ' · Area ' + s.area : '') + '.';
     $('menuGrid').innerHTML = '<div class="d" style="color:var(--muted);font-size:13px">Menyiapkan menu...</div>';
     refreshLinks(s);
+    menuSession = s;
     if (timer) clearInterval(timer);
-    timer = setInterval(function () { refreshLinks(s); }, REFRESH);
+    // Saat aplikasi tidak terlihat (HP dikunci/pindah aplikasi) tautan tidak diperbarui; begitu terlihat lagi langsung diperbarui.
+    timer = setInterval(function () { if (!document.hidden) refreshLinks(s); }, REFRESH);
   }
+  var menuSession = null;
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && timer && menuSession) refreshLinks(menuSession);
+  });
 
   function showLogin(msg) {
     if (timer) { clearInterval(timer); timer = null; }

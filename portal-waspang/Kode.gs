@@ -24,7 +24,6 @@ function telegramToken_() {
 }
 
 function doGet(e) {
-  formatDailyOnce_();
   if (e && e.parameter && e.parameter.api === 'json') {
     return ContentService.createTextOutput(JSON.stringify({
       status: "online",
@@ -91,8 +90,11 @@ function doPost(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// Spreadsheet dan judul kolom dibuka/dibaca sekali per permintaan (satu GET_CLUSTER dulu membuka spreadsheet 2x
+// dan membaca baris judul 4x). Variabel global Apps Script mulai kosong lagi di tiap permintaan.
+var wsSsMemo_ = null, wsHeadMemo_ = {};
 function getWaspangSpreadsheet_() {
-  return SpreadsheetApp.openById(CONFIG.WASPANG_SPREADSHEET_ID);
+  return wsSsMemo_ || (wsSsMemo_ = SpreadsheetApp.openById(CONFIG.WASPANG_SPREADSHEET_ID));
 }
 
 // ===================== TABEL DI SPREADSHEET WASPANG =====================
@@ -131,6 +133,8 @@ function normHeader_(h) {
 
 // {idx: {judul: indeks kolom}, width: jumlah kolom}
 function sheetHeader_(sh) {
+  var memoKey = 'h' + sh.getSheetId();
+  if (wsHeadMemo_[memoKey]) return wsHeadMemo_[memoKey];
   var width = sh.getLastColumn();
   var head = width ? sh.getRange(1, 1, 1, width).getValues()[0] : [];
   var idx = {};
@@ -138,7 +142,7 @@ function sheetHeader_(sh) {
     var k = normHeader_(v);
     if (k && !(k in idx)) idx[k] = i;
   });
-  return { idx: idx, width: head.length };
+  return (wsHeadMemo_[memoKey] = { idx: idx, width: head.length });
 }
 
 // Sheet dengan judul kolom `header`: dibuat bila belum ada; judul yang belum ada ditambahkan di kanan.
@@ -417,7 +421,7 @@ function sendDailyReportEMR_(payload) {
 // lalu Total baru cluster itu dihitung dari tab yang sama.
 function recordDailyReport_(payload) {
   var lock = LockService.getScriptLock();
-  lock.waitLock(20000);
+  lock.waitLock(45000);   // laporan sudah terkirim ke Telegram: tunggu lebih lama supaya barisnya tidak hilang
   try {
     var r = payload.report || {}, sh = dailySheet_(), cluster = payload.cluster, names = payload.names || {};
     var sow = r.sow || payload.sow || sowFromId_(cluster);
@@ -928,20 +932,21 @@ function appendDailyRow_(sh, vals, byKey, names) {
   Object.keys(byCol).forEach(function (c) { vals[c] = byCol[c]; });
   vals['Rincian Item'] = rincianText_(byKey, names);
   sh.appendRow(rowByHeader_(sheetHeader_(sh), vals));
-  try { formatDailyRows_(sh); } catch (e) { console.error('Format DAILY REPORT EMR: ' + e); }
+  try { formatDailyRows_(sh, sh.getLastRow()); } catch (e) { console.error('Format DAILY REPORT EMR: ' + e); }
 }
 
 // Tampilan tab: Timestamp dd/mm/yyyy HH:mm (sama dengan Tanggal), teks panjang tidak membuat baris tinggi,
 // baris Saldo awal dan Koreksi Total (RPM) berwarna kuning muda. Isi sel tidak diubah.
-function formatDailyRows_(sh) {
-  var h = sheetHeader_(sh), n = sh.getLastRow() - 1;
-  if (n < 1) return;
-  if (h.idx['timestamp'] !== undefined) sh.getRange(2, h.idx['timestamp'] + 1, n, 1).setNumberFormat('dd/mm/yyyy HH:mm');
+// onlyRow = hanya baris itu (baris baru dari appendDailyRow_); tanpa onlyRow = semua baris.
+function formatDailyRows_(sh, onlyRow) {
+  var h = sheetHeader_(sh), first = onlyRow || 2, n = onlyRow ? 1 : sh.getLastRow() - 1;
+  if (n < 1 || first < 2) return;
+  if (h.idx['timestamp'] !== undefined) sh.getRange(first, h.idx['timestamp'] + 1, n, 1).setNumberFormat('dd/mm/yyyy HH:mm');
   ['ringkasan pencapaian', 'today activity', 'rincian item', 'teks laporan'].forEach(function (k) {
-    if (h.idx[k] !== undefined) sh.getRange(2, h.idx[k] + 1, n, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+    if (h.idx[k] !== undefined) sh.getRange(first, h.idx[k] + 1, n, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
   });
-  sh.setRowHeightsForced(2, n, 21);
-  highlightSaldoRows_(sh, h);
+  sh.setRowHeightsForced(first, n, 21);
+  highlightSaldoRows_(sh, h);   // hanya menulis aturan bila belum ada atau belum mencakup semua baris
 }
 
 // Warna baris lewat format bersyarat, karena warna selang-seling (alternating colors) di tab ini menutupi warna sel biasa.
@@ -954,7 +959,7 @@ function highlightSaldoRows_(sh, h) {
     var c = r.getBooleanCondition();
     if (c && String(c.getCriteriaValues()[0]) === f) at = i;
   });
-  if (at >= 0 && rules[at].getRanges()[0].getLastColumn() >= h.width) return;
+  if (at >= 0 && rules[at].getRanges()[0].getLastColumn() >= h.width && rules[at].getRanges()[0].getLastRow() >= sh.getMaxRows()) return;
   var rule = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(f).setBackground('#fff8e1')
     .setRanges([sh.getRange(2, 1, sh.getMaxRows() - 1, h.width)]).build();
   if (at >= 0) rules[at] = rule; else rules.push(rule);
@@ -984,7 +989,9 @@ function clusterRows_(sh, h, cluster, sow) {
   var ck = totalsClusterKey_(cluster), cName = h.idx['cluster name'], cSow = h.idx['sow'], last = sh.getLastRow();
   if (!ck || cName === undefined || last < 2) return [];
   var want = normSow_(sow) || sowFromId_(cluster);
-  return sh.getRange(2, 1, last - 1, h.width).getValues().filter(function (r) {
+  // Kolom Teks Laporan (paling kanan, teks terpanjang) tidak dipakai untuk Total: tidak ikut dibaca.
+  var width = h.idx['teks laporan'] === h.width - 1 && h.width > 1 ? h.width - 1 : h.width;
+  return sh.getRange(2, 1, last - 1, width).getValues().filter(function (r) {
     if (totalsClusterKey_(r[cName]) !== ck) return false;
     var rowSow = (cSow === undefined ? '' : normSow_(r[cSow])) || sowFromId_(r[cName]);
     return !want || !rowSow || rowSow === want;
@@ -1164,11 +1171,12 @@ function logWaspang_(p, res) {
     if (!sh) return;
     var plain = function (v) { v = String(v || ''); return /^[=+\-@]/.test(v) ? "'" + v : v; };
     sh.appendRow([new Date(), 'Portal Waspang', plain(user), peran, aksi, plain(String(detail).slice(0, 500))]);
-    var row = sh.getLastRow();
-    // Format seluruh kolom Waktu dan 5 baris terakhir: baris lain bisa ditulis bersamaan (pemicu edit/portal lain).
-    sh.getRange(5, 1, row - 4, 1).setNumberFormat('dd mmm yyyy HH:mm');
-    sh.getRange(Math.max(5, row - 4), 1, Math.min(5, row - 4), 6).setVerticalAlignment('middle').setWrap(true);
-    if (row - 4 > LOG_MAX_ROWS_) sh.deleteRows(5, row - 4 - LOG_MAX_ROWS_);
+    var row = sh.getLastRow(), w = Math.min(10, row - 4);
+    // Format 10 baris terakhir saja (baris lain bisa ditulis bersamaan oleh pemicu edit/portal lain); baris lama
+    // dibuang sekaligus 200 baris supaya tidak menggeser seluruh tab di setiap aksi.
+    sh.getRange(row - w + 1, 1, w, 1).setNumberFormat('dd mmm yyyy HH:mm');
+    sh.getRange(row - w + 1, 1, w, 6).setVerticalAlignment('middle').setWrap(true);
+    if (row - 4 > LOG_MAX_ROWS_ + 200) sh.deleteRows(5, row - 4 - LOG_MAX_ROWS_);
   } catch (e) { console.error('LOG HISTORY: ' + e); }
 }
 
