@@ -5,7 +5,11 @@ var CONFIG = {
   // Gateway FTTH Project Control Portal: menukar tiket sekali pakai dengan username & role (untuk mengenali akun RPM).
   GATEWAY_URL: "https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec",
   // Spreadsheet Portal FTTH: daftar site (Name) dan SOW di portal Waspang diambil dari tab DATA BASE.
-  FTTH_SPREADSHEET_ID: "1KblZFDIcG6Jbbo6gy2Mh0vpgEzsgfUhMcwg5A5qtSME"
+  FTTH_SPREADSHEET_ID: "1KblZFDIcG6Jbbo6gy2Mh0vpgEzsgfUhMcwg5A5qtSME",
+  // Spreadsheet "RPM BMI - BA Pekerjaan": kritik & saran dari Portal Waspang masuk ke tab KRITIK DAN SARAN,
+  // tempat yang sama dengan masukan dari Portal FTTH.
+  SARAN_SPREADSHEET_ID: "1S8c7A0hPZrJ4bHH6UuUfHY8mkBPvadubtlEV1VuZdHA",
+  SARAN_SHEET_NAME: "KRITIK DAN SARAN"
 };
 
 // Token bot Telegram TIDAK ditulis di kode (repo ini publik). Simpan di Script Properties:
@@ -66,6 +70,9 @@ function doPost(e) {
         break;
       case 'GET_SITES':
         result = getSites_();
+        break;
+      case 'SARAN':
+        result = kirimSaran_(payload);
         break;
       default:
         result = { status: 'error', message: 'Action tidak dikenali: ' + payload.action };
@@ -889,6 +896,33 @@ function ssoLogin_(ticket) {
   var sess = { username: String(out.username), role: String(out.role || '').toLowerCase(), name: String(out.name || out.username) };
   CacheService.getScriptCache().put('ws_' + sid, JSON.stringify(sess), 21600);
   return { status: 'success', session: sid, role: sess.role, name: sess.name };
+}
+
+// Bantuan & Masukan: satu baris kritik/saran (hanya pengguna yang masuk lewat Gateway). Kolom sama dengan Portal FTTH:
+// Tanggal | Jam | Peran | Nama (opsional) | Pesan | Status. Teks yang diawali = + - @ diberi ' supaya tidak jadi rumus.
+function kirimSaran_(payload) {
+  var s = wsSession_(payload.session);
+  if (!s) return { status: 'error', message: 'Sesi habis. Buka Portal Waspang lagi dari FTTH Project Control Portal.' };
+  var pesan = String(payload.pesan || '').trim().slice(0, 2000);
+  if (!pesan) return { status: 'error', message: 'Pesan belum diisi.' };
+  var nama = String(payload.nama || '').trim().slice(0, 80);
+  var peran = (s.role === 'rpm' ? 'RPM' : (s.role === 'waspang' ? 'Waspang' : 'Admin')) + ' (Portal Waspang)';
+  var plain = function (v) { return /^[=+\-@]/.test(v) ? "'" + v : v; };
+  var ss = SpreadsheetApp.openById(CONFIG.SARAN_SPREADSHEET_ID);
+  var sh = ss.getSheetByName(CONFIG.SARAN_SHEET_NAME);
+  if (!sh) return { status: 'error', message: 'Tab ' + CONFIG.SARAN_SHEET_NAME + ' tidak ditemukan.' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var now = new Date();
+    var row = Math.max(sh.getLastRow() + 1, 5);
+    sh.getRange(row, 1, 1, 6).setValues([[now, Utilities.formatDate(now, ss.getSpreadsheetTimeZone(), 'HH:mm'), peran, plain(nama), plain(pesan), 'Baru']]);
+    sh.getRange(row, 1).setNumberFormat('dd mmm yyyy');
+    sh.getRange(row, 1, 1, 6).setVerticalAlignment('middle').setWrap(true);
+  } finally {
+    lock.releaseLock();
+  }
+  return { status: 'success' };
 }
 
 function wsSession_(sid) {
