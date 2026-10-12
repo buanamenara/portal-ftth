@@ -33,7 +33,7 @@ function doGet(e) {
       targetTelegramGroup: CONFIG.TELEGRAM_CHAT_ID
     })).setMimeType(ContentService.MimeType.JSON);
   }
-  return HtmlService.createHtmlOutputFromFile('Form')
+  return withSites_(HtmlService.createHtmlOutputFromFile('Form'))
     .setTitle('Portal Waspang & Daily Report EMR')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
@@ -497,8 +497,26 @@ function getSites_() {
     sites.push({ name: name, sow: sow, region: cReg >= 0 ? String(vals[r][cReg] || '').trim() : '' });
   }
   if (!sites.length) return { status: 'error', message: 'Tab DATA BASE belum berisi site.' };
-  try { cache.put('database_sites_v1', JSON.stringify(sites), 600); } catch (e) {}
+  try { var json = JSON.stringify(sites); cache.put('database_sites_v1', json, 600); cache.put('database_sites_page', json, 21600); } catch (e) {}
   return { status: 'success', sites: sites };
+}
+
+// Daftar site ikut di halaman, jadi pilihan cluster langsung terisi tanpa menunggu permintaan kedua ke server.
+// Salinan 6 jam boleh sedikit lama: halaman tetap meminta GET_SITES di belakang dan memperbarui daftar bila berubah.
+function withSites_(out) {
+  try {
+    var cache = CacheService.getScriptCache(), json = cache.get('database_sites_v1') || cache.get('database_sites_page');
+    if (!json) {
+      var r = getSites_();
+      if (r.status !== 'success') return out;
+      json = JSON.stringify(r.sites);
+    }
+    var tag = '<script>window.WS_SITES = ' + json.replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') + ';</script>\n';
+    out.setContent(out.getContent().replace('</head>', function () { return tag + '</head>'; }));
+  } catch (e) {
+    console.error('Daftar site di halaman: ' + e);
+  }
+  return out;
 }
 
 // ===================== BOQ PLAN & SELESAI (tab MASTER BOQ CLUSTER) =====================

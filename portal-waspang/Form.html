@@ -1101,13 +1101,53 @@
     /* Empat tombol header di HP: "Portal FTTH" jadi "FTTH" supaya tetap satu baris. */
     @media (max-width: 480px) { header .btn-header .hb-long { display: none; } }
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <!-- SheetJS (xlsx) for direct client-side BOQ Excel Import -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
-    if (typeof XLSX === 'undefined') {
-      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>');
+    // JSZip dan SheetJS (xlsx, ~900 KB) hanya dipakai untuk impor BOQ Excel, jadi dimuat setelah halaman tampil,
+    // tidak lagi menahan halaman (dan daftar cluster) di HP dengan sinyal lemah.
+    function loadScriptOnce(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
     }
+    let excelLibsLoading = null;
+    function ensureExcelLibs() {
+      if (typeof XLSX !== 'undefined' && typeof JSZip !== 'undefined') return Promise.resolve();
+      if (!excelLibsLoading) {
+        excelLibsLoading = Promise.all([
+          typeof JSZip !== 'undefined' ? null : loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'),
+          typeof XLSX !== 'undefined' ? null : loadScriptOnce('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js')
+            .catch(() => loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'))
+        ]).catch(err => { excelLibsLoading = null; throw err; });
+      }
+      return excelLibsLoading;
+    }
+    window.addEventListener('load', () => setTimeout(() => ensureExcelLibs().catch(() => {}), 2000));
+
+    // Kesalahan kode halaman tampil sebagai bar merah kecil, jadi bisa difoto tanpa membuka Console (F12).
+    const WS_ERRORS = [];
+    function showPageError(where, err) {
+      const msg = (where ? where + ': ' : '') + (err && err.message ? err.message : String(err));
+      WS_ERRORS.push(msg);
+      try { console.error('[Waspang] ' + msg); } catch (e) {}
+      const put = () => {
+        let bar = document.getElementById('wsErrorBar');
+        if (!bar) {
+          bar = document.createElement('div');
+          bar.id = 'wsErrorBar';
+          bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#b91c1c;color:#fff;font:12px/1.4 sans-serif;padding:6px 10px;';
+          bar.onclick = () => bar.remove();
+          document.body.appendChild(bar);
+        }
+        bar.textContent = '\u26a0\ufe0f Kesalahan halaman (foto bar ini untuk admin, ketuk untuk tutup): ' + WS_ERRORS.slice(-3).join(' | ');
+      };
+      if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+    }
+    window.addEventListener('error', e => showPageError('', (e.message || 'Error') + (e.lineno ? ' (baris ' + e.lineno + ')' : '')));
+    window.addEventListener('load', () => setTimeout(() => {
+      if (typeof wsInit !== 'function') showPageError('Kode utama halaman tidak termuat', '');
+    }, 1500));
   </script>
 </head>
 <body>
@@ -1146,13 +1186,13 @@
     <!-- 3 Nav Tabs: Menu Khusus Sesuai Permintaan -->
     <div class="nav-tabs">
       <button class="nav-tab active" id="tabDaily" onclick="switchTab('daily')">
-        <span class="nt-ico">📝</span><span class="nt-long">Input Volume Harian (Daily)</span><span class="nt-short">Daily Report</span>
+        <span class="nt-ico">📝</span><span class="nt-long">Laporan Harian</span><span class="nt-short">Laporan Harian</span>
       </button>
       <button class="nav-tab" id="tabBoq" onclick="switchTab('boq')">
-        <span class="nt-ico">📊</span><span class="nt-long">Submit &amp; Tabel BOQ Plan</span><span class="nt-short">BOQ Plan</span>
+        <span class="nt-ico">📊</span><span class="nt-long">BOQ Plan</span><span class="nt-short">BOQ Plan</span>
       </button>
       <button class="nav-tab" id="tabPhoto" onclick="switchTab('photo')">
-        <span class="nt-ico">📸</span><span class="nt-long">Submit Foto Drive</span><span class="nt-short">Foto</span>
+        <span class="nt-ico">📸</span><span class="nt-long">Dokumentasi Lapangan</span><span class="nt-short">Dokumentasi</span>
       </button>
     </div>
 
@@ -2845,12 +2885,14 @@
     }
 
     // Tombol "Kirim ke WhatsApp": setelah Daily Report / foto terkirim ke Telegram, WhatsApp dibuka dengan teks laporan
-    // yang sudah terisi; waspang memilih grup lalu menekan Kirim. Disiapkan 11-10-2026 tapi BELUM AKTIF:
-    // ubah ke true hanya setelah pemilik portal setuju.
-    const WA_SHARE_ENABLED = false;
+    // yang sudah terisi; waspang memilih grup lalu menekan Kirim. WA_SHARE_ENABLED = true menampilkannya untuk semua akun.
+    // 12-10-2026: setelah masa uji RPM, pemilik portal mengaktifkannya untuk waspang dan RPM.
+    const WA_SHARE_ENABLED = true;
+    const WA_SHARE_RPM_TEST = true;
 
     function waShareUrl(text) {
-      return 'https://wa.me/?text=' + encodeURIComponent(String(text || '').replace(/`/g, ''));
+      // Ditulis tanpa garis miring ganda dan tanda backtick: pemrosesan halaman Google salah membacanya dan memotong skrip (versi 44-46).
+      return 'https:\/\/wa.me/?text=' + encodeURIComponent(String(text || '').replace(/\x60/g, ''));
     }
 
     function closeWaShare() {
@@ -2859,7 +2901,7 @@
     }
 
     function showWaShare(title, text) {
-      if (!WA_SHARE_ENABLED || !text) return;
+      if (!(WA_SHARE_ENABLED || (WA_SHARE_RPM_TEST && isRpmSession())) || !text) return;
       let el = document.getElementById('waShareModal');
       if (!el) {
         el = document.createElement('div');
@@ -3437,7 +3479,7 @@
           <tr>
             <td colspan="6" style="text-align: center; padding: 24px 14px; color: #64748b; font-size: 0.82rem;">
               📭 <strong>Belum ada material yang dipilih untuk cluster "${cluster || 'pilihan'}".</strong><br>
-              Silakan buka tab <strong>📊 Submit & Tabel BOQ Plan</strong> untuk memilih material yang digunakan pada cluster ini, atau klik tombol <strong>👁️ Lihat Semua Item</strong> di atas.
+              Silakan buka tab <strong>📊 BOQ Plan</strong> untuk memilih material yang digunakan pada cluster ini, atau klik tombol <strong>👁️ Lihat Semua Item</strong> di atas.
             </td>
           </tr>
         `;
@@ -3926,7 +3968,26 @@ ${e(todayActivity)}`;
       el.style.display = (el.style.display === 'none') ? 'block' : 'none';
     }
 
-        window.addEventListener('DOMContentLoaded', () => {
+    // Setiap langkah dijaga: bila satu langkah gagal, langkah lain (terutama daftar cluster) tetap jalan
+    // dan kesalahannya tampil di bar merah.
+    function wsInitStep(label, fn) {
+      try { fn(); } catch (e) { showPageError(label, e); }
+    }
+    function wsInit() {
+      if (wsInit.done) return;
+      wsInit.done = true;
+      // 1. Dropdown cluster terlebih dahulu: daftar yang ikut di halaman (atau salinan di HP),
+      //    lalu diperbarui dari sheet di belakang.
+      wsInitStep('Daftar cluster', () => {
+        loadCachedDatabaseSites();
+        if (applyDatabaseSites(window.WS_SITES)) {
+          try { localStorage.setItem(STORAGE_DATABASE_SITES, JSON.stringify(window.WS_SITES)); } catch (e) {}
+        }
+        refreshAllClusterDropdowns();
+      });
+      wsInitStep('Ambil daftar cluster', () => { refreshDatabaseSites(); });
+
+      wsInitStep('Area unggah BOQ', () => {
       const dropZone = document.getElementById('boqDropZone');
       if (dropZone) {
         ['dragenter', 'dragover'].forEach(evtName => {
@@ -3954,12 +4015,10 @@ ${e(todayActivity)}`;
         }, false);
       }
 
-      // 1. Inisialisasi dropdown cluster terlebih dahulu (salinan DATA BASE di HP, lalu diperbarui dari sheet)
-      loadCachedDatabaseSites();
-      refreshAllClusterDropdowns();
-      refreshDatabaseSites();
+      });
 
       // Setup Drag & Drop untuk Upload Foto Dokumentasi
+      wsInitStep('Area unggah foto', () => {
       const photoDropZone = document.querySelector('.upload-zone');
       if (photoDropZone) {
         ['dragenter', 'dragover'].forEach(evtName => {
@@ -3987,14 +4046,19 @@ ${e(todayActivity)}`;
           }
         }, false);
       }
+      });
       // 2. Aktifkan tab Daily dan render tabel
-      switchTab('daily');
-      renderMasterSowTable();
-      updateDriveConnectionBanner();
+      wsInitStep('Tab Daily', () => switchTab('daily'));
+      wsInitStep('Tabel SOW', () => renderMasterSowTable());
+      wsInitStep('Banner Drive', () => updateDriveConnectionBanner());
       // 3. Total bersama dari sheet & sesi RPM dari Gateway
-      refreshSharedTotals(getActiveDailyCluster());
-      initWsSession();
-    });
+      wsInitStep('Total bersama', () => refreshSharedTotals(getActiveDailyCluster()));
+      wsInitStep('Sesi login', () => initWsSession());
+      try { console.info('[Waspang] siap: ' + document.getElementById('dailyClusterSelect').options.length + ' pilihan cluster'); } catch (e) {}
+    }
+    if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', wsInit);
+    else wsInit();
+    window.addEventListener('load', wsInit);
 
     function cleanClusterNameFromFilename(fname) {
       if (!fname) return 'CLUSTER_EXCEL';
@@ -4032,12 +4096,17 @@ ${e(todayActivity)}`;
       }
     }
 
-    function handleBoqFiles(fileList) {
+    function handleBoqFiles(fileList, libsTried) {
       if (!fileList || fileList.length === 0) return;
       const statusEl = document.getElementById('boqFileStatus');
       statusEl.innerHTML = `⏳ Membaca ${fileList.length} file yang dipilih...`;
       statusEl.style.color = 'var(--bmi-gold)';
 
+      if (!libsTried && (typeof XLSX === 'undefined' || typeof JSZip === 'undefined')) {
+        statusEl.innerHTML = `⏳ Menyiapkan pembaca Excel...`;
+        ensureExcelLibs().catch(() => {}).then(() => handleBoqFiles(fileList, true));
+        return;
+      }
       if (typeof XLSX === 'undefined') {
         statusEl.innerHTML = `⚠️ Library pembaca Excel belum siap. Pastikan perangkat terhubung internet saat membuka aplikasi.`;
         statusEl.style.color = '#dc2626';
@@ -4682,17 +4751,32 @@ ${e(todayActivity)}`;
     function loadCachedDatabaseSites() {
       try { applyDatabaseSites(JSON.parse(localStorage.getItem(STORAGE_DATABASE_SITES) || 'null')); } catch (e) {}
     }
-    async function refreshDatabaseSites() {
+    // Gagal (sinyal putus, server sibuk): dicoba lagi 2x. Bila daftar tetap kosong, pilihan cluster memberi tahu,
+    // tidak lagi diam di "Memuat cluster...".
+    async function refreshDatabaseSites(attempt) {
+      attempt = attempt || 1;
       const cfg = getConfig();
       if (!cfg.scriptUrl) return;
+      function failed(msg) {
+        if (attempt < 3) { setTimeout(() => refreshDatabaseSites(attempt + 1), attempt * 3000); return; }
+        if (MASTER_DATABASE_SOW.length) return;
+        ['dailyClusterSelect', 'boqTargetCluster', 'photoSiteSelect'].forEach(id => {
+          const sel = document.getElementById(id);
+          if (sel) sel.innerHTML = `<option value="">-- Gagal memuat cluster${msg ? ': ' + escOpt(msg) : ''}. Tutup lalu buka lagi Portal Waspang --</option>`;
+        });
+      }
       try {
+        const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timer = ctl ? setTimeout(() => ctl.abort(), 25000) : null;
         const res = await fetch(cfg.scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'GET_SITES' })
+          body: JSON.stringify({ action: 'GET_SITES' }),
+          signal: ctl ? ctl.signal : undefined
         });
         const d = await res.json();
-        if (d.status !== 'success') return;
+        if (timer) clearTimeout(timer);
+        if (d.status !== 'success') { failed(d.message || ''); return; }
         const sig = () => JSON.stringify(MASTER_DATABASE_SOW.map(it => [it.name, it.sow]));
         const before = sig(), dailyBefore = getActiveDailyCluster();
         if (!applyDatabaseSites(d.sites)) return;
@@ -4703,7 +4787,7 @@ ${e(todayActivity)}`;
         if (getActiveDailyCluster() !== dailyBefore) onDailyClusterChange();
         else { renderDailyTable(); renderTelegramPreview(); }
         loadBoqForSelectedCluster();
-      } catch (e) {}
+      } catch (e) { failed(''); }
     }
     function escOpt(v) {
       return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -5888,7 +5972,7 @@ ${e(todayActivity)}`;
             statusBox.innerHTML = `⚠️ <strong>Foto terkirim ke Telegram</strong>, namun gagal masuk ke Google Drive karena: ${driveErrorMsg}`;
           }
         }
-        showWaShare(photoItems.length + ' foto', caption + (driveSuccess ? '\n📁 *Folder Foto* : ' + (returnedFolderUrl || 'https://drive.google.com/drive/folders/1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ') : ''));
+        showWaShare(photoItems.length + ' foto', caption + (driveSuccess ? '\n📁 *Folder Foto* : ' + (returnedFolderUrl || 'https:\/\/drive.google.com/drive/folders/1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ') : ''));
         photoItems = [];
         renderPhotoGallery();
         const nEl = document.getElementById('photoNotes');
