@@ -1101,13 +1101,29 @@
     /* Empat tombol header di HP: "Portal FTTH" jadi "FTTH" supaya tetap satu baris. */
     @media (max-width: 480px) { header .btn-header .hb-long { display: none; } }
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <!-- SheetJS (xlsx) for direct client-side BOQ Excel Import -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
-    if (typeof XLSX === 'undefined') {
-      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>');
+    // JSZip dan SheetJS (xlsx, ~900 KB) hanya dipakai untuk impor BOQ Excel, jadi dimuat setelah halaman tampil,
+    // tidak lagi menahan halaman (dan daftar cluster) di HP dengan sinyal lemah.
+    function loadScriptOnce(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
     }
+    let excelLibsLoading = null;
+    function ensureExcelLibs() {
+      if (typeof XLSX !== 'undefined' && typeof JSZip !== 'undefined') return Promise.resolve();
+      if (!excelLibsLoading) {
+        excelLibsLoading = Promise.all([
+          typeof JSZip !== 'undefined' ? null : loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'),
+          typeof XLSX !== 'undefined' ? null : loadScriptOnce('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js')
+            .catch(() => loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'))
+        ]).catch(err => { excelLibsLoading = null; throw err; });
+      }
+      return excelLibsLoading;
+    }
+    window.addEventListener('load', () => setTimeout(() => ensureExcelLibs().catch(() => {}), 2000));
   </script>
 </head>
 <body>
@@ -3955,8 +3971,12 @@ ${e(todayActivity)}`;
         }, false);
       }
 
-      // 1. Inisialisasi dropdown cluster terlebih dahulu (salinan DATA BASE di HP, lalu diperbarui dari sheet)
+      // 1. Inisialisasi dropdown cluster terlebih dahulu: daftar yang ikut di halaman (atau salinan di HP),
+      //    lalu diperbarui dari sheet di belakang.
       loadCachedDatabaseSites();
+      if (applyDatabaseSites(window.WS_SITES)) {
+        try { localStorage.setItem(STORAGE_DATABASE_SITES, JSON.stringify(window.WS_SITES)); } catch (e) {}
+      }
       refreshAllClusterDropdowns();
       refreshDatabaseSites();
 
@@ -4033,12 +4053,17 @@ ${e(todayActivity)}`;
       }
     }
 
-    function handleBoqFiles(fileList) {
+    function handleBoqFiles(fileList, libsTried) {
       if (!fileList || fileList.length === 0) return;
       const statusEl = document.getElementById('boqFileStatus');
       statusEl.innerHTML = `⏳ Membaca ${fileList.length} file yang dipilih...`;
       statusEl.style.color = 'var(--bmi-gold)';
 
+      if (!libsTried && (typeof XLSX === 'undefined' || typeof JSZip === 'undefined')) {
+        statusEl.innerHTML = `⏳ Menyiapkan pembaca Excel...`;
+        ensureExcelLibs().catch(() => {}).then(() => handleBoqFiles(fileList, true));
+        return;
+      }
       if (typeof XLSX === 'undefined') {
         statusEl.innerHTML = `⚠️ Library pembaca Excel belum siap. Pastikan perangkat terhubung internet saat membuka aplikasi.`;
         statusEl.style.color = '#dc2626';
@@ -4683,17 +4708,32 @@ ${e(todayActivity)}`;
     function loadCachedDatabaseSites() {
       try { applyDatabaseSites(JSON.parse(localStorage.getItem(STORAGE_DATABASE_SITES) || 'null')); } catch (e) {}
     }
-    async function refreshDatabaseSites() {
+    // Gagal (sinyal putus, server sibuk): dicoba lagi 2x. Bila daftar tetap kosong, pilihan cluster memberi tahu,
+    // tidak lagi diam di "Memuat cluster...".
+    async function refreshDatabaseSites(attempt) {
+      attempt = attempt || 1;
       const cfg = getConfig();
       if (!cfg.scriptUrl) return;
+      function failed(msg) {
+        if (attempt < 3) { setTimeout(() => refreshDatabaseSites(attempt + 1), attempt * 3000); return; }
+        if (MASTER_DATABASE_SOW.length) return;
+        ['dailyClusterSelect', 'boqTargetCluster', 'photoSiteSelect'].forEach(id => {
+          const sel = document.getElementById(id);
+          if (sel) sel.innerHTML = `<option value="">-- Gagal memuat cluster${msg ? ': ' + escOpt(msg) : ''}. Tutup lalu buka lagi Portal Waspang --</option>`;
+        });
+      }
       try {
+        const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timer = ctl ? setTimeout(() => ctl.abort(), 25000) : null;
         const res = await fetch(cfg.scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'GET_SITES' })
+          body: JSON.stringify({ action: 'GET_SITES' }),
+          signal: ctl ? ctl.signal : undefined
         });
         const d = await res.json();
-        if (d.status !== 'success') return;
+        if (timer) clearTimeout(timer);
+        if (d.status !== 'success') { failed(d.message || ''); return; }
         const sig = () => JSON.stringify(MASTER_DATABASE_SOW.map(it => [it.name, it.sow]));
         const before = sig(), dailyBefore = getActiveDailyCluster();
         if (!applyDatabaseSites(d.sites)) return;
@@ -4704,7 +4744,7 @@ ${e(todayActivity)}`;
         if (getActiveDailyCluster() !== dailyBefore) onDailyClusterChange();
         else { renderDailyTable(); renderTelegramPreview(); }
         loadBoqForSelectedCluster();
-      } catch (e) {}
+      } catch (e) { failed(''); }
     }
     function escOpt(v) {
       return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
