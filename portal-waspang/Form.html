@@ -2845,9 +2845,10 @@
     }
 
     // Tombol "Kirim ke WhatsApp": setelah Daily Report / foto terkirim ke Telegram, WhatsApp dibuka dengan teks laporan
-    // yang sudah terisi; waspang memilih grup lalu menekan Kirim. Diaktifkan atas persetujuan pemilik portal (12-10-2026);
-    // ubah ke false untuk menyembunyikannya lagi.
-    const WA_SHARE_ENABLED = true;
+    // yang sudah terisi; waspang memilih grup lalu menekan Kirim. WA_SHARE_ENABLED = true menampilkannya untuk semua akun.
+    // Masa uji (12-10-2026, permintaan pemilik portal): hanya akun RPM yang melihatnya (WA_SHARE_RPM_TEST).
+    const WA_SHARE_ENABLED = false;
+    const WA_SHARE_RPM_TEST = true;
 
     function waShareUrl(text) {
       return 'https://wa.me/?text=' + encodeURIComponent(String(text || '').replace(/`/g, ''));
@@ -2859,7 +2860,7 @@
     }
 
     function showWaShare(title, text) {
-      if (!WA_SHARE_ENABLED || !text) return;
+      if (!(WA_SHARE_ENABLED || (WA_SHARE_RPM_TEST && isRpmSession())) || !text) return;
       let el = document.getElementById('waShareModal');
       if (!el) {
         el = document.createElement('div');
