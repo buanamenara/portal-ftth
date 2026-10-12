@@ -42,6 +42,32 @@
   f.title = PORTALS[key].title;
   f.src = src;
   document.title = PORTALS[key].title + ' - Buana Menara Indonesia';
+
+  // HP (terutama iPhone): setelah keyboard tertutup, tinggi bingkai portal kadang tertinggal pendek, sehingga menu
+  // bawah portal melayang di tengah layar dan bagian bawah kosong. Tinggi bingkai disamakan lagi dengan layar setiap
+  // kali ukuran layar berubah; saat layar membesar lagi (keyboard tertutup), bingkai digoyang 1 px supaya halaman
+  // Google di dalamnya ikut menghitung ulang tingginya.
+  var lastVh = 0;
+  function fitFrame() {
+    var h = window.innerHeight;
+    if (!(h > 0)) return;
+    var vh = window.visualViewport ? Math.round(window.visualViewport.height) : h;
+    var grew = lastVh > 0 && vh > lastVh + 60;
+    lastVh = vh;
+    if (grew) {
+      f.style.height = (h - 1) + 'px';
+      setTimeout(function () { f.style.height = window.innerHeight + 'px'; }, 50);
+    } else if (f.style.height !== h + 'px') {
+      f.style.height = h + 'px';
+    }
+    if (window.pageYOffset) window.scrollTo(0, 0);
+  }
+  window.addEventListener('resize', fitFrame);
+  window.addEventListener('pageshow', fitFrame);
+  window.addEventListener('orientationchange', function () { setTimeout(fitFrame, 300); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', fitFrame);
+  setInterval(fitFrame, 1000);
+  fitFrame();
   // Tiket/permintaan sudah terpakai: buang dari alamat supaya muat ulang tidak membawanya lagi.
   if (t || go || logout) history.replaceState(null, '', location.pathname + (key === 'gateway' ? '' : '?p=' + key));
 
