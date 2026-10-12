@@ -17,15 +17,12 @@ var CONFIG = {
   SHELL_URL: 'https://buanamenara.github.io/portal-ftth/',
   PORTALS: {
     ftth: { title: 'Portal FTTH', desc: 'Submit BOQ, BA Transaksi, Rekap BA, Saldo Gudang, BA Pekerjaan RPM', sso: true },
-    waspang: { title: 'Portal Waspang', desc: 'Daily Report EMR, progres BOQ, dokumentasi foto lapangan', sso: true },
-    // Bukan portal: tautan ke spreadsheet FTTH (sheet DASHBOARD), dibuka di tab baru karena Google Sheets tidak bisa dibingkai.
-    sheet: { title: 'Spreadsheet Database', desc: 'Spreadsheet FTTH di Google Sheets (DASHBOARD, DATA BASE, BA Transaksi, Opname, Rekon). Terbuka di tab baru.',
-      url: 'https://docs.google.com/spreadsheets/d/1KblZFDIcG6Jbbo6gy2Mh0vpgEzsgfUhMcwg5A5qtSME/edit?gid=611166920#gid=611166920' }
+    waspang: { title: 'Portal Waspang', desc: 'Daily Report EMR, progres BOQ, dokumentasi foto lapangan', sso: true }
   },
   // Portal yang boleh dibuka tiap role (kolom Role di sheet USERS). Urutan pertama = portal utama role itu.
   ROLE_PORTALS: {
-    rpm: ['ftth', 'waspang', 'sheet'],
-    admin: ['ftth', 'sheet'],
+    rpm: ['ftth', 'waspang'],
+    admin: ['ftth'],
     waspang: ['waspang', 'ftth']
   },
   SESSION_TTL: 21600,   // detik; batas maksimal CacheService (6 jam)
@@ -101,7 +98,6 @@ function portalLinks(sid) {
   var info = JSON.stringify({ u: String(uname), role: role, name: String(r[2]).trim() });
   return keys.map(function (k) {
     var p = CONFIG.PORTALS[k], href = CONFIG.SHELL_URL + '?p=' + k;
-    if (p.url) return { key: k, title: p.title, desc: p.desc, href: p.url, external: true };
     if (p.sso) {
       var t = randomId_();
       cache.put('tk_' + t, info, CONFIG.TICKET_TTL);
