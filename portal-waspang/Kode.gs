@@ -42,6 +42,7 @@ function doPost(e) {
   var result;
   try {
     var payload = JSON.parse(e.postData.contents);
+    WS_TZ_ = payload;   // zona waktu HP pengirim (tzOff), dipakai wsTz_()
     switch (payload.action) {
       case 'UPLOAD_PHOTOS':
         result = uploadWaspangPhotos_(payload);
@@ -93,6 +94,20 @@ function doPost(e) {
 // Spreadsheet dan judul kolom dibuka/dibaca sekali per permintaan (satu GET_CLUSTER dulu membuka spreadsheet 2x
 // dan membaca baris judul 4x). Variabel global Apps Script mulai kosong lagi di tiap permintaan.
 var wsSsMemo_ = null, wsHeadMemo_ = {};
+// Zona waktu HP/PC pengirim: tzOff = menit di depan UTC (dikirim halaman). Tanpa tzOff (halaman lama): zona spreadsheet.
+// -> {id: 'GMT+08:00', label: 'WITA'} untuk Utilities.formatDate dan teks yang dicatat.
+var WS_TZ_ = null, TZ_LABELS_ = { '420': 'WIB', '480': 'WITA', '540': 'WIT' };
+function wsTz_() {
+  var p = WS_TZ_ || {}, off = p.tzOff !== undefined && p.tzOff !== null && p.tzOff !== '' ? Number(p.tzOff) : NaN;
+  if (!(isFinite(off) && Math.abs(off) <= 840 && off % 15 === 0)) {
+    var z = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'Z');   // mis. +0800
+    off = (z.charAt(0) === '-' ? -1 : 1) * (Number(z.substr(1, 2)) * 60 + Number(z.substr(3, 2)));
+  }
+  var a = Math.abs(off), sign = off < 0 ? '-' : '+';
+  var hm = ('0' + Math.floor(a / 60)).slice(-2) + ':' + ('0' + (a % 60)).slice(-2);
+  return { id: 'GMT' + sign + hm, label: TZ_LABELS_[String(off)] || 'UTC' + sign + hm };
+}
+
 function getWaspangSpreadsheet_() {
   return wsSsMemo_ || (wsSsMemo_ = SpreadsheetApp.openById(CONFIG.WASPANG_SPREADSHEET_ID));
 }
@@ -362,14 +377,14 @@ function logWaspangPhotoToSheet_(payload, folderUrl, saved, telegramOk) {
   try {
     if (!saved.length) return;
     var sh = sheetWithHeader_('LOG FOTO WASPANG', PHOTO_LOG_HEADER_), h = sheetHeader_(sh);
-    var now = new Date(), tz = getWaspangSpreadsheet_().getSpreadsheetTimeZone();
+    var now = new Date(), tz = wsTz_();
     var cat = payload.mainCategory || '';
     var sub = cat === 'Elektrik' ? [payload.elektrikType, payload.fatId]
       : cat === 'Line' ? [payload.lineName] : [payload.progressText];
     var rows = saved.map(function (f) {
       return rowByHeader_(h, {
         'Timestamp': now,
-        'Tanggal Pelaporan': "'" + Utilities.formatDate(now, tz, 'd/M/yyyy, HH.mm.ss'),
+        'Tanggal Pelaporan': "'" + Utilities.formatDate(now, tz.id, 'd/M/yyyy, HH.mm.ss') + ' ' + tz.label,
         'Site Name': cleanClusterNameForSync_(payload.siteName),
         'SOW': payload.sow || '',
         'Mandor': payload.mandor || '-',
@@ -826,7 +841,7 @@ function totalsClusterKey_(name) {
 }
 
 function todayText_() {
-  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  return Utilities.formatDate(new Date(), wsTz_().id, 'dd/MM/yyyy');   // tanggal di HP pengirim
 }
 
 // "9/10/2026" -> "'09/10/2026": teks dd/mm/yyyy, sama dengan format Timestamp.
@@ -1108,7 +1123,8 @@ function kirimSaran_(payload) {
   try {
     var now = new Date();
     var row = Math.max(sh.getLastRow() + 1, 5);
-    sh.getRange(row, 1, 1, 6).setValues([[now, Utilities.formatDate(now, ss.getSpreadsheetTimeZone(), 'HH:mm'), peran, plain(nama), plain(pesan), 'Baru']]);
+    var tz = wsTz_();
+    sh.getRange(row, 1, 1, 6).setValues([[now, Utilities.formatDate(now, tz.id, 'HH:mm') + ' ' + tz.label, peran, plain(nama), plain(pesan), 'Baru']]);
     sh.getRange(row, 1).setNumberFormat('dd mmm yyyy');
     sh.getRange(row, 1, 1, 6).setVerticalAlignment('middle').setWrap(true);
   } finally {

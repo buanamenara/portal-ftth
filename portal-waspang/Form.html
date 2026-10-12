@@ -2044,7 +2044,7 @@
         fetch(getConfig().scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'SARAN', session: WS_SESSION && WS_SESSION.session, nama: nama, pesan: pesan })
+          body: JSON.stringify({ action: 'SARAN', session: WS_SESSION && WS_SESSION.session, nama: nama, pesan: pesan, tzOff: -new Date().getTimezoneOffset() })
         }).then(function (r) { return r.json(); }).then(function (d) {
           if (d.status === 'success') {
             done('ok', 'Terkirim, terima kasih atas masukannya.');
@@ -3251,7 +3251,7 @@
         const res = await fetch(getConfig().scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'SET_TOTAL', session: WS_SESSION && WS_SESSION.session, cluster: cluster, key: itemKey, total: stored,
+          body: JSON.stringify({ action: 'SET_TOTAL', session: WS_SESSION && WS_SESSION.session, tzOff: -new Date().getTimezoneOffset(), cluster: cluster, key: itemKey, total: stored,
             sow: getSowType(cluster), itemName: dailyItemName(cluster, itemKey), keys: keys, base: base,
             names: dailyNames(cluster, keys.concat([itemKey])) })
         });
@@ -3816,6 +3816,7 @@ ${e(todayActivity)}`;
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
             action: 'DAILY_REPORT',
+            tzOff: -new Date().getTimezoneOffset(),
             session: wsSid(),
             chatId: cfg.chatId,
             text: text,
@@ -6149,6 +6150,7 @@ ${e(todayActivity)}`;
           btn.innerText = `⏳ Menyimpan ke Google Drive & Mengirim Telegram...`;
           const payload = {
             action: "UPLOAD_PHOTOS",
+            tzOff: -new Date().getTimezoneOffset(),
             session: wsSid(),
             siteName: site,
             sow: sow,

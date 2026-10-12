@@ -6820,6 +6820,20 @@ function setupSaran_() {
 }
 function setupSaran() { ownerOnly_(); return setupSaran_(); }
 
+// Zona waktu HP/PC pengirim: p.tzOff = menit di depan UTC (dari halaman). Tanpa tzOff (halaman lama): fallbackTz.
+// -> {id: 'GMT+08:00', label: 'WITA'} untuk Utilities.formatDate dan teks yang dicatat.
+var TZ_LABELS_ = { '420': 'WIB', '480': 'WITA', '540': 'WIT' };
+function senderTz_(p, fallbackTz) {
+  var off = p && p.tzOff !== undefined && p.tzOff !== null && p.tzOff !== '' ? Number(p.tzOff) : NaN;
+  if (!(isFinite(off) && Math.abs(off) <= 840 && off % 15 === 0)) {
+    var z = Utilities.formatDate(new Date(), fallbackTz || Session.getScriptTimeZone(), 'Z');   // mis. +0800
+    off = (z.charAt(0) === '-' ? -1 : 1) * (Number(z.substr(1, 2)) * 60 + Number(z.substr(3, 2)));
+  }
+  var a = Math.abs(off), sign = off < 0 ? '-' : '+';
+  var hm = ('0' + Math.floor(a / 60)).slice(-2) + ':' + ('0' + (a % 60)).slice(-2);
+  return { id: 'GMT' + sign + hm, label: TZ_LABELS_[String(off)] || 'UTC' + sign + hm };
+}
+
 // Dipanggil portal (semua peran boleh, kode akses tetap wajib): simpan satu masukan kritik/saran ke spreadsheet RPM.
 function kirimSaran(code, data) {
   requireAccess_(code);
@@ -6833,9 +6847,9 @@ function kirimSaran(code, data) {
   var ss = rpmSs_();
   var sh = ss.getSheetByName(SARAN_SH);
   if (!sh) { sh = ss.insertSheet(SARAN_SH); rpmStyleSaran_(sh); }
-  var tz = ss.getSpreadsheetTimeZone(), now = new Date();
+  var tz = senderTz_(data, ss.getSpreadsheetTimeZone()), now = new Date();
   var row = Math.max(sh.getLastRow() + 1, 5);
-  sh.getRange(row, 1, 1, 6).setValues([[now, Utilities.formatDate(now, tz, 'HH:mm'), peran, nama, pesan, 'Baru']]);
+  sh.getRange(row, 1, 1, 6).setValues([[now, Utilities.formatDate(now, tz.id, 'HH:mm') + ' ' + tz.label, peran, nama, pesan, 'Baru']]);
   sh.getRange(row, 1).setNumberFormat('dd mmm yyyy');
   sh.getRange(row, 1, 1, 6).setVerticalAlignment('middle').setWrap(true);
   SpreadsheetApp.flush();
@@ -7084,7 +7098,7 @@ function getLogHistory_() {
   vals.forEach(function (r) {
     if (!r[0]) return;
     var w = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'dd/MM/yyyy HH:mm') : String(r[0]);
-    out.push({ waktu: w, sumber: r[1], user: r[2], peran: r[3], aksi: r[4], detail: r[5] });
+    out.push({ waktu: w, ms: r[0] instanceof Date ? r[0].getTime() : 0, sumber: r[1], user: r[2], peran: r[3], aksi: r[4], detail: r[5] });
   });
   return out.slice(-200).reverse();
 }
@@ -7358,5 +7372,6 @@ function buildSCurveData_(code) {
     }
   }
   res.updated = Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm');
+  res.updatedMs = Date.now();   // halaman menampilkannya dengan jam perangkat pengguna
   return res;
 }
