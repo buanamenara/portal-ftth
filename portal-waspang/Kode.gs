@@ -258,10 +258,10 @@ function uploadWaspangPhotos_(payload) {
   var blobs = [], saved = [];
   files.forEach(function (f) {
     var raw = f.imageBase64 || '';
-    var m = raw.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/);
+    var m = raw.match(/^data:(image\/[a-zA-Z0-9.+-]+|application\/pdf);base64,(.*)$/);
     var mime = m ? m[1] : 'image/jpeg';
     var b64 = m ? m[2] : raw;
-    var blob = Utilities.newBlob(Utilities.base64Decode(b64), mime, f.fileName || 'foto.jpg');
+    var blob = Utilities.newBlob(Utilities.base64Decode(b64), mime, f.fileName || (mime === 'application/pdf' ? 'dokumen.pdf' : 'foto.jpg'));
     var file = targetFolder.createFile(blob);
     blobs.push(blob);
     saved.push({ name: file.getName(), url: file.getUrl() });
@@ -286,40 +286,46 @@ function buildWaspangPhotoCaption_(payload) {
   return caption;
 }
 
-// true bila Telegram menerima semua foto.
+// true bila Telegram menerima semua file. Foto dikirim sebagai foto, PDF sebagai dokumen (Telegram tidak bisa
+// mencampur keduanya dalam satu album); keterangan laporan ikut pada kiriman pertama.
 function sendWaspangPhotosToTelegram_(blobs, caption) {
-  var ok = true;
+  var photos = blobs.filter(function (b) { return b.getContentType() !== 'application/pdf'; });
+  var docs = blobs.filter(function (b) { return b.getContentType() === 'application/pdf'; });
   try {
-    if (blobs.length === 1) {
-      return telegramPost_('sendPhoto', {
-        chat_id: CONFIG.TELEGRAM_CHAT_ID,
-        caption: caption,
-        parse_mode: 'Markdown',
-        photo: blobs[0]
-      }).ok === true;
-    }
-
-    // Telegram sendMediaGroup menerima maksimal 10 item per panggilan — dipecah per 10 jika lebih.
-    for (var start = 0; start < blobs.length; start += 10) {
-      var chunk = blobs.slice(start, start + 10);
-      var media = [];
-      var formPayload = { chat_id: CONFIG.TELEGRAM_CHAT_ID };
-      chunk.forEach(function (blob, idx) {
-        var key = 'p_' + idx;
-        media.push({
-          type: 'photo',
-          media: 'attach://' + key,
-          caption: (start === 0 && idx === 0) ? caption : '',
-          parse_mode: 'Markdown'
-        });
-        formPayload[key] = blob;
-      });
-      formPayload.media = JSON.stringify(media);
-      ok = telegramPost_('sendMediaGroup', formPayload).ok === true && ok;
-    }
+    var ok = sendTelegramGroup_(photos, 'photo', caption);
+    return sendTelegramGroup_(docs, 'document', photos.length ? '' : caption) && ok;
   } catch (err) {
     console.error('Telegram send error: ' + err);
     return false;
+  }
+}
+
+// Satu jenis file (photo / document) ke Telegram: satu file lewat sendPhoto / sendDocument, lebih dari satu lewat
+// sendMediaGroup (maksimal 10 item per panggilan, dipecah per 10 jika lebih).
+function sendTelegramGroup_(blobs, type, caption) {
+  if (!blobs.length) return true;
+  if (blobs.length === 1) {
+    var one = { chat_id: CONFIG.TELEGRAM_CHAT_ID, caption: caption, parse_mode: 'Markdown' };
+    one[type] = blobs[0];
+    return telegramPost_(type === 'photo' ? 'sendPhoto' : 'sendDocument', one).ok === true;
+  }
+  var ok = true;
+  for (var start = 0; start < blobs.length; start += 10) {
+    var chunk = blobs.slice(start, start + 10);
+    var media = [];
+    var formPayload = { chat_id: CONFIG.TELEGRAM_CHAT_ID };
+    chunk.forEach(function (blob, idx) {
+      var key = 'p_' + idx;
+      media.push({
+        type: type,
+        media: 'attach://' + key,
+        caption: (start === 0 && idx === 0) ? caption : '',
+        parse_mode: 'Markdown'
+      });
+      formPayload[key] = blob;
+    });
+    formPayload.media = JSON.stringify(media);
+    ok = telegramPost_('sendMediaGroup', formPayload).ok === true && ok;
   }
   return ok;
 }

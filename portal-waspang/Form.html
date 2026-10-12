@@ -682,6 +682,23 @@
       background: #f8fafc;
       aspect-ratio: 1;
     }
+    .photo-thumb-pdf {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 8px 8px 24px;
+      text-align: center;
+      background: #fef2f2;
+      color: #b91c1c;
+      font-size: 0.68rem;
+      font-weight: 600;
+      word-break: break-all;
+      overflow: hidden;
+    }
+    .photo-thumb-pdf span { font-size: 1.8rem; line-height: 1; }
     .photo-thumb-card img {
       width: 100%;
       height: 100%;
@@ -1783,7 +1800,7 @@
           </div>
 
           <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="handleIncomingPhotoFiles(this.files)">
-          <input type="file" id="multiFileInput" accept="image/*" multiple style="display: none;" onchange="handleIncomingPhotoFiles(this.files)">
+          <input type="file" id="multiFileInput" accept="image/*,application/pdf,.pdf" multiple style="display: none;" onchange="handleIncomingPhotoFiles(this.files)">
 
           <div class="upload-zone" onclick="document.getElementById('multiFileInput').click()">
             <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin: 0 auto 6px auto; display: block; color: var(--bmi-gold);">
@@ -5841,10 +5858,27 @@ ${e(todayActivity)}`;
       infoEl.innerHTML = `<code>${path}</code><br>📄 Format Nama: <code>${targetFileName}</code>`;
     }
 
+    // Nama file tujuan di Drive; file PDF memakai pola nama yang sama dengan akhiran .pdf.
+    function photoTargetName(i, isPdf) {
+      const n = getPhotoTargetInfo(i).targetFileName;
+      return isPdf ? n.replace(/\.jpe?g$/i, '') + '.pdf' : n;
+    }
+    function isPdfFile(file) {
+      return !!file && (file.type === 'application/pdf' || /\.pdf$/i.test(file.name || ''));
+    }
+    const PDF_MAX_MB = 15;
+    function readFileAsDataUrl(file) {
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      });
+    }
+
     function updateSelectedPhotoFileNames() {
       for (let i = 0; i < photoItems.length; i++) {
-        const { targetFileName } = getPhotoTargetInfo(i);
-        photoItems[i].fileName = targetFileName;
+        photoItems[i].fileName = photoTargetName(i, photoItems[i].isPdf);
       }
       renderPhotoGallery();
     }
@@ -5941,6 +5975,28 @@ ${e(todayActivity)}`;
         if (countText) countText.innerText = `Memuat foto ${i + 1} dari ${count}...`;
 
         try {
+          if (isPdfFile(file)) {
+            // PDF dikirim apa adanya (tanpa kompresi).
+            if (file.size > PDF_MAX_MB * 1024 * 1024) {
+              alert('File PDF "' + file.name + '" lebih dari ' + PDF_MAX_MB + ' MB, tidak bisa dikirim. Perkecil ukuran PDF lalu pilih lagi.');
+              continue;
+            }
+            const raw = await readFileAsDataUrl(file);
+            if (raw) {
+              const b64 = raw.slice(raw.indexOf(',') + 1);
+              photoItems.push({
+                raw: 'data:application/pdf;base64,' + b64,
+                blob: file,
+                isPdf: true,
+                origName: file.name,
+                fileName: photoTargetName(photoItems.length, true),
+                fileSize: file.size,
+                fileType: 'application/pdf'
+              });
+              renderPhotoGallery();
+            }
+            continue;
+          }
           const compResult = await readAndCompressImage(file);
           if (compResult && compResult.dataUrl) {
             const idx = photoItems.length;
@@ -5968,8 +6024,7 @@ ${e(todayActivity)}`;
       photoItems.splice(idx, 1);
       // Perbarui penomoran file target untuk sisa foto
       for (let i = 0; i < photoItems.length; i++) {
-        const { targetFileName } = getPhotoTargetInfo(i);
-        photoItems[i].fileName = targetFileName;
+        photoItems[i].fileName = photoTargetName(i, photoItems[i].isPdf);
       }
       renderPhotoGallery();
       showToast("Foto dihapus.");
@@ -5982,13 +6037,15 @@ ${e(todayActivity)}`;
       if (photoItems.length === 0) {
         grid.innerHTML = '';
       } else {
-        grid.innerHTML = photoItems.map((p, idx) => `
-          <div class="photo-thumb-card">
-            <img src="${p.raw}" alt="Foto ${idx+1}">
-            <div class="photo-thumb-number">#${idx+1}: ${p.fileName}</div>
-            <button type="button" class="btn-remove-photo" onclick="removePhoto(${idx})" title="Hapus foto">&times;</button>
-          </div>
-        `).join('');
+        grid.innerHTML = photoItems.map((p, idx) =>
+          '<div class="photo-thumb-card">' +
+          (p.isPdf
+            ? '<div class="photo-thumb-pdf"><span>📄</span>' + escOpt(p.origName || p.fileName) + '</div>'
+            : '<img src="' + p.raw + '" alt="Foto ' + (idx + 1) + '">') +
+          '<div class="photo-thumb-number">#' + (idx + 1) + ': ' + escOpt(p.fileName) + '</div>' +
+          '<button type="button" class="btn-remove-photo" onclick="removePhoto(' + idx + ')" title="Hapus foto">&times;</button>' +
+          '</div>'
+        ).join('');
       }
 
       const btn = document.getElementById('btnSubmitPhoto');
