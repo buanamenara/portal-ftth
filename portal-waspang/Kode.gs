@@ -5,7 +5,13 @@ var CONFIG = {
   // Gateway FTTH Project Control Portal: menukar tiket sekali pakai dengan username & role (untuk mengenali akun RPM).
   GATEWAY_URL: "https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec",
   // Spreadsheet Portal FTTH: daftar site (Name) dan SOW di portal Waspang diambil dari tab DATA BASE.
-  FTTH_SPREADSHEET_ID: "1KblZFDIcG6Jbbo6gy2Mh0vpgEzsgfUhMcwg5A5qtSME"
+  FTTH_SPREADSHEET_ID: "1KblZFDIcG6Jbbo6gy2Mh0vpgEzsgfUhMcwg5A5qtSME",
+  // Spreadsheet "RPM BMI - BA Pekerjaan": kritik & saran dari Portal Waspang masuk ke tab KRITIK DAN SARAN,
+  // tempat yang sama dengan masukan dari Portal FTTH.
+  SARAN_SPREADSHEET_ID: "1S8c7A0hPZrJ4bHH6UuUfHY8mkBPvadubtlEV1VuZdHA",
+  SARAN_SHEET_NAME: "KRITIK DAN SARAN",
+  // Aktivitas Portal Waspang ikut dicatat di tab LOG HISTORY spreadsheet Portal FTTH (tempat yang sama dengan log Portal FTTH).
+  LOG_SHEET_NAME: "LOG HISTORY"
 };
 
 // Token bot Telegram TIDAK ditulis di kode (repo ini publik). Simpan di Script Properties:
@@ -18,6 +24,7 @@ function telegramToken_() {
 }
 
 function doGet(e) {
+  formatDailyOnce_();
   if (e && e.parameter && e.parameter.api === 'json') {
     return ContentService.createTextOutput(JSON.stringify({
       status: "online",
@@ -67,9 +74,13 @@ function doPost(e) {
       case 'GET_SITES':
         result = getSites_();
         break;
+      case 'SARAN':
+        result = kirimSaran_(payload);
+        break;
       default:
         result = { status: 'error', message: 'Action tidak dikenali: ' + payload.action };
     }
+    if (result && result.status === 'success') logWaspang_(payload, result);
   } catch (err) {
     result = { status: 'error', message: err.toString() };
   }
@@ -91,10 +102,11 @@ var MATERIAL_HEADERS_ = ['Pole 7/4 (NP 7m + 4")', 'Pole 7/3 (NP 7m + 3")', 'Pole
   'Pole Clamp', 'Dead End', 'Dead End 144', 'Slack Hanger', 'Plat Belt', 'Stopping', 'Buldogrip'];
 // Rincian Item = volume per item portal (item per line terpisah), Selesai = item yang sudah ditandai selesai.
 var MASTER_BOQ_HEADER_ = ['No', 'Cluster Name', 'SOW'].concat(MATERIAL_HEADERS_).concat(['Rincian Item', 'Selesai']);
-// Rincian Item (paling kanan) mencatat angka per item portal, mis. "cable_24c_line_a=3; fat_line_b=1",
-// supaya Total per line tetap terbaca walau kolom materialnya digabung.
+// Rincian Item mencatat angka per item portal, mis. "Cable 24C Line A = 3; FAT Line B = 1", supaya Total per line
+// tetap terbaca walau kolom materialnya digabung. Ringkasan Pencapaian = satu baris item yang dikerjakan hari itu;
+// Teks Laporan (paling kanan) = daftar lengkap Today/Total/Plan seperti di Telegram.
 var DAILY_REPORT_HEADER_ = ['Timestamp', 'Tanggal', 'Cluster Name', 'SOW', 'Start Implementation', 'Topology', 'Subcont', 'PIC',
-  'Manpower', 'Jam Kerja', 'Ringkasan Pencapaian', 'Today Activity'].concat(MATERIAL_HEADERS_).concat(['Rincian Item']);
+  'Manpower', 'Jam Kerja', 'Ringkasan Pencapaian', 'Today Activity'].concat(MATERIAL_HEADERS_).concat(['Rincian Item', 'Teks Laporan']);
 var PHOTO_LOG_HEADER_ = ['Timestamp', 'Tanggal Pelaporan', 'Site Name', 'SOW', 'Mandor', 'Nama Waspang', 'Kategori Pekerjaan',
   'Subfolder / FAT', 'Nama File', 'Koordinat GPS', 'Link Maps', 'Link Foto Drive', 'Link Folder Drive', 'Catatan Lapangan', 'Status Telegram'];
 
@@ -139,6 +151,7 @@ function sheetWithHeader_(name, header) {
   var h = sheetHeader_(sh);
   header.forEach(function (title) {
     if (!(normHeader_(title) in h.idx)) {
+      if (h.width + 1 > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), 1);
       sh.getRange(1, h.width + 1).setValue(title).setFontWeight('bold');
       h.idx[normHeader_(title)] = h.width++;
     }
@@ -395,23 +408,24 @@ function recordDailyReport_(payload) {
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    var r = payload.report || {}, sh = dailySheet_(), cluster = payload.cluster;
+    var r = payload.report || {}, sh = dailySheet_(), cluster = payload.cluster, names = payload.names || {};
     var sow = r.sow || payload.sow || sowFromId_(cluster);
-    if (cluster) addOpeningBalance_(sh, cluster, sow, payload.base, payload.by);
+    if (cluster) addOpeningBalance_(sh, cluster, sow, payload.base, payload.by, names);
     appendDailyRow_(sh, {
-      'Tanggal': r.tanggal ? "'" + r.tanggal : '',
+      'Tanggal': dmyText_(r.tanggal),
       'Cluster Name': siteName_(cluster),
       'SOW': sow || '',
-      'Start Implementation': r.startImpl ? "'" + r.startImpl : '',
+      'Start Implementation': dmyText_(r.startImpl),
       'Topology': r.topology || '',
       'Subcont': r.subcont || '-',
       'PIC': r.pic || payload.by || '',
       'Manpower': r.manpower || '',
       'Jam Kerja': r.jamKerja || '',
-      // Halaman lama belum mengirim rincian: simpan seluruh teks laporan di Ringkasan.
-      'Ringkasan Pencapaian': payload.report ? (r.ringkasan || '') : (payload.text || ''),
-      'Today Activity': r.todayActivity || ''
-    }, payload.today);
+      'Ringkasan Pencapaian': payload.today ? todaySummary_(payload.today, names, payload.keys) : '',
+      'Today Activity': r.todayActivity || '',
+      // Halaman lama belum mengirim rincian: simpan seluruh teks laporan.
+      'Teks Laporan': payload.report ? (r.ringkasan || '') : (payload.text || '')
+    }, payload.today, names);
     if (!cluster) return { status: 'success' };
     return { status: 'success', totals: clusterTotals_(sh, cluster, payload.keys, sow).totals };
   } finally {
@@ -746,7 +760,14 @@ function totalsClusterKey_(name) {
 }
 
 function todayText_() {
-  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'd/M/yyyy');
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+}
+
+// "9/10/2026" -> "'09/10/2026": teks dd/mm/yyyy, sama dengan format Timestamp.
+function dmyText_(s) {
+  var t = String(s || '').trim(), m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) t = ('0' + m[1]).slice(-2) + '/' + ('0' + m[2]).slice(-2) + '/' + m[3];
+  return t ? "'" + t : '';
 }
 
 function cellNumber_(v) {
@@ -755,15 +776,76 @@ function cellNumber_(v) {
   return isFinite(n) ? n : 0;
 }
 
-// {key item: angka} <-> "cable_24c_line_a=3; fat_line_b=1"
-function rincianText_(byKey) {
+// Nama item katalog = judul kolom materialnya (+ " Line A" dst.), mis. "Cable 24C Line A"; '' untuk item di luar katalog.
+function catalogItemName_(key) {
+  var k = String(key || '').trim().toLowerCase(), m = k.match(/^(.*)_line_([a-d])$/), col = MATERIAL_COLUMNS_[m ? m[1] : k];
+  if (!col) return '';
+  for (var i = 0; i < MATERIAL_HEADERS_.length; i++) {
+    if (normHeader_(MATERIAL_HEADERS_[i]) === col) {
+      return MATERIAL_HEADERS_[i].replace(/\s*\(.*$/, '').trim() + (m ? ' Line ' + m[2].toUpperCase() : '');
+    }
+  }
+  return '';
+}
+
+var ITEM_BY_NAME_ = null;
+
+// {nama item katalog huruf kecil: key}
+function itemByName_() {
+  if (ITEM_BY_NAME_) return ITEM_BY_NAME_;
+  ITEM_BY_NAME_ = {};
+  Object.keys(MATERIAL_COLUMNS_).forEach(function (b) {
+    ['', '_line_a', '_line_b', '_line_c', '_line_d'].forEach(function (s) {
+      var n = catalogItemName_(b + s).toLowerCase();
+      if (n && !(n in ITEM_BY_NAME_)) ITEM_BY_NAME_[n] = b + s;
+    });
+  });
+  return ITEM_BY_NAME_;
+}
+
+// Nama item untuk ditampilkan: nama di HP, lalu nama katalog, lalu key.
+function itemDisplayName_(k, names) {
+  return String((names || {})[k] || '').trim() || catalogItemName_(k) || String(k);
+}
+
+// Ringkasan satu baris: item yang ada angka Today-nya (urutan BOQ Plan), mis. "Pole 7/3: 5 | Digging Pole: 10".
+function todaySummary_(today, names, keys) {
+  var seen = {}, out = [];
+  (keys || []).concat(Object.keys(today || {})).forEach(function (k) {
+    k = String(k || '').trim();
+    if (!k || seen[k]) return;
+    seen[k] = true;
+    var n = Number((today || {})[k]) || 0;
+    if (n) out.push(itemDisplayName_(k, names) + ': ' + n);
+  });
+  return out.length ? out.join(' | ') : 'Tidak ada progres';
+}
+
+// {key item: angka} <-> "Cable 24C Line A = 3; Kabel Drop (mat_17) = 5". Item katalog ditulis dengan namanya,
+// item lain dengan nama di HP + key dalam kurung. Baris lama berformat "cable_24c_line_a=3" tetap terbaca.
+function rincianText_(byKey, names) {
   return Object.keys(byKey || {}).filter(function (k) { return String(k).trim() && Number(byKey[k]); }).map(function (k) {
-    return rincianKey_(k) + '=' + Number(byKey[k]);
+    return rincianLabel_(k, names) + ' = ' + Number(byKey[k]);
   }).join('; ');
 }
 
+function rincianLabel_(k, names) {
+  var key = String(k).trim(), n = catalogItemName_(key);
+  if (n && rincianKeyOf_(n) === key) return n;
+  var given = String((names || {})[key] || '').replace(/[%;=@()]/g, ' ').replace(/\s+/g, ' ').trim();
+  return given && given.toLowerCase() !== key.toLowerCase() ? given + ' (' + rincianKey_(key) + ')' : rincianKey_(key);
+}
+
 function rincianKey_(k) {
-  return String(k).trim().replace(/[%;=@]/g, function (c) { return encodeURIComponent(c); });
+  return String(k).trim().replace(/[%;=@()]/g, function (c) { return '%' + c.charCodeAt(0).toString(16).toUpperCase(); });
+}
+
+function rincianKeyOf_(label) {
+  var t = String(label).trim(), m = t.match(/\(([^()]+)\)$/);
+  if (m) t = m[1];
+  else if (itemByName_()[t.toLowerCase()]) return itemByName_()[t.toLowerCase()];
+  try { t = decodeURIComponent(t); } catch (e) {}
+  return t;
 }
 
 function parseRincian_(text) {
@@ -771,20 +853,68 @@ function parseRincian_(text) {
   String(text || '').split(';').forEach(function (part) {
     var m = part.match(/^\s*([^=]+?)\s*=\s*(-?\d+(?:\.\d+)?)\s*$/);
     if (!m) return;
-    var k = m[1];
-    try { k = decodeURIComponent(k); } catch (e) {}
+    var k = rincianKeyOf_(m[1]);
     out[k] = (out[k] || 0) + Number(m[2]);
   });
   return out;
 }
 
 // vals = {judul kolom: isi}; byKey = {key item: angka} mengisi kolom material dan Rincian Item.
-function appendDailyRow_(sh, vals, byKey) {
+function appendDailyRow_(sh, vals, byKey, names) {
   vals['Timestamp'] = new Date();
   var byCol = sumByMaterial_(byKey);
   Object.keys(byCol).forEach(function (c) { vals[c] = byCol[c]; });
-  vals['Rincian Item'] = rincianText_(byKey);
+  vals['Rincian Item'] = rincianText_(byKey, names);
   sh.appendRow(rowByHeader_(sheetHeader_(sh), vals));
+  try { formatDailyRows_(sh); } catch (e) { console.error('Format DAILY REPORT EMR: ' + e); }
+}
+
+// Tampilan tab: Timestamp dd/mm/yyyy HH:mm (sama dengan Tanggal), teks panjang tidak membuat baris tinggi,
+// baris Saldo awal dan Koreksi Total (RPM) berwarna kuning muda. Isi sel tidak diubah.
+function formatDailyRows_(sh) {
+  var h = sheetHeader_(sh), n = sh.getLastRow() - 1;
+  if (n < 1) return;
+  if (h.idx['timestamp'] !== undefined) sh.getRange(2, h.idx['timestamp'] + 1, n, 1).setNumberFormat('dd/mm/yyyy HH:mm');
+  ['ringkasan pencapaian', 'today activity', 'rincian item', 'teks laporan'].forEach(function (k) {
+    if (h.idx[k] !== undefined) sh.getRange(2, h.idx[k] + 1, n, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  });
+  sh.setRowHeightsForced(2, n, 21);
+  highlightSaldoRows_(sh, h);
+}
+
+// Warna baris lewat format bersyarat, karena warna selang-seling (alternating colors) di tab ini menutupi warna sel biasa.
+function highlightSaldoRows_(sh, h) {
+  var cAct = h.idx['today activity'];
+  if (cAct === undefined) return;
+  var f = '=REGEXMATCH(LOWER($' + colLetter_(cAct + 1) + '2&""),"^(saldo awal|koreksi total)")';
+  var rules = sh.getConditionalFormatRules(), at = -1;
+  rules.forEach(function (r, i) {
+    var c = r.getBooleanCondition();
+    if (c && String(c.getCriteriaValues()[0]) === f) at = i;
+  });
+  if (at >= 0 && rules[at].getRanges()[0].getLastColumn() >= h.width) return;
+  var rule = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(f).setBackground('#fff8e1')
+    .setRanges([sh.getRange(2, 1, sh.getMaxRows() - 1, h.width)]).build();
+  if (at >= 0) rules[at] = rule; else rules.push(rule);
+  sh.setConditionalFormatRules(rules);
+}
+
+// Sekali setelah pemasangan: baris DAILY REPORT EMR yang sudah ada ikut dirapikan (hanya tampilan).
+function formatDailyOnce_() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    if (props.getProperty('DAILY_FORMAT_V') === '1') return;
+    formatDailyRows_(dailySheet_());
+    props.setProperty('DAILY_FORMAT_V', '1');
+  } catch (e) {
+    console.error('Format DAILY REPORT EMR: ' + e);
+  }
+}
+
+function colLetter_(n) {
+  var s = '';
+  for (; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s;
+  return s;
 }
 
 // Baris satu site + SOW. Baris tanpa SOW ikut dihitung untuk SOW mana pun dari nama itu.
@@ -800,7 +930,7 @@ function clusterRows_(sh, h, cluster, sow) {
 }
 
 // Cluster yang belum punya baris: Total yang sudah ada di HP pelapor dicatat dulu sebagai baris saldo awal.
-function addOpeningBalance_(sh, cluster, sow, base, by) {
+function addOpeningBalance_(sh, cluster, sow, base, by, names) {
   sow = sow || sowFromId_(cluster);
   if (clusterRows_(sh, sheetHeader_(sh), cluster, sow).length) return;
   var pos = {};
@@ -816,7 +946,7 @@ function addOpeningBalance_(sh, cluster, sow, base, by) {
     'PIC': by || '',
     'Ringkasan Pencapaian': 'Saldo awal Total (angka yang sudah ada di HP sebelum Total dicatat di sheet)',
     'Today Activity': 'Saldo awal'
-  }, pos);
+  }, pos, names);
 }
 
 // Total satu cluster. keys = item di HP (urutan BOQ Plan). Angka di kolom material yang tidak tercatat per item
@@ -891,6 +1021,91 @@ function ssoLogin_(ticket) {
   return { status: 'success', session: sid, role: sess.role, name: sess.name };
 }
 
+// Bantuan & Masukan: satu baris kritik/saran (hanya pengguna yang masuk lewat Gateway). Kolom sama dengan Portal FTTH:
+// Tanggal | Jam | Peran | Nama (opsional) | Pesan | Status. Teks yang diawali = + - @ diberi ' supaya tidak jadi rumus.
+function kirimSaran_(payload) {
+  var s = wsSession_(payload.session);
+  if (!s) return { status: 'error', message: 'Sesi habis. Buka Portal Waspang lagi dari FTTH Project Control Portal.' };
+  var pesan = String(payload.pesan || '').trim().slice(0, 2000);
+  if (!pesan) return { status: 'error', message: 'Pesan belum diisi.' };
+  var nama = String(payload.nama || '').trim().slice(0, 80);
+  var peran = (s.role === 'rpm' ? 'RPM' : (s.role === 'waspang' ? 'Waspang' : 'Admin')) + ' (Portal Waspang)';
+  var plain = function (v) { return /^[=+\-@]/.test(v) ? "'" + v : v; };
+  var ss = SpreadsheetApp.openById(CONFIG.SARAN_SPREADSHEET_ID);
+  var sh = ss.getSheetByName(CONFIG.SARAN_SHEET_NAME);
+  if (!sh) return { status: 'error', message: 'Tab ' + CONFIG.SARAN_SHEET_NAME + ' tidak ditemukan.' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var now = new Date();
+    var row = Math.max(sh.getLastRow() + 1, 5);
+    sh.getRange(row, 1, 1, 6).setValues([[now, Utilities.formatDate(now, ss.getSpreadsheetTimeZone(), 'HH:mm'), peran, plain(nama), plain(pesan), 'Baru']]);
+    sh.getRange(row, 1).setNumberFormat('dd mmm yyyy');
+    sh.getRange(row, 1, 1, 6).setVerticalAlignment('middle').setWrap(true);
+  } finally {
+    lock.releaseLock();
+  }
+  return { status: 'success' };
+}
+
+// Catat aksi Portal Waspang yang berhasil ke LOG HISTORY (spreadsheet Portal FTTH). Nama dan peran diambil dari sesi Gateway;
+// tanpa sesi dipakai nama PIC/Waspang yang diketik. Gagal mencatat tidak boleh menggagalkan aksi utamanya.
+var LOG_MAX_ROWS_ = 2000;
+function logWaspang_(p, res) {
+  try {
+    var aksi, detail = '', who = null, site = function (raw, sow) { var n = siteName_(raw); return n + (sow ? ' (' + sow + ')' : ''); };
+    switch (p.action) {
+      case 'SSO_LOGIN':
+        aksi = 'Buka Portal Waspang';
+        who = { name: res && res.name, role: res && res.role };
+        break;
+      case 'CREATE_SITE_FOLDERS':
+        aksi = 'Buat Folder Site';
+        detail = site(p.siteName, p.sow);
+        break;
+      case 'SARAN':
+        // Masukan boleh tanpa nama: hanya nama yang diketik, tanpa isi pesan (isi ada di tab KRITIK DAN SARAN).
+        aksi = 'Kirim Kritik & Saran';
+        who = { name: String(p.nama || '').trim() || '(tanpa nama)', role: (wsSession_(p.session) || {}).role || '' };
+        break;
+      case 'DAILY_REPORT':
+        aksi = 'Daily Report';
+        detail = site(p.cluster, p.sow || sowFromId_(p.cluster)) + (p.by ? ' - PIC ' + p.by : '');
+        break;
+      case 'UPLOAD_PHOTOS':
+        aksi = 'Upload Foto';
+        detail = site(p.siteName, p.sow) + ' - ' + (p.files || []).length + ' foto' + (p.mainCategory ? ', ' + p.mainCategory : '') + (p.subPath ? ', ' + p.subPath : '');
+        break;
+      case 'SYNC_BOQ_EXCEL':
+        aksi = 'BOQ Plan';
+        detail = (p.clusters || []).map(function (c) { return site(c.name || c.fullName, c.sow); }).join('; ');
+        break;
+      case 'SET_DONE':
+        aksi = p.done ? 'Tandai Selesai' : 'Batal Selesai';
+        detail = site(p.name || p.cluster, p.sow) + ' - ' + (p.items || p.keys || (p.key ? [p.key] : [])).join(', ');
+        break;
+      case 'SET_TOTAL':
+        aksi = 'Edit Total (RPM)';
+        detail = site(p.cluster, p.sow || sowFromId_(p.cluster)) + ' - ' + (p.itemName || p.key) + ' = ' + p.total;
+        break;
+      default:
+        return;
+    }
+    var s = who ? null : wsSession_(p.session);
+    var user = who ? (who.name || '') : s ? (s.name || s.username) : (String(p.by || p.waspang || '').trim() || '(tanpa login)');
+    var peran = who ? (who.role || '') : s ? s.role : '';
+    var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName(CONFIG.LOG_SHEET_NAME);
+    if (!sh) return;
+    var plain = function (v) { v = String(v || ''); return /^[=+\-@]/.test(v) ? "'" + v : v; };
+    sh.appendRow([new Date(), 'Portal Waspang', plain(user), peran, aksi, plain(String(detail).slice(0, 500))]);
+    var row = sh.getLastRow();
+    // Format seluruh kolom Waktu dan 5 baris terakhir: baris lain bisa ditulis bersamaan (pemicu edit/portal lain).
+    sh.getRange(5, 1, row - 4, 1).setNumberFormat('dd mmm yyyy HH:mm');
+    sh.getRange(Math.max(5, row - 4), 1, Math.min(5, row - 4), 6).setVerticalAlignment('middle').setWrap(true);
+    if (row - 4 > LOG_MAX_ROWS_) sh.deleteRows(5, row - 4 - LOG_MAX_ROWS_);
+  } catch (e) { console.error('LOG HISTORY: ' + e); }
+}
+
 function wsSession_(sid) {
   if (!/^[A-Za-z0-9]{32,80}$/.test(String(sid || ''))) return null;
   var raw = CacheService.getScriptCache().get('ws_' + sid);
@@ -905,12 +1120,13 @@ function setTotalByRpm_(payload) {
   var key = String(payload.key || '').trim(), total = Number(payload.total);
   if (!totalsClusterKey_(payload.cluster) || !key || !(total >= 0)) return { status: 'error', message: 'Data Total tidak lengkap.' };
   total = Math.floor(total);
-  var name = s.name || s.username, sow = payload.sow || sowFromId_(payload.cluster);
+  var name = s.name || s.username, sow = payload.sow || sowFromId_(payload.cluster), names = payload.names || {};
+  if (payload.itemName && !names[key]) names[key] = payload.itemName;
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
     var sh = dailySheet_();
-    addOpeningBalance_(sh, payload.cluster, sow, payload.base, name);
+    addOpeningBalance_(sh, payload.cluster, sow, payload.base, name, names);
     var keys = (payload.keys || []).slice();
     if (keys.indexOf(key) < 0) keys.push(key);
     var cur = clusterTotals_(sh, payload.cluster, keys, sow).raw[key] || 0;
@@ -924,7 +1140,7 @@ function setTotalByRpm_(payload) {
         'PIC': name,
         'Ringkasan Pencapaian': 'Koreksi Total oleh RPM ' + name + ': ' + (payload.itemName || key) + ' dari ' + cur + ' menjadi ' + total,
         'Today Activity': 'Koreksi Total (RPM)'
-      }, by);
+      }, by, names);
     }
   } finally {
     lock.releaseLock();

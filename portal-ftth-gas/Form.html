@@ -596,6 +596,7 @@
         <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg>
         <div class="user-dropdown" id="userDropdown">
           <a href="https://buanamenara.github.io/portal-ftth/?go=waspang" target="_top" id="waspangLink" style="display:none">Portal Waspang</a>
+          <a href="https://docs.google.com/spreadsheets/d/1KblZFDIcG6Jbbo6gy2Mh0vpgEzsgfUhMcwg5A5qtSME/edit?gid=611166920#gid=611166920" target="_blank" rel="noopener" id="sheetLink" style="display:none">Spreadsheet Database &#8599;</a>
           <a href="#" id="logoutLink" style="display:none">Keluar</a>
         </div>
       </div>
@@ -614,15 +615,15 @@
       <div id="guideTabPanduan" class="gtab">
         <div id="guideSheetBody">
           <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
-          <h2>Panduan Portal FTTH</h2>
-          <p class="desc">Cara memakai spreadsheet dan portal, langkah demi langkah dengan gambar.</p>
-          <div class="meta"><span>40 halaman</span><span>~3 MB</span><span>PDF</span></div>
+          <h2>Panduan FTTH Project Control Portal</h2>
+          <p class="desc">Cara memakai Portal FTTH, Portal Waspang dan spreadsheet, langkah demi langkah dengan gambar.</p>
+          <div class="meta"><span>29 halaman</span><span>~4 MB</span><span>PDF</span></div>
           <a href="https://buanamenara.github.io/portal-ftth/Panduan_Portal_FTTH.pdf" target="_blank" rel="noopener" id="guideDl">Unduh PDF Panduan</a>
           <p class="hint">Terbuka di tab baru peramban &mdash; ketuk lama pratinjaunya lalu pilih &ldquo;Simpan ke File&rdquo; bila tidak langsung tersimpan.</p>
           <ul class="glist">
-            <li>Cara pakai spreadsheet dari awal sampai BA Closing, per sheet dan per peran.</li>
-            <li>Panduan portal langkah demi langkah dengan gambar (Submit BOQ, BA Transaksi, riwayat).</li>
-            <li>Kode akses, aturan emas, dan cara mengatasi masalah umum.</li>
+            <li>Masuk sekali lewat FTTH Project Control Portal, lalu Submit BOQ, BA Transaksi dan Submit BA di Portal FTTH.</li>
+            <li>Portal Waspang: Daily Report EMR, BOQ Plan dan foto dokumentasi.</li>
+            <li>Cara pakai spreadsheet per sheet, dan cara mengatasi masalah umum.</li>
           </ul>
         </div>
         <button type="button" id="guideTop" aria-label="Kembali ke atas">
@@ -1336,19 +1337,18 @@
   <div id="viewLogHistory" style="display:none">
     <div class="card wide">
       <h2>Log History</h2>
-      <p class="desc">Riwayat siapa yang terakhir mengupdate data, lewat Portal (Submit BOQ/BA, BA Gudang, BA Pekerjaan RPM, Administration) atau langsung di Spreadsheet (edit manual sheet DATA BASE). Hanya RPM yang bisa membuka halaman ini.</p>
+      <p class="desc">Riwayat semua aktivitas: login di Gateway, aksi di Portal FTTH dan Portal Waspang, dan edit manual di semua tab spreadsheet FTTH, Waspang, RPM BMI dan Gudang BMI. Hanya RPM yang bisa membuka halaman ini.</p>
       <div class="row">
         <div><input type="text" id="logQ" placeholder="Cari user, aksi, atau detail..." autocomplete="off"></div>
         <div>
           <select id="logSumber">
             <option value="">Semua sumber</option>
-            <option value="Portal">Portal</option>
-            <option value="Spreadsheet">Spreadsheet</option>
           </select>
         </div>
         <div><button type="button" class="ghost" id="logRefreshBtn" style="margin-top:4px">Refresh</button></div>
       </div>
       <div id="logCount" class="hint"></div>
+      <div id="logPemicu" class="hint"></div>
       <div style="overflow-x:auto">
       <table>
         <thead><tr><th>Waktu</th><th>Sumber</th><th>User</th><th>Peran</th><th>Aksi</th><th>Detail</th></tr></thead>
@@ -1449,6 +1449,7 @@
       if ($('userDropdown')) $('userDropdown').classList.remove('open');
       $('logoutLink').style.display = 'none';
       $('waspangLink').style.display = 'none';
+      $('sheetLink').style.display = 'none';
       var auto = opts.logout || !CAME_WITH_SSO_;
       $('loginNote').textContent = (msg ? msg + ' ' : '') + (auto ? 'Membuka FTTH Project Control Portal...' : 'Silakan masuk lagi lewat FTTH Project Control Portal.');
       $('gatewayLink').style.display = auto ? 'none' : '';
@@ -1460,9 +1461,11 @@
     }
     function enterPortal(pending) {
       if (!pending) document.body.classList.remove('entering');
-      $('logoutLink').style.display = 'inline';
+      $('logoutLink').style.display = 'block';
       // Portal Waspang dibuka lewat Gateway (?go=waspang) supaya membawa tiket: Waspang mengenali akun RPM untuk edit Total.
       $('waspangLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'waspang') ? 'block' : 'none';
+      // Spreadsheet Database: tab baru, untuk RPM, Admin dan Waspang (spreadsheet hanya terbuka bagi akun Google yang diberi akses).
+      $('sheetLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'admin' || ROLE_RAW === 'waspang') ? 'block' : 'none';
       $('navRpm').style.display = (ROLE === 'rpm') ? '' : 'none';
       $('navAdministration').style.display = '';
       $('navLogHistory').style.display = (ROLE === 'rpm') ? '' : 'none';
@@ -3721,7 +3724,20 @@
     var logData = [];
     function loadLogHistory() {
       $('logTable').innerHTML = '<tr><td colspan="6">Memuat...</td></tr>';
-      GSR.withSuccessHandler(function (list) { logData = list || []; renderLogHistory(); })
+      GSR.withSuccessHandler(function (res) {
+        res = res || {};
+        logData = Array.isArray(res) ? res : (res.rows || []);
+        // Pilihan Sumber diambil dari data (Gateway, Portal, Portal Waspang, Spreadsheet, ...).
+        var sel = $('logSumber'), cur = sel.value, seen = {};
+        sel.innerHTML = '<option value="">Semua sumber</option>' + logData.map(function (r) { return String(r.sumber || ''); })
+          .filter(function (v) { if (!v || seen[v]) return false; seen[v] = 1; return true; }).sort()
+          .map(function (v) { return '<option value="' + esc(v) + '">' + esc(v) + '</option>'; }).join('');
+        if (seen[cur]) sel.value = cur;
+        var p = res.pemicu || [], ok = p.filter(function (x) { return x.ok; }).map(function (x) { return x.nama; });
+        var gagal = p.filter(function (x) { return !x.ok; }).map(function (x) { return x.nama + ' (' + x.pesan + ')'; });
+        $('logPemicu').textContent = (ok.length ? 'Pencatat edit spreadsheet aktif: ' + ok.join(', ') + '. ' : '') + (gagal.length ? 'Belum aktif: ' + gagal.join('; ') + '.' : '');
+        renderLogHistory();
+      })
         .withFailureHandler(function (err) { $('logTable').innerHTML = '<tr><td colspan="6">Gagal memuat: ' + esc(err.message) + '</td></tr>'; })
         .getLogHistory();
     }
