@@ -694,7 +694,7 @@
         }).withFailureHandler(function (err) {
           saranBtn.disabled = false; saranBtn.textContent = 'Kirim Masukan';
           saranMsg.className = 'err'; saranMsg.textContent = 'Gagal mengirim: ' + (err && err.message ? err.message : err);
-        }).kirimSaran({ pesan: pesan, nama: nama });
+        }).kirimSaran({ pesan: pesan, nama: nama, tzOff: -new Date().getTimezoneOffset() });
       });
     })();
   </script>
@@ -1377,6 +1377,22 @@
       });
     }
     function $(id) { return document.getElementById(id); }
+    // Jam di portal mengikuti zona waktu HP/PC yang membukanya (WIB / WITA / WIT).
+    function tzOff_() { return -new Date().getTimezoneOffset(); }
+    function tzLabel_(off) {
+      off = off == null ? tzOff_() : off;
+      var z = { 420: 'WIB', 480: 'WITA', 540: 'WIT' }[off];
+      if (z) return z;
+      var a = Math.abs(off);
+      return 'UTC' + (off < 0 ? '-' : '+') + Math.floor(a / 60) + (a % 60 ? ':' + pad2_(a % 60) : '');
+    }
+    function pad2_(n) { return (n < 10 ? '0' : '') + n; }
+    function localStamp_(ms) {   // mis. 12/10/2026 22:43 WITA, menurut jam perangkat ini
+      var d = new Date(ms);
+      return pad2_(d.getDate()) + '/' + pad2_(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + pad2_(d.getHours()) + ':' + pad2_(d.getMinutes()) + ' ' + tzLabel_(-d.getTimezoneOffset());
+    }
+    function localYmd_() { var d = new Date(); return d.getFullYear() + '-' + pad2_(d.getMonth() + 1) + '-' + pad2_(d.getDate()); }
+    function localHm_() { var d = new Date(); return pad2_(d.getHours()) + ':' + pad2_(d.getMinutes()); }
     // Data Beranda (Project Dashboard & Kurva S) diminta bersamaan dengan cek akses, tidak menunggu login selesai.
     // Hanya untuk kode yang tersimpan di browser; bila gagal, pemanggilan biasa dijalankan seperti sebelumnya.
     function startPrefetch_(code) {
@@ -3016,7 +3032,7 @@
       var mm = (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
       var elD = $('dashDate'); var elT = $('dashTime');
       if (elD) elD.textContent = dateStr;
-      if (elT) elT.textContent = hh + ':' + mm + ' WIB';
+      if (elT) elT.textContent = hh + ':' + mm + ' ' + tzLabel_();
     }
     var bmiMap = null;
     var bmiMarkers = {};
@@ -3306,8 +3322,8 @@
           $('bgMax').textContent = res.maxItems;
           $('bgRegion').innerHTML = res.regions.filter(function (r) { return r.ready; }).map(function (r) { return '<option value="' + esc(r.key) + '">' + esc(r.region) + ' (' + esc(r.kode) + ')</option>'; }).join('');
           $('bgRegion').disabled = res.regions.length <= 1;
-          $('bgTanggal').value = res.today;
-          $('bgJam').value = res.jam;
+          $('bgTanggal').value = localYmd_();   // tanggal & jam perangkat ini (zona waktu pengguna)
+          $('bgJam').value = localHm_();
           if (!$('bgItems').children.length) { for (var i = 0; i < 5; i++) bgAddRow(); }
           bgRefreshMaterials();
           bgRefreshRegion();
@@ -3359,7 +3375,7 @@
           $('bgNew').addEventListener('click', function () {
             $('bgItems').innerHTML = ''; for (var i = 0; i < 5; i++) bgAddRow();
             $('bgSite').value = ''; bgSiteHint(); $('bgResult').innerHTML = ''; $('bgStatus').style.display = 'none';
-            bg.init.today && ($('bgTanggal').value = bg.init.today); bgUpdateHint(); window.scrollTo(0, 0);
+            $('bgTanggal').value = localYmd_(); bgUpdateHint(); window.scrollTo(0, 0);
           });
           loadBgHistory();
         })
@@ -3449,7 +3465,7 @@
           $('rpMandorList').innerHTML = (st.mandors || []).map(function (m) { return '<option value="' + esc(m) + '"></option>'; }).join('');
           if (!$('rpRpm').value) $('rpRpm').value = st.rpm || '';
           if (!$('rpPm').value) $('rpPm').value = st.pm || '';
-          if (!$('rpTanggal').value) $('rpTanggal').value = res.today || '';
+          if (!$('rpTanggal').value) $('rpTanggal').value = localYmd_();
           $('rpSignInfo').textContent = res.hasSign ? 'Tanda tangan RPM sudah tersimpan dan dipakai otomatis. Unggah gambar baru untuk menggantinya.' : 'Belum ada tanda tangan RPM tersimpan (kolom tanda tangan di PDF dibiarkan kosong).';
           rp.mandorSigns = res.mandorSigns || [];
           rpMandorInfo();
@@ -3739,6 +3755,7 @@
       GSR.withSuccessHandler(function (res) {
         res = res || {};
         logData = Array.isArray(res) ? res : (res.rows || []);
+        logData.forEach(function (r) { if (r && r.ms) r.waktu = localStamp_(r.ms); });
         // Pilihan Sumber diambil dari data (Gateway, Portal, Portal Waspang, Spreadsheet, ...).
         var sel = $('logSumber'), cur = sel.value, seen = {};
         sel.innerHTML = '<option value="">Semua sumber</option>' + logData.map(function (r) { return String(r.sumber || ''); })
@@ -3928,7 +3945,7 @@
 
     box.innerHTML =
       '<div class="scurve-title">Kurva S Cluster (HP RFS kumulatif)</div>' +
-      '<div class="scurve-cap">' + esc(cap) + ' · data ' + esc(data.updated) + '</div>' +
+      '<div class="scurve-cap">' + esc(cap) + ' · data ' + esc(data.updatedMs ? localStamp_(data.updatedMs) : data.updated) + '</div>' +
       s +
       '<div class="scurve-legend">' + leg + '</div>';
   }
