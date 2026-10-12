@@ -596,6 +596,7 @@
         <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg>
         <div class="user-dropdown" id="userDropdown">
           <a href="https://buanamenara.github.io/portal-ftth/?go=waspang" target="_top" id="waspangLink" style="display:none">Portal Waspang</a>
+          <a href="https://docs.google.com/spreadsheets/d/1KblZFDIcG6Jbbo6gy2Mh0vpgEzsgfUhMcwg5A5qtSME/edit?gid=611166920#gid=611166920" target="_blank" rel="noopener" id="sheetLink" style="display:none">Spreadsheet Database &#8599;</a>
           <a href="#" id="logoutLink" style="display:none">Keluar</a>
         </div>
       </div>
@@ -1449,6 +1450,7 @@
       if ($('userDropdown')) $('userDropdown').classList.remove('open');
       $('logoutLink').style.display = 'none';
       $('waspangLink').style.display = 'none';
+      $('sheetLink').style.display = 'none';
       var auto = opts.logout || !CAME_WITH_SSO_;
       $('loginNote').textContent = (msg ? msg + ' ' : '') + (auto ? 'Membuka FTTH Project Control Portal...' : 'Silakan masuk lagi lewat FTTH Project Control Portal.');
       $('gatewayLink').style.display = auto ? 'none' : '';
@@ -1460,9 +1462,11 @@
     }
     function enterPortal(pending) {
       if (!pending) document.body.classList.remove('entering');
-      $('logoutLink').style.display = 'inline';
+      $('logoutLink').style.display = 'block';
       // Portal Waspang dibuka lewat Gateway (?go=waspang) supaya membawa tiket: Waspang mengenali akun RPM untuk edit Total.
       $('waspangLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'waspang') ? 'block' : 'none';
+      // Spreadsheet Database: tab baru, hanya RPM dan Admin (spreadsheet dibagikan ke akun Google tertentu saja).
+      $('sheetLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'admin') ? 'block' : 'none';
       $('navRpm').style.display = (ROLE === 'rpm') ? '' : 'none';
       $('navAdministration').style.display = '';
       $('navLogHistory').style.display = (ROLE === 'rpm') ? '' : 'none';

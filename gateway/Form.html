@@ -35,6 +35,7 @@
     a.portal .t { font-size: 17px; font-weight: bold; }
     a.portal .d { font-size: 13px; color: var(--muted); margin-top: 4px; }
     a.portal .go { float: right; color: var(--gold-dark); font-weight: bold; }
+    a.portal.ext { border-style: dashed; }
     .hint { font-size: 12px; color: var(--muted); margin-top: 18px; }
     .hidden { display: none; }
     @media (max-width: 560px) {
@@ -103,14 +104,14 @@
 
   function renderLinks(list) {
     if (GO) {
-      var go = list.filter(function (p) { return p.key === GO; })[0];
+      var go = list.filter(function (p) { return p.key === GO && !p.external; })[0];
       GO = '';
       // Aplikasi (PWA) yang pindah halaman; tautan dibuka di dalam bingkainya seperti klik biasa.
       if (go) { try { window.top.postMessage({ bmi: 'open', href: go.href }, SHELL_ORIGIN); } catch (e) {} }
     }
     $('menuGrid').innerHTML = list.map(function (p, i) {
-      return '<a class="portal' + (i === 0 ? ' main' : '') + '" href="' + esc(p.href) + '" target="_top">' +
-        '<span class="go">Buka &rarr;</span><div class="t">' + esc(p.title) + '</div><div class="d">' + esc(p.desc) + '</div></a>';
+      return '<a class="portal' + (i === 0 ? ' main' : '') + (p.external ? ' ext' : '') + '" href="' + esc(p.href) + '"' + (p.external ? ' target="_blank" rel="noopener"' : ' target="_top"') + '>' +
+        '<span class="go">' + (p.external ? 'Buka &#8599;' : 'Buka &rarr;') + '</span><div class="t">' + esc(p.title) + '</div><div class="d">' + esc(p.desc) + '</div></a>';
     }).join('');
   }
 
