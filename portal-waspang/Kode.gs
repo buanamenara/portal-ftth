@@ -300,18 +300,20 @@ function sendWaspangPhotosToTelegram_(blobs, caption) {
   }
 }
 
-// Satu jenis file (photo / document) ke Telegram: satu file lewat sendPhoto / sendDocument, lebih dari satu lewat
-// sendMediaGroup (maksimal 10 item per panggilan, dipecah per 10 jika lebih).
+// Satu jenis file (photo / document) ke Telegram lewat sendMediaGroup, dipecah per 10; potongan berisi satu file
+// lewat sendPhoto / sendDocument.
 function sendTelegramGroup_(blobs, type, caption) {
-  if (!blobs.length) return true;
-  if (blobs.length === 1) {
-    var one = { chat_id: CONFIG.TELEGRAM_CHAT_ID, caption: caption, parse_mode: 'Markdown' };
-    one[type] = blobs[0];
-    return telegramPost_(type === 'photo' ? 'sendPhoto' : 'sendDocument', one).ok === true;
-  }
   var ok = true;
   for (var start = 0; start < blobs.length; start += 10) {
     var chunk = blobs.slice(start, start + 10);
+    var cap = start === 0 ? caption : '';
+    // Album Telegram butuh 2-10 file: satu file (termasuk sisa satu, mis. foto ke-11) dikirim sendiri.
+    if (chunk.length === 1) {
+      var one = { chat_id: CONFIG.TELEGRAM_CHAT_ID, caption: cap, parse_mode: 'Markdown' };
+      one[type] = chunk[0];
+      ok = telegramPost_(type === 'photo' ? 'sendPhoto' : 'sendDocument', one).ok === true && ok;
+      continue;
+    }
     var media = [];
     var formPayload = { chat_id: CONFIG.TELEGRAM_CHAT_ID };
     chunk.forEach(function (blob, idx) {
