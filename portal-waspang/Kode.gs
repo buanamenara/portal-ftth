@@ -79,7 +79,7 @@ function doPost(e) {
       default:
         result = { status: 'error', message: 'Action tidak dikenali: ' + payload.action };
     }
-    if (result && result.status === 'success') logWaspang_(payload);
+    if (result && result.status === 'success') logWaspang_(payload, result);
   } catch (err) {
     result = { status: 'error', message: err.toString() };
   }
@@ -931,10 +931,23 @@ function kirimSaran_(payload) {
 // Catat aksi Portal Waspang yang berhasil ke LOG HISTORY (spreadsheet Portal FTTH). Nama dan peran diambil dari sesi Gateway;
 // tanpa sesi dipakai nama PIC/Waspang yang diketik. Gagal mencatat tidak boleh menggagalkan aksi utamanya.
 var LOG_MAX_ROWS_ = 2000;
-function logWaspang_(p) {
+function logWaspang_(p, res) {
   try {
-    var aksi, detail, site = function (raw, sow) { var n = siteName_(raw); return n + (sow ? ' (' + sow + ')' : ''); };
+    var aksi, detail = '', who = null, site = function (raw, sow) { var n = siteName_(raw); return n + (sow ? ' (' + sow + ')' : ''); };
     switch (p.action) {
+      case 'SSO_LOGIN':
+        aksi = 'Buka Portal Waspang';
+        who = { name: res && res.name, role: res && res.role };
+        break;
+      case 'CREATE_SITE_FOLDERS':
+        aksi = 'Buat Folder Site';
+        detail = site(p.siteName, p.sow);
+        break;
+      case 'SARAN':
+        // Masukan boleh tanpa nama: hanya nama yang diketik, tanpa isi pesan (isi ada di tab KRITIK DAN SARAN).
+        aksi = 'Kirim Kritik & Saran';
+        who = { name: String(p.nama || '').trim() || '(tanpa nama)', role: (wsSession_(p.session) || {}).role || '' };
+        break;
       case 'DAILY_REPORT':
         aksi = 'Daily Report';
         detail = site(p.cluster, p.sow || sowFromId_(p.cluster)) + (p.by ? ' - PIC ' + p.by : '');
@@ -958,9 +971,9 @@ function logWaspang_(p) {
       default:
         return;
     }
-    var s = wsSession_(p.session);
-    var user = s ? (s.name || s.username) : (String(p.by || p.waspang || '').trim() || '(tanpa login)');
-    var peran = s ? s.role : '';
+    var s = who ? null : wsSession_(p.session);
+    var user = who ? (who.name || '') : s ? (s.name || s.username) : (String(p.by || p.waspang || '').trim() || '(tanpa login)');
+    var peran = who ? (who.role || '') : s ? s.role : '';
     var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName(CONFIG.LOG_SHEET_NAME);
     if (!sh) return;
     var plain = function (v) { v = String(v || ''); return /^[=+\-@]/.test(v) ? "'" + v : v; };
