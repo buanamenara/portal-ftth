@@ -3203,6 +3203,7 @@
 
     function updateOwnerModeUI() {
       if (!isRpmSession()) isOwnerMode = false;
+      renderBoqSummaryTable();
       const dbMenu = document.getElementById('dbMenu');
       if (dbMenu) dbMenu.style.display = (WS_SESSION && (WS_SESSION.role === 'rpm' || WS_SESSION.role === 'waspang')) ? '' : 'none';
       const btn = document.getElementById('btnOwnerModeToggle');
@@ -3350,7 +3351,10 @@
     function applySharedPlan(cluster, plan) {
       if (!plan) return;
       const ck = normalizeClusterKey(cluster);
-      if (plan.found) {
+      if (plan.cleared) {
+        forgetLocalBoqPlan(cluster);
+        renderBoqSummaryTable();
+      } else if (plan.found) {
         const local = getClusterItems(cluster);
         const items = (plan.items || []).map(it => {
           const m = OFFICIAL_MATERIAL_CATALOG.find(c => c.key === it.key) || local.find(c => c.key === it.key) || {};
@@ -5258,6 +5262,65 @@ ${e(todayActivity)}`;
       loadBoqForSelectedCluster();
     }
 
+    var boqSummaryClusters = [];
+
+    // RPM: buka cluster dari tabel Ringkasan di penyesuaian material (kartu di bawahnya).
+    function editBoqSummaryCluster(i) {
+      const cl = boqSummaryClusters[i];
+      if (!cl || !isRpmSession()) return;
+      refreshAllClusterDropdowns(cl, 'boqTargetCluster');
+      loadBoqForSelectedCluster();
+      const box = document.getElementById('manualBoqContent');
+      if (box) box.style.display = 'block';
+      const sel = document.getElementById('boqTargetCluster');
+      if (sel) sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showToast('✏️ Ubah material atau volume di bawah, lalu tekan Simpan Perubahan BOQ Cluster Ini.');
+    }
+
+    // Plan cluster dihapus dari penyimpanan HP ini (dipakai setelah RPM menghapus, juga saat sheet menandai plan dihapus).
+    function forgetLocalBoqPlan(cluster) {
+      const k = normalizeClusterKey(cluster);
+      try {
+        localStorage.removeItem(STORAGE_BOQ_CUSTOM + '_' + k);
+        localStorage.removeItem(STORAGE_BOQ_CUSTOM + '_' + String(cluster).toLowerCase());
+        const list = JSON.parse(localStorage.getItem(STORAGE_CLUSTERS_LIST) || '[]');
+        if (Array.isArray(list)) localStorage.setItem(STORAGE_CLUSTERS_LIST, JSON.stringify(list.filter(c => normalizeClusterKey(c) !== k)));
+      } catch (e) {}
+    }
+
+    // RPM: hapus BOQ Plan satu cluster (mis. salah unggah) di sheet MASTER BOQ CLUSTER dan di semua HP.
+    async function deleteBoqSummaryCluster(i) {
+      const cl = boqSummaryClusters[i];
+      if (!cl) return;
+      if (!isRpmSession()) { alert('Hanya akun RPM yang bisa menghapus BOQ Plan.'); return; }
+      if (!confirm('Hapus BOQ Plan cluster ini?\n\n' + cl + '\n\nAngka material plan-nya dikosongkan di sheet MASTER BOQ CLUSTER dan di semua HP. Laporan harian dan tanda Selesai tidak ikut terhapus.')) return;
+      const cfg = getConfig();
+      if (!cfg.scriptUrl) { alert('Alamat server Portal Waspang belum diatur.'); return; }
+      showToast('⏳ Menghapus BOQ Plan ' + cl + '...');
+      let d = null;
+      try {
+        const res = await fetch(cfg.scriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'DELETE_BOQ', session: wsSid(), cluster: cl, name: boqSiteName(cl), sow: getSowType(cl) })
+        });
+        d = await res.json();
+      } catch (e) {
+        d = { status: 'error', message: 'Tidak terhubung ke server (' + e.message + '). Coba lagi saat ada sinyal.' };
+      }
+      if (!d || d.status !== 'success') {
+        const msg = (d && d.message) || 'Gagal menghapus.';
+        if (/sesi habis|hanya akun rpm/i.test(msg)) { WS_SESSION = null; clearWsSession(); updateOwnerModeUI(); }
+        alert('⚠️ BOQ Plan belum terhapus: ' + msg);
+        return;
+      }
+      forgetLocalBoqPlan(cl);
+      renderBoqSummaryTable();
+      if (getBoqTargetCluster() === cl) loadBoqForSelectedCluster(true);
+      if (getActiveDailyCluster() === cl) { renderDailyTable(); renderTelegramPreview(); }
+      showToast('🗑️ BOQ Plan ' + cl + ' sudah dihapus.');
+    }
+
     function renderBoqSummaryTable() {
       const c = document.getElementById('boqSummaryContainer');
       if (!c) return;
@@ -5274,17 +5337,28 @@ ${e(todayActivity)}`;
         return;
       }
 
+      // Akun RPM mendapat kolom Aksi: Edit membuka penyesuaian material cluster itu, Hapus mengosongkan plan-nya.
+      const rpm = isRpmSession(), dbNames = getMasterDatabaseSites();
+      boqSummaryClusters = clusters.slice();
+      const td = 'padding:6px; border:1px solid #cbd5e1;';
       let html = '<table style="width:100%; border-collapse:collapse; font-size:0.75rem;">';
-      html += '<tr style="background:#f1f5f9;"><th style="padding:6px; border:1px solid #cbd5e1;">Cluster Name</th><th style="padding:6px; border:1px solid #cbd5e1; text-align:center;">Jumlah Material</th><th style="padding:6px; border:1px solid #cbd5e1;">Rincian Material Terdaftar</th></tr>';
+      html += '<tr style="background:#f1f5f9;"><th style="' + td + '">Cluster Name</th><th style="' + td + ' text-align:center;">Jumlah Material</th><th style="' + td + '">Rincian Material Terdaftar</th>' +
+        (rpm ? '<th style="' + td + ' text-align:center;">Aksi (RPM)</th>' : '') + '</tr>';
 
-      clusters.forEach(cl => {
+      clusters.forEach((cl, i) => {
         const items = getClusterItems(cl);
-        const details = items.map(it => `<strong>${it.name}</strong>: ${it.volume} ${it.unit}`).join(', ') || '-';
-        html += `<tr>
-          <td style="padding:6px; border:1px solid #cbd5e1; font-weight:600;">${cl}</td>
-          <td style="padding:6px; border:1px solid #cbd5e1; text-align:center; font-weight:bold; color:var(--bmi-gold);">${items.length} Item</td>
-          <td style="padding:6px; border:1px solid #cbd5e1; color:#475569; font-size:0.72rem;">${details}</td>
-        </tr>`;
+        const details = items.map(it => '<strong>' + escOpt(it.name) + '</strong>: ' + it.volume + ' ' + escOpt(it.unit)).join(', ') || '-';
+        let act = '';
+        if (rpm) {
+          const inDb = dbNames.includes(boqSiteName(cl));
+          act = '<td style="' + td + ' text-align:center; white-space:nowrap;">' +
+            (inDb ? '<button type="button" onclick="editBoqSummaryCluster(' + i + ')" style="padding:4px 8px; font-size:0.72rem; border:1px solid #cbd5e1; border-radius:6px; background:#fff; cursor:pointer; margin:2px;">✏️ Edit</button>' : '') +
+            '<button type="button" onclick="deleteBoqSummaryCluster(' + i + ')" style="padding:4px 8px; font-size:0.72rem; border:1px solid #fca5a5; border-radius:6px; background:#fef2f2; color:#b91c1c; cursor:pointer; margin:2px;">🗑️ Hapus</button>' +
+            (inDb ? '' : '<div style="font-size:0.65rem; color:#b91c1c; white-space:normal;">Nama tidak ada di DATA BASE</div>') + '</td>';
+        }
+        html += '<tr><td style="' + td + ' font-weight:600;">' + escOpt(cl) + '</td>' +
+          '<td style="' + td + ' text-align:center; font-weight:bold; color:var(--bmi-gold);">' + items.length + ' Item</td>' +
+          '<td style="' + td + ' color:#475569; font-size:0.72rem;">' + details + '</td>' + act + '</tr>';
       });
 
       html += '</table>';
