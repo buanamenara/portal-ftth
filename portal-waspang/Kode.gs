@@ -71,6 +71,9 @@ function doPost(e) {
       case 'SET_DONE':
         result = setDone_(payload);
         break;
+      case 'DELETE_BOQ':
+        result = deleteBoqPlan_(payload);
+        break;
       case 'GET_SITES':
         result = getSites_();
         break;
@@ -642,6 +645,8 @@ function planFromRow_(h, row, local) {
   var doneRaw = cDone === undefined ? '' : String(row[cDone] == null ? '' : row[cDone]).trim();
   var plan = { found: false, items: [], done: parseDone_(doneRaw), doneSet: doneRaw !== '' };
   var hasData = rin.order.length > 0 || mats.some(function (m) { return cellNumber_(row[m.idx]) !== 0; });
+  // Rincian Item "-" tanpa angka material = plan dihapus RPM: HP lain ikut menghapus salinan plan-nya.
+  if (!hasData && cRin !== undefined && String(row[cRin] == null ? '' : row[cRin]).trim() === '-') plan.cleared = true;
   if (!hasData) return plan;
 
   var localVol = {}, localKeys = [];
@@ -721,6 +726,37 @@ function syncMasterBoqToSheet_(clusters) {
     return { status: 'success' };
   } catch (err) {
     return { status: 'error', message: err.toString() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// RPM menghapus BOQ Plan satu cluster (mis. salah unggah). Site yang ada di DATA BASE: kolom material dikosongkan dan
+// Rincian Item diisi "-" (tanda plan dihapus). Nama di luar DATA BASE (baris sisa impor yang salah): barisnya dihapus.
+// Tanda Selesai dan DAILY REPORT EMR tidak berubah.
+function deleteBoqPlan_(payload) {
+  var s = wsSession_(payload.session);
+  if (!s) return { status: 'error', message: 'Sesi habis. Buka Portal Waspang lagi dari Gateway.' };
+  if (s.role !== 'rpm') return { status: 'error', message: 'Hanya akun RPM yang boleh menghapus BOQ Plan.' };
+  var name = siteName_(payload.name || payload.cluster), sow = String(payload.sow || 'Cluster').trim();
+  if (!name) return { status: 'error', message: 'Cluster kosong.' };
+  var sites = getSites_(), key = name.replace(/\s+/g, ' ').toLowerCase(), so = (normSow_(sow) || sow).toLowerCase();
+  var inDb = sites.status !== 'success' || sites.sites.some(function (x) { return x.name.toLowerCase() === key && x.sow.toLowerCase() === so; });
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var sh = boqSheet_(), h = sheetHeader_(sh), data = boqData_(sh, h);
+    var r = boqRowIndex_(data, h, name, sow);
+    if (r === -1) return { status: 'success', found: false, removedRow: false };
+    if (!inDb) {
+      sh.deleteRow(r + 2);
+      return { status: 'success', found: true, removedRow: true };
+    }
+    var cells = {};
+    materialCols_(h).forEach(function (m) { cells[m.idx] = ''; });
+    if (h.idx['rincian item'] !== undefined) cells[h.idx['rincian item']] = '-';
+    writeCells_(sh, r + 2, data[r], cells);
+    return { status: 'success', found: true, removedRow: false };
   } finally {
     lock.releaseLock();
   }
@@ -1101,6 +1137,10 @@ function logWaspang_(p, res) {
       case 'SET_DONE':
         aksi = p.done ? 'Tandai Selesai' : 'Batal Selesai';
         detail = site(p.name || p.cluster, p.sow) + ' - ' + (p.items || p.keys || (p.key ? [p.key] : [])).join(', ');
+        break;
+      case 'DELETE_BOQ':
+        aksi = 'Hapus BOQ Plan (RPM)';
+        detail = site(p.name || p.cluster, p.sow) + (res && res.removedRow ? ' - baris dihapus (nama tidak ada di DATA BASE)' : '');
         break;
       case 'SET_TOTAL':
         aksi = 'Edit Total (RPM)';
