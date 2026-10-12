@@ -1337,7 +1337,7 @@
         <!-- Telegram Preview Box -->
         <div class="card">
           <div class="section-title">
-            <span>✈️</span> Pratinjau Pesan yang Masuk ke Telegram
+            <span>✈️</span> Pratinjau Pesan Telegram &amp; WhatsApp
           </div>
           <div class="tg-preview-card" id="tgDailyPreviewBox"></div>
           
@@ -1346,7 +1346,7 @@
               📋 Salin Teks Telegram
             </button>
             <button type="submit" class="btn-primary" style="margin-top: 0;" id="btnSendDailyReport">
-              🚀 Kirim Daily Report ke Telegram
+              🚀 Kirim ke Telegram + WhatsApp
             </button>
           </div>
         </div>
@@ -1809,7 +1809,7 @@
         </div>
 
         <button type="submit" class="btn-primary" id="btnSubmitPhoto">
-          KIRIM FOTO KE GOOGLE DRIVE & TELEGRAM
+          KIRIM FOTO KE DRIVE, TELEGRAM & WA
         </button>
         <div id="photoSubmitStatus" style="display: none; margin-top: 10px; padding: 12px 14px; border-radius: 8px; font-size: 0.8rem;"></div>
       </form>
@@ -2910,7 +2910,7 @@
         el.innerHTML = `
           <div style="background:#fff; border-radius:12px; max-width:420px; width:100%; padding:18px; box-shadow:0 20px 40px rgba(0,0,0,0.3);">
             <div style="font-weight:800; color:#0f172a; font-size:0.95rem;">✅ <span id="waShareTitle"></span> terkirim ke Telegram</div>
-            <div style="font-size:0.8rem; color:#475569; margin:6px 0 14px;">Bagikan juga ke grup WhatsApp? Pilih grupnya di WhatsApp, lalu tekan Kirim.</div>
+            <div style="font-size:0.8rem; color:#475569; margin:6px 0 14px;">Langkah terakhir: kirim juga ke grup WhatsApp. Tekan tombol hijau, pilih grupnya, lalu tekan Kirim.</div>
             <a id="waShareLink" href="#" target="_blank" rel="noopener" onclick="setTimeout(closeWaShare, 300)"
                style="display:block; text-align:center; background:#25d366; color:#fff; padding:11px; border-radius:8px; font-weight:800; text-decoration:none;">🟢 Kirim ke WhatsApp</a>
             <button type="button" onclick="closeWaShare()"
@@ -3754,13 +3754,13 @@ ${e(todayActivity)}`;
       closeDailyConfirmModal();
       const cfg = getConfig();
       const btn = document.getElementById('btnSendDailyReport');
-      btn.innerText = "Mengirim Daily Report ke Telegram...";
+      btn.innerText = "Mengirim ke Telegram...";
       btn.disabled = true;
 
       if (!cfg.scriptUrl || cfg.scriptUrl.trim().length === 0) {
         alert("URL Google Apps Script belum diisi di Pengaturan (⚙️). Pengiriman Daily Report memerlukan koneksi ke Apps Script karena Bot Token kini disimpan aman di server, bukan di browser.");
         btn.disabled = false;
-        btn.innerText = "🚀 Kirim Daily Report ke Telegram";
+        btn.innerText = "🚀 Kirim ke Telegram + WhatsApp";
         openConfigModal();
         return;
       }
@@ -3830,7 +3830,7 @@ ${e(todayActivity)}`;
       }
 
       btn.disabled = false;
-      btn.innerText = "🚀 Kirim Daily Report ke Telegram";
+      btn.innerText = "🚀 Kirim ke Telegram + WhatsApp";
     }
 
     function saveCurrentProgressAsCumulative() {
@@ -5798,9 +5798,9 @@ ${e(todayActivity)}`;
       const btn = document.getElementById('btnSubmitPhoto');
       if (btn) {
         if (photoItems.length > 0) {
-          btn.innerText = `KIRIM ${photoItems.length} FOTO KE GOOGLE DRIVE & TELEGRAM`;
+          btn.innerText = `KIRIM ${photoItems.length} FOTO KE DRIVE, TELEGRAM & WA`;
         } else {
-          btn.innerText = `KIRIM FOTO KE GOOGLE DRIVE & TELEGRAM`;
+          btn.innerText = `KIRIM FOTO KE DRIVE, TELEGRAM & WA`;
         }
       }
     }
@@ -5946,7 +5946,7 @@ ${e(todayActivity)}`;
 
       btn.disabled = false;
       btn.classList.remove('submitting');
-      btn.innerText = `KIRIM FOTO KE GOOGLE DRIVE & TELEGRAM`;
+      btn.innerText = `KIRIM FOTO KE DRIVE, TELEGRAM & WA`;
 
       if (tgSuccess) {
         if (driveSuccess) {
