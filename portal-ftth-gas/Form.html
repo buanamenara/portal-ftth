@@ -1465,8 +1465,8 @@
       $('logoutLink').style.display = 'block';
       // Portal Waspang dibuka lewat Gateway (?go=waspang) supaya membawa tiket: Waspang mengenali akun RPM untuk edit Total.
       $('waspangLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'waspang') ? 'block' : 'none';
-      // Spreadsheet Database: tab baru, hanya RPM dan Admin (spreadsheet dibagikan ke akun Google tertentu saja).
-      $('sheetLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'admin') ? 'block' : 'none';
+      // Spreadsheet Database: tab baru, untuk RPM, Admin dan Waspang (spreadsheet hanya terbuka bagi akun Google yang diberi akses).
+      $('sheetLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'admin' || ROLE_RAW === 'waspang') ? 'block' : 'none';
       $('navRpm').style.display = (ROLE === 'rpm') ? '' : 'none';
       $('navAdministration').style.display = '';
       $('navLogHistory').style.display = (ROLE === 'rpm') ? '' : 'none';
