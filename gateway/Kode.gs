@@ -118,11 +118,12 @@ function logGateway_(user, peran, aksi, detail) {
     if (!sh) return;
     var plain = function (v) { v = String(v || ''); return /^[=+\-@]/.test(v) ? "'" + v : v; };
     sh.appendRow([new Date(), 'Gateway', plain(user), peran || '', aksi, plain(String(detail || '').slice(0, 200))]);
-    var row = sh.getLastRow();
-    // Format seluruh kolom Waktu dan 5 baris terakhir: baris lain bisa ditulis bersamaan (pemicu edit/portal lain).
-    sh.getRange(5, 1, row - 4, 1).setNumberFormat('dd mmm yyyy HH:mm');
-    sh.getRange(Math.max(5, row - 4), 1, Math.min(5, row - 4), 6).setVerticalAlignment('middle').setWrap(true);
-    if (row - 4 > 2000) sh.deleteRows(5, row - 4 - 2000);
+    var row = sh.getLastRow(), w = Math.min(10, row - 4);
+    // Format 10 baris terakhir saja (baris lain bisa ditulis bersamaan oleh pemicu edit/portal lain); baris lama
+    // dibuang sekaligus 200 baris supaya tidak menggeser seluruh tab di setiap login.
+    sh.getRange(row - w + 1, 1, w, 1).setNumberFormat('dd mmm yyyy HH:mm');
+    sh.getRange(row - w + 1, 1, w, 6).setVerticalAlignment('middle').setWrap(true);
+    if (row - 4 > 2200) sh.deleteRows(5, row - 4 - 2000);
   } catch (e) { console.error('LOG HISTORY: ' + e); }
 }
 

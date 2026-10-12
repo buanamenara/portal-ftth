@@ -1468,8 +1468,19 @@ function ensureUsersSheet_() {
 }
 
 var usersCache_ = null;
+// Daftar USERS juga disimpan 2 menit di cache skrip, supaya tiap panggilan portal tidak membuka spreadsheet RPM hanya untuk
+// cek login. Cache dihapus saat user diubah lewat portal (usersReset_) dan saat tab USERS diedit langsung (pemicu logSheetEdit).
+var USERS_CACHE_KEY_ = 'usersAll_v1', USERS_CACHE_TTL_ = 120;
+function usersReset_() {
+  usersCache_ = null;
+  try { CacheService.getScriptCache().remove(USERS_CACHE_KEY_); } catch (e) { /* abaikan */ }
+}
 function usersAll_() {
   if (usersCache_) return usersCache_;
+  try {
+    var hit = CacheService.getScriptCache().get(USERS_CACHE_KEY_);
+    if (hit) { usersCache_ = JSON.parse(hit); return usersCache_; }
+  } catch (e) { /* baca dari sheet */ }
   var sh = ensureUsersSheet_();
   var lastRow = sh.getLastRow();
   var out = [];
@@ -1489,6 +1500,7 @@ function usersAll_() {
     });
   }
   usersCache_ = out;
+  try { CacheService.getScriptCache().put(USERS_CACHE_KEY_, JSON.stringify(out), USERS_CACHE_TTL_); } catch (e) { /* tanpa cache */ }
   return out;
 }
 
@@ -4424,19 +4436,19 @@ function adminAddUser(code, data) {
     var role = (data.role === 'rpm') ? 'rpm' : (data.role === 'waspang' ? 'waspang' : 'admin');
   var nama = String(data.nama || '').trim() || username;
   var area = String(data.area || '').trim();
-  usersCache_ = null;
+  usersReset_();
   var sh = ensureUsersSheet_();
   var existing = usersAll_();
   if (existing.some(function (u) { return u.username.toLowerCase() === username.toLowerCase(); })) throw new Error('Username sudah dipakai.');
   sh.appendRow([username, password, nama, role, area, 'aktif']);
-  usersCache_ = null;
+  usersReset_();
   logHistory_('Portal', logUser_(code), logRole_(code), 'Tambah User', username + ' (role: ' + role + ')');
   return { ok: true };
 }
 function adminUpdateUser(code, username, data) {
   requireAdmin_(code);
   data = data || {};
-  usersCache_ = null;
+  usersReset_();
   var sh = ensureUsersSheet_();
   var users = usersAll_();
   var target = users.filter(function (u) { return u.username.toLowerCase() === String(username || '').trim().toLowerCase(); })[0];
@@ -4446,7 +4458,7 @@ function adminUpdateUser(code, username, data) {
   var area = data.area != null ? String(data.area).trim() : target.area;
   var status = data.status === 'nonaktif' ? 'nonaktif' : (data.status === 'aktif' ? 'aktif' : target.status);
   sh.getRange(target.row, 3, 1, 4).setValues([[nama, role, area, status]]);
-  usersCache_ = null;
+  usersReset_();
   logHistory_('Portal', logUser_(code), logRole_(code), 'Edit User', target.username + ' (role: ' + role + ', status: ' + status + ')');
   return { ok: true };
 }
@@ -4454,13 +4466,13 @@ function adminResetPassword(code, username, newPassword) {
   requireAdmin_(code);
   var password = String(newPassword || '');
   if (password.length < 4) throw new Error('Password minimal 4 karakter.');
-  usersCache_ = null;
+  usersReset_();
   var sh = ensureUsersSheet_();
   var users = usersAll_();
   var target = users.filter(function (u) { return u.username.toLowerCase() === String(username || '').trim().toLowerCase(); })[0];
   if (!target) throw new Error('User tidak ditemukan.');
   sh.getRange(target.row, 2, 1, 1).setValue(password);
-  usersCache_ = null;
+  usersReset_();
   logHistory_('Portal', logUser_(code), logRole_(code), 'Reset Password', target.username);
   return { ok: true };
 }
@@ -4468,13 +4480,13 @@ function adminDeleteUser(code, username) {
   requireAdmin_(code);
   var caller = userByCode_(code);
   if (caller && caller.username.toLowerCase() === String(username || '').trim().toLowerCase()) throw new Error('Tidak bisa menghapus akun sendiri yang sedang login.');
-  usersCache_ = null;
+  usersReset_();
   var sh = ensureUsersSheet_();
   var users = usersAll_();
   var target = users.filter(function (u) { return u.username.toLowerCase() === String(username || '').trim().toLowerCase(); })[0];
   if (!target) throw new Error('User tidak ditemukan.');
   sh.deleteRow(target.row);
-  usersCache_ = null;
+  usersReset_();
   logHistory_('Portal', logUser_(code), logRole_(code), 'Hapus User', target.username);
   return { ok: true };
 }
@@ -4486,10 +4498,10 @@ function changeMyPassword(code, oldPassword, newPassword) {
   if (String(oldPassword || '') !== u.password) { Utilities.sleep(1000); throw new Error('Password lama salah.'); }
   var newPass = String(newPassword || '');
   if (newPass.length < 4) throw new Error('Password baru minimal 4 karakter.');
-  usersCache_ = null;
+  usersReset_();
   var sh = ensureUsersSheet_();
   sh.getRange(u.row, 2, 1, 1).setValue(newPass);
-  usersCache_ = null;
+  usersReset_();
   logHistory_('Portal', logUser_(code), logRole_(code), 'Ubah Password Sendiri', u.username);
   return { ok: true };
 }
@@ -6884,11 +6896,12 @@ function logHistory_(sumber, user, peran, aksi, detail) {
     var vals = [new Date(), sumber, user || '', peran || '', aksi || '', String(detail || '').slice(0, 500)];
     // appendRow: aman bila Portal Waspang atau pemicu edit menulis di saat yang sama (tidak saling menimpa baris).
     if (sh.getLastRow() >= 4) sh.appendRow(vals); else sh.getRange(5, 1, 1, 6).setValues([vals]);
-    var row = sh.getLastRow();
-    // Format seluruh kolom Waktu dan 5 baris terakhir: baris lain bisa ditulis bersamaan (pemicu edit/portal lain).
-    sh.getRange(5, 1, row - 4, 1).setNumberFormat('dd mmm yyyy HH:mm');
-    sh.getRange(Math.max(5, row - 4), 1, Math.min(5, row - 4), 6).setVerticalAlignment('middle').setWrap(true);
-    if (row - 4 > LOG_MAX_ROWS) sh.deleteRow(5);
+    var row = sh.getLastRow(), w = Math.min(10, row - 4);
+    // Format 10 baris terakhir saja (baris lain bisa ditulis bersamaan oleh pemicu edit/portal lain); baris lama
+    // dibuang sekaligus 200 baris supaya tidak menggeser seluruh tab di setiap aksi.
+    sh.getRange(row - w + 1, 1, w, 1).setNumberFormat('dd mmm yyyy HH:mm');
+    sh.getRange(row - w + 1, 1, w, 6).setVerticalAlignment('middle').setWrap(true);
+    if (row - 4 > LOG_MAX_ROWS + 200) sh.deleteRows(5, row - 4 - LOG_MAX_ROWS);
   } catch (e) { /* jangan sampai gagal mencatat log menghentikan aksi utama */ }
 }
 
@@ -7000,6 +7013,11 @@ function logSheetEdit(e) {
       logEditTargets_().some(function (t) { if (t.id === id) label = t.name; return !!label; });
       label = label || e.source.getName();
     }
+    try {
+      var tabName = e.range.getSheet().getName();
+      if (label === 'RPM BMI' && tabName === USERS_SHEET_NAME_) usersReset_();   // status/password langsung berlaku
+      if (!label && tabName === 'DASHBOARD') CacheService.getScriptCache().remove(SCURVE_BASE_KEY_);
+    } catch (x) { /* abaikan */ }
     var who = '';
     try { who = e.user ? e.user.getEmail() : ''; } catch (x) { /* abaikan */ }
     logSheetEdit_(e, who || driveLastEditor_(id) || '(tidak diketahui)', label);
@@ -7125,10 +7143,23 @@ function checkpointMonth_(v) {
   }
   return baClean_(v);
 }
+// Jumlah baris DATA BASE (mulai baris 5) sampai baris terakhir yang kolom cols-nya (nomor kolom, 1 = A) berisi.
+// Rumus per-baris membuat getLastRow() selalu ~1000, padahal site yang terisi jauh lebih sedikit; Beranda cukup membaca yang terisi.
+function dbFilledCount_(sh, cols) {
+  var last = sh.getLastRow();
+  if (last < 5) return 0;
+  var n = 0;
+  cols.forEach(function (c) {
+    var v = sh.getRange(5, c, last - 4, 1).getValues();
+    for (var i = v.length - 1; i >= n; i--) if (String(v[i][0]).trim()) { n = i + 1; break; }
+  });
+  return n;
+}
 function getCheckpointData_(scope) {
   var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DATA BASE');
   if (!sh || sh.getLastRow() < 5) return [];
-  var n = sh.getLastRow() - 4;
+  var n = dbFilledCount_(sh, [1, 2]);
+  if (!n) return [];
   var vals = sh.getRange(5, 1, n, 32).getValues(); // A..AF
   var rk = scope ? regionKey_(scope) : '';
   var lastEdit = {};
@@ -7187,6 +7218,8 @@ function getSCurveData(code) {
   }
 }
 
+// Nilai "Baseline HP per bulan" di DASHBOARD disimpan 10 menit ('0' = tidak ada, pakai 1000); dihapus saat DASHBOARD diedit.
+var SCURVE_BASE_KEY_ = 'scurveBaseline_v1';
 function buildSCurveData_(code) {
   requireAccess_(code);
   var rkScope = regionKey_(scopeOf_(code));   // akses region: hanya region itu (kosong = semua region)
@@ -7218,7 +7251,9 @@ function buildSCurveData_(code) {
     throw new Error('Kolom Region, SOW, Month, atau HP RFS tidak ditemukan di DATA BASE.');
   }
 
-  var rows = db.getRange(5, 1, lastRow - 4, lastCol).getValues();
+  var nRows = dbFilledCount_(db, [col.region + 1].concat(col.name !== undefined ? [col.name + 1] : []));
+  if (!nRows) return res;
+  var rows = db.getRange(5, 1, nRows, lastCol).getValues();
   var regions = [];
   var hpByRegion = {};
   var startKey = '';
@@ -7252,7 +7287,10 @@ function buildSCurveData_(code) {
   }
 
   // Baseline per region per bulan diambil dari sel "Baseline HP per bulan" di DASHBOARD (default 1000)
-  var dash = ss.getSheetByName('DASHBOARD');
+  var cache = CacheService.getScriptCache(), base = null;
+  try { base = cache.get(SCURVE_BASE_KEY_); } catch (e) { base = null; }
+  var dash = base ? null : ss.getSheetByName('DASHBOARD');
+  if (base && Number(base) > 0) { res.targetPerRegion = Number(base); res.targetFromSheet = true; }
   if (dash) {
     var dv = dash.getDataRange().getValues();
     for (var a = 0; a < dv.length && !res.targetFromSheet; a++) {
@@ -7264,6 +7302,7 @@ function buildSCurveData_(code) {
         }
       }
     }
+    try { cache.put(SCURVE_BASE_KEY_, res.targetFromSheet ? String(res.targetPerRegion) : '0', 600); } catch (e) { /* tanpa cache */ }
   }
 
   for (var g = 0; g < regions.length; g++) {

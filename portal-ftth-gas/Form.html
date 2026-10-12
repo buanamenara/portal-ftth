@@ -4,8 +4,8 @@
   <base target="_top">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800&display=swap" media="print" onload="this.media='all'">
   <style>
     :root { --gold: #C9972C; --gold-dark: #A87A1B; --navy: #000000; --bg: #FBF7EE; }
     /* Masuk otomatis: portal langsung tampil, akses dicek di belakang (garis emas berjalan di atas) */
@@ -1363,7 +1363,7 @@
   </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script async src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" onload="if (window.renderMap_ && window.__areaAgg) renderMap_();"></script>
     <nav id="mobileTabbar" class="mobile-tabbar">
     <button type="button" class="mtab-item" data-view="viewHome"><svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9h12v-9"/></svg><span>Home</span></button>
     <button type="button" class="mtab-item" data-view="viewBoq"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6"/><path d="M9.5 13.5 12 11l2.5 2.5"/></svg><span>BOQ</span></button>
@@ -1708,7 +1708,8 @@
     $('sidebarToggle').addEventListener('click', function () { document.body.classList.toggle('sidebar-open'); });
     $('sidebarOverlay').addEventListener('click', function () { document.body.classList.remove('sidebar-open'); });
     if ($('areaFilter')) { $('areaFilter').addEventListener('change', function () { drawAreaChart(this.value); }); }
-    $('cpQ').addEventListener('input', renderCheckpoint);
+    var cpQTimer = null;
+    $('cpQ').addEventListener('input', function () { clearTimeout(cpQTimer); cpQTimer = setTimeout(renderCheckpoint, 150); });
     $('cpSow').addEventListener('change', renderCheckpoint);
     $('cpStatus').addEventListener('change', renderCheckpoint);
     document.querySelectorAll('.nav-item').forEach(function (b) { var t = b.querySelector('.nav-title'); if (t) b.title = t.textContent; });
@@ -1737,15 +1738,26 @@
     document.addEventListener('click', function () { var ud = $('userDropdown'); if (ud) ud.classList.remove('open'); });
     initAccess();
 
-    google.script.run
-      .withSuccessHandler(function (uri) {
-        if (!uri) return;
+    // Logo disimpan di HP/PC (localStorage), jadi hanya diminta ke server sekali. Ganti kuncinya bila logo diganti.
+    (function () {
+      var LOGO_KEY = 'ftthLogo_id1';
+      function showLogo(uri) {
         var img = $('logo');
         img.src = uri;
         img.style.display = 'inline-block';
         $('logoFallback').style.display = 'none';
-      })
-      .getLogoDataUri();
+      }
+      var saved = null;
+      try { saved = localStorage.getItem(LOGO_KEY); } catch (e) { saved = null; }
+      if (saved && saved.indexOf('data:image') === 0) { showLogo(saved); return; }
+      google.script.run
+        .withSuccessHandler(function (uri) {
+          if (!uri) return;
+          showLogo(uri);
+          try { localStorage.setItem(LOGO_KEY, uri); } catch (e) { /* penyimpanan penuh: tetap tampil */ }
+        })
+        .getLogoDataUri();
+    })();
 
     // ================= Form Submit BOQ (baca -> periksa -> kirim) =================
     var targetEl = $('target');
