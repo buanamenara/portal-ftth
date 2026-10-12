@@ -3157,7 +3157,8 @@
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'SET_TOTAL', session: WS_SESSION && WS_SESSION.session, cluster: cluster, key: itemKey, total: stored,
-            sow: getSowType(cluster), itemName: dailyItemName(cluster, itemKey), keys: keys, base: base })
+            sow: getSowType(cluster), itemName: dailyItemName(cluster, itemKey), keys: keys, base: base,
+            names: dailyNames(cluster, keys.concat([itemKey])) })
         });
         const d = await res.json();
         if (d.status === 'success') {
@@ -3306,6 +3307,12 @@
     function dailyItemName(cluster, key) {
       const it = getClusterItems(cluster).find(m => m.key === key) || OFFICIAL_MATERIAL_CATALOG.find(m => m.key === key);
       return it ? it.name : key;
+    }
+    // {key: nama item} untuk Ringkasan Pencapaian dan Rincian Item di sheet.
+    function dailyNames(cluster, keys) {
+      const out = {};
+      keys.forEach(k => { out[k] = dailyItemName(cluster, k); });
+      return out;
     }
     function applySharedTotals(cluster, totals, noRender) {
       const storeKey = STORAGE_PREV_PROGRESS + '_' + cluster.toLowerCase();
@@ -3718,6 +3725,7 @@ ${e(todayActivity)}`;
             today: todayByKey,
             base: baseByKey,
             keys: dailyKeys(reportCluster),
+            names: dailyNames(reportCluster, Object.keys(todayByKey).concat(dailyKeys(reportCluster))),
             report: report,
             by: (document.getElementById('dailyPic').value || '').trim()
           })
