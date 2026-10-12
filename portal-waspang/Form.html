@@ -1186,13 +1186,13 @@
     <!-- 3 Nav Tabs: Menu Khusus Sesuai Permintaan -->
     <div class="nav-tabs">
       <button class="nav-tab active" id="tabDaily" onclick="switchTab('daily')">
-        <span class="nt-ico">📝</span><span class="nt-long">Input Volume Harian (Daily)</span><span class="nt-short">Daily Report</span>
+        <span class="nt-ico">📝</span><span class="nt-long">Laporan Harian</span><span class="nt-short">Laporan Harian</span>
       </button>
       <button class="nav-tab" id="tabBoq" onclick="switchTab('boq')">
-        <span class="nt-ico">📊</span><span class="nt-long">Submit &amp; Tabel BOQ Plan</span><span class="nt-short">BOQ Plan</span>
+        <span class="nt-ico">📊</span><span class="nt-long">BOQ Plan</span><span class="nt-short">BOQ Plan</span>
       </button>
       <button class="nav-tab" id="tabPhoto" onclick="switchTab('photo')">
-        <span class="nt-ico">📸</span><span class="nt-long">Submit Foto Drive</span><span class="nt-short">Foto</span>
+        <span class="nt-ico">📸</span><span class="nt-long">Dokumentasi Lapangan</span><span class="nt-short">Dokumentasi</span>
       </button>
     </div>
 
@@ -2886,8 +2886,8 @@
 
     // Tombol "Kirim ke WhatsApp": setelah Daily Report / foto terkirim ke Telegram, WhatsApp dibuka dengan teks laporan
     // yang sudah terisi; waspang memilih grup lalu menekan Kirim. WA_SHARE_ENABLED = true menampilkannya untuk semua akun.
-    // Masa uji (12-10-2026, permintaan pemilik portal): hanya akun RPM yang melihatnya (WA_SHARE_RPM_TEST).
-    const WA_SHARE_ENABLED = false;
+    // 12-10-2026: setelah masa uji RPM, pemilik portal mengaktifkannya untuk waspang dan RPM.
+    const WA_SHARE_ENABLED = true;
     const WA_SHARE_RPM_TEST = true;
 
     function waShareUrl(text) {
@@ -3479,7 +3479,7 @@
           <tr>
             <td colspan="6" style="text-align: center; padding: 24px 14px; color: #64748b; font-size: 0.82rem;">
               📭 <strong>Belum ada material yang dipilih untuk cluster "${cluster || 'pilihan'}".</strong><br>
-              Silakan buka tab <strong>📊 Submit & Tabel BOQ Plan</strong> untuk memilih material yang digunakan pada cluster ini, atau klik tombol <strong>👁️ Lihat Semua Item</strong> di atas.
+              Silakan buka tab <strong>📊 BOQ Plan</strong> untuk memilih material yang digunakan pada cluster ini, atau klik tombol <strong>👁️ Lihat Semua Item</strong> di atas.
             </td>
           </tr>
         `;
