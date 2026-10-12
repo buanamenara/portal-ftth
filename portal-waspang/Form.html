@@ -1208,6 +1208,7 @@
 
           <div class="form-group">
             <label for="dailyClusterSelect">Pilih Cluster / Site Name *</label>
+            <input type="search" id="dailyClusterSearch" class="cluster-search" placeholder="🔍 Ketik nama atau nomor untuk mencari cluster..." oninput="onClusterSearch('dailyClusterSelect')" autocomplete="off" style="margin-bottom: 6px;">
             <select id="dailyClusterSelect" onchange="onDailyClusterChange()" required>
               <option value="">-- Memuat cluster dari DATA BASE... --</option>
             </select>
@@ -1512,6 +1513,7 @@
 
           <div class="form-group">
             <label for="boqTargetCluster">Pilih Cluster yang Ingin Disesuaikan *</label>
+            <input type="search" id="boqClusterSearch" class="cluster-search" placeholder="🔍 Ketik nama atau nomor untuk mencari cluster..." oninput="onClusterSearch('boqTargetCluster')" autocomplete="off" style="margin-bottom: 6px;">
             <select id="boqTargetCluster" onchange="onBoqClusterChange()" style="font-weight: 600;">
               <option value="">-- Memuat cluster... --</option>
             </select>
@@ -1582,6 +1584,7 @@
           <div class="form-grid-2">
             <div class="form-group">
               <label for="photoSiteSelect">Pilih Site Name (dari DATA BASE) *</label>
+              <input type="search" id="photoSiteSearch" class="cluster-search" placeholder="🔍 Ketik nama atau nomor untuk mencari cluster..." oninput="onClusterSearch('photoSiteSelect')" autocomplete="off" style="margin-bottom: 6px;">
               <select id="photoSiteSelect" onchange="onPhotoSiteChange()" required style="font-weight: 600;">
                 <!-- Populated dynamically from Database -->
               </select>
@@ -4210,7 +4213,8 @@ ${e(todayActivity)}`;
     // Parsing Excel BOQ: Mendukung Sheet 1 (BOQ Pekerjaan) dan Sheet 2 (BoM Cluster / BoM AE)
     function parseBoqWorkbook(workbook, filename) {
       const clusters = {};
-      const cleanFname = cleanClusterNameFromFilename(filename || 'CLUSTER_EXCEL');
+      // Nama cluster dari isi file bila di dalamnya ada nama site DATA BASE; nama file hanya cadangan.
+      const cleanFname = findSiteInWorkbook(workbook) || cleanClusterNameFromFilename(filename || 'CLUSTER_EXCEL');
       const isCluster = isClusterSow(cleanFname);
 
       // 1. Ekstraksi kabel dari Sheet 1 (Primary BOQ Sheet)
@@ -4613,14 +4617,94 @@ ${e(todayActivity)}`;
       return clusters;
     }
 
+    // Nama cluster dari file Excel jarang sama persis dengan nama di DATA BASE (mis. FWA - BOQ UPLINK FWA EMR 24490 TO
+    // EMR 24817 lawan [FWA] BANJARMASIN_UPLINK_FWA-EMR-24490_TO_EMR-24817_FO_24C). Dicocokkan lewat kata dan nomor yang
+    // sama; angka diberi bobot dua. Hasilnya bisa diganti di pratinjau sebelum BOQ diterapkan.
+    const BOQ_NAME_STOP = ['BOQ', 'FWA', 'UPLINK', 'SUBFEEDER', 'SF', 'CLUSTER', 'MAINFEEDER', 'HUBFEEDER', 'FO', 'TO', 'DAN', 'ABD', 'APD', 'DIST', 'BOM', 'NRO', 'REKAP', 'PLAN', 'XLSX', 'XLS',
+      '24C', '36C', '48C', '96C', '144C', 'NAMA', 'NAME', 'SITE', 'PROJECT', 'PROYEK', 'LOKASI', 'LOP', 'PEKERJAAN', 'PAKET', 'ID'];
+    function boqNameTokens(name) {
+      return cleanSiteName(name).toUpperCase().split(/[^A-Z0-9]+/).filter(t => t && !BOQ_NAME_STOP.includes(t));
+    }
+    let dbSiteTokens = null, dbSiteTokensKey = '';
+    function databaseSiteTokens() {
+      const key = MASTER_DATABASE_SOW.length + '|' + (MASTER_DATABASE_SOW[0] ? MASTER_DATABASE_SOW[0].name : '');
+      if (!dbSiteTokens || dbSiteTokensKey !== key) {
+        dbSiteTokens = MASTER_DATABASE_SOW.map(it => ({ id: siteId(it.name, it.sow), sow: normSow(it.sow) || it.sow, toks: boqNameTokens(it.name) }));
+        dbSiteTokensKey = key;
+      }
+      return dbSiteTokens;
+    }
+    // Site DATA BASE yang paling cocok dengan teks: bagian kata/nomor teks yang ada di nama site (angka bobot dua),
+    // tambah 0,05 bila SOW sama, 0,02 kali bagian nama site yang ada di teks (RW 41 lawan RW 30 DAN 41) dan 0,01 bila
+    // urutan nomornya sama (membedakan EMR-A_TO_EMR-B dari EMR-B_TO_EMR-A).
+    function scoreDatabaseSites(text) {
+      const want = boqNameTokens(text);
+      if (!want.length) return null;
+      const sow = getSowType(text), nums = want.filter(t => /[0-9]/.test(t));
+      const wt = t => /[0-9]/.test(t) ? 2 : 1;
+      let best = null;
+      databaseSiteTokens().forEach(s => {
+        let hit = 0, total = 0, siteHit = 0, siteTotal = 0;
+        want.forEach(t => { total += wt(t); if (s.toks.includes(t)) hit += wt(t); });
+        s.toks.forEach(t => { siteTotal += wt(t); if (want.includes(t)) siteHit += wt(t); });
+        const siteCov = siteTotal ? siteHit / siteTotal : 0;
+        const inOrder = nums.length > 1 && s.toks.filter(t => nums.includes(t)).join(' ') === nums.filter(t => s.toks.includes(t)).join(' ');
+        const score = hit / total + (s.sow === sow ? 0.05 : 0) + 0.02 * siteCov + (inOrder ? 0.01 : 0);
+        if (!best || score > best.score + 1e-9) best = { id: s.id, score: score, coverage: hit / total, hit: hit, siteCov: siteCov, siteTotal: siteTotal, tie: false };
+        else if (Math.abs(score - best.score) < 1e-9) best.tie = true;
+      });
+      return best;
+    }
+    function matchDatabaseSite(importName) {
+      const m = scoreDatabaseSites(importName);
+      return m && !m.tie && m.coverage >= 0.6 ? m.id : null;
+    }
+    // Nama site yang tertulis di dalam file Excel (sel teks di 40 baris pertama tiap lembar). Dipakai lebih dulu
+    // daripada nama file, atas permintaan pemilik portal (12-10-2026). Sel diterima bila hampir seluruh isinya nama
+    // site, atau bila seluruh nama site (minimal 4 bobot) ada di dalam kalimat yang lebih panjang.
+    function findSiteInWorkbook(wb) {
+      let best = null;
+      (wb.SheetNames || []).slice(0, 6).forEach(sn => {
+        const sheet = wb.Sheets[sn];
+        if (!sheet || !sheet['!ref']) return;
+        const rg = XLSX.utils.decode_range(sheet['!ref']);
+        rg.e.r = Math.min(rg.e.r, rg.s.r + 39); rg.e.c = Math.min(rg.e.c, rg.s.c + 19);
+        XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, range: XLSX.utils.encode_range(rg) }).forEach(r => (r || []).forEach(v => {
+          if (typeof v !== 'string' || v.trim().length < 6) return;
+          const parts = v.indexOf(':') >= 0 ? [v, v.slice(v.lastIndexOf(':') + 1)] : [v];
+          parts.forEach(t => {
+            const m = scoreDatabaseSites(t);
+            if (!m || m.tie || m.hit < 3) return;
+            if (!(m.coverage >= 0.8 || (m.siteCov === 1 && m.siteTotal >= 4))) return;
+            if (!best || m.score > best.score + 1e-9 || (Math.abs(m.score - best.score) < 1e-9 && m.hit > best.hit)) best = m;
+          });
+        }));
+      });
+      return best ? best.id : '';
+    }
+    function boqTargetOptions(selectedId) {
+      return MASTER_DATABASE_SOW.map(it => {
+        const id = siteId(it.name, it.sow);
+        return '<option value="' + escOpt(id) + '"' + (id === selectedId ? ' selected' : '') + '>' +
+          escOpt(cleanSiteName(it.name) + ' (' + (normSow(it.sow) || it.sow) + ')') + '</option>';
+      }).join('');
+    }
+
     // Render Preview Table dari Excel
     function renderParsedBoqPreview(parsedData, filename) {
       const tbody = document.getElementById('boqParsedTableBody');
       const clusterNames = Object.keys(parsedData);
-      document.getElementById('parsedClusterCount').innerText = clusterNames.length;
-      document.getElementById('boqParsedSummaryTitle').innerHTML = `📋 Data Terdeteksi dari <strong>${filename}</strong> (${clusterNames.length} Cluster):`;
+      const titleEl = document.getElementById('boqParsedSummaryTitle');
+      if (titleEl) titleEl.innerHTML = '📋 Data Terdeteksi dari <strong>' + escOpt(filename) + '</strong> (<span id="parsedClusterCount">' + clusterNames.length + '</span> Cluster):';
+      const fallback = getBoqTargetCluster();
 
-      tbody.innerHTML = clusterNames.map(cl => {
+      tbody.innerHTML = clusterNames.map((cl, idx) => {
+        const match = matchDatabaseSite(cl);
+        const target = match || fallback;
+        const mapHtml = '<div style="margin-top: 6px; font-weight: 400;">' +
+          (match ? '<span style="color: #15803d;">Simpan ke cluster DATA BASE:</span>'
+                 : '<span style="color: #b45309;">\u26a0\ufe0f Nama tidak cocok dengan DATA BASE, pilih clusternya:</span>') +
+          '<select id="boqMapSel_' + idx + '" style="width: 100%; margin-top: 4px; font-size: 0.72rem; padding: 4px;">' + boqTargetOptions(target) + '</select></div>';
         const items = parsedData[cl] || [];
         const poleItems = items.filter(it => it.cat === 'Install Pole');
         const totTiang = poleItems.reduce((acc, it) => acc + (it.volume || 0), 0);
@@ -4637,7 +4721,7 @@ ${e(todayActivity)}`;
 
         return `
           <tr>
-            <td style="font-weight: 700; color: var(--bmi-dark);">${cl}</td>
+            <td style="font-weight: 700; color: var(--bmi-dark);">${escOpt(cl)}${mapHtml}</td>
             <td style="text-align: center; font-weight: 700; color: #b88628;">${totTiang} Btg</td>
             <td style="font-size: 0.72rem; color: #475569;">${tiangDetail}</td>
             <td style="text-align: center; font-size: 0.72rem;">${cableStr}</td>
@@ -4654,6 +4738,15 @@ ${e(todayActivity)}`;
         showToast('⚠️ Tidak ada data BOQ untuk diterapkan.');
         return;
       }
+
+      // Simpan di bawah nama DATA BASE yang dipilih di pratinjau, bukan nama dari file Excel.
+      const mapped = {};
+      Object.keys(parsedBoqData).forEach((cl, idx) => {
+        const sel = document.getElementById('boqMapSel_' + idx);
+        const target = sel && sel.value ? sel.value : cl;
+        mapped[target] = (mapped[target] || []).concat(parsedBoqData[cl] || []);
+      });
+      parsedBoqData = mapped;
 
       const clusterNames = Object.keys(parsedBoqData);
       const btn = document.getElementById('btnApplyParsedBoq');
@@ -4859,20 +4952,49 @@ ${e(todayActivity)}`;
     }
 
     // Semua pilihan cluster/site = nama di DATA BASE; SOW dipilih di kolom SOW. preferredSelection = id cluster (boleh berawalan SOW).
-    function refreshAllClusterDropdowns(preferredSelection) {
+    // Kotak cari di atas pilihan cluster: semua kata yang diketik harus ada di nama (huruf besar/kecil dan tanda baca diabaikan).
+    const CLUSTER_SEARCH_INPUT = { dailyClusterSelect: 'dailyClusterSearch', boqTargetCluster: 'boqClusterSearch', photoSiteSelect: 'photoSiteSearch' };
+    function filterClusterNames(names, selId) {
+      const inp = document.getElementById(CLUSTER_SEARCH_INPUT[selId]);
+      const words = inp ? String(inp.value || '').toLowerCase().split(/\s+/).map(w => w.replace(/[^a-z0-9]+/g, '')).filter(Boolean) : [];
+      if (!words.length) return names;
+      return names.filter(n => {
+        const k = n.toLowerCase().replace(/[^a-z0-9]+/g, '');
+        return words.every(w => k.includes(w));
+      });
+    }
+    let clusterSearchTimer = null;
+    function onClusterSearch(selId) {
+      clearTimeout(clusterSearchTimer);
+      clusterSearchTimer = setTimeout(() => {
+        const sel = document.getElementById(selId);
+        const before = sel ? sel.value : '';
+        refreshAllClusterDropdowns(null, selId);
+        if (sel && sel.value && sel.value !== before) sel.dispatchEvent(new Event('change'));
+      }, 300);
+    }
+
+    function refreshAllClusterDropdowns(preferredSelection, onlySelId) {
       const names = getMasterDatabaseSites();
       const pref = preferredSelection ? { name: boqSiteName(preferredSelection), sow: getSowType(preferredSelection) } : null;
-      const optHtml = names.length
-        ? names.map(n => `<option value="${escOpt(n)}">${escOpt(n)}</option>`).join('')
-        : '<option value="">-- DATA BASE belum termuat --</option>';
       function fill(selId, sowId) {
+        if (onlySelId && onlySelId !== selId) return;
         const sel = document.getElementById(selId);
         if (!sel) return;
         const sowSel = sowId ? document.getElementById(sowId) : null;
         const prevName = cleanSiteName(sel.value), prevSow = sowSel ? sowSel.value : '';
-        sel.innerHTML = optHtml;
-        const want = (pref && names.includes(pref.name)) ? pref.name : prevName;
-        sel.value = names.includes(want) ? want : (names[0] || '');
+        let list = filterClusterNames(names, selId);
+        if (pref && names.includes(pref.name) && !list.includes(pref.name)) {
+          // Cluster yang dipilih sistem (mis. hasil impor BOQ) tersembunyi oleh kata pencarian: kosongkan pencarian.
+          const inp = document.getElementById(CLUSTER_SEARCH_INPUT[selId]);
+          if (inp) inp.value = '';
+          list = names;
+        }
+        sel.innerHTML = list.length
+          ? list.map(n => '<option value="' + escOpt(n) + '">' + escOpt(n) + '</option>').join('')
+          : '<option value="">' + (names.length ? '-- Tidak ada cluster yang cocok dengan pencarian --' : '-- DATA BASE belum termuat --') + '</option>';
+        const want = (pref && list.includes(pref.name)) ? pref.name : prevName;
+        sel.value = list.includes(want) ? want : (list[0] || '');
         if (sowSel) fillSowSelect(sowSel, sel.value, (pref && pref.name === sel.value) ? pref.sow : prevSow);
       }
       fill('dailyClusterSelect', 'dailySow');
@@ -4881,7 +5003,7 @@ ${e(todayActivity)}`;
       const prevPhotoSow = photoSow ? photoSow.value : '';
       fill('photoSiteSelect', null);
       const ps = document.getElementById('photoSiteSelect');
-      if (ps && ps.value) {
+      if (ps && ps.value && (!onlySelId || onlySelId === 'photoSiteSelect')) {
         updateSowSelectorForSite(ps.value);
         const so = (pref && pref.name === ps.value) ? pref.sow : prevPhotoSow;
         if (photoSow && Array.from(photoSow.options).some(o => o.value === so)) { photoSow.value = so; onPhotoSowChange(); }
