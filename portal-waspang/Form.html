@@ -1124,6 +1124,30 @@
       return excelLibsLoading;
     }
     window.addEventListener('load', () => setTimeout(() => ensureExcelLibs().catch(() => {}), 2000));
+
+    // Kesalahan kode halaman tampil sebagai bar merah kecil, jadi bisa difoto tanpa membuka Console (F12).
+    const WS_ERRORS = [];
+    function showPageError(where, err) {
+      const msg = (where ? where + ': ' : '') + (err && err.message ? err.message : String(err));
+      WS_ERRORS.push(msg);
+      try { console.error('[Waspang] ' + msg); } catch (e) {}
+      const put = () => {
+        let bar = document.getElementById('wsErrorBar');
+        if (!bar) {
+          bar = document.createElement('div');
+          bar.id = 'wsErrorBar';
+          bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#b91c1c;color:#fff;font:12px/1.4 sans-serif;padding:6px 10px;';
+          bar.onclick = () => bar.remove();
+          document.body.appendChild(bar);
+        }
+        bar.textContent = '\u26a0\ufe0f Kesalahan halaman (foto bar ini untuk admin, ketuk untuk tutup): ' + WS_ERRORS.slice(-3).join(' | ');
+      };
+      if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+    }
+    window.addEventListener('error', e => showPageError('', (e.message || 'Error') + (e.lineno ? ' (baris ' + e.lineno + ')' : '')));
+    window.addEventListener('load', () => setTimeout(() => {
+      if (typeof wsInit !== 'function') showPageError('Kode utama halaman tidak termuat', '');
+    }, 1500));
   </script>
 </head>
 <body>
@@ -3943,7 +3967,26 @@ ${e(todayActivity)}`;
       el.style.display = (el.style.display === 'none') ? 'block' : 'none';
     }
 
-        window.addEventListener('DOMContentLoaded', () => {
+    // Setiap langkah dijaga: bila satu langkah gagal, langkah lain (terutama daftar cluster) tetap jalan
+    // dan kesalahannya tampil di bar merah.
+    function wsInitStep(label, fn) {
+      try { fn(); } catch (e) { showPageError(label, e); }
+    }
+    function wsInit() {
+      if (wsInit.done) return;
+      wsInit.done = true;
+      // 1. Dropdown cluster terlebih dahulu: daftar yang ikut di halaman (atau salinan di HP),
+      //    lalu diperbarui dari sheet di belakang.
+      wsInitStep('Daftar cluster', () => {
+        loadCachedDatabaseSites();
+        if (applyDatabaseSites(window.WS_SITES)) {
+          try { localStorage.setItem(STORAGE_DATABASE_SITES, JSON.stringify(window.WS_SITES)); } catch (e) {}
+        }
+        refreshAllClusterDropdowns();
+      });
+      wsInitStep('Ambil daftar cluster', () => { refreshDatabaseSites(); });
+
+      wsInitStep('Area unggah BOQ', () => {
       const dropZone = document.getElementById('boqDropZone');
       if (dropZone) {
         ['dragenter', 'dragover'].forEach(evtName => {
@@ -3971,16 +4014,10 @@ ${e(todayActivity)}`;
         }, false);
       }
 
-      // 1. Inisialisasi dropdown cluster terlebih dahulu: daftar yang ikut di halaman (atau salinan di HP),
-      //    lalu diperbarui dari sheet di belakang.
-      loadCachedDatabaseSites();
-      if (applyDatabaseSites(window.WS_SITES)) {
-        try { localStorage.setItem(STORAGE_DATABASE_SITES, JSON.stringify(window.WS_SITES)); } catch (e) {}
-      }
-      refreshAllClusterDropdowns();
-      refreshDatabaseSites();
+      });
 
       // Setup Drag & Drop untuk Upload Foto Dokumentasi
+      wsInitStep('Area unggah foto', () => {
       const photoDropZone = document.querySelector('.upload-zone');
       if (photoDropZone) {
         ['dragenter', 'dragover'].forEach(evtName => {
@@ -4008,14 +4045,19 @@ ${e(todayActivity)}`;
           }
         }, false);
       }
+      });
       // 2. Aktifkan tab Daily dan render tabel
-      switchTab('daily');
-      renderMasterSowTable();
-      updateDriveConnectionBanner();
+      wsInitStep('Tab Daily', () => switchTab('daily'));
+      wsInitStep('Tabel SOW', () => renderMasterSowTable());
+      wsInitStep('Banner Drive', () => updateDriveConnectionBanner());
       // 3. Total bersama dari sheet & sesi RPM dari Gateway
-      refreshSharedTotals(getActiveDailyCluster());
-      initWsSession();
-    });
+      wsInitStep('Total bersama', () => refreshSharedTotals(getActiveDailyCluster()));
+      wsInitStep('Sesi login', () => initWsSession());
+      try { console.info('[Waspang] siap: ' + document.getElementById('dailyClusterSelect').options.length + ' pilihan cluster'); } catch (e) {}
+    }
+    if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', wsInit);
+    else wsInit();
+    window.addEventListener('load', wsInit);
 
     function cleanClusterNameFromFilename(fname) {
       if (!fname) return 'CLUSTER_EXCEL';
