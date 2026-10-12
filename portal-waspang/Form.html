@@ -4232,20 +4232,29 @@ ${e(todayActivity)}`;
     }
 
     // Parsing Excel BOQ: Mendukung Sheet 1 (BOQ Pekerjaan) dan Sheet 2 (BoM Cluster / BoM AE)
+    // Lembar tersembunyi (sisa template, mis. "BoQ NRO Cluster" berisi data site lain) tidak dibaca bila ada lembar
+    // yang tampil.
+    function visibleSheetNames(wb) {
+      const meta = (wb.Workbook && wb.Workbook.Sheets) || [];
+      const vis = (wb.SheetNames || []).filter(n => !meta.some(m => m && m.name === n && m.Hidden));
+      return vis.length ? vis : (wb.SheetNames || []).slice();
+    }
+
     function parseBoqWorkbook(workbook, filename) {
       const clusters = {};
+      const sheetNames = visibleSheetNames(workbook);
       // Nama cluster dari isi file bila di dalamnya ada nama site DATA BASE; nama file hanya cadangan.
       const cleanFname = findSiteInWorkbook(workbook) || cleanClusterNameFromFilename(filename || 'CLUSTER_EXCEL');
       const isCluster = isClusterSow(cleanFname);
 
       // 1. Ekstraksi kabel dari Sheet 1 (Primary BOQ Sheet)
       function extractCableFromPrimaryBoqSheet(wb) {
-        const boqSheetNames = wb.SheetNames.filter(s => {
+        const boqSheetNames = sheetNames.filter(s => {
           const sl = s.toLowerCase();
           return (sl.includes('boq nro') || sl.includes('roll out') || sl.includes('feeder') || sl.includes('kode material') || sl.includes('boq actual') || sl.includes('po')) && !sl.includes('bom ae') && !sl.includes('bom cluster');
         });
         if (boqSheetNames.length === 0) {
-          wb.SheetNames.forEach(s => {
+          sheetNames.forEach(s => {
             const sl = s.toLowerCase();
             if (!sl.includes('bom ae') && !sl.includes('bom cluster') && !sl.includes('permit')) boqSheetNames.push(s);
           });
@@ -4285,18 +4294,18 @@ ${e(todayActivity)}`;
       // 2. Ekstraksi Khusus Sheet 2 untuk Cluster (Line A-D 24C, 36C, 48C dan FAT Line A-D)
       function extractFromClusterSheet2(wb) {
         if (!isCluster) return null;
-        let s2Name = wb.SheetNames.find(s => {
+        let s2Name = sheetNames.find(s => {
           const sl = s.toLowerCase();
           return sl.includes('bom ae') || sl.includes('bom cluster') || sl.includes('cluster bom');
         });
         if (!s2Name) {
-          s2Name = wb.SheetNames.find(s => {
+          s2Name = sheetNames.find(s => {
             const sl = s.toLowerCase();
             return !sl.includes('permit') && !sl.includes('summary') && !sl.includes('nro') && !sl.includes('drawing');
           });
         }
-        if (!s2Name && wb.SheetNames.length > 2) s2Name = wb.SheetNames[2];
-        else if (!s2Name && wb.SheetNames.length > 1) s2Name = wb.SheetNames[1];
+        if (!s2Name && sheetNames.length > 2) s2Name = sheetNames[2];
+        else if (!s2Name && sheetNames.length > 1) s2Name = sheetNames[1];
         if (!s2Name) return null;
 
         const sheet = wb.Sheets[s2Name];
@@ -4510,8 +4519,8 @@ ${e(todayActivity)}`;
       }
 
       // 3. Scan lembar kerja utama untuk material tiang & aksesoris (abaikan BoM AE / BoM Cluster yang merupakan Sheet 2)
-      for (let s_i = 0; s_i < workbook.SheetNames.length; s_i++) {
-        const sName = workbook.SheetNames[s_i];
+      for (let s_i = 0; s_i < sheetNames.length; s_i++) {
+        const sName = sheetNames[s_i];
         const sl = sName.toLowerCase();
         if (sl.includes('bom ae') || sl.includes('bom cluster') || sl.includes('permit') || sl.includes('drawing')) continue;
         const sheet = workbook.Sheets[sName];
@@ -4530,8 +4539,11 @@ ${e(todayActivity)}`;
           const valNum = (val !== null && !isNaN(val)) ? parseInt(val) : 0;
 
           if (valNum > 0) {
+            // Baris FDT / closure / splitter (mis. "48 cores capacity pole mounted FDT") bukan kabel.
+            const notCable = /fdt|closure|splitter/.test(desc);
             OFFICIAL_MATERIAL_CATALOG.forEach(mat => {
               if (isCableLineKey(mat.key)) return; // Cable per Line di-handle khusus dari Sheet 2
+              if (notCable && /^cable_/.test(mat.key)) return;
               if (!rawVolumes[mat.key]) {
                 const matched = mat.terms.some(t => desc.includes(t));
                 if (matched) rawVolumes[mat.key] = valNum;
@@ -4685,7 +4697,7 @@ ${e(todayActivity)}`;
     // site, atau bila seluruh nama site (minimal 4 bobot) ada di dalam kalimat yang lebih panjang.
     function findSiteInWorkbook(wb) {
       let best = null;
-      (wb.SheetNames || []).slice(0, 6).forEach(sn => {
+      visibleSheetNames(wb).slice(0, 6).forEach(sn => {
         const sheet = wb.Sheets[sn];
         if (!sheet || !sheet['!ref']) return;
         const rg = XLSX.utils.decode_range(sheet['!ref']);
