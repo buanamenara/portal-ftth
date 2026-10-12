@@ -2891,7 +2891,8 @@
     const WA_SHARE_RPM_TEST = true;
 
     function waShareUrl(text) {
-      return 'https://wa.me/?text=' + encodeURIComponent(String(text || '').replace(/`/g, ''));
+      // Ditulis tanpa garis miring ganda dan tanda backtick: pemrosesan halaman Google salah membacanya dan memotong skrip (versi 44-46).
+      return 'https:\/\/wa.me/?text=' + encodeURIComponent(String(text || '').replace(/\x60/g, ''));
     }
 
     function closeWaShare() {
@@ -5971,7 +5972,7 @@ ${e(todayActivity)}`;
             statusBox.innerHTML = `⚠️ <strong>Foto terkirim ke Telegram</strong>, namun gagal masuk ke Google Drive karena: ${driveErrorMsg}`;
           }
         }
-        showWaShare(photoItems.length + ' foto', caption + (driveSuccess ? '\n📁 *Folder Foto* : ' + (returnedFolderUrl || 'https://drive.google.com/drive/folders/1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ') : ''));
+        showWaShare(photoItems.length + ' foto', caption + (driveSuccess ? '\n📁 *Folder Foto* : ' + (returnedFolderUrl || 'https:\/\/drive.google.com/drive/folders/1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ') : ''));
         photoItems = [];
         renderPhotoGallery();
         const nEl = document.getElementById('photoNotes');
