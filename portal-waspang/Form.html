@@ -987,6 +987,111 @@
       .daily-table td .daily-box, .daily-table td input[type="number"].daily-box { width: 100% !important; max-width: none !important; min-width: 0; height: 42px; padding: 0 4px !important; font-size: 16px !important; }
       .daily-table .btn-done-toggle { padding: 6px 12px !important; font-size: 13px !important; }
     }
+
+    /* ---------- Bantuan & Masukan (tombol mengambang, sama dengan Portal FTTH) ---------- */
+    #guideFab {
+      position: fixed; right: 18px; bottom: 18px; z-index: 500;
+      width: 46px; height: 46px; border-radius: 50%; border: none;
+      background: var(--navy); color: var(--gold); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 3px 10px rgba(0,0,0,.28);
+    }
+    #guideFab:hover { background: #262626; }
+    #guideFab .tip {
+      position: absolute; right: 54px; bottom: 8px; white-space: nowrap;
+      background: var(--navy); color: #fff; font-size: 12px; font-weight: 600;
+      padding: 7px 12px; border-radius: 7px; box-shadow: 0 3px 10px rgba(0,0,0,.28);
+      opacity: 0; pointer-events: none; transform: translateX(6px);
+      transition: opacity .15s, transform .15s;
+    }
+    #guideFab .tip::after {
+      content: ""; position: absolute; right: -5px; top: 50%; margin-top: -5px;
+      border: 5px solid transparent; border-left-color: var(--navy);
+    }
+    #guideFab:hover .tip { opacity: 1; transform: translateX(0); }
+    #guideOverlay {
+      display: flex; position: fixed; inset: 0; z-index: 1100;
+      background: rgba(0,0,0,.45); align-items: flex-end; justify-content: center;
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity .22s ease, visibility 0s linear .22s;
+    }
+    #guideOverlay.open {
+      opacity: 1; visibility: visible; pointer-events: auto;
+      transition: opacity .22s ease, visibility 0s linear;
+    }
+    #guideSheet {
+      background: #fff; width: 100%; max-width: 380px; margin: 0 16px 16px;
+      border-radius: 12px; border-top: 4px solid var(--gold);
+      padding: 0; position: relative;
+      box-shadow: 0 10px 30px rgba(0,0,0,.28);
+      max-height: min(78vh, 620px); display: flex; flex-direction: column;
+      transform: translateY(28px); opacity: 0;
+      transition: transform .28s cubic-bezier(.22,.8,.28,1), opacity .22s ease;
+    }
+    #guideOverlay.open #guideSheet { transform: translateY(0); opacity: 1; }
+    @media (prefers-reduced-motion: reduce) {
+      #guideOverlay, #guideSheet { transition: none !important; }
+    }
+    #guideSheetBody { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 22px 22px 20px; flex: 1 1 auto; min-height: 0; }
+    #guideTop {
+      position: absolute; left: 14px; bottom: 62px;
+      width: 34px; height: 34px; border-radius: 50%; border: none;
+      background: var(--navy); color: var(--gold); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 3px 8px rgba(0,0,0,.3); z-index: 2;
+      opacity: 0; pointer-events: none; transform: translateY(6px);
+      transition: opacity .15s, transform .15s;
+    }
+    #guideTop:hover { background: #262626; }
+    #guideTop.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    .gtab { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+    .gtab[hidden] { display: none; }
+    #saranBody { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 22px 22px 20px; flex: 1 1 auto; min-height: 0; }
+    #saranBody .glabel { display: block; font-size: 12px; font-weight: 700; color: #555; margin: 14px 0 5px; }
+    #saranBody .glabel:first-of-type { margin-top: 2px; }
+    #saranBody input[type=text], #saranBody textarea {
+      width: 100%; border: 1px solid #ddd; border-radius: 7px; padding: 10px 11px;
+      font: inherit; font-size: 13.5px; color: #222; resize: vertical; background: #fff;
+    }
+    #saranBody textarea { min-height: 96px; }
+    #saranSubmit {
+      display: block; width: 100%; margin-top: 16px; padding: 13px 16px; border: none; border-radius: 8px;
+      background: var(--gold); color: #fff; font-weight: bold; font-size: 14.5px; cursor: pointer;
+    }
+    #saranSubmit:hover { background: var(--gold-dark); }
+    #saranSubmit:disabled { opacity: .55; cursor: default; }
+    #saranMsg { font-size: 12.5px; margin-top: 10px; display: none; line-height: 1.4; }
+    #saranMsg.ok { color: #2a7a3b; display: block; }
+    #saranMsg.err { color: #c5221f; display: block; }
+    #guideNav { display: flex; border-top: 1px solid #eee; flex: none; }
+    #guideNav button {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 10px 6px 9px; background: none; border: none; cursor: pointer; color: #999; font-size: 10.5px; font-weight: 700;
+    }
+    #guideNav button.active { color: var(--gold-dark); }
+    #guideNav button svg { width: 19px; height: 19px; }
+    #guideClose {
+      position: absolute; top: 8px; right: 10px; border: none; background: none;
+      font-size: 22px; line-height: 1; color: #999; cursor: pointer; padding: 6px;
+    }
+    #guideSheet .icon { width: 42px; height: 42px; border-radius: 10px; background: var(--navy); display: flex; align-items: center; justify-content: center; color: var(--gold); margin-bottom: 12px; }
+    #guideSheet h2 { margin: 0 0 4px; font-size: 18px; }
+    #guideSheet .desc { margin: 0 0 12px; color: #666; font-size: 13.5px; line-height: 1.45; }
+    #guideSheet .meta { display: flex; flex-wrap: wrap; gap: 5px 14px; font-size: 12px; color: #888; font-weight: 700; margin: 0 0 16px; }
+    #guideDl {
+      display: block; text-align: center; padding: 13px 16px; border-radius: 8px;
+      background: var(--gold); color: #fff; font-weight: bold; text-decoration: none; font-size: 14.5px;
+    }
+    #guideDl:hover { background: var(--gold-dark); }
+    #guideSheet .hint { font-size: 11.5px; color: #999; text-align: center; margin: 10px 0 0; line-height: 1.4; }
+    #guideSheet .glist { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
+    #guideSheet .glist li { display: flex; gap: 7px; font-size: 12.5px; color: #555; line-height: 1.4; }
+    #guideSheet .glist li::before { content: "\203A"; color: var(--gold-dark); font-weight: 800; }
+    @media (min-width: 640px) { #guideOverlay { align-items: center; } }
+    #guideSheet h2 { color: var(--navy); }
+    #saranBody .glabel { text-transform: none; letter-spacing: 0; }
+    /* HP: tombol di atas bar menu bawah */
+    @media (max-width: 680px) { #guideFab { bottom: calc(74px + env(safe-area-inset-bottom)); right: 14px; } }
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <!-- SheetJS (xlsx) for direct client-side BOQ Excel Import -->
@@ -1763,6 +1868,119 @@
       
     </div>
   </div>
+
+  <!-- ===== Bantuan & Masukan (tombol mengambang, sama dengan Portal FTTH) ===== -->
+  <button type="button" id="guideFab" aria-label="Bantuan dan masukan Portal Waspang">
+    <span class="tip">Bantuan &amp; Masukan</span>
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  </button>
+  <div id="guideOverlay">
+    <div id="guideSheet">
+      <button type="button" id="guideClose" aria-label="Tutup">&times;</button>
+
+      <div id="guideTabPanduan" class="gtab">
+        <div id="guideSheetBody">
+          <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+          <h2>Panduan FTTH Project Control Portal</h2>
+          <p class="desc">Cara memakai Portal Waspang, Portal FTTH dan spreadsheet, langkah demi langkah dengan gambar.</p>
+          <div class="meta"><span>29 halaman</span><span>~4 MB</span><span>PDF</span></div>
+          <a href="https://buanamenara.github.io/portal-ftth/Panduan_Portal_FTTH.pdf" target="_blank" rel="noopener" id="guideDl">Unduh PDF Panduan</a>
+          <p class="hint">Terbuka di tab baru peramban &mdash; ketuk lama pratinjaunya lalu pilih &ldquo;Simpan ke File&rdquo; bila tidak langsung tersimpan.</p>
+          <ul class="glist">
+            <li>Portal Waspang: Daily Report EMR, BOQ Plan dan foto dokumentasi, langkah demi langkah.</li>
+            <li>Masuk sekali lewat FTTH Project Control Portal dan pindah ke Portal FTTH.</li>
+            <li>Cara mengatasi masalah umum (site tidak muncul, laporan tidak masuk Telegram, sesi habis).</li>
+          </ul>
+        </div>
+        <button type="button" id="guideTop" aria-label="Kembali ke atas">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+        </button>
+      </div>
+
+      <div id="guideTabSaran" class="gtab" hidden>
+        <div id="saranBody">
+          <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <h2>Kritik &amp; Saran</h2>
+          <p class="desc">Sampaikan masukan Anda untuk Portal Waspang. Hanya RPM/pemilik yang membaca ini.</p>
+          <label class="glabel" for="saranNama">Nama (opsional)</label>
+          <input type="text" id="saranNama" maxlength="80" placeholder="Nama Anda">
+          <label class="glabel" for="saranPesan">Pesan</label>
+          <textarea id="saranPesan" maxlength="2000" placeholder="Tulis kritik atau saran Anda di sini&hellip;"></textarea>
+          <div id="saranMsg"></div>
+          <button type="button" id="saranSubmit">Kirim Masukan</button>
+        </div>
+      </div>
+
+      <div id="guideNav">
+        <button type="button" class="active" data-tab="panduan">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          <span>Panduan</span>
+        </button>
+        <button type="button" data-tab="saran">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>Kritik &amp; Saran</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var fab = document.getElementById('guideFab'), ov = document.getElementById('guideOverlay'), close = document.getElementById('guideClose');
+      var body = document.getElementById('guideSheetBody'), top = document.getElementById('guideTop');
+      var tabPanduan = document.getElementById('guideTabPanduan'), tabSaran = document.getElementById('guideTabSaran');
+      var navBtns = [].slice.call(document.querySelectorAll('#guideNav button'));
+      var namaEl = document.getElementById('saranNama');
+      fab.addEventListener('click', function () {
+        // Nama diisi dari akun Gateway bila belum diketik (tetap boleh diubah atau dikosongkan).
+        if (!namaEl.value && !namaEl.dataset.touched && typeof WS_SESSION !== 'undefined' && WS_SESSION && WS_SESSION.name) namaEl.value = WS_SESSION.name;
+        ov.classList.add('open');
+      });
+      namaEl.addEventListener('input', function () { namaEl.dataset.touched = '1'; });
+      close.addEventListener('click', function () { ov.classList.remove('open'); });
+      ov.addEventListener('click', function (e) { if (e.target === ov) ov.classList.remove('open'); });
+      body.addEventListener('scroll', function () {
+        if (body.scrollTop > 80) top.classList.add('show'); else top.classList.remove('show');
+      });
+      top.addEventListener('click', function () { body.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+      navBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          navBtns.forEach(function (b) { b.classList.toggle('active', b === btn); });
+          var showSaran = btn.getAttribute('data-tab') === 'saran';
+          tabPanduan.hidden = showSaran; tabSaran.hidden = !showSaran;
+          if (showSaran) top.classList.remove('show');
+        });
+      });
+
+      // Masukan masuk ke tab KRITIK DAN SARAN di spreadsheet RPM (lewat server Waspang, perlu sesi Gateway).
+      var saranMsg = document.getElementById('saranMsg'), saranBtn = document.getElementById('saranSubmit');
+      function done(cls, text) {
+        saranBtn.disabled = false; saranBtn.textContent = 'Kirim Masukan';
+        saranMsg.className = cls; saranMsg.textContent = text;
+      }
+      saranBtn.addEventListener('click', function () {
+        var pesan = document.getElementById('saranPesan').value.trim();
+        var nama = namaEl.value.trim();
+        saranMsg.className = ''; saranMsg.textContent = '';
+        if (!pesan) { saranMsg.className = 'err'; saranMsg.textContent = 'Pesan belum diisi.'; return; }
+        saranBtn.disabled = true; saranBtn.textContent = 'Mengirim…';
+        fetch(getConfig().scriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'SARAN', session: WS_SESSION && WS_SESSION.session, nama: nama, pesan: pesan })
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          if (d.status === 'success') {
+            done('ok', 'Terkirim, terima kasih atas masukannya.');
+            document.getElementById('saranPesan').value = '';
+          } else {
+            done('err', 'Gagal mengirim: ' + (d.message || 'coba lagi.'));
+          }
+        }).catch(function (err) {
+          done('err', 'Gagal mengirim: ' + (err && err.message ? err.message : err));
+        });
+      });
+    })();
+  </script>
 
   <div class="toast" id="toastMessage">Tersimpan!</div>
 
