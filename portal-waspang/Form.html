@@ -1092,7 +1092,15 @@
     #saranBody .glabel { text-transform: none; letter-spacing: 0; }
     /* HP: tombol di atas bar menu bawah */
     @media (max-width: 680px) { #guideFab { bottom: calc(74px + env(safe-area-inset-bottom)); right: 14px; } }
-</style>
+    /* Menu Database (RPM): dua tautan spreadsheet, dibuka di tab baru. */
+    .db-menu { position: relative; }
+    .db-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #fff; border: 1px solid #eadfc4; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.18); padding: 6px; min-width: 210px; z-index: 1200; }
+    .db-dropdown.open { display: block; }
+    .db-dropdown a { display: block; padding: 10px 12px; font-size: 13px; font-weight: bold; color: var(--navy); text-decoration: none; border-radius: 6px; white-space: nowrap; }
+    .db-dropdown a:hover { background: #faf6ec; }
+    /* Empat tombol header di HP: "Portal FTTH" jadi "FTTH" supaya tetap satu baris. */
+    @media (max-width: 480px) { header .btn-header .hb-long { display: none; } }
+  </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <!-- SheetJS (xlsx) for direct client-side BOQ Excel Import -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1118,6 +1126,14 @@
       <div class="header-actions">
         <!-- Portal FTTH dibuka di halaman PWA (tanpa banner Google); login FTTH yang tersimpan di perangkat dipakai otomatis. -->
         <a class="btn-header" href="https://buanamenara.github.io/portal-ftth/?p=ftth" target="_top"><span>🏠 <span class="hb-long">Portal </span>FTTH</span></a>
+        <!-- Database: spreadsheet Waspang dan FTTH di tab baru, hanya untuk akun RPM (spreadsheet dibagikan ke akun Google tertentu saja). -->
+        <div class="db-menu" id="dbMenu" style="display:none">
+          <button type="button" class="btn-header" id="btnDbMenu" onclick="toggleDbMenu(event)">📊 Database ▾</button>
+          <div class="db-dropdown" id="dbDropdown">
+            <a href="https://docs.google.com/spreadsheets/d/1ZlSlITeC9zi-m894gQYUUn4YMfP6_8B_Jtep5a33OjA/edit" target="_blank" rel="noopener">📊 DATABASE WASPANG ↗</a>
+            <a href="https://docs.google.com/spreadsheets/d/1KblZFDIcG6Jbbo6gy2Mh0vpgEzsgfUhMcwg5A5qtSME/edit?gid=611166920#gid=611166920" target="_blank" rel="noopener">📁 DATABASE FTTH ↗</a>
+          </div>
+        </div>
         <!-- Keluar: sesi Waspang di HP ini dihapus dan Gateway mengakhiri sesinya (kembali ke halaman login). -->
         <a class="btn-header" href="https://buanamenara.github.io/portal-ftth/?logout=1" target="_top" onclick="logoutWaspang()">🚪 Keluar</a>
       </div>
@@ -3104,6 +3120,8 @@
 
     function updateOwnerModeUI() {
       if (!isRpmSession()) isOwnerMode = false;
+      const dbMenu = document.getElementById('dbMenu');
+      if (dbMenu) dbMenu.style.display = isRpmSession() ? '' : 'none';
       const btn = document.getElementById('btnOwnerModeToggle');
       if (btn) {
         btn.style.display = isRpmSession() ? '' : 'none';
@@ -3167,6 +3185,11 @@
     // Tombol Keluar: lupakan sesi Gateway di HP ini; tautannya membuka Gateway dengan ?logout=1 (sesi Gateway diakhiri).
     function logoutWaspang() { WS_SESSION = null; clearWsSession(); }
     function isRpmSession() { return !!(WS_SESSION && WS_SESSION.role === 'rpm'); }
+    function toggleDbMenu(e) { e.stopPropagation(); document.getElementById('dbDropdown').classList.toggle('open'); }
+    document.addEventListener('click', function (e) {
+      const dd = document.getElementById('dbDropdown');
+      if (dd && !e.target.closest('#dbMenu')) dd.classList.remove('open');
+    });
     async function initWsSession() {
       WS_SESSION = loadWsSession();
       let ticket = '';
