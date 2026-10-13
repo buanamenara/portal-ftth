@@ -428,11 +428,13 @@ function waGroups_(token, refresh) {
   return json.data || [];
 }
 
-// Format Markdown Telegram -> format WhatsApp: *tebal*, _miring_ dan `kode` sama; tautan [teks](url) jadi "teks (url)",
-// garis miring pelindung (\_ \* \[) dibuang.
+// Format Markdown Telegram -> format WhatsApp: *tebal* dan _miring_ sama; `kode` jadi teks biasa (di WA tampil
+// sebagai huruf mesin ketik, di Telegram tidak); tautan [teks](url) jadi "teks (url)"; garis miring pelindung
+// (\_ \* \[) dibuang.
 function waText_(text) {
   return String(text || '')
     .replace(/\[([^\]]*)\]\((https?:[^)\s]+)\)/g, '$1 ($2)')
+    .replace(/(^|[^\\])`+/g, '$1')
     .replace(/\\([_*`\[\]])/g, '$1');
 }
 
