@@ -228,17 +228,12 @@ function getOrCreateFolderPath_(rootFolder, pathStr) {
 
 function createSiteFoldersInDrive_(payload) {
   var siteName = payload.siteName;
-  var lines = payload.lines && payload.lines.length ? payload.lines : ["Line A", "Line B", "Line C", "Line D"];
   var fatCounts = payload.fatCounts || {};
 
   var docRoot = DriveApp.getFolderById(CONFIG.DOKUMENTASI_FOLDER_ID);
   var siteFolder = getOrCreateFolder_(docRoot, siteName);
 
-  var lineFolder = getOrCreateFolder_(siteFolder, 'Line');
-  lines.forEach(function (ln) {
-    getOrCreateFolder_(lineFolder, ln);
-  });
-
+  // Folder Line (penarikan kabel) tidak dibuat lagi; Line A-D hanya ada di Elektrik (FAT).
   var elektrikFolder = getOrCreateFolder_(siteFolder, 'Elektrik');
   var elTypes = ['Terbuka & Tertutup', 'OPM 1:8'];
   elTypes.forEach(function (elType) {

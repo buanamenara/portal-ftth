@@ -1651,7 +1651,6 @@
             <div class="form-group">
               <label for="photoMainCategory">Kategori Folder Penyimpanan Drive *</label>
               <select id="photoMainCategory" required onchange="handlePhotoCategoryChange()">
-                <option value="Line">📁 Line (Penarikan Kabel Line A, B, C, D)</option>
                 <option value="Elektrik">📁 Elektrik (FAT Line A, B, C, D)</option>
                 <option value="Pole view">📁 Pole view (Foto Urut 1, 2, 3...)</option>
                 <option value="Implementasi">📁 Implementasi</option>
@@ -1661,62 +1660,19 @@
 
             <div class="form-group">
               <label for="photoProgressManual">Keterangan Progress Pekerjaan (Diisi Manual / Bebas) *</label>
-              <input type="text" id="photoProgressManual" value="Penarikan Cable 24C Line A" placeholder="Ketik progress: misal Penanaman Tiang / Tarik Kabel / Splicing..." required oninput="onPhotoProgressManualChange()">
+              <input type="text" id="photoProgressManual" value="Elektrik Terbuka & Tertutup Line A A01" placeholder="Ketik progress: misal Penanaman Tiang / Tarik Kabel / Splicing..." required oninput="onPhotoProgressManualChange()">
             </div>
           </div>
 
           <!-- KETERANGAN PROGRESS QUICK PILLS -->
           <div id="photoProgressPillsContainer" style="margin-top: -4px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 5px;">
-            <button type="button" class="pill-btn active" onclick="setPhotoProgressPill('Cable 24C Line A')">Cable 24C Line A</button>
-            <button type="button" class="pill-btn" onclick="setPhotoProgressPill('Cable 24C Line B')">Cable 24C Line B</button>
-            <button type="button" class="pill-btn" onclick="setPhotoProgressPill('Cable 24C Line C')">Cable 24C Line C</button>
-            <button type="button" class="pill-btn" onclick="setPhotoProgressPill('Cable 24C Line D')">Cable 24C Line D</button>
-            <button type="button" class="pill-btn" onclick="setPhotoProgressPill('FAT Line A')">FAT Line A</button>
+            <button type="button" class="pill-btn active" onclick="setPhotoProgressPill('FAT Line A')">FAT Line A</button>
             <button type="button" class="pill-btn" onclick="setPhotoProgressPill('FAT Line B')">FAT Line B</button>
             <button type="button" class="pill-btn" onclick="setPhotoProgressPill('FAT Line C')">FAT Line C</button>
             <button type="button" class="pill-btn" onclick="setPhotoProgressPill('FAT Line D')">FAT Line D</button>
             <button type="button" class="pill-btn" onclick="setPhotoProgressPill('Penanaman Tiang')">Penanaman Tiang</button>
             <button type="button" class="pill-btn" onclick="setPhotoProgressPill('Pole view')">Pole view</button>
             <button type="button" class="pill-btn" onclick="setPhotoProgressPill('Opname Lapangan')">Opname Lapangan</button>
-          </div>
-
-          <!-- Muncul Khusus untuk Kategori Line (Penarikan Kabel) -->
-          <div id="lineCableSubboxContainer" style="background: #f8fafc; border: 1.5px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 6px; margin-bottom: 12px;">
-            <div style="font-size: 0.8rem; font-weight: 700; color: var(--bmi-dark); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-              <span>⚡ Penarikan Kabel per Line:</span>
-              <span id="badgeActiveCableLine" style="background: var(--bmi-gold); color: #0f172a; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 800;">Line A</span>
-            </div>
-
-            <div class="form-grid-2">
-              <div class="form-group">
-                <label for="photoCableLineSelect">Pilih Line Kabel *</label>
-                <select id="photoCableLineSelect" onchange="onPhotoCableLineChange()">
-                  <option value="Line A">Line A</option>
-                  <option value="Line B">Line B</option>
-                  <option value="Line C">Line C</option>
-                  <option value="Line D">Line D</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label for="photoCableTypeSelect">Tipe Kabel *</label>
-                <select id="photoCableTypeSelect" onchange="onPhotoCableTypeChange()">
-                  <option value="Cable 24C">Cable 24C</option>
-                  <option value="Cable 36C">Cable 36C</option>
-                  <option value="Cable 48C">Cable 48C</option>
-                </select>
-              </div>
-            </div>
-
-            <div style="margin-top: 4px;">
-              <div style="font-size: 0.72rem; font-weight: 600; color: #64748b; margin-bottom: 4px;">Pilih Cepat Line Kabel:</div>
-              <div class="pill-group" id="cableLinePills">
-                <button type="button" class="pill-btn active" onclick="selectCableLinePill('Line A')">Line A</button>
-                <button type="button" class="pill-btn" onclick="selectCableLinePill('Line B')">Line B</button>
-                <button type="button" class="pill-btn" onclick="selectCableLinePill('Line C')">Line C</button>
-                <button type="button" class="pill-btn" onclick="selectCableLinePill('Line D')">Line D</button>
-              </div>
-            </div>
           </div>
 
           <!-- Hanya Muncul untuk Elektrik (FAT Line A, B, C, D) -->
@@ -1784,10 +1740,10 @@
           <!-- Tombol Pembuatan Struktur Folder di Google Drive -->
           <div style="margin-top: 10px; padding: 10px 12px; background: #f8fafc; border: 1.5px dashed var(--border); border-radius: 8px;">
             <div style="font-size: 0.76rem; color: #475569; margin-bottom: 6px;">
-              📁 <strong>Siapkan Folder Google Drive</strong>: Klik tombol di bawah untuk membuat seluruh folder site, SOW, Line A, B, C, D dan subfolder FAT di Google Drive sekaligus.
+              📁 <strong>Siapkan Folder Google Drive</strong>: Klik tombol di bawah untuk membuat seluruh folder site, Elektrik (FAT Line A, B, C, D), Pole view, Implementasi dan Opname Lapangan di Google Drive sekaligus.
             </div>
             <button type="button" class="btn-primary" onclick="createSiteFoldersInDrive()" id="btnCreateDriveFolders" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #fff; padding: 10px 14px; font-size: 0.82rem;">
-              📁 Buat Struktur Folder Site di Google Drive (Line A, B, C, D &amp; FAT)
+              📁 Buat Struktur Folder Site di Google Drive (Elektrik &amp; FAT Line A, B, C, D)
             </button>
             <div id="createDriveFolderStatus" style="display: none; margin-top: 8px; padding: 10px; border-radius: 6px; font-size: 0.78rem;"></div>
           </div>
@@ -3891,12 +3847,7 @@ ${e(todayActivity)}`;
       }
       const mainCat = document.getElementById('photoMainCategory');
       if (mainCat) {
-        if (text.startsWith('Cable 24C Line') || text.startsWith('Line ')) {
-          mainCat.value = 'Line';
-          handlePhotoCategoryChange();
-          const linePart = text.replace('Cable 24C ', '');
-          if (typeof selectCableLinePill === 'function') selectCableLinePill(linePart);
-        } else if (text.startsWith('FAT Line')) {
+        if (text.startsWith('FAT Line')) {
           mainCat.value = 'Elektrik';
           handlePhotoCategoryChange();
           const letter = text.replace('FAT Line ', '').trim();
@@ -3911,7 +3862,7 @@ ${e(todayActivity)}`;
           mainCat.value = 'Elektrik';
           handlePhotoCategoryChange();
         } else {
-          if (mainCat.value !== 'Implementasi' && mainCat.value !== 'Elektrik' && mainCat.value !== 'Line') {
+          if (mainCat.value !== 'Implementasi' && mainCat.value !== 'Elektrik') {
             mainCat.value = 'Implementasi';
             handlePhotoCategoryChange();
           }
@@ -5547,42 +5498,8 @@ ${e(todayActivity)}`;
       if (sel) selectPhotoFatPill(sel.value);
     }
 
-    function selectCableLinePill(line) {
-      const sel = document.getElementById('photoCableLineSelect');
-      if (sel) sel.value = line;
-      document.querySelectorAll('#cableLinePills .pill-btn').forEach(b => {
-        b.classList.toggle('active', b.innerText === line);
-      });
-      const badge = document.getElementById('badgeActiveCableLine');
-      if (badge) badge.innerText = line;
-
-      const progInp = document.getElementById('photoProgressManual');
-      const cType = document.getElementById('photoCableTypeSelect') ? document.getElementById('photoCableTypeSelect').value : 'Cable 24C';
-      if (progInp) progInp.value = `Penarikan ${cType} ${line}`;
-      updatePhotoDestPreview();
-      updateSelectedPhotoFileNames();
-    }
-
-    function onPhotoCableLineChange() {
-      const sel = document.getElementById('photoCableLineSelect');
-      if (sel) selectCableLinePill(sel.value);
-    }
-
-    function onPhotoCableTypeChange() {
-      const cType = document.getElementById('photoCableTypeSelect') ? document.getElementById('photoCableTypeSelect').value : 'Cable 24C';
-      const line = document.getElementById('photoCableLineSelect') ? document.getElementById('photoCableLineSelect').value : 'Line A';
-      const progInp = document.getElementById('photoProgressManual');
-      if (progInp) progInp.value = `Penarikan ${cType} ${line}`;
-      updatePhotoDestPreview();
-      updateSelectedPhotoFileNames();
-    }
-
     function getActivePhotoLine() {
       const cat = document.getElementById('photoMainCategory').value;
-      if (cat === 'Line') {
-        const el = document.getElementById('photoCableLineSelect');
-        return el ? el.value : 'Line A';
-      }
       if (cat === 'Elektrik') {
         return `Line ${currentFatLine}`;
       }
@@ -5592,18 +5509,13 @@ ${e(todayActivity)}`;
     function handlePhotoCategoryChange() {
       const cat = document.getElementById('photoMainCategory').value;
       const elBox = document.getElementById('elektrikSubboxContainer');
-      const lineBox = document.getElementById('lineCableSubboxContainer');
       
+      // Pilihan Line hanya ada di Elektrik (FAT Line A, B, C, D).
       if (elBox) elBox.style.display = (cat === 'Elektrik') ? 'block' : 'none';
-      if (lineBox) lineBox.style.display = (cat === 'Line') ? 'block' : 'none';
       
       const progInp = document.getElementById('photoProgressManual');
       if (progInp) {
-        if (cat === 'Line') {
-          const l = document.getElementById('photoCableLineSelect') ? document.getElementById('photoCableLineSelect').value : 'Line A';
-          const ct = document.getElementById('photoCableTypeSelect') ? document.getElementById('photoCableTypeSelect').value : 'Cable 24C';
-          progInp.value = `Penarikan ${ct} ${l}`;
-        } else if (cat === 'Pole view') {
+        if (cat === 'Pole view') {
           progInp.value = 'Pole view';
         } else if (cat === 'Opname Lapangan') {
           progInp.value = 'Opname Lapangan';
@@ -5616,7 +5528,7 @@ ${e(todayActivity)}`;
         }
         updateSelectedPhotoFileNames();
       }
-      updatePhotoDestPreview();
+      onPhotoProgressManualChange();
     }
 
     function getActivePhotoSite() {
@@ -5829,18 +5741,13 @@ ${e(todayActivity)}`;
     function getPhotoTargetInfo(idx = 0) {
       const site = getActivePhotoSite();
       const sow = getActivePhotoSow();
-      const mainCat = document.getElementById('photoMainCategory') ? document.getElementById('photoMainCategory').value : 'Line';
+      const mainCat = document.getElementById('photoMainCategory') ? document.getElementById('photoMainCategory').value : 'Elektrik';
 
       // Struktur Folder Google Drive Resmi: DOKUMENTASI FTTH / [Site Name] / [Kategori / Subfolder]
       let path = `DOKUMENTASI FTTH / ${site} / ${mainCat}`;
       let targetFileName = `WASPANG_${mainCat}_${idx + 1}.jpg`;
 
-      if (mainCat === 'Line') {
-        const cLine = document.getElementById('photoCableLineSelect') ? document.getElementById('photoCableLineSelect').value : 'Line A';
-        path = `DOKUMENTASI FTTH / ${site} / Line / ${cLine}`;
-        const cType = document.getElementById('photoCableTypeSelect') ? document.getElementById('photoCableTypeSelect').value : 'Cable 24C';
-        targetFileName = `${cType.replace(/\s+/g, '_').toUpperCase()}_${cLine.replace(/\s+/g, '_').toUpperCase()}_${idx + 1}.jpg`;
-      } else if (mainCat === 'Pole view') {
+      if (mainCat === 'Pole view') {
         path = `DOKUMENTASI FTTH / ${site} / Pole view`;
         targetFileName = `${idx + 1}.jpg`;
       } else if (mainCat === 'Elektrik') {
@@ -6154,7 +6061,7 @@ ${e(todayActivity)}`;
             session: wsSid(),
             siteName: site,
             sow: sow,
-            mainCategory: document.getElementById('photoMainCategory') ? document.getElementById('photoMainCategory').value : 'Line',
+            mainCategory: document.getElementById('photoMainCategory') ? document.getElementById('photoMainCategory').value : 'Elektrik',
             progressText: progText,
             subPath: path,
             waspang: waspang,
@@ -6293,7 +6200,6 @@ ${e(todayActivity)}`;
           session: wsSid(),
           siteName: site,
           sow: sow,
-          lines: ["Line A", "Line B", "Line C", "Line D"],
           fatCounts: counts
         };
 
@@ -6332,7 +6238,7 @@ ${e(todayActivity)}`;
       }
 
       btn.disabled = false;
-      btn.innerText = "📁 Buat / Generate Folder Site di Google Drive (Line A, B, C, D & FAT)";
+      btn.innerText = "📁 Buat Struktur Folder Site di Google Drive (Elektrik & FAT Line A, B, C, D)";
     }
 
     function updateDriveConnectionBanner() {
