@@ -2,6 +2,9 @@ var CONFIG = {
   WASPANG_SPREADSHEET_ID: "1ZlSlITeC9zi-m894gQYUUn4YMfP6_8B_Jtep5a33OjA",
   DOKUMENTASI_FOLDER_ID: "1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ", // folder "DOKUMENTASI FTTH" di Google Drive
   TELEGRAM_CHAT_ID: "@ReportBMI",
+  // Laporan otomatis ke grup WhatsApp lewat gateway Fonnte (api.fonnte.com). MATI sampai nomor WA dan grupnya siap.
+  // Untuk menyalakan: isi Script Properties FONNTE_TOKEN dan WA_TARGET (lihat waConfig_), lalu ubah ke true.
+  WA_GATEWAY_ENABLED: false,
   // Gateway FTTH Project Control Portal: menukar tiket sekali pakai dengan username & role (untuk mengenali akun RPM).
   GATEWAY_URL: "https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec",
   // Spreadsheet Portal FTTH: daftar site (Name) dan SOW di portal Waspang diambil dari tab DATA BASE.
@@ -281,8 +284,10 @@ function uploadWaspangPhotos_(payload) {
     saved.push({ name: file.getName(), url: file.getUrl() });
   });
 
-  var telegramOk = sendWaspangPhotosToTelegram_(blobs, buildWaspangPhotoCaption_(payload));
+  var caption = buildWaspangPhotoCaption_(payload);
+  var telegramOk = sendWaspangPhotosToTelegram_(blobs, caption);
   logWaspangPhotoToSheet_(payload, targetFolder.getUrl(), saved, telegramOk);
+  sendWaspangPhotosToWhatsApp_(blobs, caption);
 
   return { status: 'success', folderUrl: targetFolder.getUrl() };
 }
@@ -367,6 +372,84 @@ function telegramFetch_(url, payload) {
   try { return JSON.parse(res.getContentText()) || {}; } catch (e) { return {}; }
 }
 
+// ===================== WHATSAPP (FONNTE) =====================
+// Salinan laporan ke grup WhatsApp, dikirim setelah Telegram. Semua fungsi di sini tidak pernah melempar error:
+// bila flag mati, token/tujuan kosong, atau Fonnte gagal, Telegram dan portal tetap berjalan seperti biasa.
+// Token dan tujuan TIDAK ditulis di kode (repo ini publik). Simpan di Script Properties:
+//   FONNTE_TOKEN : token perangkat dari dashboard fonnte.com (setelah nomor WA disambungkan lewat scan QR)
+//   WA_TARGET    : ID grup WA (mis. 120363xxxxxxxxxxxx@g.us, lihat waListGroups) atau nomor 62xxx; boleh beberapa, pisahkan koma
+function waConfig_() {
+  if (!CONFIG.WA_GATEWAY_ENABLED) return null;
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var token = props.getProperty('FONNTE_TOKEN'), target = props.getProperty('WA_TARGET');
+    return token && target ? { token: token, target: target } : null;
+  } catch (e) { return null; }
+}
+
+// Format Markdown Telegram -> format WhatsApp: *tebal*, _miring_ dan `kode` sama; tautan [teks](url) jadi "teks (url)",
+// garis miring pelindung (\_ \* \[) dibuang.
+function waText_(text) {
+  return String(text || '')
+    .replace(/\[([^\]]*)\]\((https?:[^)\s]+)\)/g, '$1 ($2)')
+    .replace(/\\([_*`\[\]])/g, '$1');
+}
+
+// Satu kiriman ke Fonnte (teks, atau satu file dengan teks sebagai keterangan). -> true bila diterima.
+function waSend_(wa, message, blob) {
+  try {
+    var payload = { target: wa.target, message: waText_(message) };
+    if (blob) {
+      payload.file = blob;
+      payload.filename = blob.getName();
+    }
+    var res = UrlFetchApp.fetch('https://api.fonnte.com/send', {
+      method: 'post', headers: { Authorization: wa.token }, payload: payload, muteHttpExceptions: true
+    });
+    var json = {};
+    try { json = JSON.parse(res.getContentText()) || {}; } catch (e) {}
+    if (json.status !== true) console.error('Fonnte send error: ' + (json.reason || res.getResponseCode()));
+    return json.status === true;
+  } catch (err) {
+    console.error('Fonnte send error: ' + err);
+    return false;
+  }
+}
+
+// Foto / PDF Dokumentasi Lapangan: keterangan laporan ikut pada file pertama, file lain menyusul satu per satu.
+function sendWaspangPhotosToWhatsApp_(blobs, caption) {
+  var wa = waConfig_();
+  if (!wa) return;
+  if (!blobs.length) { waSend_(wa, caption); return; }
+  blobs.forEach(function (blob, i) { waSend_(wa, i === 0 ? caption : '', blob); });
+}
+
+function sendDailyReportToWhatsApp_(text) {
+  var wa = waConfig_();
+  if (wa) waSend_(wa, text);
+}
+
+// Jalankan dari editor Apps Script (pilih fungsi > Run) setelah FONNTE_TOKEN diisi: daftar grup WA nomor itu
+// muncul di Execution log; salin ID grup laporan ke Script Property WA_TARGET. Tidak bergantung pada flag.
+function waListGroups() {
+  var token = PropertiesService.getScriptProperties().getProperty('FONNTE_TOKEN');
+  if (!token) throw new Error('FONNTE_TOKEN belum diisi di Script Properties.');
+  var opt = { method: 'post', headers: { Authorization: token }, muteHttpExceptions: true };
+  UrlFetchApp.fetch('https://api.fonnte.com/fetch-group', opt);   // segarkan daftar grup di Fonnte
+  var res = UrlFetchApp.fetch('https://api.fonnte.com/get-whatsapp-group', opt);
+  var json = {};
+  try { json = JSON.parse(res.getContentText()) || {}; } catch (e) {}
+  (json.data || []).forEach(function (g) { console.log(g.name + '  ->  ' + g.id); });
+  if (!json.data) console.log('Balasan Fonnte: ' + res.getContentText());
+}
+
+// Kirim satu pesan uji ke WA_TARGET (setelah flag dinyalakan dan Script Properties diisi).
+function waTest() {
+  var wa = waConfig_();
+  if (!wa) throw new Error('WhatsApp belum aktif: cek WA_GATEWAY_ENABLED, FONNTE_TOKEN dan WA_TARGET.');
+  console.log(waSend_(wa, '✅ Tes Portal Waspang: laporan WhatsApp otomatis sudah tersambung.') ? 'Terkirim.' : 'Gagal, lihat log.');
+}
+
 // Satu baris per foto, mengikuti judul kolom tab LOG FOTO WASPANG.
 function logWaspangPhotoToSheet_(payload, folderUrl, saved, telegramOk) {
   try {
@@ -417,6 +500,7 @@ function sendDailyReportEMR_(payload) {
   } catch (err) {
     return { status: 'error', message: err.toString() };
   }
+  sendDailyReportToWhatsApp_(text);
 
   // Laporan sudah terkirim: catat di tab DAILY REPORT EMR. Gagal di sini tidak membatalkan laporan.
   try {
