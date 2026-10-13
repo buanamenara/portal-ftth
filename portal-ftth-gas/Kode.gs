@@ -5410,7 +5410,21 @@ function opnameMapRows_(items) {
   var skipped = [];
   // Kabel/JC 144 core terisi = asesoris yang dipakai varian 144 (sama seperti BOQ Excel)
   var is144 = items.some(function (it) { return /144\s*cores?\b|in-line 144/i.test(it.canon || it.desc) && opnameQty_(it.qtyText) > 0; });
+  // Keterangan singkat asal qty yang ditampilkan di bawah nama item (baris yang tidak ditandai Cek Qty)
+  var qtyInfoOf = function (it) {
+    var t = '';
+    if (it.qtyChecked && it.qtyGoogle === 'isi') t = 'Qty dari OCR Google (OCR.space: ' + it.qtyFrom + '), cocok dengan cek silang.';
+    else if (it.qtyChecked && it.qtyGoogle === 'beda') t = 'OCR Google membaca ' + it.qtyGg + ', OCR.space membaca ' + it.qtyOs + '; dipakai ' + it.qtyText + ' karena cocok dengan cek silang.';
+    if (it.fromNote) t += (t ? ' ' : '') + 'Baris dari Note di bawah tabel PDF.';
+    return t;
+  };
   items.forEach(function (it) {
+    var n0 = rows.length;
+    mapOne(it);
+    var info = qtyInfoOf(it);
+    if (info) for (var k = n0; k < rows.length; k++) if (!rows[k].qtySuspect) rows[k].qtyInfo = info;
+  });
+  function mapOne(it) {
     var qty = opnameQty_(it.qtyText);
     // Nama baku dari katalog bila teks OCR-nya dikenali (lihat opnameCatalogBest_); teks asli OCR disebut di catatan bila berbeda
     if (it.canon === undefined) it.canon = (opnameCatalogBest_(it.desc) || {}).text || '';
@@ -5496,7 +5510,7 @@ function opnameMapRows_(items) {
     } else {
       rows.push({ label: desc, desig: hit, qty: qty, options: [], qtySuspect: suspect, note: suspectNote + noQty });
     }
-  });
+  }
   return { rows: rows, skipped: skipped };
 }
 
@@ -7572,24 +7586,34 @@ function logSheetEdit(e) {
   } catch (err) { /* jangan mengganggu pengetikan */ }
 }
 
-// Google tidak memberi email akun Gmail lain ke skrip. Gantinya: nama akun Google "terakhir diubah oleh" dari Google Drive,
-// hanya bila datanya baru (diubah < 3 menit lalu dan bukan pemilik). Data Drive kadang tertinggal beberapa detik, maka dicoba
-// sekali lagi. Hasil disimpan 30 detik per spreadsheet supaya ketikan beruntun tidak memanggil Drive tiap sel.
+// Google tidak memberi email akun Gmail lain ke skrip. Gantinya: nama akun Google "terakhir diubah oleh" dari Google Drive.
+// Data Drive sering tertinggal puluhan detik, dan tulisan LOG HISTORY dari portal (akun pemilik skrip) ikut tercatat sebagai
+// perubahan terakhir. Karena itu: Drive dicek beberapa kali sampai menunjukkan perubahan pada/setelah edit ini oleh akun lain.
+// Bila tertutup oleh tulisan pemilik skrip, dipakai pengedit terakhir yang dikenali di spreadsheet ini dalam 15 menit
+// terakhir, diberi tanda "(perkiraan)". Hasil disimpan sebentar (1 menit) supaya ketikan beruntun
+// tidak memanggil Drive dan menunggu di setiap sel.
 function driveLastEditor_(ssId) {
-  var cache = CacheService.getScriptCache(), key = 'lastEd_' + ssId;
+  var cache = CacheService.getScriptCache(), key = 'lastEd_' + ssId, knownKey = 'knownEd_' + ssId;
+  var t0 = Date.now() - 30000;   // waktu edit (pemicu kadang baru berjalan beberapa detik setelahnya)
   try {
     var hit = cache.get(key);
     if (hit) return hit;
-    for (var i = 0; i < 2; i++) {
+    var waits = [0, 5000, 10000];
+    for (var i = 0; i < waits.length; i++) {
+      if (waits[i]) Utilities.sleep(waits[i]);
       var f = Drive.Files.get(ssId, { fields: 'modifiedTime,lastModifyingUser(displayName,emailAddress,me)' });
-      var u = (f && f.lastModifyingUser) || {}, age = Date.now() - new Date(f.modifiedTime).getTime();
-      if (u.displayName && !u.me && age < 180000) {
+      var u = (f && f.lastModifyingUser) || {}, mt = new Date(f.modifiedTime).getTime();
+      if (mt < t0) continue;                      // Drive belum memuat edit ini
+      if (u.me) break;                            // tertutup tulisan portal/skrip setelah edit ini
+      if (u.displayName) {
         var name = String(u.displayName) + (u.emailAddress ? ' (' + u.emailAddress + ')' : '');
-        cache.put(key, name, 30);
+        cache.put(key, name, 60);
+        cache.put(knownKey, name, 900);
         return name;
       }
-      if (i === 0) Utilities.sleep(3000);
     }
+    var known = cache.get(knownKey);
+    if (known) { cache.put(key, known + ' (perkiraan)', 60); return known + ' (perkiraan)'; }
   } catch (e) { /* tetap (tidak diketahui) */ }
   return '';
 }
