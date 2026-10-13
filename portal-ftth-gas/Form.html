@@ -3184,6 +3184,7 @@
         .withSuccessHandler(function (f) {
           b.disabled = false;
           b.textContent = old;
+          if (appSave(f.data, f.name, f.mime)) return;
           var bin = atob(f.data);
           var arr = new Uint8Array(bin.length);
           for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
@@ -3383,7 +3384,13 @@
         .getBaGudangInit();
     }
 
+    // Aplikasi Android Portal FTTH (WebView) tidak bisa mengunduh blob dari halaman ini; simpan lewat jembatan BMIApp.
+    function appSave(b64, name, mime) {
+      try { return !!(window.BMIApp && window.BMIApp.saveBase64 && window.BMIApp.saveBase64(b64, name, mime || '')); } catch (e) { return false; }
+    }
+
     function bgDownloadB64(name, b64) {
+      if (appSave(b64, name, 'application/pdf')) return;
       var bin = atob(b64), arr = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
       var url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }));
@@ -3778,6 +3785,7 @@
         .withSuccessHandler(function (f) {
           b.disabled = false;
           b.textContent = old;
+          if (appSave(f.data, f.name, f.mime)) return;
           var bin = atob(f.data);
           var arr = new Uint8Array(bin.length);
           for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
