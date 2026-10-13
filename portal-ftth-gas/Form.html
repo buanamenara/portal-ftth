@@ -1950,7 +1950,7 @@
       boq.isOpnamePdf = ('clusterName' in res);
       boq.opnameZeroRead = boq.isOpnamePdf && !res.jumlahBaris;
       if (boq.isOpnamePdf) {
-        if (res.clusterName && !$('siteName').value.trim()) $('siteName').value = res.clusterName;
+        if ((res.siteMatch || res.clusterName) && !$('siteName').value.trim()) $('siteName').value = res.siteMatch || res.clusterName;
         var opInfo = [];
         if (res.area) opInfo.push('Area: ' + esc(res.area));
         if (res.hpRfs) opInfo.push('HP RFS (PDF): ' + esc(res.hpRfs));
@@ -1958,6 +1958,7 @@
         if (res.poNumber) opInfo.push('PO Number: ' + esc(res.poNumber));
         if (res.drmDate) opInfo.push('DRM Date: ' + esc(res.drmDate));
         if (res.rfsDate) opInfo.push('RFS Declare Date: ' + esc(res.rfsDate));
+        if (res.siteMatch && res.clusterName && res.siteMatch.toLowerCase() !== res.clusterName.toLowerCase()) opInfo.push('Site di DATA BASE: ' + esc(res.siteMatch));
         var opHtml = opInfo.length ? ('<div class="sow-note ok"><strong>Info dari PDF Opname' + (res.clusterName ? ' (' + esc(res.clusterName) + ')' : '') + ':</strong> ' + opInfo.join(' &middot; ') + '</div>') : '';
         if (boq.opnameZeroRead) {
           opHtml += '<div class="warn" style="background:#fce8e6;color:#8a1c17;border-left:4px solid #c5221f"><strong>PDF ini belum berhasil dibaca sama sekali (0 baris material terbaca).</strong> Tombol kirim di bawah dinonaktifkan dulu supaya data yang sudah ada di sheet tidak tertimpa jadi 0. Buka kotak &quot;Teks hasil OCR PDF Opname&quot; di bawah, copy isinya, lalu kirim ke admin untuk diperiksa.</div>';
@@ -2010,6 +2011,44 @@
       $('boqPreview').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    // Halaman PDF Opname dirender jadi JPG kecil (maks 3 halaman, tiap gambar di bawah 1 MB) untuk OCR.space: kunci gratisnya
+    // menolak file di atas 1 MB, padahal PDF hasil scan HP biasanya 1-27 MB. Gagal render = kirim tanpa gambar (server memakai PDF).
+    var OPNAME_IMG_MAX = 950000;
+    function opnameRenderPages(dataUrl) {
+      return baLoadPdfJs().then(function (pdfjsLib) {
+        var bin = atob(dataUrl.split(',')[1]);
+        var bytes = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return pdfjsLib.getDocument({ data: bytes }).promise;
+      }).then(function (pdf) {
+        var out = [];
+        var n = Math.min(pdf.numPages, 3);
+        var next = function (k) {
+          if (k > n) return Promise.resolve(out);
+          return pdf.getPage(k).then(function (page) {
+            var vp1 = page.getViewport({ scale: 1 });
+            var tries = [[2000, 0.85], [1700, 0.75], [1400, 0.7], [1200, 0.6]];
+            var attempt = function (t) {
+              var vp = page.getViewport({ scale: tries[t][0] / vp1.width });
+              var cv = document.createElement('canvas');
+              cv.width = Math.round(vp.width);
+              cv.height = Math.round(vp.height);
+              var ctx = cv.getContext('2d');
+              ctx.fillStyle = '#fff';
+              ctx.fillRect(0, 0, cv.width, cv.height);
+              return page.render({ canvasContext: ctx, viewport: vp }).promise.then(function () {
+                var b64 = cv.toDataURL('image/jpeg', tries[t][1]).split(',')[1];
+                if (b64.length * 0.75 > OPNAME_IMG_MAX && t + 1 < tries.length) return attempt(t + 1);
+                return b64;
+              });
+            };
+            return attempt(0).then(function (b64) { out.push(b64); return next(k + 1); });
+          });
+        };
+        return next(1);
+      });
+    }
+
     $('uploadForm').addEventListener('submit', function (e) {
       e.preventDefault();
       var file = $('fileInput').files[0];
@@ -2027,14 +2066,19 @@
       var reader = new FileReader();
       reader.onload = function () {
         var base64 = reader.result.split(',')[1];
-        GSR
-          .withSuccessHandler(renderBoqPreview)
-          .withFailureHandler(function (error) {
-            btn.disabled = false;
-            btn.textContent = 'Baca BOQ';
-            boqStatus('error', (isPdf ? '<strong>Gagal membaca PDF Opname:</strong> ' : '<strong>Gagal membaca BOQ:</strong> ') + esc(error.message));
-          })
-          [isPdf ? 'extractOpnamePdf' : 'extractBoq'](base64, file.name);
+        var call = function (pages) {
+          var run = GSR
+            .withSuccessHandler(renderBoqPreview)
+            .withFailureHandler(function (error) {
+              btn.disabled = false;
+              btn.textContent = 'Baca BOQ';
+              boqStatus('error', (isPdf ? '<strong>Gagal membaca PDF Opname:</strong> ' : '<strong>Gagal membaca BOQ:</strong> ') + esc(error.message));
+            });
+          if (isPdf) run.extractOpnamePdf(base64, file.name, pages || null);
+          else run.extractBoq(base64, file.name);
+        };
+        if (isPdf) opnameRenderPages(reader.result).then(call, function () { call(null); });
+        else call(null);
       };
       reader.readAsDataURL(file);
     });
