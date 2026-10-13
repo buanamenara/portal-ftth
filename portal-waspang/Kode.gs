@@ -2,9 +2,9 @@ var CONFIG = {
   WASPANG_SPREADSHEET_ID: "1ZlSlITeC9zi-m894gQYUUn4YMfP6_8B_Jtep5a33OjA",
   DOKUMENTASI_FOLDER_ID: "1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ", // folder "DOKUMENTASI FTTH" di Google Drive
   TELEGRAM_CHAT_ID: "@ReportBMI",
-  // Laporan otomatis ke grup WhatsApp lewat gateway Fonnte (api.fonnte.com). MATI sampai nomor WA dan grupnya siap.
-  // Untuk menyalakan: isi Script Properties FONNTE_TOKEN dan WA_TARGET (lihat waConfig_), lalu ubah ke true.
-  WA_GATEWAY_ENABLED: false,
+  // Laporan otomatis ke grup WhatsApp lewat gateway Fonnte (api.fonnte.com). Baru terkirim bila Script Properties
+  // FONNTE_TOKEN dan WA_TARGET sudah diisi (lihat waConfig_); false = matikan semua kiriman WA.
+  WA_GATEWAY_ENABLED: true,
   // true = foto/PDF dikirim langsung ke grup (butuh paket Fonnte berbayar Super ke atas; file > 4 MB jadi link Drive).
   // false = paket Fonnte gratis (hanya teks): foto/PDF dikirim sebagai link Google Drive yang bisa dibuka siapa saja
   // yang memegang link.
