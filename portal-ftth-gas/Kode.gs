@@ -7415,11 +7415,11 @@ function getLogHistory(code) { requireRpm_(code); return { rows: getLogHistory_(
 // di Spreadsheet (edit manual sheet DATA BASE, ditangkap pemicu onEdit). Sheet LOG HISTORY
 // dibuat otomatis di spreadsheet utama (bukan spreadsheet RPM, supaya onEdit tidak perlu
 // membuka spreadsheet lain - simple trigger tidak diizinkan melakukan itu).
-// Baris paling lama dibuang otomatis di atas LOG_MAX_ROWS supaya sheet tidak terus membesar.
+// Setelah lebih dari LOG_RESET_ROWS baris, isi log dimulai lagi dari nol (logResetIfFull_).
 // =====================================================================
 var LOG_SH = 'LOG HISTORY';
 var LOG_HEAD = ['Waktu', 'Sumber', 'User', 'Peran', 'Aksi', 'Detail'];
-var LOG_MAX_ROWS = 2000;
+var LOG_RESET_ROWS = 550;
 
 function rpmStyleLog_(sh) {
   var n = LOG_HEAD.length;
@@ -7448,6 +7448,17 @@ function setupLogHistory_() {
 }
 function setupLogHistory() { ownerOnly_(); return setupLogHistory_(); }
 
+// LOG HISTORY dimulai lagi dari nol setiap kali terisi lebih dari LOG_RESET_ROWS baris: baris terbaru dipindah ke
+// baris 5 dan baris lainnya dikosongkan (bukan dihapus, supaya format dan warna baris tetap).
+function logResetIfFull_(sh, row) {
+  if (row - 4 <= LOG_RESET_ROWS) return;
+  var last = sh.getRange(row, 1, 1, 6).getValues()[0].map(function (v) {
+    return typeof v === 'string' && /^[=+\-@]/.test(v) ? "'" + v : v;
+  });
+  sh.getRange(5, 1, row - 4, 6).clearContent();
+  sh.getRange(5, 1, 1, 6).setValues([last]);
+}
+
 // Dipanggil dari aksi Portal dan dari onEdit (Spreadsheet). Tidak boleh membuat aksi utama gagal,
 // jadi kegagalan di sini dibiarkan saja (try/catch).
 function logHistory_(sumber, user, peran, aksi, detail) {
@@ -7459,11 +7470,10 @@ function logHistory_(sumber, user, peran, aksi, detail) {
     // appendRow: aman bila Portal Waspang atau pemicu edit menulis di saat yang sama (tidak saling menimpa baris).
     if (sh.getLastRow() >= 4) sh.appendRow(vals); else sh.getRange(5, 1, 1, 6).setValues([vals]);
     var row = sh.getLastRow(), w = Math.min(10, row - 4);
-    // Format 10 baris terakhir saja (baris lain bisa ditulis bersamaan oleh pemicu edit/portal lain); baris lama
-    // dibuang sekaligus 200 baris supaya tidak menggeser seluruh tab di setiap aksi.
+    // Format 10 baris terakhir saja (baris lain bisa ditulis bersamaan oleh pemicu edit/portal lain).
     sh.getRange(row - w + 1, 1, w, 1).setNumberFormat('dd mmm yyyy HH:mm');
     sh.getRange(row - w + 1, 1, w, 6).setVerticalAlignment('middle').setWrap(true);
-    if (row - 4 > LOG_MAX_ROWS + 200) sh.deleteRows(5, row - 4 - LOG_MAX_ROWS);
+    logResetIfFull_(sh, row);
   } catch (e) { /* jangan sampai gagal mencatat log menghentikan aksi utama */ }
 }
 
