@@ -5410,7 +5410,21 @@ function opnameMapRows_(items) {
   var skipped = [];
   // Kabel/JC 144 core terisi = asesoris yang dipakai varian 144 (sama seperti BOQ Excel)
   var is144 = items.some(function (it) { return /144\s*cores?\b|in-line 144/i.test(it.canon || it.desc) && opnameQty_(it.qtyText) > 0; });
+  // Keterangan singkat asal qty yang ditampilkan di bawah nama item (baris yang tidak ditandai Cek Qty)
+  var qtyInfoOf = function (it) {
+    var t = '';
+    if (it.qtyChecked && it.qtyGoogle === 'isi') t = 'Qty dari OCR Google (OCR.space: ' + it.qtyFrom + '), cocok dengan cek silang.';
+    else if (it.qtyChecked && it.qtyGoogle === 'beda') t = 'OCR Google membaca ' + it.qtyGg + ', OCR.space membaca ' + it.qtyOs + '; dipakai ' + it.qtyText + ' karena cocok dengan cek silang.';
+    if (it.fromNote) t += (t ? ' ' : '') + 'Baris dari Note di bawah tabel PDF.';
+    return t;
+  };
   items.forEach(function (it) {
+    var n0 = rows.length;
+    mapOne(it);
+    var info = qtyInfoOf(it);
+    if (info) for (var k = n0; k < rows.length; k++) if (!rows[k].qtySuspect) rows[k].qtyInfo = info;
+  });
+  function mapOne(it) {
     var qty = opnameQty_(it.qtyText);
     // Nama baku dari katalog bila teks OCR-nya dikenali (lihat opnameCatalogBest_); teks asli OCR disebut di catatan bila berbeda
     if (it.canon === undefined) it.canon = (opnameCatalogBest_(it.desc) || {}).text || '';
@@ -5496,7 +5510,7 @@ function opnameMapRows_(items) {
     } else {
       rows.push({ label: desc, desig: hit, qty: qty, options: [], qtySuspect: suspect, note: suspectNote + noQty });
     }
-  });
+  }
   return { rows: rows, skipped: skipped };
 }
 
