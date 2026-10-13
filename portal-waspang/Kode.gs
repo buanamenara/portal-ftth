@@ -464,14 +464,17 @@ function sendWaspangPhotosToWhatsApp_(blobs, saved, caption) {
   var wa = waConfig_();
   if (!wa) return;
   if (CONFIG.WA_SEND_FILES && blobs.length) {
-    // Fonnte menolak file > 4 MB: file seperti itu dikirim sebagai link Drive di akhir.
-    var big = [], first = true;
+    // File > 4 MB, atau file yang ditolak Fonnte (mis. paket gratis tidak bisa kirim file), dikirim sebagai link
+    // Drive di akhir; keterangan laporan ikut di sana bila belum terkirim bersama file.
+    var rest = [], captionSent = false, refused = false;
     blobs.forEach(function (blob, i) {
-      if (blob.getBytes().length > 4 * 1024 * 1024) { big.push(saved[i]); return; }
-      waSend_(wa, first ? caption : '', blob);
-      first = false;
+      if (!refused && blob.getBytes().length <= 4 * 1024 * 1024) {
+        if (waSend_(wa, captionSent ? '' : caption, blob)) { captionSent = true; return; }
+        refused = true;   // satu file ditolak: sisanya langsung jadi link, tidak dicoba satu per satu
+      }
+      rest.push(saved[i]);
     });
-    if (big.length) sendWaLinks_(wa, first ? caption : '', big);
+    if (rest.length) sendWaLinks_(wa, captionSent ? '' : caption, rest);
     return;
   }
   sendWaLinks_(wa, caption, saved);
