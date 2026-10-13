@@ -4537,7 +4537,14 @@ function opnameInfoFromTables_(tables) {
 
 // Baris yang bukan nilai field manapun (judul kolom tabel material, atau label field lain): batas supaya nilai tidak "bocor" dari field kosong.
 function opnameIsStopLine_(k) {
-  return OPNAME_INFO_LABELS.indexOf(k) > -1 || /^(no\.?|material\s*description|detail|supplier|remarks)$/.test(k) || /^qty/.test(k);
+  return OPNAME_INFO_LABELS.indexOf(opnameInfoLabel_(k)) > -1 || /^(no\.?|material\s*description|detail|supplier|remarks)$/.test(k) || /^qty/.test(k) ||
+    /^(i+\.?\s*)?(detail material|cluster information)/.test(k);
+}
+// Label info cluster dikenali walau spasinya hilang/bertambah di hasil OCR ("HPRFS", "PR  Number"); kembali ke nama baku labelnya.
+function opnameInfoLabel_(k) {
+  var c = String(k || '').replace(/[^a-z0-9]/g, '');
+  for (var i = 0; i < OPNAME_INFO_LABELS.length; i++) { if (OPNAME_INFO_LABELS[i].replace(/\s+/g, '') === c) return OPNAME_INFO_LABELS[i]; }
+  return k;
 }
 
 // Dua pola: "Label: nilai" satu baris (PDF digital), atau label lalu nilainya di baris berikutnya (hasil OCR scan/foto; sel kosong
@@ -4548,11 +4555,11 @@ function opnameInfoFromLines_(lines) {
     var raw = lines[i];
     var m = raw.match(/^(.*?)\s*[:;]\s*(.+)$/);
     if (m) {
-      var k1 = m[1].toLowerCase().replace(/\s+/g, ' ').trim();
+      var k1 = opnameInfoLabel_(m[1].toLowerCase().replace(/\s+/g, ' ').trim());
       if (OPNAME_INFO_KEYS.indexOf(k1) > -1 && !info[k1]) info[k1] = baClean_(m[2]);
       continue;
     }
-    var k = raw.toLowerCase().replace(/\s+/g, ' ').trim();
+    var k = opnameInfoLabel_(raw.toLowerCase().replace(/\s+/g, ' ').trim());
     if (OPNAME_INFO_LABELS.indexOf(k) === -1) continue;
     var nxt = (i + 1 < lines.length) ? lines[i + 1] : '';
     var nxtKey = nxt.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -4633,7 +4640,7 @@ var OPNAME_CATALOG_RAW_ = [
   '1. Plate belt 20mm', '2. Suspension clamp', '4. Buldog grip', '9. Steel clamp', '10. Pole clamp single',
   '12.Clamps Dead end Fittings/clamp buaya', '12. Bahan Pondasi tiang', 'Testcomm OTDR & OPM FDT - FAT',
   'Fiber Optic Joint Closure Type In-line 48 Core', 'Fiber Optic Joint Closure Type In-line 144 Core',
-  'Instal Sub Duct / HDPE 40/34 warna Ungu, 3 Strip Putih'
+  'Instal Sub Duct / HDPE 40/34 warna Ungu, 3 Strip Putih', '72 cores capacity ground mounted FDT'
 ];
 function opnameNorm_(s) {
   return String(s || '').replace(/^\s*\d{1,3}[.)]?\s*/, '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -4749,29 +4756,45 @@ function opnameItemsFromLines_(lines) {
   return { items: items, incomplete: incomplete };
 }
 
-// === OCR.space (gratis, tanpa billing) - tahap uji coba. Lihat panduan setup dari Claude untuk OCRSPACE_API_KEY ===
-function ocrSpaceAnnotatePdf_(base64Pdf) {
+// === OCR.space (gratis, tanpa billing) - lihat panduan setup dari Claude untuk OCRSPACE_API_KEY ===
+// Kunci gratis OCR.space hanya menerima file sampai 1 MB, sedangkan PDF opname hasil scan HP biasanya 1-27 MB. Karena itu halaman
+// PDF dirender dulu jadi gambar JPG kecil di browser (Form.html, pdf.js) dan dikirim per halaman (pageImages = daftar base64 JPG).
+// PDF utuh hanya dikirim bila gambar halaman tidak ada (browser gagal merender) dan ukurannya masih di bawah 1 MB.
+var OCRSPACE_MAX_BYTES_ = 1024 * 1024;
+function ocrSpaceAnnotatePdf_(base64Pdf, pageImages) {
   var apiKey = PropertiesService.getScriptProperties().getProperty('OCRSPACE_API_KEY');
   if (!apiKey) return null;
-  var payload = {
-    apikey: apiKey,
-    base64Image: 'data:application/pdf;base64,' + base64Pdf,
-    filetype: 'PDF',
-    OCREngine: '2',
-    isOverlayRequired: 'true',
-    isTable: 'true',
-    scale: 'true'
-  };
-  var resp;
+  var base = { apikey: apiKey, OCREngine: '2', isOverlayRequired: 'true', isTable: 'true', scale: 'true' };
+  var reqs = [];
+  var imgs = (pageImages || []).filter(function (b) { return b && typeof b === 'string'; }).slice(0, 3);
+  if (imgs.length) {
+    imgs.forEach(function (b64) {
+      var pl = { base64Image: 'data:image/jpeg;base64,' + b64, filetype: 'JPG' };
+      Object.keys(base).forEach(function (k) { pl[k] = base[k]; });
+      reqs.push({ url: 'https://api.ocr.space/parse/image', method: 'post', payload: pl, muteHttpExceptions: true });
+    });
+  } else {
+    if (Math.floor(String(base64Pdf || '').length * 3 / 4) > OCRSPACE_MAX_BYTES_) {
+      return { error: 'PDF lebih dari 1 MB dan gambar halamannya tidak terkirim dari browser (batas OCR.space gratis 1 MB per file)' };
+    }
+    var plp = { base64Image: 'data:application/pdf;base64,' + base64Pdf, filetype: 'PDF' };
+    Object.keys(base).forEach(function (k) { plp[k] = base[k]; });
+    reqs.push({ url: 'https://api.ocr.space/parse/image', method: 'post', payload: plp, muteHttpExceptions: true });
+  }
+  var resps;
   try {
-    resp = UrlFetchApp.fetch('https://api.ocr.space/parse/image', { method: 'post', payload: payload, muteHttpExceptions: true });
+    resps = UrlFetchApp.fetchAll(reqs);
   } catch (e) {
     return { error: 'Gagal memanggil OCR.space: ' + e };
   }
-  var json;
-  try { json = JSON.parse(resp.getContentText()); } catch (e2) { return { error: 'Respons OCR.space tidak bisa dibaca: ' + resp.getContentText().slice(0, 300) }; }
-  if (json.IsErroredOnProcessing) return { error: 'OCR.space error: ' + (json.ErrorMessage || json.ErrorDetails || JSON.stringify(json).slice(0, 300)) };
-  return { json: json };
+  var merged = { ParsedResults: [] };
+  for (var i = 0; i < resps.length; i++) {
+    var json;
+    try { json = JSON.parse(resps[i].getContentText()); } catch (e2) { return { error: 'Respons OCR.space tidak bisa dibaca: ' + resps[i].getContentText().slice(0, 300) }; }
+    if (json.IsErroredOnProcessing) return { error: 'OCR.space error' + (imgs.length ? ' (halaman ' + (i + 1) + ')' : '') + ': ' + (json.ErrorMessage || json.ErrorDetails || JSON.stringify(json).slice(0, 300)) };
+    (json.ParsedResults || []).forEach(function (r) { merged.ParsedResults.push(r); });
+  }
+  return { json: merged };
 }
 
 function ocrSpaceWords_(json) {
@@ -4789,93 +4812,312 @@ function ocrSpaceWords_(json) {
   return words;
 }
 
-// Tabel material dibaca dari posisi kata OCR.space: kolom ditentukan dari baris judul tabel, baris dari angka di kolom No.
-// Dengan posisi, qty tulisan tangan tetap berada di baris yang benar (tidak tertukar seperti teks biasa).
-function opnameItemsFromOcrJson_(json) {
-  var pages = (json && json.ParsedResults) || [];
+// Tabel material dibaca dari posisi kata OCR.space. Dicek dengan 12 PDF opname asli (folder uploads/opname-examples di project
+// files Claude): semua memakai form yang sama, tabel bisa berlanjut ke halaman 2 (judul kolom diulang di sana, tapi posisinya
+// bergeser karena tiap halaman difoto/di-scan terpisah), dan halaman terakhir berisi QR + catatan (bukan tabel). Karena itu:
+//  - kolom dihitung PER HALAMAN dari judul kolom halaman itu sendiri;
+//  - baris ditentukan dari nomor di kolom No dan kata Material/Service di kolom Detail (keduanya tercetak, lebih stabil daripada
+//    qty tulisan tangan); teks deskripsi dan qty masuk ke baris yang posisinya paling dekat;
+//  - semua jarak diukur relatif terhadap tinggi huruf dan jarak antar baris (resolusi foto berbeda-beda, 1470-3125 px lebar).
+function opnameKey_(t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+function opnameLev_(a, b) {
+  if (a === b) return 0;
+  var m = a.length, n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  var prev = [];
+  for (var j = 0; j <= n; j++) prev[j] = j;
+  for (var i = 1; i <= m; i++) {
+    var cur = [i];
+    for (var k = 1; k <= n; k++) cur[k] = Math.min(prev[k] + 1, cur[k - 1] + 1, prev[k - 1] + (a.charAt(i - 1) === b.charAt(k - 1) ? 0 : 1));
+    prev = cur;
+  }
+  return prev[n];
+}
+
+// Kata OCR dianggap sama dengan kata target bila beda hurufnya sedikit (mis. "Supplicr", "Rernarks", "Arca").
+function opnameLike_(word, target) {
+  var k = opnameKey_(word);
+  if (!k) return false;
+  var tol = target.length <= 3 ? 0 : (target.length <= 8 ? 1 : 2);
+  return opnameLev_(k, target) <= tol;
+}
+
+function opnameMedian_(arr) {
+  if (!arr.length) return 0;
+  var s = arr.slice().sort(function (a, b) { return a - b; });
+  return s[Math.floor(s.length / 2)];
+}
+
+function opnameOcrWords_(json) {
   var words = [];
-  pages.forEach(function (pg, pi) {
+  ((json && json.ParsedResults) || []).forEach(function (pg, pi) {
     ((pg.TextOverlay && pg.TextOverlay.Lines) || []).forEach(function (ln) {
       (ln.Words || []).forEach(function (w) {
-        words.push({ p: pi, t: String(w.WordText || '').trim(), x0: w.Left, x1: w.Left + w.Width, y0: w.Top, y1: w.Top + w.Height });
+        var t = baClean_(w.WordText);
+        if (!t) return;
+        var x0 = Number(w.Left), y0 = Number(w.Top), x1 = x0 + Number(w.Width), y1 = y0 + Number(w.Height);
+        words.push({ p: pi, t: t, x0: x0, x1: x1, y0: y0, y1: y1, xc: (x0 + x1) / 2, yc: (y0 + y1) / 2, h: Math.max(1, y1 - y0) });
       });
     });
   });
-  var none = function (why) { return { items: [], incomplete: [], missingNos: [], why: why }; };
-  if (!words.length) return none('OCR.space tidak mengembalikan posisi kata');
+  return words;
+}
 
-  var material = null, near = null, noHead = null, detailHead = null, supplierHead = null, qtyHead = null, remarksHead = null;
-  words.forEach(function (cand) {
-    if (material || cand.t !== 'Material') return;
-    var nr = function (w) { return w.p === cand.p && Math.abs(w.y0 - cand.y0) < 60; };
-    var hd = function (text) { return words.filter(function (w) { return w.t === text && nr(w); })[0]; };
-    var a = hd('No'), b = hd('Detail'), c = hd('Supplier'), d = hd('Qty'), e = hd('Remarks');
-    if (a && b && c && d && e) { material = cand; near = nr; noHead = a; detailHead = b; supplierHead = c; qtyHead = d; remarksHead = e; }
-  });
-  if (!material) return none('judul kolom No, Material, Detail, Supplier, Qty, Remarks tidak ditemukan dalam satu baris');
+// Judul kolom tabel material di satu halaman: "Material Description" + minimal Detail atau Supplier di baris yang sama.
+function opnameFindHeader_(pw) {
+  var sorted = pw.slice().sort(function (a, b) { return a.yc - b.yc; });
+  for (var i = 0; i < sorted.length; i++) {
+    var m = sorted[i];
+    var mk = opnameKey_(m.t);
+    var glued = mk.indexOf('material') === 0 && mk.indexOf('descr') > 0;   // "MaterialDescription" terbaca jadi satu kata
+    if (!glued && !opnameLike_(m.t, 'material')) continue;
+    var u = m.h;
+    var same = function (w) { return Math.abs(w.yc - m.yc) < 2.2 * u; };
+    var right = pw.filter(function (w) { return w !== m && same(w) && w.x0 > m.x0; });
+    var desc = glued ? m : right.filter(function (w) { return opnameLike_(w.t, 'description'); })[0];
+    if (!desc) continue;
+    var pick = function (t) { return right.filter(function (w) { return w.x0 > desc.x1 - u && opnameLike_(w.t, t); })[0] || null; };
+    var detail = pick('detail'), supplier = pick('supplier'), remarks = pick('remarks');
+    if (!detail && !supplier) continue;
+    var qty = right.filter(function (w) { return w.x0 > desc.x1 && /^(qty|oty|qly|gty|qt|aty)$/.test(opnameKey_(w.t)); })[0] || null;
+    var no = pw.filter(function (w) { return same(w) && w.x1 <= m.x0 && /^n[o0]\.?$/i.test(w.t); }).sort(function (a, b) { return b.x1 - a.x1; })[0] || null;
+    var hw = [m, desc, detail, supplier, remarks, no].filter(Boolean);
+    var qtyHw = qty ? [qty] : [];
+    // Judul Qty dua baris ("Qty Project" / "Opname"): hanya untuk batas kanan kolom Qty. Batas bawah judul diambil dari judul
+    // satu baris saja, karena "Opname" turun hampir sejajar dengan baris pertama teks material di kolom sebelah.
+    pw.forEach(function (w) {
+      if (same(w) && w.x0 > (supplier || detail || desc).x1 && /^(project|opname)$/.test(opnameKey_(w.t))) qtyHw.push(w);
+    });
+    return {
+      material: m, desc: desc, detail: detail, supplier: supplier, remarks: remarks, qty: qty, no: no, qtyHw: qtyHw,
+      u: opnameMedian_(hw.map(function (w) { return w.h; })) || u,
+      top: Math.min.apply(null, hw.concat(qtyHw).map(function (w) { return w.y0; })),
+      bottom: Math.max.apply(null, hw.map(function (w) { return w.y1; }))
+    };
+  }
+  return null;
+}
 
-  var headY = 0;
-  var headWords = ['No', 'Material', 'Description', 'Detail', 'Supplier', 'Qty', 'Project', 'Opname', 'Remarks'];
-  words.forEach(function (w) { if (near(w) && w.y1 > headY && headWords.indexOf(w.t) > -1) headY = w.y1; });
+var OPNAME_QTY_CHARS_RE_ = /^[0-9OoDQIl|!iJjZzSs$GbT?B&gqA.,\-\u2013\u2014\u4e00_~]+$/;
+// Angka Qty tulisan tangan: huruf yang sering tertukar OCR diubah ke angka (g/q->9, O/D->0, l/I->1, S->5, Z->2, B->8, T->7, G/b->6),
+// spasi dibuang ("2. 438" -> "2.438"). bad=true bila masih ada karakter selain angka/titik/koma (tetap ditampilkan untuk dicek).
+function opnameQtyFix_(raw) {
+  var s = String(raw || '').replace(/\s+/g, '');
+  if (!s) return { text: '', fixed: false, bad: false };
+  if (/^[-\u2013\u2014\u4e00_~]+$/.test(s)) return { text: '-', fixed: false, bad: false };
+  var t = s.replace(/[OoDQ]/g, '0').replace(/[Il|!iJj]/g, '1').replace(/[Zz]/g, '2').replace(/[Ss$]/g, '5').replace(/[Gb]/g, '6')
+    .replace(/[T?]/g, '7').replace(/[B&]/g, '8').replace(/[gq]/g, '9').replace(/A/g, '4').replace(/^[.,]+|[.,]+$/g, '');
+  return { text: t, fixed: t !== s, bad: !/^\d[\d.,]*$/.test(t) };
+}
 
-  var descHead = words.filter(function (w) { return w.t === 'Description' && near(w); })[0];
-  var bNoDesc = (noHead.x1 + material.x0) / 2;
-  var bDescDetail = ((descHead ? descHead.x1 : material.x1) + detailHead.x0) / 2;
-  var bDetailSupp = (detailHead.x1 + supplierHead.x0) / 2;
-  var bSuppQty = (supplierHead.x1 + qtyHead.x0) / 2;
-  var bQtyRem = (qtyHead.x1 + remarksHead.x0) / 2;
-  var colNo = { lo: noHead.x0 - 40, hi: material.x0 - 5 };
-  var colDesc = { lo: material.x0 - 25, hi: bDescDetail };
-  var colDetail = { lo: bDescDetail, hi: bDetailSupp };
-  var colSupplier = { lo: bDetailSupp, hi: bSuppQty };
-  var colQty = { lo: bSuppQty, hi: bQtyRem };
-  var inCol = function (w, c) { var xc = (w.x0 + w.x1) / 2; return xc >= c.lo && xc < c.hi; };
+function opnameItemsFromOcrJson_(json) {
+  var all = opnameOcrWords_(json);
+  var none = function (why) { return { items: [], incomplete: [], missingNos: [], why: why, dbg: '' }; };
+  if (!all.length) return none('OCR.space tidak mengembalikan posisi kata');
+  var pages = {};
+  all.forEach(function (w) { (pages[w.p] = pages[w.p] || []).push(w); });
+  var items = [], orphans = [], dbg = [], pagesNoHeader = [], headerSeen = false;
+  Object.keys(pages).map(Number).sort(function (a, b) { return a - b; }).forEach(function (p) {
+    var pw = pages[p];
+    var H = opnameFindHeader_(pw);
+    if (!H) {
+      // Halaman tanpa judul kolom: halaman QR/catatan (wajar), atau tabel yang tidak terbaca (diberi tahu bila ada kata Material/Service)
+      if (headerSeen && pw.filter(function (w) { return /^(material|service)$/i.test(w.t); }).length >= 3) pagesNoHeader.push(p + 1);
+      return;
+    }
+    headerSeen = true;
+    var u = H.u;
+    var below = pw.filter(function (w) { return w.yc > H.bottom && H.qtyHw.indexOf(w) < 0; });
+    // Batas kanan kolom No
+    var noRight = H.no ? H.no.x1 + 0.3 * u : H.material.x0 - 2.5 * u;
+    // Batas kiri kolom Detail: kata Material/Service di kolom itu rata kiri, jadi x0-nya hampir sama di semua baris
+    var isDet = function (w) { var k = opnameKey_(w.t); return opnameLev_(k.slice(0, 8), 'material') <= 2 || opnameLev_(k.slice(0, 7), 'service') <= 1; };
+    var detTok = below.filter(function (w) { return w.x0 > H.desc.x0 && isDet(w); });
+    var detailLeft = detTok.length >= 2 ? opnameMedian_(detTok.map(function (w) { return w.x0; })) - 0.5 * u
+      : (H.detail ? (H.desc.x1 + H.detail.x0) / 2 : H.desc.x1 + 2 * u);
+    detTok = detTok.filter(function (w) { return w.x0 >= detailLeft - u; });
+    // Batas kiri kolom Qty: sesudah teks supplier (internal / buana_menara_indonesia_)
+    var supTok = below.filter(function (w) { return w.x0 > detailLeft && /buana|menara|indones|internal|interna/.test(opnameKey_(w.t)); });
+    var longSup = supTok.filter(function (w) { return /indones/.test(opnameKey_(w.t)); });
+    var supRight = longSup.length >= 2 ? opnameMedian_(longSup.map(function (w) { return w.x1; })) : (supTok.length ? Math.max.apply(null, supTok.map(function (w) { return w.x1; })) : 0);
+    var qtyLeft = Math.max(supRight ? supRight + 0.3 * u : 0, (H.supplier && H.qty) ? (H.supplier.x1 + H.qty.x0) / 2 : 0);
+    if (!qtyLeft) qtyLeft = H.qty ? H.qty.x0 - 1.5 * u : (H.supplier ? H.supplier.x1 + 3 * u : 0);
+    if (!qtyLeft) { dbg.push('hal ' + (p + 1) + ': kolom Qty tidak ketemu'); return; }
+    var qtyHeadRight = H.qtyHw.length ? Math.max.apply(null, H.qtyHw.map(function (w) { return w.x1; })) : qtyLeft + 6 * u;
+    var qtyRight = H.remarks ? (qtyHeadRight + H.remarks.x0) / 2 : qtyHeadRight + 3 * u;
+    // Batas bawah tabel: tulisan "Note :" di bawah baris terakhir
+    var noteW = below.filter(function (w) { return (/^note/.test(opnameKey_(w.t)) && w.x0 < detailLeft) || /^(form)?approval$/.test(opnameKey_(w.t)); })
+      .sort(function (a, b) { return a.y0 - b.y0; })[0];
+    var bottom = noteW ? noteW.y0 : Infinity;
+    var inTable = function (w) { return w.yc > H.bottom && w.yc < bottom; };
 
-  var descWords = words.filter(function (w) {
-    return inCol(w, colDesc) && !inCol(w, colNo) && !(w.p === material.p && w.y0 <= headY);
-  }).sort(function (a, b) { return (a.p - b.p) || (a.y0 - b.y0) || (a.x0 - b.x0); });
-  var dLines = [];
-  descWords.forEach(function (w) {
-    var yc = (w.y0 + w.y1) / 2;
-    var last = dLines[dLines.length - 1];
-    if (last && last.p === w.p && Math.abs(last.y - yc) <= 15) { last.words.push(w); }
-    else { dLines.push({ p: w.p, y: yc, words: [w] }); }
+    // Titik baris: nomor di kolom No + kata Material/Service di kolom Detail, digabung bila tingginya sama
+    var marks = [];
+    below.forEach(function (w) {
+      // harus mulai di dalam kolom No: "12." di awal teks "12.Clamps Dead end" bukan nomor baris
+      if (!inTable(w) || w.x1 > noRight + 0.2 * u || (H.no && w.x0 > H.no.x1)) return;
+      var f = opnameQtyFix_(w.t.replace(/\.$/, ''));
+      if (!f.bad && /^\d{1,2}$/.test(f.text)) marks.push({ y: w.yc, no: parseInt(f.text, 10), w: w });
+    });
+    detTok.forEach(function (w) { if (inTable(w)) marks.push({ y: w.yc, det: /^s/.test(opnameKey_(w.t)) ? 'Service' : 'Material' }); });
+    marks.sort(function (a, b) { return a.y - b.y; });
+    // Toleransi "sejajar" dari jarak antar kata Detail (satu per baris), bukan dari tinggi huruf: foto yang sedikit miring membuat
+    // nomor di kiri dan kata Detail di tengah tidak persis setinggi
+    var detY = marks.filter(function (mk) { return mk.det; }).map(function (mk) { return mk.y; });
+    var dGaps = [];
+    for (var g = 1; g < detY.length; g++) dGaps.push(detY[g] - detY[g - 1]);
+    var mergeTol = dGaps.length >= 2 ? Math.max(0.6 * u, 0.4 * opnameMedian_(dGaps)) : 0.6 * u;
+    var anchors = [];
+    marks.forEach(function (mk) {
+      var last = anchors[anchors.length - 1];
+      if (last && Math.abs(mk.y - last.y) < mergeTol && !(mk.det && last.det) && !(mk.no !== undefined && last.no !== undefined)) {
+        if (mk.no !== undefined && last.no === undefined) last.no = mk.no;
+        if (mk.det && !last.det) last.det = mk.det;
+        if (mk.no === undefined) last.y = (last.y + mk.y) / 2;
+      } else {
+        anchors.push({ y: mk.y, no: mk.no, det: mk.det, desc: [], qty: [] });
+      }
+    });
+    // Nomor yang berdiri sendiri tanpa kata Detail sejajar dan jauh dari baris lain = kemungkinan bukan nomor baris (coretan dsb.)
+    if (!anchors.length) { dbg.push('hal ' + (p + 1) + ': tidak ada baris'); return; }
+    var gaps = [];
+    for (var a = 1; a < anchors.length; a++) gaps.push(anchors[a].y - anchors[a - 1].y);
+    var P = gaps.length ? opnameMedian_(gaps) : 2.5 * u;
+    var nearest = function (y, maxD) {
+      var best = null, bd = Infinity;
+      anchors.forEach(function (an) { var d = Math.abs(an.y - y); if (d < bd) { bd = d; best = an; } });
+      return bd <= maxD ? best : null;
+    };
+    var noWords = marks.filter(function (mk) { return mk.w; }).map(function (mk) { return mk.w; });
+    below.forEach(function (w) {
+      if (!inTable(w) || noWords.indexOf(w) > -1) return;
+      if (w.xc > noRight - 0.3 * u && w.xc < detailLeft && w.x1 > noRight) {
+        var an = nearest(w.yc, 0.8 * P);
+        if (an) an.desc.push(w); else if (w.yc < anchors[anchors.length - 1].y + 1.5 * P) orphans.push(w.t);
+      } else if (w.xc >= qtyLeft && w.xc < qtyRight) {
+        // satuan meter yang kadang ikut ditulis di belakang angka kabel ("1.050M", "2.511 M") dibuang
+        var qt = w.t.replace(/(\d)\s*(m|mtr|meter)\.?$/i, '$1');
+        if (!OPNAME_QTY_CHARS_RE_.test(qt)) return;
+        var aq = nearest(w.yc, 1.0 * P);
+        if (aq) aq.qty.push({ t: qt, x0: w.x0, yc: w.yc });
+      } else if (w.x0 > detailLeft && w.x0 < qtyLeft) {
+        // angka yang menempel di ujung teks supplier ("buana_menara_indonesia_12")
+        var tail = w.t.match(/indonesia_?([0-9][0-9.,]*)$/i);
+        if (tail) { var at = nearest(w.yc, 1.0 * P); if (at) at.qty.push({ t: tail[1], x0: w.x1, yc: w.yc }); }
+      }
+    });
+    anchors.forEach(function (an) {
+      var lines = [];
+      an.desc.sort(function (x, y) { return x.yc - y.yc; }).forEach(function (w) {
+        var ln = lines[lines.length - 1];
+        if (ln && Math.abs(ln.y - w.yc) < 0.5 * u) ln.ws.push(w); else lines.push({ y: w.yc, ws: [w] });
+      });
+      var desc = lines.map(function (ln) {
+        return ln.ws.sort(function (x, y) { return x.x0 - y.x0; }).map(function (w) { return w.t; }).join(' ');
+      }).join(' ').replace(/\s+/g, ' ').replace(/([-\/])\s+/g, '$1').trim();
+      var qRaw = an.qty.sort(function (x, y) { return x.x0 - y.x0; }).map(function (w) { return w.t; }).join('');
+      var q = opnameQtyFix_(qRaw);
+      if (!desc && !q.text) return;
+      items.push({ no: an.no, desc: desc, detail: an.det || '', supplier: '', qtyText: q.bad ? qRaw : q.text, qtyRaw: qRaw, qtySuspect: q.bad, qtyFixed: q.fixed, _p: p, _y: an.y });
+    });
+    dbg.push('hal ' + (p + 1) + ': ' + anchors.length + ' baris, jarak baris ' + Math.round(P) + ' px, kolom qty x ' + Math.round(qtyLeft) + '-' + Math.round(qtyRight));
   });
-  dLines.forEach(function (ln) {
-    ln.text = ln.words.slice().sort(function (a, b) { return a.x0 - b.x0; }).map(function (w) { return w.t; }).join(' ').replace(/\s+/g, ' ').trim();
-    ln.y = ln.words.reduce(function (s, w) { return s + (w.y0 + w.y1) / 2; }, 0) / ln.words.length;
+  if (!headerSeen) return none('judul kolom Material Description / Detail / Supplier tidak ditemukan');
+  // Nomor baris yang tidak terbaca: diisi dari urutan (baris sebelumnya + 1)
+  var seen = {}, prevNo = 0;
+  items.forEach(function (it) {
+    if (!it.no || it.no <= prevNo || seen[it.no]) it.no = prevNo + 1;
+    seen[it.no] = true;
+    prevNo = it.no;
   });
-  var qtyWords = words.filter(function (w) {
-    if (!inCol(w, colQty)) return false;
-    if (w.p === material.p && w.y0 <= headY) return false;
-    return /^[0-9OoIl|!.,\-–—]+$/.test(w.t);
-  }).sort(function (a, b) { return (a.p - b.p) || (a.y0 - b.y0) || (a.x0 - b.x0); });
-  var qLines = [];
-  qtyWords.forEach(function (w) {
-    var yc = (w.y0 + w.y1) / 2;
-    var last = qLines[qLines.length - 1];
-    if (last && last.p === w.p && Math.abs(last.y - yc) <= 20) { last.words.push(w); }
-    else { qLines.push({ p: w.p, y: yc, words: [w] }); }
-  });
-  qLines.forEach(function (q) { q.text = q.words.map(function (w) { return w.t; }).join('').replace(/[Oo]/g, '0').replace(/[Il|!]/g, '1'); });
-  var items = [];
-  qLines.forEach(function (q) {
-    var near = dLines.filter(function (ln) { return ln.p === q.p && Math.abs(ln.y - q.y) <= 45; });
-    if (!near.length) near = dLines.filter(function (ln) { return ln.p === q.p && Math.abs(ln.y - q.y) <= 80; }).sort(function (a, b) { return Math.abs(a.y - q.y) - Math.abs(b.y - q.y); }).slice(0, 1);
-    var desc = near.map(function (ln) { return ln.text; }).join(' ').replace(/\s+/g, ' ').trim();
-    if (!desc) return;
-    items.push({ no: 0, desc: desc, detail: '', supplier: '', qtyText: q.text, qtySuspect: false, _p: q.p, _y: q.y });
-  });
-  dLines.forEach(function (ln) {
-    var covered = qLines.some(function (q) { return q.p === ln.p && Math.abs(ln.y - q.y) <= 45; });
-    if (covered || !ln.text) return;
-    items.push({ no: 0, desc: ln.text, detail: '', supplier: '', qtyText: '', qtySuspect: false, _p: ln.p, _y: ln.y });
-  });
-  items.sort(function (a, b) { return (a._p - b._p) || (a._y - b._y); });
-  items.forEach(function (it, i) { it.no = i + 1; });
-  var incomplete = [];
   var missingNos = [];
-  return { items: items, incomplete: incomplete, missingNos: missingNos, why: items.length ? '' : 'tidak ada baris dengan deskripsi', dbg: 'qty: ' + qLines.length + ', baris deskripsi: ' + dLines.length + ' | qLines: ' + qLines.map(function (q) { return q.p + '@' + Math.round(q.y) + ':' + q.text; }).join(' ') + ' | kata kunci: ' + dLines.filter(function (ln) { return /outdoor|mounted|belt|clamp|fdt|cores/i.test(ln.text); }).map(function (ln) { return ln.p + '@' + Math.round(ln.y) + ':' + ln.text; }).join(' ; ') };
+  for (var n = 1; n <= prevNo; n++) if (!seen[n]) missingNos.push(n);
+  var incomplete = orphans.length ? ['teks di luar baris tabel: ' + orphans.join(' ')] : [];
+  if (pagesNoHeader.length) incomplete.push('halaman ' + pagesNoHeader.join(', ') + ' berisi tabel tetapi judul kolomnya tidak terbaca');
+  return { items: items, incomplete: incomplete, missingNos: missingNos, why: items.length ? '' : 'tidak ada baris dengan deskripsi', dbg: dbg.join(' | ') };
+}
+
+// Info cluster (tabel bagian I) dari posisi kata: label di kiri, nilai di sel sebelah kanannya. Nilai bisa beberapa baris
+// (nama cluster panjang), jadi batas baris dihitung dari jarak antar label, bukan dari urutan teks.
+var OPNAME_INFO_FIELDS_ = [
+  ['cluster name', 'clustername', 0], ['vendor', 'vendor', 0], ['area', 'area', 0], ['drm date', 'drmdate', 0], ['rfs declare date', 'rfsdeclaredate', 0],
+  ['drm net type', 'drmnettype', 1], ['hp po', 'hppo', 1], ['hp rfs', 'hprfs', 1], ['pr number', 'prnumber', 1], ['po number', 'ponumber', 1]
+];
+function opnameInfoFromOcrJson_(json) {
+  var info = {};
+  var pw = opnameOcrWords_(json).filter(function (w) { return w.p === 0; });
+  if (!pw.length) return info;
+  var H = opnameFindHeader_(pw);
+  if (H) pw = pw.filter(function (w) { return w.y1 < H.top; });
+  var u = opnameMedian_(pw.map(function (w) { return w.h; })) || 10;
+  // Kata disusun per baris visual, lalu label dicari sebagai 1-4 kata berurutan yang (setelah spasi dibuang) mirip nama label.
+  // Dicari per kata, bukan per potongan teks, karena nilai yang panjang ("Buana Menara Indonesia") bisa menempel ke label di
+  // sel sebelahnya ("HP PO") tanpa jarak yang jelas.
+  var lines = [];
+  pw.slice().sort(function (a, b) { return a.yc - b.yc; }).forEach(function (w) {
+    var ln = lines.filter(function (l) { return Math.abs(l.y - w.yc) < 0.5 * u; })[0];
+    if (ln) ln.ws.push(w); else lines.push({ y: w.yc, ws: [w] });
+  });
+  var used = [];
+  var labels = [[], []];
+  // Semua calon label dikumpulkan dulu: kata yang sama bisa muncul di nilai (mis. cluster "OPEN AREA JL ..." mengandung "AREA").
+  // Label yang calonnya hanya satu dipakai sebagai patokan posisi kolom label; bila calonnya lebih dari satu, dipilih yang
+  // posisi kirinya paling dekat dengan label lain di kolom yang sama.
+  var cands = OPNAME_INFO_FIELDS_.map(function (f) {
+    var tol = f[1].length <= 8 ? 1 : 2;
+    var list = [];
+    lines.forEach(function (ln) {
+      var ws = ln.ws.slice().sort(function (a, b) { return a.x0 - b.x0; });
+      for (var i = 0; i < ws.length; i++) {
+        var key = '';
+        for (var n = 0; n < 4 && i + n < ws.length; n++) {
+          key += opnameKey_(ws[i + n].t);
+          var dk = opnameLev_(key, f[1]);
+          if (dk <= tol && !OPNAME_INFO_FIELDS_.some(function (g) { return g !== f && opnameLev_(key, g[1]) < dk; })) { list.push(ws.slice(i, i + n + 1)); break; }
+          if (key.length > f[1].length + tol) break;
+        }
+      }
+    });
+    return { f: f, list: list };
+  });
+  var colX = [[], []];
+  cands.forEach(function (c) { if (c.list.length === 1) colX[c.f[2]].push(c.list[0][0].x0); });
+  cands.forEach(function (c) {
+    var list = c.list.filter(function (ws) { return !ws.some(function (w) { return used.indexOf(w) > -1; }); });
+    if (!list.length) return;
+    var ref = opnameMedian_(colX[c.f[2]]);
+    var found = (list.length === 1 || !colX[c.f[2]].length) ? list[0]
+      : list.slice().sort(function (a, b) { return Math.abs(a[0].x0 - ref) - Math.abs(b[0].x0 - ref); })[0];
+    found.forEach(function (w) { used.push(w); });
+    labels[c.f[2]].push({ key: c.f[0], x0: found[0].x0, x1: found[found.length - 1].x1, yc: found.reduce(function (s, w) { return s + w.yc; }, 0) / found.length });
+  });
+  if (!labels[0].length && !labels[1].length) return info;
+  var right0 = labels[0].length ? Math.max.apply(null, labels[0].map(function (l) { return l.x1; })) : null;
+  var left1 = labels[1].length ? Math.min.apply(null, labels[1].map(function (l) { return l.x0; })) : Infinity;
+  var right1 = labels[1].length ? Math.max.apply(null, labels[1].map(function (l) { return l.x1; })) : null;
+  [0, 1].forEach(function (c) {
+    var L = labels[c].sort(function (a, b) { return a.yc - b.yc; });
+    if (!L.length) return;
+    var xLo = c === 0 ? right0 : right1, xHi = c === 0 ? left1 : Infinity;
+    var gaps = [];
+    for (var i = 1; i < L.length; i++) gaps.push(L[i].yc - L[i - 1].yc);
+    var P = gaps.length ? Math.min.apply(null, gaps) : 2.5 * u;
+    L.forEach(function (l, i) {
+      var b = (i + 1 < L.length) ? L[i + 1].yc - P / 2 : l.yc + P / 2;
+      var t = l.yc - (b - l.yc);
+      var vw = pw.filter(function (w) { return used.indexOf(w) < 0 && w.xc > xLo && w.xc < xHi && w.yc > t && w.yc < b; });
+      var vl = [];
+      vw.sort(function (a, b2) { return a.yc - b2.yc; }).forEach(function (w) {
+        var ln = vl[vl.length - 1];
+        if (ln && Math.abs(ln.y - w.yc) < 0.5 * u) ln.ws.push(w); else vl.push({ y: w.yc, ws: [w] });
+      });
+      var val = baClean_(vl.map(function (ln) { return ln.ws.sort(function (a, b2) { return a.x0 - b2.x0; }).map(function (w) { return w.t; }).join(' '); }).join(' '));
+      if (val) info[l.key] = val;
+    });
+  });
+  return info;
 }
 
 // Tahap uji coba: panggil OCR.space dan tampilkan kata + posisinya (atau teks polos bila mode tabel tidak tersedia)
@@ -4951,27 +5193,116 @@ var OPNAME_EXTRA_TERMS_ = {
   'Stopping': ['belt 20mm'],
 };
 
+// Nama material di PDF selalu salah satu baris katalog di atas (form-nya sama untuk semua cluster), jadi teks OCR yang sedikit
+// salah eja ("Platc bclt 20mm", "Suspcnsion clamp", awal kata terpotong) dicocokkan ke baris katalog terdekat lebih dulu,
+// baru dicari kolom Designator-nya. Kemiripan dihitung dari pasangan huruf (Dice); harus jelas lebih mirip daripada baris
+// katalog yang masuk ke kolom LAIN (mis. kabel 24 vs 36 cores), kalau ragu teks asli OCR yang dipakai.
+function opnameFullNorm_(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+function opnameBigrams_(s) {
+  var g = {};
+  for (var i = 0; i < s.length - 1; i++) { var k = s.substr(i, 2); g[k] = (g[k] || 0) + 1; }
+  return { g: g, n: Math.max(0, s.length - 1) };
+}
+function opnameDice_(a, b) {
+  if (!a.n || !b.n) return 0;
+  var inter = 0;
+  Object.keys(a.g).forEach(function (k) { if (b.g[k]) inter += Math.min(a.g[k], b.g[k]); });
+  return 2 * inter / (a.n + b.n);
+}
+var OPNAME_CATALOG_BG_ = null;
+function opnameCatalogBest_(desc) {
+  var n = opnameFullNorm_(desc);
+  if (n.length < 4) return null;
+  if (!OPNAME_CATALOG_BG_) OPNAME_CATALOG_BG_ = OPNAME_CATALOG_RAW_.map(function (t) { return { text: t, bg: opnameBigrams_(opnameFullNorm_(t)), target: opnameTargetOf_(t) }; });
+  var bg = opnameBigrams_(n);
+  var scored = OPNAME_CATALOG_BG_.map(function (c) { return { text: c.text, target: c.target, score: opnameDice_(bg, c.bg) }; })
+    .sort(function (a, b) { return b.score - a.score; });
+  var best = scored[0];
+  var rival = scored.filter(function (c) { return c.target !== best.target; })[0];
+  if (best.score < 0.72) return null;
+  if (rival && best.score - rival.score < 0.06) return null;
+  return best;
+}
+// Ke mana sebuah baris katalog akan masuk (nama Designator, atau jenis baris yang dilewati) - dipakai untuk membedakan "rival".
+function opnameTargetOf_(text) {
+  var d = String(text).toLowerCase();
+  if (/splicing|testcomm|otdr/.test(d)) return 'service';
+  if (/^label\b/.test(d)) return 'label:' + d;
+  if (/bahan pondasi/.test(d)) return 'pondasi';
+  var dn = opnameNormMatch_(text), hit = '';
+  DESIGNATOR_MAP.forEach(function (dm) {
+    if (hit) return;
+    var terms = dm.terms.concat(OPNAME_EXTRA_TERMS_[dm.name] || []);
+    if (terms.some(function (t) { return dn.indexOf(opnameNormMatch_(t)) > -1; })) hit = dm.name;
+  });
+  return hit || ('lain:' + d);
+}
+
+// Cek silang antar baris (aturan form opname, terbukti di 12 PDF contoh): jumlah semua tiang = Label Pole = Bahan Pondasi tiang,
+// jumlah FAT = Label FAT = Testcomm OTDR, jumlah FDT = Label FDT. Kalau tidak sama, kemungkinan ada angka tulisan tangan yang
+// salah baca - diberi peringatan dengan angka-angkanya supaya pengunggah tahu baris mana yang harus dicocokkan dengan PDF.
+function opnameCrossCheck_(items) {
+  var val = {};
+  items.forEach(function (it) {
+    var key = opnameFullNorm_(it.canon || it.desc);
+    var q = opnameQty_(it.qtyText);
+    if (it.qtyText === '' || it.qtySuspect) q = null;
+    val[key] = { q: q, no: it.no, label: it.canon || it.desc };
+  });
+  var get = function (re) {
+    return Object.keys(val).filter(function (k) { return re.test(k); }).map(function (k) { return val[k]; });
+  };
+  var warns = [];
+  var check = function (name, parts, refs) {
+    if (!parts.length || !refs.length) return;
+    if (parts.some(function (p) { return p.q === null; }) || refs.some(function (r) { return r.q === null; })) return;
+    var sum = parts.reduce(function (s, p) { return s + p.q; }, 0);
+    var refVals = refs.map(function (r) { return r.q; });
+    if (refVals.every(function (v) { return v === sum; })) return;
+    warns.push('Cek silang ' + name + ' tidak cocok: ' + parts.map(function (p) { return 'no ' + p.no + ' = ' + p.q; }).join(' + ') + ' = ' + sum +
+      ', sedangkan ' + refs.map(function (r) { return r.label + ' (no ' + r.no + ') = ' + r.q; }).join(', ') +
+      '. Biasanya angkanya sama. Cocokkan baris-baris ini dengan PDF asli: bisa karena tulisan tangan salah terbaca, bisa juga angkanya memang berbeda di PDF.');
+  };
+  check('jumlah tiang', get(/^(pengadaantiang|poletiangudara)/), get(/^(labelpole|12bahanpondasitiang|bahanpondasitiang)$/));
+  check('jumlah FAT', get(/^polemountedoutdoortype/), get(/^(labelfatincludeqrcode|testcommotdr)/));
+  check('jumlah FDT', get(/corescapacity(pole|ground)mountedfdt$/), get(/^labelfdt$/));
+  return warns;
+}
+
 function opnameMapRows_(items) {
   var rows = [];
   var skipped = [];
+  // Kabel/JC 144 core terisi = asesoris yang dipakai varian 144 (sama seperti BOQ Excel)
+  var is144 = items.some(function (it) { return /144\s*cores?\b|in-line 144/i.test(it.canon || it.desc) && opnameQty_(it.qtyText) > 0; });
   items.forEach(function (it) {
     var qty = opnameQty_(it.qtyText);
-    var d = it.desc.toLowerCase();
-    var suspect = !!it.qtySuspect;
-    var suspectNote = suspect ? 'PERIKSA QTY INI: angka ini kemungkinan tertukar dengan baris lain (urutan baca OCR untuk kolom Qty tulisan tangan tidak selalu sama dengan urutan barisnya) - cocokkan dengan PDF asli. ' : '';
+    // Nama baku dari katalog bila teks OCR-nya dikenali (lihat opnameCatalogBest_); teks asli OCR disebut di catatan bila berbeda
+    if (it.canon === undefined) it.canon = (opnameCatalogBest_(it.desc) || {}).text || '';
+    var desc = it.canon || it.desc;
+    var ocrNote = (it.canon && opnameFullNorm_(it.canon) !== opnameFullNorm_(it.desc)) ? 'Teks OCR "' + it.desc + '" dikenali sebagai baris ini. ' : '';
+    var d = desc.toLowerCase();
+    var suspect = !!(it.qtySuspect || it.qtyFixed);
+    var suspectNote = '';
+    if (it.qtyRaw !== undefined) {
+      if (it.qtySuspect) suspectNote = 'PERIKSA QTY INI: tulisan tangan terbaca "' + it.qtyRaw + '", angkanya tidak jelas - cocokkan dengan PDF asli. ';
+      else if (it.qtyFixed) suspectNote = 'PERIKSA QTY INI: tulisan tangan terbaca "' + it.qtyRaw + '", diartikan ' + it.qtyText + ' - cocokkan dengan PDF asli. ';
+    } else if (suspect) {
+      suspectNote = 'PERIKSA QTY INI: angka ini kemungkinan tertukar dengan baris lain (urutan baca OCR untuk kolom Qty tulisan tangan tidak selalu sama dengan urutan barisnya) - cocokkan dengan PDF asli. ';
+    }
+    suspectNote = ocrNote + suspectNote;
     if (/splicing|testcomm|otdr/.test(d) || /service/i.test(it.detail)) {
-      if (qty > 0) skipped.push(it.no + '. ' + it.desc + ' (service, tidak masuk kolom)');
+      if (qty > 0) skipped.push(it.no + '. ' + desc + ' (service, tidak masuk kolom)');
       return;
     }
     if (/^label\b/.test(d)) {
-      if (qty > 0) skipped.push(it.no + '. ' + it.desc + ' (label, tidak masuk kolom)');
+      if (qty > 0) skipped.push(it.no + '. ' + desc + ' (label, tidak masuk kolom)');
       return;
     }
     if (/bahan pondasi/i.test(d)) {
-      if (qty > 0) skipped.push(it.no + '. ' + it.desc + ' (tidak masuk kolom)');
+      if (qty > 0) skipped.push(it.no + '. ' + desc + ' (tidak masuk kolom)');
       return;
     }
-    var dn = opnameNormMatch_(it.desc);
+    var dn = opnameNormMatch_(desc);
     var hit = null;
     var keysMatched = [];
     DESIGNATOR_MAP.forEach(function (dm) {
@@ -4984,13 +5315,23 @@ function opnameMapRows_(items) {
     });
     if (keysMatched.length > 1) {
       if (!(qty > 0)) return;
-      rows.push({ label: it.desc, desig: '', qty: qty, options: [], qtySuspect: suspect, note: suspectNote + 'Beberapa nama material tergabung dalam satu baris (OCR menggabungkan baris). Periksa PDF lalu pilih kolom atau tambah baris.' });
+      rows.push({ label: desc, desig: '', qty: qty, options: [], qtySuspect: suspect, note: suspectNote + 'Beberapa nama material tergabung dalam satu baris (OCR menggabungkan baris). Periksa PDF lalu pilih kolom atau tambah baris.' });
       return;
+    }
+    // Baris tambahan tulisan tangan (contoh asli: halaman 2 berisi "1 | Kabel 36 | internal | 2.511 M"): kata kabel/cable + jumlah core
+    if (!hit && !keysMatched.length) {
+      var core = desc.match(/(?:^|\D)(24|36|48|96|144)(?:\D|$)/);
+      var isCable = desc.split(/\s+/).some(function (w) { var k = opnameKey_(w); return k.length >= 4 && (opnameLev_(k, 'kabel') <= 2 || opnameLev_(k, 'cable') <= 2); });
+      if (core && isCable && boqDesigNames_().indexOf('Cable ' + core[1] + 'C') > -1) {
+        hit = 'Cable ' + core[1] + 'C';
+        suspect = true;
+        suspectNote += 'Baris tulisan tangan "' + it.desc + '" dikenali sebagai kabel ' + core[1] + ' core - pastikan benar. ';
+      }
     }
     if (!hit) {
       if (!(qty > 0)) return;
       if (/qr code|label/.test(dn) || dn.length < 8) return;
-      rows.push({ label: it.desc, desig: '', qty: qty, options: [], qtySuspect: suspect, note: suspectNote + 'Tidak ada kolom Designator yang cocok. Pilih kolomnya atau hapus baris.' });
+      rows.push({ label: desc, desig: '', qty: qty, options: [], qtySuspect: suspect, note: suspectNote + 'Tidak ada kolom Designator yang cocok. Pilih kolomnya atau hapus baris.' });
       return;
     }
     var noQty = it.qtyText === '' ? 'Qty tidak terbaca dari PDF, isi manual jika perlu. ' : '';
@@ -5001,19 +5342,19 @@ function opnameMapRows_(items) {
         group.options.forEach(function (opt) {
           var ratio = group.ratios[opt] || 1;
           var part = Math.ceil(qty * ratio);
-          if (part > 0) rows.push({ label: it.desc, desig: opt, qty: part, options: [], qtySuspect: suspect, note: suspectNote + noQty + (ratio === 1 ? 'Sama dengan volume Plate belt (aturan BA Transaksi).' : 'Setengah volume Plate belt, dibulatkan ke atas (aturan BA Transaksi).') });
+          if (part > 0) rows.push({ label: desc, desig: opt, qty: part, options: [], qtySuspect: suspect, note: suspectNote + noQty + (ratio === 1 ? 'Sama dengan volume Plate belt (aturan BA Transaksi).' : 'Setengah volume Plate belt, dibulatkan ke atas (aturan BA Transaksi).') });
         });
         return;
       }
-      rows.push({ label: it.desc, desig: group.options[0], qty: qty, options: group.options, qtySuspect: suspect, note: suspectNote + noQty + 'Pilih kolom sesuai ukuran kabel/material' });
+      rows.push({ label: desc, desig: (is144 && group.bigger) ? group.bigger : group.options[0], qty: qty, options: group.options, qtySuspect: suspect, note: suspectNote + noQty + 'Pilih kolom sesuai ukuran kabel/material' });
     } else {
-      rows.push({ label: it.desc, desig: hit, qty: qty, options: [], qtySuspect: suspect, note: suspectNote + noQty });
+      rows.push({ label: desc, desig: hit, qty: qty, options: [], qtySuspect: suspect, note: suspectNote + noQty });
     }
   });
   return { rows: rows, skipped: skipped };
 }
 
-function extractOpnamePdf_(base64Data, fileName) {
+function extractOpnamePdf_(base64Data, fileName, scope, pageImages) {
   var bytes = Utilities.base64Decode(base64Data);
   var blob = Utilities.newBlob(bytes, MimeType.PDF, fileName || 'opname.pdf');
   var doc = Drive.Files.create({ name: 'TEMP_OPNAME_' + new Date().getTime(), mimeType: MimeType.GOOGLE_DOCS }, blob, { ocrLanguage: 'en' });
@@ -5024,7 +5365,7 @@ function extractOpnamePdf_(base64Data, fileName) {
     try { Drive.Files.remove(doc.id); } catch (e) { /* abaikan gagal hapus temp file */ }
   }
   var warnings = [];
-  var ocr = ocrSpaceAnnotatePdf_(base64Data);
+  var ocr = ocrSpaceAnnotatePdf_(base64Data, pageImages);
   var coord = null;
   var coordErr = '';
   try {
@@ -5035,7 +5376,20 @@ function extractOpnamePdf_(base64Data, fileName) {
   }
   var coordUsed = !!(coord && coord.items.length);
   if (coordUsed) { parsed.items = coord.items; parsed.incomplete = coord.incomplete; }
+  // Info cluster dari posisi kata lebih tepat (nama cluster yang panjangnya 2-3 baris tetap utuh); teks biasa jadi cadangan
+  if (ocr && ocr.json) {
+    try {
+      var infoXY = opnameInfoFromOcrJson_(ocr.json);
+      Object.keys(infoXY).forEach(function (k) { parsed.info[k] = infoXY[k]; });
+    } catch (e) { /* tetap memakai info dari teks biasa */ }
+  }
+  parsed.items.forEach(function (it) { it.canon = (opnameCatalogBest_(it.desc) || {}).text || ''; });
+  opnameCrossCheck_(parsed.items).forEach(function (w) { warnings.push(w); });
   if (coordErr) warnings.push('Membaca tabel dari posisi kata OCR.space gagal, memakai teks biasa: ' + coordErr);
+  if (!coordUsed && !coordErr && parsed.items.length) {
+    var why = !ocr ? 'OCR.space belum di-setup (Script Property OCRSPACE_API_KEY kosong)' : (ocr.error || (coord && coord.why) || 'tabel tidak terbaca');
+    warnings.push('Tabel dibaca dari teks biasa (kurang akurat untuk qty tulisan tangan) karena ' + why + '. Cocokkan SETIAP baris dengan PDF asli sebelum kirim.');
+  }
   if (coord && coord.missingNos.length) warnings.push('Nomor baris yang tidak terbaca di kolom No: ' + coord.missingNos.join(', ') + '. Periksa PDF aslinya.');
   if (!parsed.items.length) {
     warnings.push('Tidak ada baris material yang terbaca dari PDF. Periksa teks hasil OCR di bawah ("Teks hasil OCR PDF Opname"), lalu kirim ke admin untuk disesuaikan polanya.');
@@ -5045,8 +5399,20 @@ function extractOpnamePdf_(base64Data, fileName) {
   }
   var mapped = opnameMapRows_(parsed.items);
   var ocrSpaceProbe = opnameOcrSpaceProbe_(ocr, coord);
+  // Nama cluster di PDF jarang persis sama dengan Name di DATA BASE (mis. tanpa "BANJARMASIN", atau ada tambahan RT): dicarikan
+  // nama site yang paling mirip supaya isian Nama Site tidak membuat baris baru di sheet OPNAME karena beda ejaan.
+  var cluster = parsed.info['cluster name'] || '';
+  var siteMatch = '';
+  if (cluster) {
+    try {
+      var sm = baMatchSite_(cluster, '', scope);
+      if (sm && sm.score >= 0.5) siteMatch = sm.name;
+    } catch (e) { /* DATA BASE tidak terbaca: pengunggah memilih manual */ }
+    if (!siteMatch) warnings.push('Nama cluster di PDF ("' + cluster + '") tidak ditemukan di DATA BASE. Pilih Nama Site dari daftar supaya tidak membuat baris baru.');
+  }
   return {
-    clusterName: parsed.info['cluster name'] || '',
+    clusterName: cluster,
+    siteMatch: siteMatch,
     area: parsed.info['area'] || '',
     hpRfs: parsed.info['hp rfs'] || '',
     prNumber: parsed.info['pr number'] || '',
@@ -5061,7 +5427,7 @@ function extractOpnamePdf_(base64Data, fileName) {
     jumlahBaris: parsed.items.length
   };
 }
-function extractOpnamePdf(code, base64Data, fileName) { requireAccess_(code); return extractOpnamePdf_(base64Data, fileName); }
+function extractOpnamePdf(code, base64Data, fileName, pageImages) { requireAccess_(code); return extractOpnamePdf_(base64Data, fileName, scopeOf_(code), pageImages); }
 
 function extractBoq(code, base64Data, fileName) { requireAccess_(code); return extractBoq_(base64Data, fileName); }
 function saveBoq(code, siteName, keterangan, target, pic, rows) {
