@@ -5,9 +5,10 @@ var CONFIG = {
   // Laporan otomatis ke grup WhatsApp lewat gateway Fonnte (api.fonnte.com). MATI sampai nomor WA dan grupnya siap.
   // Untuk menyalakan: isi Script Properties FONNTE_TOKEN dan WA_TARGET (lihat waConfig_), lalu ubah ke true.
   WA_GATEWAY_ENABLED: false,
+  // true = foto/PDF dikirim langsung ke grup (butuh paket Fonnte berbayar Super ke atas; file > 4 MB jadi link Drive).
   // false = paket Fonnte gratis (hanya teks): foto/PDF dikirim sebagai link Google Drive yang bisa dibuka siapa saja
-  // yang memegang link. true = paket berbayar (Super ke atas): file dikirim langsung ke grup (maks 4 MB per file).
-  WA_SEND_FILES: false,
+  // yang memegang link.
+  WA_SEND_FILES: true,
   // Gateway FTTH Project Control Portal: menukar tiket sekali pakai dengan username & role (untuk mengenali akun RPM).
   GATEWAY_URL: "https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec",
   // Spreadsheet Portal FTTH: daftar site (Name) dan SOW di portal Waspang diambil dari tab DATA BASE.
@@ -419,22 +420,33 @@ function waSend_(wa, message, blob) {
   }
 }
 
-// Foto / PDF Dokumentasi Lapangan. Paket gratis: satu pesan berisi keterangan laporan + link tiap file (file dibuka
-// untuk "siapa saja yang memegang link" supaya anggota grup tanpa akses Drive bisa melihatnya).
-// Paket berbayar (WA_SEND_FILES): keterangan ikut pada file pertama, file lain menyusul satu per satu.
+// Foto / PDF Dokumentasi Lapangan. WA_SEND_FILES (paket berbayar): keterangan ikut pada file pertama, file lain
+// menyusul satu per satu. Paket gratis: satu pesan berisi keterangan laporan + link tiap file.
 function sendWaspangPhotosToWhatsApp_(blobs, saved, caption) {
   var wa = waConfig_();
   if (!wa) return;
   if (CONFIG.WA_SEND_FILES && blobs.length) {
-    blobs.forEach(function (blob, i) { waSend_(wa, i === 0 ? caption : '', blob); });
+    // Fonnte menolak file > 4 MB: file seperti itu dikirim sebagai link Drive di akhir.
+    var big = [], first = true;
+    blobs.forEach(function (blob, i) {
+      if (blob.getBytes().length > 4 * 1024 * 1024) { big.push(saved[i]); return; }
+      waSend_(wa, first ? caption : '', blob);
+      first = false;
+    });
+    if (big.length) sendWaLinks_(wa, first ? caption : '', big);
     return;
   }
+  sendWaLinks_(wa, caption, saved);
+}
+
+// Link Drive dibuka untuk "siapa saja yang memegang link" supaya anggota grup tanpa akses Drive bisa melihatnya.
+function sendWaLinks_(wa, caption, saved) {
   var links = saved.map(function (f, i) {
     try { f.file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); }
     catch (e) { console.error('WA share link error: ' + e); }
     return (i + 1) + '. ' + f.url;
   });
-  waSend_(wa, caption + (links.length ? '\n\n📷 *Foto / dokumen*:\n' + links.join('\n') : ''));
+  waSend_(wa, (caption ? caption + '\n\n' : '') + '📷 *Foto / dokumen*:\n' + links.join('\n'));
 }
 
 function sendDailyReportToWhatsApp_(text) {
