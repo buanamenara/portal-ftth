@@ -110,6 +110,18 @@ function logoutUser(sid) {
   return { ok: true };
 }
 
+var LOG_RESET_ROWS = 550;
+// LOG HISTORY dimulai lagi dari nol setiap kali terisi lebih dari LOG_RESET_ROWS baris: baris terbaru dipindah ke
+// baris 5 dan baris lainnya dikosongkan (bukan dihapus, supaya format dan warna baris tetap).
+function logResetIfFull_(sh, row) {
+  if (row - 4 <= LOG_RESET_ROWS) return;
+  var last = sh.getRange(row, 1, 1, 6).getValues()[0].map(function (v) {
+    return typeof v === 'string' && /^[=+\-@]/.test(v) ? "'" + v : v;
+  });
+  sh.getRange(5, 1, row - 4, 6).clearContent();
+  sh.getRange(5, 1, 1, 6).setValues([last]);
+}
+
 // Satu baris di LOG HISTORY (Waktu | Sumber | User | Peran | Aksi | Detail). Teks yang diawali = + - @ diberi ' supaya
 // tidak jadi rumus. Gagal mencatat tidak boleh menggagalkan login.
 function logGateway_(user, peran, aksi, detail) {
@@ -119,11 +131,10 @@ function logGateway_(user, peran, aksi, detail) {
     var plain = function (v) { v = String(v || ''); return /^[=+\-@]/.test(v) ? "'" + v : v; };
     sh.appendRow([new Date(), 'Gateway', plain(user), peran || '', aksi, plain(String(detail || '').slice(0, 200))]);
     var row = sh.getLastRow(), w = Math.min(10, row - 4);
-    // Format 10 baris terakhir saja (baris lain bisa ditulis bersamaan oleh pemicu edit/portal lain); baris lama
-    // dibuang sekaligus 200 baris supaya tidak menggeser seluruh tab di setiap login.
+    // Format 10 baris terakhir saja (baris lain bisa ditulis bersamaan oleh pemicu edit/portal lain).
     sh.getRange(row - w + 1, 1, w, 1).setNumberFormat('dd mmm yyyy HH:mm');
     sh.getRange(row - w + 1, 1, w, 6).setVerticalAlignment('middle').setWrap(true);
-    if (row - 4 > 2200) sh.deleteRows(5, row - 4 - 2000);
+    logResetIfFull_(sh, row);
   } catch (e) { console.error('LOG HISTORY: ' + e); }
 }
 
