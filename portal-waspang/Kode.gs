@@ -5,10 +5,6 @@ var CONFIG = {
   // Laporan otomatis ke grup WhatsApp lewat gateway Fonnte (api.fonnte.com). Baru terkirim bila Script Properties
   // FONNTE_TOKEN dan WA_TARGET sudah diisi (lihat waConfig_); false = matikan semua kiriman WA.
   WA_GATEWAY_ENABLED: true,
-  // true = foto/PDF dikirim langsung ke grup (butuh paket Fonnte berbayar Super ke atas; file > 4 MB jadi link Drive).
-  // false = paket Fonnte gratis (hanya teks): foto/PDF dikirim sebagai link Google Drive yang bisa dibuka siapa saja
-  // yang memegang link.
-  WA_SEND_FILES: true,
   // Gateway FTTH Project Control Portal: menukar tiket sekali pakai dengan username & role (untuk mengenali akun RPM).
   GATEWAY_URL: "https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec",
   // Spreadsheet Portal FTTH: daftar site (Name) dan SOW di portal Waspang diambil dari tab DATA BASE.
@@ -381,6 +377,8 @@ function telegramFetch_(url, payload) {
 // bila flag mati, token/tujuan kosong, atau Fonnte gagal, Telegram dan portal tetap berjalan seperti biasa.
 // Token dan tujuan TIDAK ditulis di kode (repo ini publik). Simpan di Script Properties:
 //   FONNTE_TOKEN : token perangkat dari dashboard fonnte.com (setelah nomor WA disambungkan lewat scan QR)
+//   WA_SEND_FILES: isi "true" setelah paket Fonnte berbayar (Super ke atas) aktif: foto/PDF dikirim langsung ke grup.
+//                  Kosong = paket gratis (yang diam-diam membuang file): foto/PDF dikirim sebagai link Google Drive.
 //   WA_TARGET    : nama grup WA persis seperti di WhatsApp, ID grup (120363xxxxxxxxxxxx@g.us) atau nomor 62xxx;
 //                  boleh beberapa, pisahkan koma
 function waConfig_() {
@@ -390,7 +388,8 @@ function waConfig_() {
     var token = props.getProperty('FONNTE_TOKEN'), target = props.getProperty('WA_TARGET');
     if (!token || !target) return null;
     target = waResolveTarget_(token, target);
-    return target ? { token: token, target: target } : null;
+    var files = String(props.getProperty('WA_SEND_FILES') || '').trim().toLowerCase() === 'true';
+    return target ? { token: token, target: target, files: files } : null;
   } catch (e) {
     console.error('WA config error: ' + e);
     return null;
@@ -458,12 +457,12 @@ function waSend_(wa, message, blob) {
   }
 }
 
-// Foto / PDF Dokumentasi Lapangan. WA_SEND_FILES (paket berbayar): keterangan ikut pada file pertama, file lain
+// Foto / PDF Dokumentasi Lapangan. Script Property WA_SEND_FILES (paket berbayar): keterangan ikut pada file pertama, file lain
 // menyusul satu per satu. Paket gratis: satu pesan berisi keterangan laporan + link tiap file.
 function sendWaspangPhotosToWhatsApp_(blobs, saved, caption) {
   var wa = waConfig_();
   if (!wa) return;
-  if (CONFIG.WA_SEND_FILES && blobs.length) {
+  if (wa.files && blobs.length) {
     // File > 4 MB, atau file yang ditolak Fonnte (mis. paket gratis tidak bisa kirim file), dikirim sebagai link
     // Drive di akhir; keterangan laporan ikut di sana bila belum terkirim bersama file.
     var rest = [], captionSent = false, refused = false;
