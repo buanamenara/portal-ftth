@@ -7586,24 +7586,34 @@ function logSheetEdit(e) {
   } catch (err) { /* jangan mengganggu pengetikan */ }
 }
 
-// Google tidak memberi email akun Gmail lain ke skrip. Gantinya: nama akun Google "terakhir diubah oleh" dari Google Drive,
-// hanya bila datanya baru (diubah < 3 menit lalu dan bukan pemilik). Data Drive kadang tertinggal beberapa detik, maka dicoba
-// sekali lagi. Hasil disimpan 30 detik per spreadsheet supaya ketikan beruntun tidak memanggil Drive tiap sel.
+// Google tidak memberi email akun Gmail lain ke skrip. Gantinya: nama akun Google "terakhir diubah oleh" dari Google Drive.
+// Data Drive sering tertinggal puluhan detik, dan tulisan LOG HISTORY dari portal (akun pemilik skrip) ikut tercatat sebagai
+// perubahan terakhir. Karena itu: Drive dicek beberapa kali sampai menunjukkan perubahan pada/setelah edit ini oleh akun lain.
+// Bila tertutup oleh tulisan pemilik skrip, dipakai pengedit terakhir yang dikenali di spreadsheet ini dalam 15 menit
+// terakhir, diberi tanda "(perkiraan)". Hasil disimpan sebentar (1 menit) supaya ketikan beruntun
+// tidak memanggil Drive dan menunggu di setiap sel.
 function driveLastEditor_(ssId) {
-  var cache = CacheService.getScriptCache(), key = 'lastEd_' + ssId;
+  var cache = CacheService.getScriptCache(), key = 'lastEd_' + ssId, knownKey = 'knownEd_' + ssId;
+  var t0 = Date.now() - 30000;   // waktu edit (pemicu kadang baru berjalan beberapa detik setelahnya)
   try {
     var hit = cache.get(key);
     if (hit) return hit;
-    for (var i = 0; i < 2; i++) {
+    var waits = [0, 5000, 10000];
+    for (var i = 0; i < waits.length; i++) {
+      if (waits[i]) Utilities.sleep(waits[i]);
       var f = Drive.Files.get(ssId, { fields: 'modifiedTime,lastModifyingUser(displayName,emailAddress,me)' });
-      var u = (f && f.lastModifyingUser) || {}, age = Date.now() - new Date(f.modifiedTime).getTime();
-      if (u.displayName && !u.me && age < 180000) {
+      var u = (f && f.lastModifyingUser) || {}, mt = new Date(f.modifiedTime).getTime();
+      if (mt < t0) continue;                      // Drive belum memuat edit ini
+      if (u.me) break;                            // tertutup tulisan portal/skrip setelah edit ini
+      if (u.displayName) {
         var name = String(u.displayName) + (u.emailAddress ? ' (' + u.emailAddress + ')' : '');
-        cache.put(key, name, 30);
+        cache.put(key, name, 60);
+        cache.put(knownKey, name, 900);
         return name;
       }
-      if (i === 0) Utilities.sleep(3000);
     }
+    var known = cache.get(knownKey);
+    if (known) { cache.put(key, known + ' (perkiraan)', 60); return known + ' (perkiraan)'; }
   } catch (e) { /* tetap (tidak diketahui) */ }
   return '';
 }
