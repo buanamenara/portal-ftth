@@ -5,6 +5,9 @@ var CONFIG = {
   // Laporan otomatis ke grup WhatsApp lewat gateway Fonnte (api.fonnte.com). MATI sampai nomor WA dan grupnya siap.
   // Untuk menyalakan: isi Script Properties FONNTE_TOKEN dan WA_TARGET (lihat waConfig_), lalu ubah ke true.
   WA_GATEWAY_ENABLED: false,
+  // false = paket Fonnte gratis (hanya teks): foto/PDF dikirim sebagai link Google Drive yang bisa dibuka siapa saja
+  // yang memegang link. true = paket berbayar (Super ke atas): file dikirim langsung ke grup (maks 4 MB per file).
+  WA_SEND_FILES: false,
   // Gateway FTTH Project Control Portal: menukar tiket sekali pakai dengan username & role (untuk mengenali akun RPM).
   GATEWAY_URL: "https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec",
   // Spreadsheet Portal FTTH: daftar site (Name) dan SOW di portal Waspang diambil dari tab DATA BASE.
@@ -281,13 +284,13 @@ function uploadWaspangPhotos_(payload) {
     var blob = Utilities.newBlob(Utilities.base64Decode(b64), mime, f.fileName || (mime === 'application/pdf' ? 'dokumen.pdf' : 'foto.jpg'));
     var file = targetFolder.createFile(blob);
     blobs.push(blob);
-    saved.push({ name: file.getName(), url: file.getUrl() });
+    saved.push({ name: file.getName(), url: file.getUrl(), file: file });
   });
 
   var caption = buildWaspangPhotoCaption_(payload);
   var telegramOk = sendWaspangPhotosToTelegram_(blobs, caption);
   logWaspangPhotoToSheet_(payload, targetFolder.getUrl(), saved, telegramOk);
-  sendWaspangPhotosToWhatsApp_(blobs, caption);
+  sendWaspangPhotosToWhatsApp_(blobs, saved, caption);
 
   return { status: 'success', folderUrl: targetFolder.getUrl() };
 }
@@ -416,12 +419,22 @@ function waSend_(wa, message, blob) {
   }
 }
 
-// Foto / PDF Dokumentasi Lapangan: keterangan laporan ikut pada file pertama, file lain menyusul satu per satu.
-function sendWaspangPhotosToWhatsApp_(blobs, caption) {
+// Foto / PDF Dokumentasi Lapangan. Paket gratis: satu pesan berisi keterangan laporan + link tiap file (file dibuka
+// untuk "siapa saja yang memegang link" supaya anggota grup tanpa akses Drive bisa melihatnya).
+// Paket berbayar (WA_SEND_FILES): keterangan ikut pada file pertama, file lain menyusul satu per satu.
+function sendWaspangPhotosToWhatsApp_(blobs, saved, caption) {
   var wa = waConfig_();
   if (!wa) return;
-  if (!blobs.length) { waSend_(wa, caption); return; }
-  blobs.forEach(function (blob, i) { waSend_(wa, i === 0 ? caption : '', blob); });
+  if (CONFIG.WA_SEND_FILES && blobs.length) {
+    blobs.forEach(function (blob, i) { waSend_(wa, i === 0 ? caption : '', blob); });
+    return;
+  }
+  var links = saved.map(function (f, i) {
+    try { f.file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); }
+    catch (e) { console.error('WA share link error: ' + e); }
+    return (i + 1) + '. ' + f.url;
+  });
+  waSend_(wa, caption + (links.length ? '\n\n📷 *Foto / dokumen*:\n' + links.join('\n') : ''));
 }
 
 function sendDailyReportToWhatsApp_(text) {
