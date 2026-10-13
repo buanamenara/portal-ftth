@@ -895,6 +895,11 @@
     .nav-tab:hover { color: #fff; background: rgba(255,255,255,.08); }
     .nav-tab.active { background: var(--gold); color: var(--navy); box-shadow: none; }
     .nav-tab .nt-short { display: none; }
+    /* Layar lebar: menu tab tetap terlihat di bawah header saat halaman di-scroll (--hdr-h = tinggi header, diisi skrip
+       di akhir halaman). Di HP menu sudah menempel di bar bawah layar. */
+    @media (min-width: 681px) {
+      .nav-tabs { position: sticky; top: var(--hdr-h, 76px); z-index: 90; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+    }
 
     .card { border-radius: 8px; border: 1px solid #eadfc4; border-top: 4px solid var(--gold); box-shadow: 0 2px 8px rgba(0,0,0,.08); padding: 20px 22px; }
     .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
@@ -2858,8 +2863,9 @@
     // Tombol "Kirim ke WhatsApp": setelah Daily Report / foto terkirim ke Telegram, WhatsApp dibuka dengan teks laporan
     // yang sudah terisi; waspang memilih grup lalu menekan Kirim. WA_SHARE_ENABLED = true menampilkannya untuk semua akun.
     // 12-10-2026: setelah masa uji RPM, pemilik portal mengaktifkannya untuk waspang dan RPM.
-    const WA_SHARE_ENABLED = true;
-    const WA_SHARE_RPM_TEST = true;
+    // 13-10-2026: dimatikan. Server sekarang mengirim laporan otomatis ke grup WhatsApp (Fonnte), jadi jendela ini tidak perlu.
+    const WA_SHARE_ENABLED = false;
+    const WA_SHARE_RPM_TEST = false;
 
     function waShareUrl(text) {
       // Ditulis tanpa garis miring ganda dan tanda backtick: pemrosesan halaman Google salah membacanya dan memotong skrip (versi 44-46).
@@ -6338,6 +6344,18 @@ ${e(todayActivity)}`;
       t.classList.add('show');
       setTimeout(() => t.classList.remove('show'), 3000);
     }
+  </script>
+  <script>
+    // Tinggi header (berubah di HP / saat layar diputar) untuk posisi menu tab yang menempel di atas.
+    (function () {
+      function setHdr() {
+        var h = document.querySelector('header');
+        if (h) document.documentElement.style.setProperty('--hdr-h', h.offsetHeight + 'px');
+      }
+      setHdr();
+      window.addEventListener('resize', setHdr);
+      window.addEventListener('load', setHdr);
+    })();
   </script>
 </body>
 </html>
