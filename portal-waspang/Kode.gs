@@ -381,14 +381,52 @@ function telegramFetch_(url, payload) {
 // bila flag mati, token/tujuan kosong, atau Fonnte gagal, Telegram dan portal tetap berjalan seperti biasa.
 // Token dan tujuan TIDAK ditulis di kode (repo ini publik). Simpan di Script Properties:
 //   FONNTE_TOKEN : token perangkat dari dashboard fonnte.com (setelah nomor WA disambungkan lewat scan QR)
-//   WA_TARGET    : ID grup WA (mis. 120363xxxxxxxxxxxx@g.us, lihat waListGroups) atau nomor 62xxx; boleh beberapa, pisahkan koma
+//   WA_TARGET    : nama grup WA persis seperti di WhatsApp, ID grup (120363xxxxxxxxxxxx@g.us) atau nomor 62xxx;
+//                  boleh beberapa, pisahkan koma
 function waConfig_() {
   if (!CONFIG.WA_GATEWAY_ENABLED) return null;
   try {
     var props = PropertiesService.getScriptProperties();
     var token = props.getProperty('FONNTE_TOKEN'), target = props.getProperty('WA_TARGET');
-    return token && target ? { token: token, target: target } : null;
-  } catch (e) { return null; }
+    if (!token || !target) return null;
+    target = waResolveTarget_(token, target);
+    return target ? { token: token, target: target } : null;
+  } catch (e) {
+    console.error('WA config error: ' + e);
+    return null;
+  }
+}
+
+// Nama grup -> ID grup lewat daftar grup Fonnte (disimpan 6 jam). ID grup dan nomor dipakai apa adanya.
+function waResolveTarget_(token, target) {
+  var cache = CacheService.getScriptCache(), groups = null;
+  return target.split(',').map(function (t) {
+    t = t.trim();
+    if (!t || /@g\.us$/.test(t) || /^\+?[\d\s-]+$/.test(t)) return t;
+    var key = 'wa_grp_' + Utilities.base64EncodeWebSafe(t.toLowerCase()).slice(0, 200);
+    var id = cache.get(key);
+    if (id) return id;
+    if (!groups) groups = waGroups_(token, false);
+    var hit = waFindGroup_(groups, t);
+    if (!hit) { groups = waGroups_(token, true); hit = waFindGroup_(groups, t); }
+    if (!hit) { console.error('Grup WA tidak ditemukan di Fonnte: ' + t); return ''; }
+    cache.put(key, hit.id, 21600);
+    return hit.id;
+  }).filter(Boolean).join(',');
+}
+
+function waFindGroup_(groups, name) {
+  var n = name.toLowerCase();
+  return groups.filter(function (g) { return String(g.name || '').trim().toLowerCase() === n; })[0] || null;
+}
+
+// Daftar grup nomor WA di Fonnte ({id, name}); refresh = minta Fonnte membaca ulang grup dari WhatsApp dulu.
+function waGroups_(token, refresh) {
+  var opt = { method: 'post', headers: { Authorization: token }, muteHttpExceptions: true };
+  if (refresh) UrlFetchApp.fetch('https://api.fonnte.com/fetch-group', opt);
+  var json = {};
+  try { json = JSON.parse(UrlFetchApp.fetch('https://api.fonnte.com/get-whatsapp-group', opt).getContentText()) || {}; } catch (e) {}
+  return json.data || [];
 }
 
 // Format Markdown Telegram -> format WhatsApp: *tebal*, _miring_ dan `kode` sama; tautan [teks](url) jadi "teks (url)",
@@ -455,17 +493,13 @@ function sendDailyReportToWhatsApp_(text) {
 }
 
 // Jalankan dari editor Apps Script (pilih fungsi > Run) setelah FONNTE_TOKEN diisi: daftar grup WA nomor itu
-// muncul di Execution log; salin ID grup laporan ke Script Property WA_TARGET. Tidak bergantung pada flag.
+// muncul di Execution log. WA_TARGET cukup diisi nama grupnya; ID grup juga boleh. Tidak bergantung pada flag.
 function waListGroups() {
   var token = PropertiesService.getScriptProperties().getProperty('FONNTE_TOKEN');
   if (!token) throw new Error('FONNTE_TOKEN belum diisi di Script Properties.');
-  var opt = { method: 'post', headers: { Authorization: token }, muteHttpExceptions: true };
-  UrlFetchApp.fetch('https://api.fonnte.com/fetch-group', opt);   // segarkan daftar grup di Fonnte
-  var res = UrlFetchApp.fetch('https://api.fonnte.com/get-whatsapp-group', opt);
-  var json = {};
-  try { json = JSON.parse(res.getContentText()) || {}; } catch (e) {}
-  (json.data || []).forEach(function (g) { console.log(g.name + '  ->  ' + g.id); });
-  if (!json.data) console.log('Balasan Fonnte: ' + res.getContentText());
+  var groups = waGroups_(token, true);
+  groups.forEach(function (g) { console.log(g.name + '  ->  ' + g.id); });
+  if (!groups.length) console.log('Fonnte belum mengirim daftar grup. Coba lagi sebentar lagi.');
 }
 
 // Kirim satu pesan uji ke WA_TARGET (setelah flag dinyalakan dan Script Properties diisi).
