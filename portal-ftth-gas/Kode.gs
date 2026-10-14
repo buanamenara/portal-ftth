@@ -261,24 +261,21 @@ function extractValues_(sheet) {
   var data = sheet.getDataRange().getValues();
   var results = {};
   DESIGNATOR_MAP.forEach(function (d) {
-    var total = 0;
-    d.terms.forEach(function (term) {
-      total += sumMatchingRows_(data, term, d.includeInstal);
-    });
-    results[d.name] = total;
+    results[d.name] = sumMatchingRows_(data, d.terms, d.includeInstal);
   });
   return results;
 }
 
-// Cari baris di kolom B (Description/Item) yang mengandung `term`,
+// Cari baris di kolom B (Description/Item) yang mengandung salah satu kata kunci `terms`,
 // tidak termasuk baris "Instal.../Pemasangan..." (kecuali includeInstal=true),
-// lalu jumlahkan nilai di kolom D (Material Qty).
-function sumMatchingRows_(data, term, includeInstal) {
+// lalu jumlahkan nilai di kolom D (Material Qty). Tiap baris dihitung SEKALI walau cocok dengan beberapa
+// kata kunci (mis. "FO core type SM G.652.D-ADSS 24 cores" cocok dengan 2 kata kunci Cable 24C; dulu terhitung dobel).
+function sumMatchingRows_(data, terms, includeInstal) {
   var total = 0;
-  var termLower = term.toLowerCase();
+  var termsLower = [].concat(terms).map(function (t) { return String(t).toLowerCase(); });
   for (var r = 0; r < data.length; r++) {
     var desc = String(data[r][1] || '').toLowerCase().trim();
-    if (desc.indexOf(termLower) === -1) continue;
+    if (!termsLower.some(function (t) { return desc.indexOf(t) !== -1; })) continue;
     if (!includeInstal) {
       if (desc.indexOf('instal') === 0 || desc.indexOf('pemasangan') === 0) continue;
     }
