@@ -1426,7 +1426,7 @@ function setupPortalButton_() {
     '   Masuk sekali lewat FTTH Project Control Portal, lalu pilih portalnya:\n' +
     '   •  Portal FTTH – Submit BOQ (Excel)  →  DRAWING / WAREHOUSE / OPNAME (dicek ulang dulu sebelum dikirim)\n' +
     '   •  Portal FTTH – Warehouse BA Transaksi (buat BA otomatis, upload PDF BA bertanda tangan)  →  BA TRANSAKSI dan REKAP BA (spreadsheet Gudang BMI)\n' +
-    '   •  Portal Waspang – Daily Report EMR, BOQ Plan cluster dan foto lapangan  →  spreadsheet Waspang, Google Drive dan grup Telegram')
+    '   •  Portal Waspang – Daily Report EMR, BOQ Plan cluster dan foto lapangan  →  spreadsheet Waspang, Google Drive dan grup WhatsApp')
     .setFontSize(11).setFontColor(MUTED).setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
 
   SpreadsheetApp.flush();

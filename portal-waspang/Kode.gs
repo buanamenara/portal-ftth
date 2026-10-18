@@ -1,7 +1,6 @@
 var CONFIG = {
   WASPANG_SPREADSHEET_ID: "1ZlSlITeC9zi-m894gQYUUn4YMfP6_8B_Jtep5a33OjA",
   DOKUMENTASI_FOLDER_ID: "1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ", // folder "DOKUMENTASI FTTH" di Google Drive
-  TELEGRAM_CHAT_ID: "@ReportBMI",
   // Laporan otomatis ke grup WhatsApp lewat gateway Fonnte (api.fonnte.com). Baru terkirim bila Script Properties
   // FONNTE_TOKEN dan WA_TARGET sudah diisi (lihat waConfig_); false = matikan semua kiriman WA.
   WA_GATEWAY_ENABLED: true,
@@ -17,22 +16,12 @@ var CONFIG = {
   LOG_SHEET_NAME: "LOG HISTORY"
 };
 
-// Token bot Telegram TIDAK ditulis di kode (repo ini publik). Simpan di Script Properties:
-// Project Settings (ikon roda gigi) > Script Properties > Add script property
-//   Property: TELEGRAM_BOT_TOKEN   Value: <token dari @BotFather>
-function telegramToken_() {
-  var t = PropertiesService.getScriptProperties().getProperty('TELEGRAM_BOT_TOKEN');
-  if (!t) throw new Error('TELEGRAM_BOT_TOKEN belum diisi di Script Properties.');
-  return t;
-}
-
 function doGet(e) {
   if (e && e.parameter && e.parameter.api === 'json') {
     return ContentService.createTextOutput(JSON.stringify({
       status: "online",
       message: "Portal Waspang & Daily Report EMR aktif.",
-      targetDriveFolder: "DOKUMENTASI FTTH",
-      targetTelegramGroup: CONFIG.TELEGRAM_CHAT_ID
+      targetDriveFolder: "DOKUMENTASI FTTH"
     })).setMimeType(ContentService.MimeType.JSON);
   }
   return withSites_(HtmlService.createHtmlOutputFromFile('Form'))
@@ -127,11 +116,11 @@ var MATERIAL_HEADERS_ = ['Pole 7/4 (NP 7m + 4")', 'Pole 7/3 (NP 7m + 3")', 'Pole
 var MASTER_BOQ_HEADER_ = ['No', 'Cluster Name', 'SOW'].concat(MATERIAL_HEADERS_).concat(['Rincian Item', 'Selesai']);
 // Rincian Item mencatat angka per item portal, mis. "Cable 24C Line A = 3; FAT Line B = 1", supaya Total per line
 // tetap terbaca walau kolom materialnya digabung. Ringkasan Pencapaian = satu baris item yang dikerjakan hari itu;
-// Teks Laporan (paling kanan) = daftar lengkap Today/Total/Plan seperti di Telegram.
+// Teks Laporan (paling kanan) = daftar lengkap Today/Total/Plan seperti di pesan laporan.
 var DAILY_REPORT_HEADER_ = ['Timestamp', 'Tanggal', 'Cluster Name', 'SOW', 'Start Implementation', 'Topology', 'Subcont', 'PIC',
   'Manpower', 'Jam Kerja', 'Ringkasan Pencapaian', 'Today Activity'].concat(MATERIAL_HEADERS_).concat(['Rincian Item', 'Teks Laporan']);
 var PHOTO_LOG_HEADER_ = ['Timestamp', 'Tanggal Pelaporan', 'Site Name', 'SOW', 'Mandor', 'Nama Waspang', 'Kategori Pekerjaan',
-  'Subfolder / FAT', 'Nama File', 'Koordinat GPS', 'Link Maps', 'Link Foto Drive', 'Link Folder Drive', 'Catatan Lapangan', 'Status Telegram'];
+  'Subfolder / FAT', 'Nama File', 'Koordinat GPS', 'Link Maps', 'Link Foto Drive', 'Link Folder Drive', 'Catatan Lapangan', 'Status WhatsApp'];
 
 // Item portal -> kolom material (judul yang sudah dinormalkan). Item per line (Cable 24C Line A, FAT Line B, ...)
 // masuk ke kolom material yang sama dan dijumlahkan.
@@ -285,11 +274,10 @@ function uploadWaspangPhotos_(payload) {
   });
 
   var caption = buildWaspangPhotoCaption_(payload);
-  var telegramOk = sendWaspangPhotosToTelegram_(blobs, caption);
-  logWaspangPhotoToSheet_(payload, targetFolder.getUrl(), saved, telegramOk);
-  sendWaspangPhotosToWhatsApp_(blobs, saved, caption);
+  var waOk = sendWaspangPhotosToWhatsApp_(blobs, saved, caption);
+  logWaspangPhotoToSheet_(payload, targetFolder.getUrl(), saved, waOk);
 
-  return { status: 'success', folderUrl: targetFolder.getUrl() };
+  return { status: 'success', folderUrl: targetFolder.getUrl(), waSent: waOk };
 }
 
 function buildWaspangPhotoCaption_(payload) {
@@ -305,76 +293,10 @@ function buildWaspangPhotoCaption_(payload) {
   return caption;
 }
 
-// true bila Telegram menerima semua file. Foto dikirim sebagai foto, PDF sebagai dokumen (Telegram tidak bisa
-// mencampur keduanya dalam satu album); keterangan laporan ikut pada kiriman pertama.
-function sendWaspangPhotosToTelegram_(blobs, caption) {
-  var photos = blobs.filter(function (b) { return b.getContentType() !== 'application/pdf'; });
-  var docs = blobs.filter(function (b) { return b.getContentType() === 'application/pdf'; });
-  try {
-    var ok = sendTelegramGroup_(photos, 'photo', caption);
-    return sendTelegramGroup_(docs, 'document', photos.length ? '' : caption) && ok;
-  } catch (err) {
-    console.error('Telegram send error: ' + err);
-    return false;
-  }
-}
-
-// Satu jenis file (photo / document) ke Telegram lewat sendMediaGroup, dipecah per 10; potongan berisi satu file
-// lewat sendPhoto / sendDocument.
-function sendTelegramGroup_(blobs, type, caption) {
-  var ok = true;
-  for (var start = 0; start < blobs.length; start += 10) {
-    var chunk = blobs.slice(start, start + 10);
-    var cap = start === 0 ? caption : '';
-    // Album Telegram butuh 2-10 file: satu file (termasuk sisa satu, mis. foto ke-11) dikirim sendiri.
-    if (chunk.length === 1) {
-      var one = { chat_id: CONFIG.TELEGRAM_CHAT_ID, caption: cap, parse_mode: 'Markdown' };
-      one[type] = chunk[0];
-      ok = telegramPost_(type === 'photo' ? 'sendPhoto' : 'sendDocument', one).ok === true && ok;
-      continue;
-    }
-    var media = [];
-    var formPayload = { chat_id: CONFIG.TELEGRAM_CHAT_ID };
-    chunk.forEach(function (blob, idx) {
-      var key = 'p_' + idx;
-      media.push({
-        type: type,
-        media: 'attach://' + key,
-        caption: (start === 0 && idx === 0) ? caption : '',
-        parse_mode: 'Markdown'
-      });
-      formPayload[key] = blob;
-    });
-    formPayload.media = JSON.stringify(media);
-    ok = telegramPost_('sendMediaGroup', formPayload).ok === true && ok;
-  }
-  return ok;
-}
-
-// Kirim ke Telegram. Bila Telegram menolak format Markdown-nya (mis. "_" atau "*" tanpa pasangan di catatan),
-// kirim ulang sebagai teks biasa supaya laporan tetap sampai. -> isi balasan Telegram ({ok, description, ...}).
-function telegramPost_(method, payload) {
-  var url = 'https://api.telegram.org/bot' + telegramToken_() + '/' + method;
-  var json = telegramFetch_(url, payload);
-  if (!json.ok && /parse entities/i.test(json.description || '')) {
-    var plain = {};
-    Object.keys(payload).forEach(function (k) { if (k !== 'parse_mode') plain[k] = payload[k]; });
-    if (plain.media) {
-      plain.media = JSON.stringify(JSON.parse(plain.media).map(function (m) { delete m.parse_mode; return m; }));
-    }
-    json = telegramFetch_(url, plain);
-  }
-  return json;
-}
-
-function telegramFetch_(url, payload) {
-  var res = UrlFetchApp.fetch(url, { method: 'post', payload: payload, muteHttpExceptions: true });
-  try { return JSON.parse(res.getContentText()) || {}; } catch (e) { return {}; }
-}
-
 // ===================== WHATSAPP (FONNTE) =====================
-// Salinan laporan ke grup WhatsApp, dikirim setelah Telegram. Semua fungsi di sini tidak pernah melempar error:
-// bila flag mati, token/tujuan kosong, atau Fonnte gagal, Telegram dan portal tetap berjalan seperti biasa.
+// Laporan ke grup WhatsApp (satu-satunya grup tujuan laporan sejak Telegram dihapus 18-10-2026). Semua fungsi di sini
+// tidak pernah melempar error: bila flag mati, token/tujuan kosong, atau Fonnte gagal, foto tetap tersimpan di Drive
+// dan laporan tetap tercatat di sheet.
 // Token dan tujuan TIDAK ditulis di kode (repo ini publik). Simpan di Script Properties:
 //   FONNTE_TOKEN : token perangkat dari dashboard fonnte.com (setelah nomor WA disambungkan lewat scan QR)
 //   WA_SEND_FILES: isi "true" setelah paket Fonnte berbayar (Super ke atas) aktif: foto/PDF dikirim langsung ke grup.
@@ -428,9 +350,8 @@ function waGroups_(token, refresh) {
   return json.data || [];
 }
 
-// Format Markdown Telegram -> format WhatsApp: *tebal* dan _miring_ sama; `kode` jadi teks biasa (di WA tampil
-// sebagai huruf mesin ketik, di Telegram tidak); garis pemisah dipendekkan; tautan [teks](url) jadi "teks (url)"; garis miring pelindung
-// (\_ \* \[) dibuang.
+// Teks laporan -> format WhatsApp: *tebal* dan _miring_ tetap; `kode` jadi teks biasa (di WA tampil sebagai huruf
+// mesin ketik); garis pemisah dipendekkan; tautan [teks](url) jadi "teks (url)"; garis miring pelindung (\_ \* \[) dibuang.
 function waText_(text) {
   return String(text || '')
     .replace(/\[([^\]]*)\]\((https?:[^)\s]+)\)/g, '$1 ($2)')
@@ -461,10 +382,10 @@ function waSend_(wa, message, blob) {
 }
 
 // Foto / PDF Dokumentasi Lapangan. Script Property WA_SEND_FILES (paket berbayar): keterangan ikut pada file pertama, file lain
-// menyusul satu per satu. Paket gratis: satu pesan berisi keterangan laporan + link tiap file.
+// menyusul satu per satu. Paket gratis: satu pesan berisi keterangan laporan + link tiap file. -> true bila terkirim.
 function sendWaspangPhotosToWhatsApp_(blobs, saved, caption) {
   var wa = waConfig_();
-  if (!wa) return;
+  if (!wa) return false;
   if (wa.files && blobs.length) {
     // File > 4 MB, atau file yang ditolak Fonnte (mis. paket gratis tidak bisa kirim file), dikirim sebagai link
     // Drive di akhir; keterangan laporan ikut di sana bila belum terkirim bersama file.
@@ -476,10 +397,9 @@ function sendWaspangPhotosToWhatsApp_(blobs, saved, caption) {
       }
       rest.push(saved[i]);
     });
-    if (rest.length) sendWaLinks_(wa, captionSent ? '' : caption, rest);
-    return;
+    return rest.length ? sendWaLinks_(wa, captionSent ? '' : caption, rest) : true;
   }
-  sendWaLinks_(wa, caption, saved);
+  return sendWaLinks_(wa, caption, saved);
 }
 
 // Link Drive dibuka untuk "siapa saja yang memegang link" supaya anggota grup tanpa akses Drive bisa melihatnya.
@@ -489,12 +409,12 @@ function sendWaLinks_(wa, caption, saved) {
     catch (e) { console.error('WA share link error: ' + e); }
     return (i + 1) + '. ' + f.url;
   });
-  waSend_(wa, (caption ? caption + '\n\n' : '') + '📷 *Foto / dokumen*:\n' + links.join('\n'));
+  return waSend_(wa, (caption ? caption + '\n\n' : '') + '📷 *Foto / dokumen*:\n' + links.join('\n'));
 }
 
 function sendDailyReportToWhatsApp_(text) {
   var wa = waConfig_();
-  if (wa) waSend_(wa, text);
+  return wa ? waSend_(wa, text) : false;
 }
 
 // Jalankan dari editor Apps Script (pilih fungsi > Run) setelah FONNTE_TOKEN diisi: daftar grup WA nomor itu
@@ -515,7 +435,7 @@ function waTest() {
 }
 
 // Satu baris per foto, mengikuti judul kolom tab LOG FOTO WASPANG.
-function logWaspangPhotoToSheet_(payload, folderUrl, saved, telegramOk) {
+function logWaspangPhotoToSheet_(payload, folderUrl, saved, waOk) {
   try {
     if (!saved.length) return;
     var sh = sheetWithHeader_('LOG FOTO WASPANG', PHOTO_LOG_HEADER_), h = sheetHeader_(sh);
@@ -539,7 +459,7 @@ function logWaspangPhotoToSheet_(payload, folderUrl, saved, telegramOk) {
         'Link Foto Drive': f.url,
         'Link Folder Drive': folderUrl,
         'Catatan Lapangan': payload.notes || '',
-        'Status Telegram': telegramOk ? 'SENT_TELEGRAM' : 'GAGAL_TELEGRAM'
+        'Status WhatsApp': waOk ? 'SENT_WA' : 'GAGAL_WA'
       });
     });
     sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
@@ -552,34 +472,28 @@ function logWaspangPhotoToSheet_(payload, folderUrl, saved, telegramOk) {
 
 function sendDailyReportEMR_(payload) {
   var text = payload.text || '';
-  var chatId = payload.chatId || CONFIG.TELEGRAM_CHAT_ID;
   if (!text) {
     return { status: 'error', message: 'Teks Daily Report kosong.' };
   }
-  try {
-    var json = telegramPost_('sendMessage', { chat_id: chatId, text: text, parse_mode: 'Markdown' });
-    if (!json.ok) {
-      return { status: 'error', message: json.description || 'Gagal mengirim ke Telegram.' };
-    }
-  } catch (err) {
-    return { status: 'error', message: err.toString() };
-  }
-  sendDailyReportToWhatsApp_(text);
+  var waOk = sendDailyReportToWhatsApp_(text);
 
-  // Laporan sudah terkirim: catat di tab DAILY REPORT EMR. Gagal di sini tidak membatalkan laporan.
+  // Catat di tab DAILY REPORT EMR, juga bila WhatsApp gagal (laporan tidak hilang). Gagal di sini tidak membatalkan laporan.
+  var res;
   try {
-    return recordDailyReport_(payload);
+    res = recordDailyReport_(payload);
   } catch (err) {
     console.error('Log daily report error: ' + err);
-    return { status: 'success', totalsError: err.toString() };
+    res = { status: 'success', totalsError: err.toString() };
   }
+  res.waSent = waOk;
+  return res;
 }
 
 // Satu baris per Daily Report di tab DAILY REPORT EMR (kolom material berisi volume Today),
 // lalu Total baru cluster itu dihitung dari tab yang sama.
 function recordDailyReport_(payload) {
   var lock = LockService.getScriptLock();
-  lock.waitLock(45000);   // laporan sudah terkirim ke Telegram: tunggu lebih lama supaya barisnya tidak hilang
+  lock.waitLock(45000);   // laporan sudah terkirim ke WhatsApp: tunggu lebih lama supaya barisnya tidak hilang
   try {
     var r = payload.report || {}, sh = dailySheet_(), cluster = payload.cluster, names = payload.names || {};
     var sow = r.sow || payload.sow || sowFromId_(cluster);
