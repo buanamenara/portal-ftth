@@ -813,8 +813,8 @@
       transform: translateX(20px);
     }
 
-    /* Telegram Preview Card */
-    .tg-preview-card {
+    /* Report Preview Card */
+    .report-preview-card {
       background: #0f172a;
       color: #f8fafc;
       border-radius: 10px;
@@ -950,7 +950,7 @@
     .modal-overlay { background: rgba(0,0,0,.45); }
     .modal-content { border-radius: 12px; border-top: 4px solid var(--gold); }
     .toast { background: var(--navy); border-color: var(--gold); }
-    .tg-preview-card { background: #1a1a1a; border-color: #333; }
+    .report-preview-card { background: #1a1a1a; border-color: #333; }
 
     /* ---------- Mode ponsel: seperti Portal FTTH di HP ---------- */
     @media (max-width: 680px) {
@@ -1239,11 +1239,11 @@
           <div class="input-row">
             <div class="form-group">
               <label for="dailyDate">Tanggal Laporan (Date) *</label>
-              <input type="date" id="dailyDate" required onchange="renderTelegramPreview()">
+              <input type="date" id="dailyDate" required onchange="renderDailyPreview()">
             </div>
             <div class="form-group">
               <label for="dailyStartImpl">Start Implementation *</label>
-              <input type="date" id="dailyStartImpl" required onchange="renderTelegramPreview()">
+              <input type="date" id="dailyStartImpl" required onchange="renderDailyPreview()">
             </div>
           </div>
 
@@ -1254,7 +1254,7 @@
             </div>
             <div class="form-group">
               <label for="dailyTopology">Topology *</label>
-              <select id="dailyTopology" onchange="renderTelegramPreview()">
+              <select id="dailyTopology" onchange="renderDailyPreview()">
                 <option value="AERIAL">AERIAL</option>
                 <option value="UNDERGROUND">UNDERGROUND</option>
                 <option value="HYBRID">HYBRID</option>
@@ -1265,7 +1265,7 @@
           <div class="input-row">
             <div class="form-group">
               <label for="dailyPic">PIC / Pengawas *</label>
-              <select id="dailyPic" required onchange="renderTelegramPreview()" style="font-weight: 600;">
+              <select id="dailyPic" required onchange="renderDailyPreview()" style="font-weight: 600;">
                 <option value="Nazar">Nazar</option>
                 <option value="Fahreza">Fahreza</option>
                 <option value="Zain">Zain</option>
@@ -1276,11 +1276,11 @@
           <div class="input-row">
             <div class="form-group">
               <label for="dailyManpower">Manpower *</label>
-              <input type="text" id="dailyManpower" value="1 Team / 7 Person" required oninput="renderTelegramPreview()">
+              <input type="text" id="dailyManpower" value="1 Team / 7 Person" required oninput="renderDailyPreview()">
             </div>
             <div class="form-group">
               <label for="dailyWorkHours">Jam Kerja (Start - End) *</label>
-              <input type="text" id="dailyWorkHours" value="08.00 - 17.00" required oninput="renderTelegramPreview()">
+              <input type="text" id="dailyWorkHours" value="08.00 - 17.00" required oninput="renderDailyPreview()">
             </div>
           </div>
         </div>
@@ -1353,23 +1353,23 @@
           </div>
           <div class="form-group">
             <label for="dailyTodayActivity">Poin Pekerjaan Hari Ini (Gunakan baris baru)</label>
-            <textarea id="dailyTodayActivity" rows="3" placeholder="- Pulling Cable Line A&#10;- instal Acc" oninput="renderTelegramPreview()">- Pulling Cable Line A&#10;- instal Acc</textarea>
+            <textarea id="dailyTodayActivity" rows="3" placeholder="- Pulling Cable Line A&#10;- instal Acc" oninput="renderDailyPreview()">- Pulling Cable Line A&#10;- instal Acc</textarea>
           </div>
         </div>
 
-        <!-- Telegram Preview Box -->
+        <!-- Report Preview Box -->
         <div class="card">
           <div class="section-title">
-            <span>✈️</span> Pratinjau Pesan Telegram &amp; WhatsApp
+            <span>💬</span> Pratinjau Pesan WhatsApp
           </div>
-          <div class="tg-preview-card" id="tgDailyPreviewBox"></div>
+          <div class="report-preview-card" id="dailyPreviewBox"></div>
           
           <div class="btn-action-row">
-            <button type="button" class="btn-secondary" style="margin-top: 0;" onclick="copyTelegramDaily()">
-              📋 Salin Teks Telegram
+            <button type="button" class="btn-secondary" style="margin-top: 0;" onclick="copyDailyText()">
+              📋 Salin Teks Laporan
             </button>
             <button type="submit" class="btn-primary" style="margin-top: 0;" id="btnSendDailyReport">
-              🚀 Kirim ke Telegram + WhatsApp
+              🚀 Kirim ke WhatsApp
             </button>
           </div>
         </div>
@@ -1406,7 +1406,7 @@
             <span style="font-size: 1.1rem; line-height: 1;">💡</span>
             <div>
               <strong>Apakah Anda sudah yakin data di atas sudah benar?</strong><br>
-              Laporan akan langsung diposting ke grup Telegram <strong>@ReportBMI</strong> dan total kumulatif akan disimpan.
+              Laporan akan langsung dikirim ke grup WhatsApp <strong>REPORT BMI</strong> dan total kumulatif akan disimpan.
             </div>
           </div>
         </div>
@@ -1529,7 +1529,7 @@
         <div id="manualBoqContent" style="display: block;">
           <p style="font-size: 0.76rem; color: #475569; margin-bottom: 12px; line-height: 1.5;">
             Pilih cluster di bawah ini. Anda dapat <strong>memilih material apa saja yang digunakan</strong> dari katalog resmi (menggunakan dropdown pilihan material) dan mengatur target volume BOQ Plan. 
-            Item yang tidak ada di daftar ini <strong>tidak akan muncul di form laporan Waspang maupun format Telegram</strong>. 
+            Item yang tidak ada di daftar ini <strong>tidak akan muncul di form laporan Waspang maupun pesan laporan</strong>. 
             <br><em>*Catatan: Saat file Excel BOQ diunggah, seluruh material yang terdeteksi dalam file otomatis tersusun di sini.</em>
           </p>
 
@@ -1576,7 +1576,7 @@
 
     </div>
 
-    <!-- MENU 3: SUBMIT FOTO DOKUMENTASI KE DRIVE & TELEGRAM -->
+    <!-- MENU 3: SUBMIT FOTO DOKUMENTASI KE DRIVE & WHATSAPP -->
     <div id="viewPhoto" style="display: none;">
 
 
@@ -1790,7 +1790,7 @@
         </div>
 
         <button type="submit" class="btn-primary" id="btnSubmitPhoto">
-          KIRIM FOTO KE DRIVE, TELEGRAM & WA
+          KIRIM FOTO KE DRIVE & WA
         </button>
         <div id="photoSubmitStatus" style="display: none; margin-top: 10px; padding: 12px 14px; border-radius: 8px; font-size: 0.8rem;"></div>
       </form>
@@ -1873,15 +1873,11 @@
   <!-- Modal Konfigurasi -->
   <div class="modal-overlay" id="configModal">
     <div class="modal-content">
-      <h2 style="font-size: 1rem; color: var(--bmi-dark); margin-bottom: 10px;">⚙️ Bot Telegram & Drive</h2>
+      <h2 style="font-size: 1rem; color: var(--bmi-dark); margin-bottom: 10px;">⚙️ Pengaturan Drive</h2>
       <form id="configForm" onsubmit="saveConfig(event)">
         <div class="form-group">
           <label>Google Apps Script Web App URL</label>
           <input type="text" id="cfgScriptUrl" value="https://script.google.com/macros/s/AKfycbw4TJYefbBIIoBS4Kztyv2lClvmngtIMotFbSLfp_E6ptKjv0qVwDBg_ppR1fY8zGKG/exec" placeholder="https://script.google.com/macros/s/.../exec">
-        </div>
-        <div class="form-group">
-          <label>Telegram Chat ID</label>
-          <input type="text" id="cfgChatId" value="@ReportBMI" placeholder="Contoh: @ReportBMI">
         </div>
         <div style="display: flex; gap: 8px; margin-top: 12px;">
           <button type="submit" class="btn-primary" style="flex: 1; margin-top: 0;">Simpan Pengaturan</button>
@@ -1894,7 +1890,7 @@
         <div style="margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px;">
           <label style="color: #dc2626; font-size: 0.8rem;">Hapus Semua Data & Mulai dari Nol</label>
           <p style="font-size: 0.72rem; color: #64748b; margin-bottom: 8px;">
-            Menghapus seluruh cache BOQ cluster yang tersimpan di browser agar Anda dapat memulai upload dan pengetesan baru. (Pengaturan Token & Chat ID tetap aman).
+            Menghapus seluruh cache BOQ cluster yang tersimpan di browser agar Anda dapat memulai upload dan pengetesan baru. (Pengaturan tetap aman).
           </p>
           <button type="button" class="btn-secondary" onclick="resetAllAppData()" style="border-color: #fca5a5; color: #dc2626; font-weight: 700;">
             🗑️ Kosongkan Seluruh Data Lokal (Reset Total)
@@ -1927,7 +1923,7 @@
           <ul class="glist">
             <li>Portal Waspang: Daily Report EMR, BOQ Plan dan foto dokumentasi, langkah demi langkah.</li>
             <li>Masuk sekali lewat FTTH Project Control Portal dan pindah ke Portal FTTH.</li>
-            <li>Cara mengatasi masalah umum (site tidak muncul, laporan tidak masuk Telegram, sesi habis).</li>
+            <li>Cara mengatasi masalah umum (site tidak muncul, laporan tidak masuk WhatsApp, sesi habis).</li>
           </ul>
         </div>
         <button type="button" id="guideTop" aria-label="Kembali ke atas">
@@ -2058,7 +2054,7 @@
         if (vDaily) {
           vDaily.style.display = 'block';
           renderDailyTable();
-          renderTelegramPreview();
+          renderDailyPreview();
         }
       } else if (tab === 'boq') {
         const tabEl = document.getElementById('tabBoq');
@@ -2850,17 +2846,16 @@
     let photoItems = [];
     const STORAGE_CONFIG = 'waspang_ftth_config_v9';
     const DEFAULT_CONFIG = {
-      chatId: "@ReportBMI",
       scriptUrl: "https://script.google.com/macros/s/AKfycbw4TJYefbBIIoBS4Kztyv2lClvmngtIMotFbSLfp_E6ptKjv0qVwDBg_ppR1fY8zGKG/exec"
     };
 
-    // Alamat server Waspang dan grup Telegram tetap untuk semua HP. Menu Pengaturan tidak ditampilkan lagi (11-10-2026),
+    // Alamat server Waspang tetap untuk semua HP. Menu Pengaturan tidak ditampilkan lagi (11-10-2026),
     // jadi isian lama yang tersimpan di HP (termasuk URL salah ketik "BIlo") tidak dipakai.
     function getConfig() {
-      return { chatId: DEFAULT_CONFIG.chatId, scriptUrl: DEFAULT_CONFIG.scriptUrl };
+      return { scriptUrl: DEFAULT_CONFIG.scriptUrl };
     }
 
-    // Tombol "Kirim ke WhatsApp": setelah Daily Report / foto terkirim ke Telegram, WhatsApp dibuka dengan teks laporan
+    // Tombol "Kirim ke WhatsApp": setelah Daily Report / foto terkirim, WhatsApp dibuka dengan teks laporan
     // yang sudah terisi; waspang memilih grup lalu menekan Kirim. WA_SHARE_ENABLED = true menampilkannya untuk semua akun.
     // 12-10-2026: setelah masa uji RPM, pemilik portal mengaktifkannya untuk waspang dan RPM.
     // 13-10-2026: dimatikan. Server sekarang mengirim laporan otomatis ke grup WhatsApp (Fonnte), jadi jendela ini tidak perlu.
@@ -2886,7 +2881,7 @@
         el.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); z-index:99999; align-items:center; justify-content:center; padding:16px;';
         el.innerHTML = `
           <div style="background:#fff; border-radius:12px; max-width:420px; width:100%; padding:18px; box-shadow:0 20px 40px rgba(0,0,0,0.3);">
-            <div style="font-weight:800; color:#0f172a; font-size:0.95rem;">✅ <span id="waShareTitle"></span> terkirim ke Telegram</div>
+            <div style="font-weight:800; color:#0f172a; font-size:0.95rem;">✅ <span id="waShareTitle"></span> terkirim</div>
             <div style="font-size:0.8rem; color:#475569; margin:6px 0 14px;">Langkah terakhir: kirim juga ke grup WhatsApp. Tekan tombol hijau, pilih grupnya, lalu tekan Kirim.</div>
             <a id="waShareLink" href="#" target="_blank" rel="noopener" onclick="setTimeout(closeWaShare, 300)"
                style="display:block; text-align:center; background:#25d366; color:#fff; padding:11px; border-radius:8px; font-weight:800; text-decoration:none;">🟢 Kirim ke WhatsApp</a>
@@ -3150,7 +3145,7 @@
       }
 
       renderDailyTable();
-      renderTelegramPreview();
+      renderDailyPreview();
     }
 
     function getManualPhotoProgress() {
@@ -3319,7 +3314,7 @@
       if (d.found) applySharedTotals(cluster, d.totals, true);
       if (getActiveDailyCluster() === cluster) {
         renderDailyTable();
-        renderTelegramPreview();
+        renderDailyPreview();
       }
     }
     // BOQ Plan dan tanda Selesai dari sheet (sama untuk semua HP), disimpan di HP sebagai cache.
@@ -3383,7 +3378,7 @@
       try { localStorage.setItem(storeKey, JSON.stringify(prev)); } catch (e) {}
       if (!noRender && getActiveDailyCluster() === cluster) {
         renderDailyTable();
-        renderTelegramPreview();
+        renderDailyPreview();
       }
     }
 
@@ -3407,7 +3402,7 @@
       const bEl = document.getElementById(`badge_status_${itemKey}`);
       if (bEl) bEl.innerHTML = sts.badgeHtml;
 
-      renderTelegramPreview();
+      renderDailyPreview();
     }
 
     function saveItemTotalCumulative(cluster, itemKey, totalVal) {
@@ -3546,13 +3541,10 @@
         bEl.innerHTML = sts.badgeHtml;
       }
 
-      renderTelegramPreview();
+      renderDailyPreview();
     }
 
-    // Baris *ACHIEVMENT TODAY/TOTAL/BOQ PLAN* per kategori (untuk pesan Telegram dan kolom Ringkasan Pencapaian di sheet).
-    // Karakter format Telegram (_ * ` [) di nama cluster dan isian diberi "\" supaya Telegram tidak menolak laporan
-    // (banyak nama Feeder/Uplink memakai "_"). Hanya untuk teks yang dikirim; pratinjau dan Salin tetap apa adanya.
-    function tgEsc(v) { return String(v == null ? '' : v).replace(/([_*`\[])/g, '\\$1'); }
+    // Baris *ACHIEVMENT TODAY/TOTAL/BOQ PLAN* per kategori (untuk pesan laporan dan kolom Ringkasan Pencapaian di sheet).
 
     function buildDailyAchievText(cluster, esc) {
       esc = esc || (v => v);
@@ -3587,8 +3579,7 @@
       return achievLines.join('\n').trim();
     }
 
-    function generateDailyTelegramText(forTelegram) {
-      const e = forTelegram ? tgEsc : (v => v);
+    function generateDailyReportText() {
       const cluster = getActiveDailyCluster();
       const dateVal = document.getElementById('dailyDate').value;
       const startImplVal = document.getElementById('dailyStartImpl').value;
@@ -3601,26 +3592,26 @@
       const startTime = workHours.split('-')[0]?.trim() || '08.00';
       const endTime = workHours.split('-')[1]?.trim() || '17.00';
 
-      const achievText = buildDailyAchievText(cluster, e);
+      const achievText = buildDailyAchievText(cluster);
 
-      // Format Header Telegram Bersih (Tanpa Line Cable redundan & Tanpa Subcont sesuai permintaan user)
+      // Format Header Laporan Bersih (Tanpa Line Cable redundan & Tanpa Subcont sesuai permintaan user)
       const text = 
 `*DAILY REPORT EMR – BMI*
 Date  : ${formatDateDMY(dateVal)}
-Cluster Name : ${e(boqSiteName(cluster))}
-SOW : ${e(getSowType(cluster))}
+Cluster Name : ${boqSiteName(cluster)}
+SOW : ${getSowType(cluster)}
 Start Implementation : ${formatDateDMY(startImplVal)}
-Topology : ${e(topology)}
-PIC : ${e(pic)}
-Manpower  : ${e(manpower)}
-Start Work Time : ${e(startTime)}
-End Work Time : ${e(endTime)}
+Topology : ${topology}
+PIC : ${pic}
+Manpower  : ${manpower}
+Start Work Time : ${startTime}
+End Work Time : ${endTime}
 
 *ACHIEVMENT TODAY/TOTAL/BOQ PLAN* 
 ${achievText || 'Belum ada material terdaftar untuk cluster ini'}
 
 *TODAY ACTIVITY*
-${e(todayActivity)}`;
+${todayActivity}`;
 
       return text;
     }
@@ -3632,15 +3623,15 @@ ${e(todayActivity)}`;
       return dStr;
     }
 
-    function renderTelegramPreview() {
-      const b = document.getElementById('tgDailyPreviewBox');
-      if (b) b.innerText = generateDailyTelegramText();
+    function renderDailyPreview() {
+      const b = document.getElementById('dailyPreviewBox');
+      if (b) b.innerText = generateDailyReportText();
     }
 
-    function copyTelegramDaily() {
-      const text = generateDailyTelegramText();
+    function copyDailyText() {
+      const text = generateDailyReportText();
       navigator.clipboard.writeText(text);
-      showToast("📋 Format Telegram berhasil disalin!");
+      showToast("📋 Teks laporan berhasil disalin!");
     }
 
     function handleDailySubmit(e) {
@@ -3736,19 +3727,18 @@ ${e(todayActivity)}`;
       closeDailyConfirmModal();
       const cfg = getConfig();
       const btn = document.getElementById('btnSendDailyReport');
-      btn.innerText = "Mengirim ke Telegram...";
+      btn.innerText = "Mengirim ke WhatsApp...";
       btn.disabled = true;
 
       if (!cfg.scriptUrl || cfg.scriptUrl.trim().length === 0) {
         alert("URL Google Apps Script belum diisi di Pengaturan (⚙️). Pengiriman Daily Report memerlukan koneksi ke Apps Script karena Bot Token kini disimpan aman di server, bukan di browser.");
         btn.disabled = false;
-        btn.innerText = "🚀 Kirim ke Telegram + WhatsApp";
+        btn.innerText = "🚀 Kirim ke WhatsApp";
         openConfigModal();
         return;
       }
 
-      const text = generateDailyTelegramText(true);
-      const waText = generateDailyTelegramText(); // teks tanpa "\" untuk WhatsApp, diambil sebelum kolom Today dikosongkan
+      const text = generateDailyReportText(); // diambil sebelum kolom Today dikosongkan
 
       // Today per item, plus Total di perangkat ini sebagai saldo awal bila cluster belum punya baris di DAILY REPORT EMR.
       const reportCluster = getActiveDailyCluster();
@@ -3781,7 +3771,6 @@ ${e(todayActivity)}`;
             action: 'DAILY_REPORT',
             tzOff: -new Date().getTimezoneOffset(),
             session: wsSid(),
-            chatId: cfg.chatId,
             text: text,
             cluster: reportCluster,
             sow: reportSow,
@@ -3795,9 +3784,9 @@ ${e(todayActivity)}`;
         });
         const d = await res.json();
         if (d.status === 'success') {
-          showToast("🎉 Daily Report EMR berhasil terkirim ke Telegram!");
-          showWaShare('Daily Report', waText);
-          if (d.totalsError) alert('Laporan sudah terkirim ke Telegram, tetapi belum tercatat di sheet DAILY REPORT EMR (server sedang sibuk). Beri tahu RPM supaya dicatat.');
+          showToast(d.waSent ? "🎉 Daily Report EMR berhasil terkirim ke WhatsApp!" : "⚠️ Daily Report tersimpan, tetapi belum terkirim ke WhatsApp.");
+          showWaShare('Daily Report', text);
+          if (d.totalsError) alert('Laporan sudah terkirim, tetapi belum tercatat di sheet DAILY REPORT EMR (server sedang sibuk). Beri tahu RPM supaya dicatat.');
           if (d.totals) {
             // Total bersama dari server sudah termasuk Today: simpan, lalu kosongkan Today.
             applySharedTotals(reportCluster, d.totals);
@@ -3814,7 +3803,7 @@ ${e(todayActivity)}`;
       }
 
       btn.disabled = false;
-      btn.innerText = "🚀 Kirim ke Telegram + WhatsApp";
+      btn.innerText = "🚀 Kirim ke WhatsApp";
     }
 
     function saveCurrentProgressAsCumulative() {
@@ -3893,7 +3882,7 @@ ${e(todayActivity)}`;
     }
 
     function resetAllAppData() {
-      if (!confirm("⚠️ Apakah Anda yakin ingin mengosongkan seluruh data lokal (BOQ & cache)? Konfigurasi bot Telegram & URL Apps Script akan tetap dipertahankan.")) {
+      if (!confirm("⚠️ Apakah Anda yakin ingin mengosongkan seluruh data lokal (BOQ & cache)? URL Apps Script akan tetap dipertahankan.")) {
         return;
       }
       const cfg = getConfig();
@@ -3910,7 +3899,7 @@ ${e(todayActivity)}`;
       const sow = sowSel ? sowSel.value : '';
 
       renderDailyTable();
-      renderTelegramPreview();
+      renderDailyPreview();
       refreshSharedTotals(getActiveDailyCluster());
 
       // Sinkronkan Site & SOW ke Menu 3 (Foto)
@@ -4759,7 +4748,7 @@ ${e(todayActivity)}`;
 
       // 4. Re-render Tampilan
       renderDailyTable();
-      renderTelegramPreview();
+      renderDailyPreview();
       renderBoqSummaryTable();
       loadBoqForSelectedCluster(true);   // plan baru belum ada di sheet: jangan dibaca ulang dulu
 
@@ -4866,7 +4855,7 @@ ${e(todayActivity)}`;
         refreshAllClusterDropdowns();
         renderMasterSowTable(document.getElementById('sowTableSearchInp') ? document.getElementById('sowTableSearchInp').value : '');
         if (getActiveDailyCluster() !== dailyBefore) onDailyClusterChange();
-        else { renderDailyTable(); renderTelegramPreview(); }
+        else { renderDailyTable(); renderDailyPreview(); }
         loadBoqForSelectedCluster();
       } catch (e) { failed(''); }
     }
@@ -5047,7 +5036,7 @@ ${e(todayActivity)}`;
         if (JSON.stringify(getClusterItems(cluster)) === before) return;
         if (JSON.stringify(currentManualEditingRows) !== snapshot) return;
         loadBoqForSelectedCluster(true);
-        if (getActiveDailyCluster() === cluster) { renderDailyTable(); renderTelegramPreview(); }
+        if (getActiveDailyCluster() === cluster) { renderDailyTable(); renderDailyPreview(); }
       });
     }
 
@@ -5241,7 +5230,7 @@ ${e(todayActivity)}`;
       }
 
       renderDailyTable();
-      renderTelegramPreview();
+      renderDailyPreview();
       renderBoqSummaryTable();
       loadBoqForSelectedCluster();
     }
@@ -5301,7 +5290,7 @@ ${e(todayActivity)}`;
       forgetLocalBoqPlan(cl);
       renderBoqSummaryTable();
       if (getBoqTargetCluster() === cl) loadBoqForSelectedCluster(true);
-      if (getActiveDailyCluster() === cl) { renderDailyTable(); renderTelegramPreview(); }
+      if (getActiveDailyCluster() === cl) { renderDailyTable(); renderDailyPreview(); }
       showToast('🗑️ BOQ Plan ' + cl + ' sudah dihapus.');
     }
 
@@ -5986,9 +5975,9 @@ ${e(todayActivity)}`;
       const btn = document.getElementById('btnSubmitPhoto');
       if (btn) {
         if (photoItems.length > 0) {
-          btn.innerText = `KIRIM ${photoItems.length} FOTO KE DRIVE, TELEGRAM & WA`;
+          btn.innerText = `KIRIM ${photoItems.length} FOTO KE DRIVE & WA`;
         } else {
-          btn.innerText = `KIRIM FOTO KE DRIVE, TELEGRAM & WA`;
+          btn.innerText = `KIRIM FOTO KE DRIVE & WA`;
         }
       }
     }
@@ -6004,15 +5993,9 @@ ${e(todayActivity)}`;
       const cfg = getConfig();
 
       if (!cfg.scriptUrl || cfg.scriptUrl.trim().length === 0) {
-        const proceed = confirm(
-          "⚠️ PERINGATAN: Google Apps Script Web App URL belum diisi di Pengaturan (⚙️)!\n\n" +
-          "Jika Anda melanjutkan sekarang, foto HANYA AKAN TERKIRIM KE TELEGRAM dan TIDAK AKAN TERSIMPAN DI GOOGLE DRIVE.\n\n" +
-          "Klik OK untuk tetap kirim hanya ke Telegram,\natau klik CANCEL untuk membuka Pengaturan."
-        );
-        if (!proceed) {
-          openConfigModal();
-          return;
-        }
+        alert("⚠️ Google Apps Script Web App URL belum diisi di Pengaturan (⚙️). Foto belum bisa dikirim.");
+        openConfigModal();
+        return;
       }
 
       const btn = document.getElementById('btnSubmitPhoto');
@@ -6030,7 +6013,7 @@ ${e(todayActivity)}`;
         statusBox.innerHTML = `
           <div style="display:flex; align-items:center; gap:8px;">
             <span>⏳</span>
-            <strong>Sedang mengunggah ${photoItems.length} foto ke Google Drive &amp; Telegram...</strong>
+            <strong>Sedang mengunggah ${photoItems.length} foto ke Google Drive &amp; WhatsApp...</strong>
           </div>
           <div style="font-size:0.74rem; color:#3b82f6; margin-top:4px;">
             Proses transfer file sedang berjalan. Mohon jangan menutup halaman ini.
@@ -6053,15 +6036,16 @@ ${e(todayActivity)}`;
 🚧 *Progress*  : \`${progText}\`
 👤 *Waspang*   : ${waspang}${notes ? `\n📝 *Catatan*:\n${notes}` : ''}`;
 
-      let tgSuccess = false;
+      let sendSuccess = false;
+      let waSent = false;
       let driveSuccess = false;
       let driveErrorMsg = "";
       let returnedFolderUrl = "";
 
-      // 1. Kirim ke Google Apps Script (Drive Folder + Telegram Server-side)
+      // 1. Kirim ke Google Apps Script (Drive Folder + WhatsApp Server-side)
       if (cfg.scriptUrl && cfg.scriptUrl.trim().length > 0) {
         try {
-          btn.innerText = `⏳ Menyimpan ke Google Drive & Mengirim Telegram...`;
+          btn.innerText = `⏳ Menyimpan ke Google Drive & Mengirim WhatsApp...`;
           const payload = {
             action: "UPLOAD_PHOTOS",
             tzOff: -new Date().getTimezoneOffset(),
@@ -6104,9 +6088,9 @@ ${e(todayActivity)}`;
 
           if (scriptJson.status === 'success') {
             driveSuccess = true;
-            tgSuccess = true;
+            sendSuccess = true;
+            waSent = scriptJson.waSent === true;
             returnedFolderUrl = scriptJson.folderUrl || "";
-            showToast("📁 Foto tersimpan di Drive & terkirim ke Telegram!");
           } else {
             driveErrorMsg = scriptJson.message || "Gagal menyimpan ke Google Drive.";
             console.error("Apps Script error:", driveErrorMsg);
@@ -6129,36 +6113,36 @@ ${e(todayActivity)}`;
           "   - Who has access: Anyone (Siapa saja, bahkan tanpa login)\n" +
           "2. Jika baru saja mengubah kode script, Anda WAJIB membuat versi deployment baru:\n" +
           "   Deploy > Manage deployments > Edit > Version: New version > Deploy.\n\n" +
-          "Foto TIDAK AKAN terkirim ke Telegram maupun Google Drive sampai URL Apps Script yang benar diisi dan di-deploy ulang."
+          "Foto TIDAK AKAN terkirim ke WhatsApp maupun Google Drive sampai URL Apps Script yang benar diisi dan di-deploy ulang."
         );
       }
 
       btn.disabled = false;
       btn.classList.remove('submitting');
-      btn.innerText = `KIRIM FOTO KE DRIVE, TELEGRAM & WA`;
+      btn.innerText = `KIRIM FOTO KE DRIVE & WA`;
 
-      if (tgSuccess) {
+      if (sendSuccess) {
         if (driveSuccess) {
-          showToast("🎉 Sukses! Foto tersimpan di Google Drive & masuk ke Telegram @ReportBMI!");
+          showToast(waSent ? "🎉 Sukses! Foto tersimpan di Google Drive & terkirim ke WhatsApp!" : "📁 Foto tersimpan di Google Drive, tetapi belum terkirim ke WhatsApp.");
           if (statusBox) {
             statusBox.style.background = '#dcfce7';
             statusBox.style.border = '1.5px solid #86efac';
             statusBox.style.color = '#15803d';
             statusBox.innerHTML = `
               <strong>✅ FOTO BERHASIL DIUNGGAH &amp; TERKIRIM!</strong><br>
-              Seluruh foto dokumentasi berhasil disimpan ke Google Drive dan dikirim ke grup Telegram.<br>
+              Seluruh foto dokumentasi berhasil disimpan ke Google Drive${waSent ? ' dan dikirim ke grup WhatsApp' : ' (belum terkirim ke grup WhatsApp)'}.<br>
               <div style="margin-top: 6px;">
                 <a href="${returnedFolderUrl || 'https://drive.google.com/drive/folders/1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ'}" target="_blank" style="display: inline-block; background: #15803d; color: #fff; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.74rem;">Buka Folder Dokumentasi di Google Drive ↗</a>
               </div>
             `;
           }
         } else {
-          showToast("⚠️ Foto terkirim ke Telegram, tapi gagal masuk ke Drive!");
+          showToast("⚠️ Foto terkirim, tapi gagal masuk ke Drive!");
           if (statusBox) {
             statusBox.style.background = '#fef3c7';
             statusBox.style.border = '1.5px solid #fcd34d';
             statusBox.style.color = '#92400e';
-            statusBox.innerHTML = `⚠️ <strong>Foto terkirim ke Telegram</strong>, namun gagal masuk ke Google Drive karena: ${driveErrorMsg}`;
+            statusBox.innerHTML = `⚠️ <strong>Foto terkirim</strong>, namun gagal masuk ke Google Drive karena: ${driveErrorMsg}`;
           }
         }
         showWaShare(photoItems.length + ' foto', caption + (driveSuccess ? '\n📁 *Folder Foto* : ' + (returnedFolderUrl || 'https:\/\/drive.google.com/drive/folders/1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ') : ''));
@@ -6171,9 +6155,9 @@ ${e(todayActivity)}`;
           statusBox.style.background = '#fef2f2';
           statusBox.style.border = '1.5px solid #fca5a5';
           statusBox.style.color = '#991b1b';
-          statusBox.innerHTML = `❌ <strong>Pengiriman foto belum berhasil:</strong> ${driveErrorMsg || 'Koneksi terputus atau bot Telegram tidak merespon.'}`;
+          statusBox.innerHTML = `❌ <strong>Pengiriman foto belum berhasil:</strong> ${driveErrorMsg || 'Koneksi terputus atau server tidak merespon.'}`;
         }
-        alert("Pengiriman foto belum berhasil. Pastikan Google Apps Script Web App aktif atau Telegram bot token valid.");
+        alert("Pengiriman foto belum berhasil. Pastikan Google Apps Script Web App aktif.");
       }
     }
 
@@ -6270,7 +6254,7 @@ ${e(todayActivity)}`;
         banner.innerHTML = `
           <div>
             <strong>⚠️ Google Drive Belum Terhubung</strong>
-            <span style="display:block; font-size:0.7rem; color:#b91c1c;">Foto saat ini hanya akan masuk ke Telegram. Masukkan URL Apps Script agar tersimpan di Drive.</span>
+            <span style="display:block; font-size:0.7rem; color:#b91c1c;">Foto belum bisa dikirim. Masukkan URL Apps Script agar tersimpan di Drive.</span>
           </div>
           <button type="button" onclick="openConfigModal()" style="background:#dc2626; color:#fff; border:none; padding:5px 10px; border-radius:6px; font-size:0.72rem; font-weight:bold; cursor:pointer;">Hubungkan Drive</button>
         `;
@@ -6280,7 +6264,6 @@ ${e(todayActivity)}`;
     function openConfigModal() {
       const cfg = getConfig();
       document.getElementById('cfgScriptUrl').value = cfg.scriptUrl || DEFAULT_CONFIG.scriptUrl;
-      document.getElementById('cfgChatId').value = cfg.chatId || DEFAULT_CONFIG.chatId;
       document.getElementById('configModal').classList.add('show');
     }
     function closeConfigModal() { document.getElementById('configModal').classList.remove('show'); }
@@ -6309,7 +6292,7 @@ ${e(todayActivity)}`;
           statusBox.style.background = "#dcfce7";
           statusBox.style.border = "1px solid #86efac";
           statusBox.style.color = "#15803d";
-          statusBox.innerHTML = `<strong>✅ KONEKSI BERHASIL!</strong><br>${data.message}<br>Target Drive: <code>${data.targetDriveFolder}</code><br>Target Telegram: <code>${data.targetTelegramGroup}</code>`;
+          statusBox.innerHTML = `<strong>✅ KONEKSI BERHASIL!</strong><br>${data.message}<br>Target Drive: <code>${data.targetDriveFolder}</code>`;
         } else {
           throw new Error("Respon tidak dikenali: " + JSON.stringify(data));
         }
@@ -6330,12 +6313,11 @@ ${e(todayActivity)}`;
 
     function saveConfig(e) {
       e.preventDefault();
-      const chatId = document.getElementById('cfgChatId').value.trim() || DEFAULT_CONFIG.chatId;
       const scriptUrl = document.getElementById('cfgScriptUrl').value.trim() || DEFAULT_CONFIG.scriptUrl;
-      localStorage.setItem(STORAGE_CONFIG, JSON.stringify({ chatId, scriptUrl }));
+      localStorage.setItem(STORAGE_CONFIG, JSON.stringify({ scriptUrl }));
       closeConfigModal();
       updateDriveConnectionBanner();
-      showToast("✅ Pengaturan bot & Drive berhasil disimpan!");
+      showToast("✅ Pengaturan Drive berhasil disimpan!");
     }
 
     function showToast(msg) {
