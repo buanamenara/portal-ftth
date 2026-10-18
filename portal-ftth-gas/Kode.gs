@@ -7940,3 +7940,307 @@ function buildSCurveData_(code) {
   res.updatedMs = Date.now();   // halaman menampilkannya dengan jam perangkat pengguna
   return res;
 }
+// =====================================================================
+// BUAT BOQ: volume yang diisi di portal -> file BOQ .xlsx dari template per SOW (kebalikan Submit BOQ).
+// Template = BOQ lama satu SOW, diunggah RPM lewat menu Buat BOQ dan disimpan sebagai Google Sheet "TEMPLATE BOQ - <SOW>"
+// di folder Drive BOQ_TPL_FOLDER_NAME. Sel Qty sheet BoQ yang dulu dihitung dari sheet BoM ditimpa angka isian,
+// lalu sheet BoM dibuang dari hasil (angkanya milik site asal template). Harga, susunan baris, dan rumus total tetap dari template.
+// =====================================================================
+var BOQ_GEN_SOWS = ['Cluster', 'Subfeeder', 'Mainfeeder', 'Hubfeeder', 'Uplink', 'FWA'];
+var BOQ_TPL_FOLDER_NAME = 'Template BOQ Portal BMI';
+var BOQ_OUT_FOLDER_NAME = 'BOQ Dibuat Portal BMI';
+var BOQ_TPL_PREFIX = 'TEMPLATE BOQ - ';
+var BOQ_GEN_REF_ = /^=\s*\$?[DE]\$?\d+\s*$/i;   // Qty yang hanya menyalin sel lain di baris BoQ (mis. Material = Service baris bawah)
+
+function boqFolder_(prop, name) {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty(prop);
+  if (id) {
+    try { var f = DriveApp.getFolderById(id); if (!f.isTrashed()) return f; } catch (e) { /* buat ulang */ }
+  }
+  var it = DriveApp.getFoldersByName(name);
+  var folder = it.hasNext() ? it.next() : DriveApp.createFolder(name);
+  props.setProperty(prop, folder.getId());
+  return folder;
+}
+function boqTplFolder_() { return boqFolder_('BOQ_TPL_FOLDER_ID', BOQ_TPL_FOLDER_NAME); }
+function boqOutFolder_() { return boqFolder_('BOQ_OUT_FOLDER_ID', BOQ_OUT_FOLDER_NAME); }
+
+function boqGenSow_(sow) {
+  var k = normalizeText_(sow).replace(/\s+/g, '');
+  for (var i = 0; i < BOQ_GEN_SOWS.length; i++) if (BOQ_GEN_SOWS[i].toLowerCase() === k) return BOQ_GEN_SOWS[i];
+  throw new Error('SOW "' + String(sow || '') + '" tidak dikenal.');
+}
+
+// Template terbaru per SOW: { Cluster: File, ... } (hanya Google Sheet bernama persis "TEMPLATE BOQ - <SOW>").
+function boqTplFiles_() {
+  var out = {}, it = boqTplFolder_().getFilesByType(MimeType.GOOGLE_SHEETS);
+  while (it.hasNext()) {
+    var f = it.next();
+    if (f.isTrashed()) continue;
+    var nm = normalizeText_(f.getName());
+    BOQ_GEN_SOWS.forEach(function (s) {
+      if (nm !== normalizeText_(BOQ_TPL_PREFIX + s)) return;
+      if (!out[s] || f.getLastUpdated() > out[s].getLastUpdated()) out[s] = f;
+    });
+  }
+  return out;
+}
+
+// Baca sheet BoQ: posisi isian kepala (OLT, Cluster, Net Type, HP, AS PLAN/AS BUILT) dan sel Qty yang bisa diisi:
+//  - 'bom'   : rumus dari sheet BoM (volume desain site asal template)
+//  - 'rumus' : rumus lain (mis. RT/RW Permit), dipertahankan bila angkanya tidak diubah
+//  - 'angka' : angka tetap (1 untuk item ls dipakai sebagai isian awal, angka lain dianggap milik site asal)
+//  - 'kosong': Qty kosong tapi baris punya rumus harga, jadi masih bisa diisi
+// Template awal per SOW dari file proyek Apps Script BoqTemplateAwal<SOW>.html berisi JSON { name, data(base64 xlsx) }.
+// File itu hanya ada di proyek Apps Script (tidak di repo publik karena berisi BOQ proyek). Dipakai sekali saat SOW belum punya template.
+function boqTplSeed_(sow) {
+  var seed;
+  try { seed = JSON.parse(HtmlService.createHtmlOutputFromFile('BoqTemplateAwal' + sow).getContent()); } catch (e) { return null; }
+  if (!seed || !seed.data) return null;
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(60000)) return null;
+  try {
+    var have = boqTplFiles_()[sow];
+    if (have) return have;
+    boqGenSetTemplate_(sow, seed.data, seed.name);
+    return boqTplFiles_()[sow] || null;
+  } finally { lock.releaseLock(); }
+}
+function boqTplFile_(sow) { return boqTplFiles_()[sow] || boqTplSeed_(sow); }
+
+function boqGenParse_(sh) {
+  var n = sh.getLastRow();
+  var rng = sh.getRange(1, 1, n, 17);
+  var f = rng.getFormulas(), v = rng.getValues();
+  var hdr = -1, r, c;
+  for (r = 0; r < Math.min(15, n); r++) if (/^description/i.test(String(v[r][1]).trim())) { hdr = r; break; }
+  if (hdr < 0) throw new Error('Judul kolom "Description/Item" tidak ditemukan di sheet ' + sh.getName() + '.');
+  var head = { status: [] };
+  for (r = 0; r < hdr; r++) {
+    var lab = normalizeText_(v[r][13]);
+    var key = /^olt/.test(lab) ? 'olt' : /^cluster/.test(lab) ? 'cluster' : /^net/.test(lab) ? 'net' : lab === 'hp' ? 'hp' : '';
+    if (key && !head[key]) head[key] = { r: r + 1, c: 15, val: f[r][14] ? '' : String(v[r][14]).trim() };
+    for (c = 0; c < 17; c++) {
+      if (!f[r][c] && /^\s*as\s*(plan|built)\s*$/i.test(String(v[r][c]))) head.status.push({ r: r + 1, c: c + 1, upper: String(v[r][c]) === String(v[r][c]).toUpperCase() });
+    }
+  }
+  var items = [], sec = '';
+  function remark(r) { return String(v[r][15]).trim().toLowerCase(); }
+  function add(r, c, kind, labelRow, twin) {
+    var label = String(v[labelRow][1]).trim() || String(v[r][1]).trim();
+    var def = '';
+    if (kind === 'rumus' && typeof v[r][c] === 'number') def = v[r][c];
+    if (kind === 'angka' && v[r][c] === 1) def = 1;
+    var it = { k: 'DE'.charAt(c - 3) + (r + 1), r: r + 1, c: c + 1, label: label, unit: String(v[r][2]).trim(), sec: sec, def: def, kind: kind };
+    if (twin) it.twin = { r: twin.r + 1, c: twin.c + 1 };   // Qty Material baris atas ikut diisi angka yang sama
+    items.push(it);
+  }
+  for (r = hdr + 1; r < n; r++) {
+    var b = String(v[r][1]).trim(), unit = String(v[r][2]).trim();
+    if (!unit) { if (b) sec = b; continue; }
+    var got = 0;
+    for (c = 3; c <= 4; c++) {
+      var fo = f[r][c], val = v[r][c];
+      // Baris Service yang Qty Material di atasnya menyalin sel ini: tampilkan nama materialnya
+      var lr = (c === 4 && r > 0 && new RegExp('^=\\s*\\$?E\\$?' + (r + 1) + '\\s*$', 'i').test(f[r - 1][3])) ? r - 1 : r;
+      if (fo) { if (BOQ_GEN_REF_.test(fo)) continue; add(r, c, /bom/i.test(fo) ? 'bom' : 'rumus', lr); got++; }
+      else if (typeof val === 'number') { add(r, c, 'angka', lr); got++; }
+    }
+    if (got === 2) { items[items.length - 2].label += ' (Material)'; items[items.length - 1].label += ' (Jasa)'; }
+    if (got || BOQ_GEN_REF_.test(f[r][3]) || BOQ_GEN_REF_.test(f[r][4])) continue;
+    if (!f[r][7] && !f[r][8]) continue;   // tanpa rumus harga: baris tidak dipakai di template ini
+    var nx = r + 1;
+    // Pasangan Material + Instal yang Qty-nya sama-sama kosong: satu isian untuk keduanya
+    if (remark(r) !== 'service' && nx < n && remark(nx) === 'service' && String(v[nx][2]).trim() &&
+        !f[nx][3] && !f[nx][4] && v[nx][3] === '' && v[nx][4] === '' && (f[nx][7] || f[nx][8])) {
+      add(nx, 4, 'kosong', r, { r: r, c: 3 });
+      r = nx;
+      continue;
+    }
+    add(r, remark(r) === 'service' ? 4 : 3, 'kosong', r);
+  }
+  return { hdr: hdr + 1, head: head, items: items };
+}
+
+function boqGenInit_(sow) {
+  sow = boqGenSow_(sow);
+  var files = boqTplFiles_();
+  if (!files[sow]) files[sow] = boqTplSeed_(sow);
+  var sows = BOQ_GEN_SOWS.map(function (s) { return { sow: s, ada: !!files[s] }; });
+  var tpl = files[sow];
+  if (!tpl) return { sow: sow, sows: sows, template: null, items: [], head: {} };
+  var cache = CacheService.getScriptCache(), key = 'boqgen1_' + tpl.getId() + '_' + tpl.getLastUpdated().getTime(), p = null;
+  try { var hit = cache.get(key); if (hit) p = JSON.parse(hit); } catch (e) { /* baca ulang */ }
+  if (!p) {
+    var sh = findBoqSheet_(SpreadsheetApp.openById(tpl.getId()));
+    if (!sh) throw new Error('Template ' + tpl.getName() + ' tidak punya sheet yang namanya diawali "BoQ".');
+    var parsed = boqGenParse_(sh);
+    p = { sheet: sh.getName(), items: parsed.items, head: { olt: parsed.head.olt ? parsed.head.olt.val : '', net: parsed.head.net ? parsed.head.net.val : '' } };
+    try { cache.put(key, JSON.stringify(p), 21600); } catch (e) { /* tanpa cache */ }
+  }
+  return {
+    sow: sow, sows: sows, sheet: p.sheet, items: p.items, head: p.head,
+    template: { name: tpl.getName(), asal: tpl.getDescription() || '', updatedMs: tpl.getLastUpdated().getTime() }
+  };
+}
+
+function boqGenNum_(x) {
+  if (x === null || x === undefined) return null;
+  var s = String(x).trim().replace(/\s/g, '');
+  if (!s) return null;
+  if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');   // 1.250,5
+  else s = s.replace(',', '.');
+  var n = Number(s);
+  if (!isFinite(n) || n < 0) throw new Error('Volume "' + x + '" bukan angka yang benar.');
+  return n;
+}
+
+function boqGenFileName_(site, sow, status) {
+  var nm = 'BOQ ' + (/built/i.test(status) ? 'AS BUILT' : 'AS PLAN') + ' - ' + (sow === 'Cluster' ? '' : sow.toUpperCase() + ' ') + site;
+  return nm.replace(/[\\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150) + '.xlsx';
+}
+
+function boqGenBuild_(sow, data, userName) {
+  var site = baClean_(data.site);
+  if (!site) throw new Error('Site belum diisi.');
+  var tpl = boqTplFile_(sow);
+  if (!tpl) throw new Error('Template BOQ ' + sow + ' belum ada. Minta RPM mengunggahnya di menu Buat BOQ.');
+  var status = /built/i.test(String(data.status || '')) ? 'AS BUILT' : 'AS PLAN';
+  var want = {}, n = 0;
+  (data.items || []).forEach(function (it) {
+    var q = boqGenNum_(it && it.qty);
+    if (q === null || !it.k) return;
+    want[it.k] = (want[it.k] || 0) + q;
+    n++;
+  });
+  if (!n) throw new Error('Isi volume minimal satu item.');
+
+  var copy = tpl.makeCopy('TEMP_BUAT_BOQ_' + new Date().getTime());
+  try {
+    var ss = SpreadsheetApp.openById(copy.getId());
+    var sh = findBoqSheet_(ss);
+    var p = boqGenParse_(sh), filled = 0;
+    p.items.forEach(function (it) {
+      var has = Object.prototype.hasOwnProperty.call(want, it.k);
+      if (it.kind === 'rumus' && has && want[it.k] === Number(it.def)) { filled++; return; }   // rumus template dipertahankan
+      sh.getRange(it.r, it.c).setValue(has ? want[it.k] : '');
+      if (it.twin) sh.getRange(it.twin.r, it.twin.c).setValue(has ? want[it.k] : '');
+      if (has && want[it.k]) filled++;
+    });
+    // Rumus harga yang rusak (#REF!) di template diganti rumus baku baris itu: H = D*F, I = E*G, K = D+E
+    var last = sh.getLastRow(), fr = sh.getRange(1, 8, last, 4).getFormulas();
+    for (var r = p.hdr; r < last; r++) {
+      var rr = r + 1, std = ['=D' + rr + '*F' + rr, '=E' + rr + '*G' + rr, '', '=D' + rr + '+E' + rr];
+      for (var c = 0; c < 4; c++) if (std[c] && fr[r][c].indexOf('#REF!') > -1) sh.getRange(rr, 8 + c).setFormula(std[c]);
+    }
+    var hd = p.head;
+    if (hd.cluster) sh.getRange(hd.cluster.r, hd.cluster.c).setValue(site);
+    if (hd.olt) sh.getRange(hd.olt.r, hd.olt.c).setValue(String(data.olt || '').trim());
+    if (hd.net) sh.getRange(hd.net.r, hd.net.c).setValue(String(data.net || '').trim());
+    if (hd.hp) { var hp = boqGenNum_(data.hp); sh.getRange(hd.hp.r, hd.hp.c).setValue(hp === null ? '' : hp); }
+    hd.status.forEach(function (s) { sh.getRange(s.r, s.c).setValue(s.upper ? status : (status === 'AS BUILT' ? 'As Built' : 'As Plan')); });
+    SpreadsheetApp.flush();
+
+    // Sheet BoM dibuang; rumus lain yang masih merujuk BoM dibekukan jadi angka dulu supaya tidak menjadi #REF!
+    var boms = ss.getSheets().filter(function (s) { return /^bom/i.test(s.getName().trim()); });
+    if (boms.length) {
+      ss.getSheets().forEach(function (s) {
+        if (/^bom/i.test(s.getName().trim()) || s.getLastRow() < 1) return;
+        var rg = s.getDataRange(), fo = rg.getFormulas(), va = null;
+        for (var i = 0; i < fo.length; i++) for (var j = 0; j < fo[i].length; j++) {
+          if (!fo[i][j] || !/bom/i.test(fo[i][j])) continue;
+          if (!va) va = rg.getValues();
+          s.getRange(i + 1, j + 1).setValue(va[i][j]);
+        }
+      });
+      boms.forEach(function (s) { ss.deleteSheet(s); });
+      SpreadsheetApp.flush();
+    }
+
+    var resp = UrlFetchApp.fetch('https:\/\/docs.google.com/spreadsheets/d/' + copy.getId() + '/export?format=xlsx', {
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true
+    });
+    if (resp.getResponseCode() !== 200) throw new Error('Gagal membuat file .xlsx (kode ' + resp.getResponseCode() + '). Coba lagi.');
+    var name = boqGenFileName_(site, sow, status);
+    var blob = resp.getBlob().setName(name).setContentType(MimeType.MICROSOFT_EXCEL);
+    var out = boqOutFolder_().createFile(blob);
+    out.setDescription(JSON.stringify({ site: site, sow: sow, status: status, user: userName || '', template: tpl.getDescription() || '' }));
+    return { id: out.getId(), name: name, mime: MimeType.MICROSOFT_EXCEL, data: Utilities.base64Encode(blob.getBytes()), filled: filled };
+  } finally {
+    try { copy.setTrashed(true); } catch (e) { /* abaikan gagal hapus salinan sementara */ }
+  }
+}
+
+function boqGenMeta_(desc) {
+  try { return JSON.parse(desc || '{}') || {}; } catch (e) { return {}; }
+}
+
+function boqGenHistory_(scope) {
+  var keys = scope ? baScopeKeys_(scope) : null, out = [];
+  var res = Drive.Files.list({
+    q: "'" + boqOutFolder_().getId() + "' in parents and trashed = false",
+    orderBy: 'createdTime desc', pageSize: 200, fields: 'files(id,name,description,createdTime)'
+  });
+  (res.files || []).forEach(function (f) {
+    var m = boqGenMeta_(f.description);
+    if (keys && !keys[normalizeText_(m.site)]) return;
+    out.push({ id: f.id, name: f.name, site: m.site || '', sow: m.sow || '', status: m.status || '', user: m.user || '', ms: new Date(f.createdTime).getTime() });
+  });
+  return out.slice(0, 100);
+}
+
+function boqGenDownload_(id, scope) {
+  var f = DriveApp.getFileById(String(id || '')), folderId = boqOutFolder_().getId(), mine = false;
+  var ps = f.getParents();
+  while (ps.hasNext()) if (ps.next().getId() === folderId) mine = true;
+  if (!mine || f.isTrashed()) throw new Error('File BOQ tidak ditemukan.');
+  if (scope && !baScopeKeys_(scope)[normalizeText_(boqGenMeta_(f.getDescription()).site)]) throw new Error('File BOQ tidak ditemukan.');
+  var blob = f.getBlob();
+  return { name: f.getName(), mime: MimeType.MICROSOFT_EXCEL, data: Utilities.base64Encode(blob.getBytes()) };
+}
+
+// RPM mengganti template satu SOW: xlsx -> Google Sheet di folder template; template lama masuk sampah Drive (bisa dipulihkan).
+function boqGenSetTemplate_(sow, base64Data, fileName) {
+  if (!base64Data) throw new Error('File template kosong.');
+  if (!/\.xlsx$/i.test(String(fileName || ''))) throw new Error('Template harus file Excel .xlsx.');
+  var folder = boqTplFolder_();
+  var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), MimeType.MICROSOFT_EXCEL, fileName);
+  var g = Drive.Files.create({ name: BOQ_TPL_PREFIX + sow, mimeType: MimeType.GOOGLE_SHEETS, parents: [folder.getId()], description: 'Asal: ' + fileName }, blob);
+  var sh, p;
+  try {
+    sh = findBoqSheet_(SpreadsheetApp.openById(g.id));
+    if (!sh) throw new Error('Tidak ditemukan sheet yang namanya diawali "BoQ" di file ini.');
+    p = boqGenParse_(sh);
+    if (!p.items.length) throw new Error('Tidak ada kolom Qty yang bisa diisi di sheet ' + sh.getName() + '.');
+  } catch (e) {
+    try { Drive.Files.remove(g.id); } catch (x) { /* abaikan */ }
+    throw e;
+  }
+  var it = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
+  while (it.hasNext()) {
+    var f = it.next();
+    if (f.getId() !== g.id && !f.isTrashed() && normalizeText_(f.getName()) === normalizeText_(BOQ_TPL_PREFIX + sow)) f.setTrashed(true);
+  }
+  return { sow: sow, sheet: sh.getName(), items: p.items.length };
+}
+
+function getBoqGenInit(code, sow) { requireAccess_(code); return boqGenInit_(sow); }
+function buatBoq(code, data) {
+  requireAccess_(code);
+  data = data || {};
+  var sow = boqGenSow_(data.sow);
+  regionCheckSite_(scopeOf_(code), data.site);
+  var res = boqGenBuild_(sow, data, logUser_(code));
+  logHistory_('Portal', logUser_(code), logRole_(code), 'Buat BOQ', baClean_(data.site) + ' (' + sow + ') -> ' + res.name);
+  return res;
+}
+function getBoqGenHistory(code) { requireAccess_(code); return boqGenHistory_(scopeOf_(code)); }
+function downloadBoqGen(code, id) { requireAccess_(code); return boqGenDownload_(id, scopeOf_(code)); }
+function setBoqTemplate(code, sow, base64Data, fileName) {
+  requireRpm_(code);
+  sow = boqGenSow_(sow);
+  var res = boqGenSetTemplate_(sow, base64Data, fileName);
+  logHistory_('Portal', logUser_(code), logRole_(code), 'Ganti Template BOQ', sow + ' <- ' + fileName);
+  return res;
+}
