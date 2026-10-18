@@ -72,6 +72,15 @@ function doPost(e) {
       case 'SARAN':
         result = kirimSaran_(payload);
         break;
+      case 'WA_PULL':
+        result = waPull_(payload);
+        break;
+      case 'WA_FILE':
+        result = waFile_(payload);
+        break;
+      case 'WA_DONE':
+        result = waDone_(payload);
+        break;
       default:
         result = { status: 'error', message: 'Action tidak dikenali: ' + payload.action };
     }
@@ -384,6 +393,7 @@ function waSend_(wa, message, blob) {
 // Foto / PDF Dokumentasi Lapangan. Script Property WA_SEND_FILES (paket berbayar): keterangan ikut pada file pertama, file lain
 // menyusul satu per satu. Paket gratis: satu pesan berisi keterangan laporan + link tiap file. -> true bila terkirim.
 function sendWaspangPhotosToWhatsApp_(blobs, saved, caption) {
+  if (waPcMode_()) return waEnqueue_(caption, saved);
   var wa = waConfig_();
   if (!wa) return false;
   if (wa.files && blobs.length) {
@@ -413,6 +423,7 @@ function sendWaLinks_(wa, caption, saved) {
 }
 
 function sendDailyReportToWhatsApp_(text) {
+  if (waPcMode_()) return waEnqueue_(text, []);
   var wa = waConfig_();
   return wa ? waSend_(wa, text) : false;
 }
@@ -429,9 +440,116 @@ function waListGroups() {
 
 // Kirim satu pesan uji ke WA_TARGET (setelah flag dinyalakan dan Script Properties diisi).
 function waTest() {
+  if (waPcMode_()) {
+    console.log(waEnqueue_('✅ Tes Portal Waspang: laporan WhatsApp lewat laptop sudah tersambung.', []) ? 'Masuk antrean laptop.' : 'Gagal, lihat log.');
+    return;
+  }
   var wa = waConfig_();
   if (!wa) throw new Error('WhatsApp belum aktif: cek WA_GATEWAY_ENABLED, FONNTE_TOKEN dan WA_TARGET.');
   console.log(waSend_(wa, '✅ Tes Portal Waspang: laporan WhatsApp otomatis sudah tersambung.') ? 'Terkirim.' : 'Gagal, lihat log.');
+}
+
+// ===================== WHATSAPP LEWAT LAPTOP 24 JAM =====================
+// Pengganti Fonnte tanpa biaya: program di folder wa-gateway (repo) berjalan di laptop yang menyala 24 jam dan menautkan
+// nomor WA laporan seperti WhatsApp Web. Portal hanya menaruh laporan di antrean (Script Properties "waq_..."); laptop
+// mengambilnya tiap beberapa detik (WA_PULL, WA_FILE), mengirim ke grup, lalu melapor (WA_DONE). Laptop yang menghubungi
+// portal, jadi tidak perlu IP publik atau port terbuka. Bila laptop mati, laporan menunggu dan terkirim saat laptop menyala
+// lagi (paling lama 3 hari). Script Properties:
+//   WA_MODE      : "pc" = pakai laptop; kosong = Fonnte seperti biasa (FONNTE_TOKEN, WA_TARGET di atas).
+//   WA_PC_SECRET : kata sandi acak minimal 16 huruf, sama persis dengan "secret" di config.json laptop.
+var WAQ_PREFIX_ = 'waq_', WAQ_MAX_TRY_ = 5, WAQ_MAX_AGE_MS_ = 3 * 24 * 3600 * 1000;
+
+function waPcMode_() {
+  if (!CONFIG.WA_GATEWAY_ENABLED) return false;
+  try {
+    return String(PropertiesService.getScriptProperties().getProperty('WA_MODE') || '').trim().toLowerCase() === 'pc';
+  } catch (e) {
+    return false;
+  }
+}
+
+// Laporan (teks + file Drive yang sudah tersimpan) ke antrean laptop. -> true bila masuk antrean.
+function waEnqueue_(text, saved) {
+  try {
+    var now = Date.now();
+    var job = {
+      t: now, n: 0, last: 0,
+      text: waText_(text).slice(0, 6000),   // satu Script Property maksimal 9 KB
+      files: (saved || []).map(function (f) { return { id: f.file.getId(), name: f.name }; })
+    };
+    PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + now + '_' + Math.floor(Math.random() * 1e6), JSON.stringify(job));
+    return true;
+  } catch (e) {
+    console.error('WA antrean error: ' + e);
+    return false;
+  }
+}
+
+function waPcAuth_(p) {
+  var s = PropertiesService.getScriptProperties().getProperty('WA_PC_SECRET') || '';
+  if (s.length < 16 || String(p.secret || '') !== s) throw new Error('Akses gateway ditolak.');
+}
+
+function waJob_(key) {
+  key = String(key || '');
+  if (key.indexOf(WAQ_PREFIX_) !== 0) return null;
+  var raw = PropertiesService.getScriptProperties().getProperty(key);
+  try { return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+
+// Maksimal 3 laporan terlama yang siap dikirim. Laporan yang gagal ditunda 1, 2, 3, ... menit sebelum dicoba lagi.
+function waPull_(p) {
+  waPcAuth_(p);
+  CacheService.getScriptCache().put('wa_pc_seen', new Date().toISOString(), 21600);
+  var props = PropertiesService.getScriptProperties(), all = props.getProperties(), now = Date.now(), jobs = [];
+  Object.keys(all).filter(function (k) { return k.indexOf(WAQ_PREFIX_) === 0; }).sort().forEach(function (k) {
+    var j;
+    try { j = JSON.parse(all[k]); } catch (e) { props.deleteProperty(k); return; }
+    if (now - j.t > WAQ_MAX_AGE_MS_) {
+      console.error('Laporan WA kedaluwarsa (laptop mati > 3 hari), dibuang: ' + k);
+      props.deleteProperty(k);
+      return;
+    }
+    if (j.n && now - j.last < j.n * 60000) return;
+    if (jobs.length < 3) jobs.push({ key: k, text: j.text, files: j.files });
+  });
+  return { status: 'success', jobs: jobs };
+}
+
+// Isi satu file dari laporan di antrean (hanya file yang memang ada di laporan itu).
+function waFile_(p) {
+  waPcAuth_(p);
+  var j = waJob_(p.key);
+  if (!j || !(j.files || []).some(function (f) { return f.id === p.id; })) throw new Error('File tidak ada di antrean.');
+  var file = DriveApp.getFileById(p.id), blob = file.getBlob();
+  return { status: 'success', name: file.getName(), mime: blob.getContentType(), base64: Utilities.base64Encode(blob.getBytes()) };
+}
+
+function waDone_(p) {
+  waPcAuth_(p);
+  var props = PropertiesService.getScriptProperties(), key = String(p.key || ''), j = waJob_(key);
+  if (!j) return { status: 'success' };
+  if (p.ok) {
+    props.deleteProperty(key);
+    return { status: 'success' };
+  }
+  j.n = (j.n || 0) + 1;
+  j.last = Date.now();
+  if (j.n >= WAQ_MAX_TRY_) {
+    console.error('Laporan WA dibuang setelah ' + j.n + 'x gagal: ' + key + ' - ' + String(p.error || '').slice(0, 300));
+    props.deleteProperty(key);
+  } else {
+    props.setProperty(key, JSON.stringify(j));
+  }
+  return { status: 'success' };
+}
+
+// Jalankan dari editor: kapan laptop terakhir mengambil antrean dan berapa laporan yang masih menunggu.
+function waPcStatus() {
+  var seen = CacheService.getScriptCache().get('wa_pc_seen');
+  var waiting = Object.keys(PropertiesService.getScriptProperties().getProperties())
+    .filter(function (k) { return k.indexOf(WAQ_PREFIX_) === 0; }).length;
+  console.log('Laptop terakhir terlihat: ' + (seen || 'belum pernah / > 6 jam lalu') + '. Laporan menunggu: ' + waiting + '.');
 }
 
 // Satu baris per foto, mengikuti judul kolom tab LOG FOTO WASPANG.
