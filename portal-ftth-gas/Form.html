@@ -973,12 +973,12 @@
         <div><label for="bqSow">SOW</label>
           <select id="bqSow"><option value="Cluster">Cluster</option><option value="Subfeeder">Subfeeder</option><option value="Mainfeeder">Mainfeeder</option><option value="Hubfeeder">Hubfeeder</option><option value="Uplink">Uplink</option><option value="FWA">FWA</option></select></div>
         <div><label for="bqStat">Status BOQ</label>
-          <select id="bqStat"><option value="AS PLAN">AS PLAN</option><option value="AS BUILT">AS BUILT</option></select></div>
+          <select id="bqStat"><option value="AS PLAN">AS PLAN</option><option value="AS BUILT">AS BUILT</option><option value="ABD">AS BUILT - ABD MyRepublic (Cluster, Subfeeder)</option></select></div>
       </div>
       <div id="bqTpl" class="hint"></div>
       <details id="bqTplUp" style="display:none">
         <summary>Ganti file contoh BOQ untuk SOW ini (khusus RPM)</summary>
-        <div class="hint">Dipakai bila format BOQ dari klien berubah: unggah satu file BOQ plan .xlsx SOW ini (punya sheet BoQ dan sheet BoM). Rumus BoM disamakan otomatis dan angka site asalnya dikosongkan. BOQ berikutnya untuk SOW ini memakai file itu.</div>
+        <div class="hint" id="bqTplUpHint">Dipakai bila format BOQ dari klien berubah: unggah satu file BOQ plan .xlsx SOW ini (punya sheet BoQ dan sheet BoM). Rumus BoM disamakan otomatis dan angka site asalnya dikosongkan. BOQ berikutnya untuk SOW ini memakai file itu.</div>
         <input type="file" id="bqTplFile" accept=".xlsx">
         <button type="button" class="small" id="bqTplBtn">Unggah</button>
         <div id="bqTplMsg" class="hint"></div>
@@ -991,14 +991,31 @@
         <div><label for="bqNet">Net Type</label><input type="text" id="bqNet" list="bqNetList" autocomplete="off" placeholder="Aerial"><datalist id="bqNetList"><option value="Aerial"><option value="Underground"><option value="Aerial &amp; Underground"></datalist></div>
         <div><label for="bqHp">HP <span class="opt">(Home Pass)</span></label><input type="text" id="bqHp" inputmode="numeric" autocomplete="off" placeholder="0"></div>
       </div>
+      <div id="bqAbd" style="display:none">
+        <div id="bqAbdTpl" class="hint"></div>
+        <label for="bqAbdPlan">BOQ As Plan <span class="opt">(volume As Plan di sheet PO diambil dari sini)</span></label>
+        <select id="bqAbdPlan"><option value="">- pilih BOQ plan yang dibuat di menu ini -</option></select>
+        <div class="hint">Atau unggah BOQ plan .xlsx yang dibuat di luar portal: <input type="file" id="bqAbdFile" accept=".xlsx"></div>
+        <button type="button" class="small" id="bqAbdLoad">Ambil isian dari BOQ plan</button>
+        <div id="bqAbdMsg" class="hint"></div>
+        <div class="row">
+          <div><label for="bqPo">No PO</label><input type="text" id="bqPo" inputmode="numeric" autocomplete="off" placeholder="7400xxxxxx"></div>
+          <div><label for="bqTgl">Tanggal Opname</label><input type="date" id="bqTgl"></div>
+        </div>
+        <div class="row">
+          <div><label for="bqPicV">PIC Vendor <span class="opt">(BMI)</span></label><input type="text" id="bqPicV" autocomplete="off"></div>
+          <div><label for="bqPicC">PIC MyRepublic</label><input type="text" id="bqPicC" autocomplete="off"></div>
+        </div>
+      </div>
 
-      <label>Volume</label>
+      <label id="bqVolLab">Volume</label>
       <table class="items">
         <thead><tr><th>No</th><th>Item BoM</th><th>Line</th><th>Volume</th><th></th></tr></thead>
         <tbody id="bqItems"></tbody>
       </table>
       <button type="button" class="small" id="bqAddRow" style="margin-top:8px">+ Tambah baris</button>
       <div class="hint">Satu baris satu item BoM. Kabel dan strand wire diisi <strong>panjang rute</strong> (meter); BOQ menambah slack 20 m per FAT/FDT dan toleransi 5% sesuai rumus BoM. Pilih Line bila template memakai kolom Line A/B/C. Item yang tidak diisi bernilai 0.</div>
+      <div class="hint" id="bqAbdVolHint" style="display:none">Untuk ABD, isi volume <strong>As Built</strong> (hasil lapangan). Klik <em>Ambil isian dari BOQ plan</em> supaya isian plan muncul di sini, lalu ubah yang berbeda. Hasilnya masuk ke Form Project Opname kolom As Built; deviasi, ABD BoQ, BoQ Roll Out, Summary Cost dan Reconsile terhitung otomatis.</div>
 
       <div id="bqMsg" class="status"></div>
       <div><button type="button" class="primary" id="bqBtn">Buat BOQ (.xlsx)</button></div>
@@ -3547,7 +3564,9 @@
     $('bgQ').addEventListener('input', renderBgHistory);
 
     // ================= Submit BOQ - Buat BOQ (volume -> file BOQ .xlsx dari template per SOW) =================
-    var bq = { init: null, loading: false, sending: false, hist: [], tok: 0, warm: {}, warming: false };
+    var bq = { init: null, loading: false, sending: false, hist: [], tok: 0, warm: {}, warming: false, abd: null, abdTok: 0 };
+    var BQ_ABD_SOWS = ['Cluster', 'Subfeeder'];
+    function bqIsAbd() { return $('bqStat').value === 'ABD'; }
 
     function bqStatus(cls, html) {
       var el = $('bqMsg');
@@ -3607,8 +3626,13 @@
         items.push({ k: k, line: ln, qty: q });
       });
       if (!bq.init || !bq.init.template) errs.unshift('Template BOQ ' + $('bqSow').value + ' belum ada.');
+      if (bqIsAbd()) {
+        if (!$('bqPo').value.trim()) errs.unshift('No PO belum diisi.');
+        if (!$('bqAbdPlan').value && !$('bqAbdFile').files.length) errs.unshift('Pilih BOQ As Plan (atau unggah file BOQ plan .xlsx).');
+        if (!bq.abd || !bq.abd.template) errs.unshift(bq.abd ? 'Template BOQ ABD ' + $('bqSow').value + ' belum ada.' : 'Template BOQ ABD sedang dimuat...');
+      }
       if (!$('bqSite').value.trim()) errs.unshift('Site belum diisi.');
-      if (!items.length) errs.push('Isi volume minimal satu item BoM.');
+      if (!items.length) errs.push(bqIsAbd() ? 'Isi volume As Built minimal satu item BoM.' : 'Isi volume minimal satu item BoM.');
       return { items: items, errs: errs };
     }
 
@@ -3670,6 +3694,103 @@
         .getBoqGenInit(next.sow);
     }
 
+    // ---- BOQ ABD (format MyRepublic 8 sheet): As Plan dari BOQ plan yang dipilih, isian BoM = volume As Built ----
+    function bqAbdMode() {
+      var sow = $('bqSow').value, ok = BQ_ABD_SOWS.indexOf(sow) > -1;
+      $('bqStat').querySelector('option[value="ABD"]').disabled = !ok;
+      if (bqIsAbd() && !ok) $('bqStat').value = 'AS BUILT';
+      var on = bqIsAbd();
+      $('bqAbd').style.display = on ? '' : 'none';
+      $('bqAbdVolHint').style.display = on ? '' : 'none';
+      $('bqVolLab').textContent = on ? 'Volume As Built' : 'Volume';
+      $('bqBtn').textContent = on ? 'Buat BOQ ABD (.xlsx)' : 'Buat BOQ (.xlsx)';
+      $('bqTplUpHint').textContent = on
+        ? 'Dipakai bila format ABD dari klien berubah: unggah satu file ABD BoQ .xlsx format MyRepublic (sheet PO, Form Project Opname, ABD BoQ RO ODN). Nama vendor dan PIC site asal diganti, volume dikosongkan, rumus antar sheet disamakan.'
+        : 'Dipakai bila format BOQ dari klien berubah: unggah satu file BOQ plan .xlsx SOW ini (punya sheet BoQ dan sheet BoM). Rumus BoM disamakan otomatis dan angka site asalnya dikosongkan. BOQ berikutnya untuk SOW ini memakai file itu.';
+      if (on) { bqAbdPlans(); bqAbdLoadTpl(); }
+      bqHint();
+    }
+    function bqAbdLoadTpl() {
+      var sow = $('bqSow').value, tok = ++bq.abdTok;
+      if (bq.abd && bq.abd.sow === sow) { bqAbdShowTpl(); return; }
+      bq.abd = null;
+      $('bqAbdTpl').className = 'hint';
+      $('bqAbdTpl').textContent = 'Memuat template ABD ' + sow + '... (pemakaian pertama bisa sampai 1 menit)';
+      GSR
+        .withSuccessHandler(function (r) { if (tok !== bq.abdTok) return; bq.abd = r; bqAbdShowTpl(); bqHint(); })
+        .withFailureHandler(function (err) {
+          if (tok !== bq.abdTok) return;
+          var m = err && err.message ? err.message : String(err);
+          if (/sedang disiapkan/i.test(m)) { $('bqAbdTpl').textContent = m + ' Mencoba lagi otomatis...'; setTimeout(function () { if (tok === bq.abdTok) { bq.abd = null; bqAbdLoadTpl(); } }, 15000); return; }
+          $('bqAbdTpl').className = 'hint bad';
+          $('bqAbdTpl').textContent = 'Gagal memuat template ABD: ' + m;
+        })
+        .getBoqAbdInit(sow);
+    }
+    function bqAbdShowTpl() {
+      var t = bq.abd && bq.abd.template, el = $('bqAbdTpl');
+      el.className = t ? 'hint' : 'hint bad';
+      el.textContent = t ? 'Contoh ABD: ' + (t.asal ? t.asal.replace(/^Asal:\s*/, '') : t.name) + ' (vendor diganti PT Buana Menara Indonesia)'
+        : 'Template BOQ ABD ' + $('bqSow').value + ' belum ada.' + (ROLE === 'rpm' ? ' Unggah file ABD BoQ format MyRepublic di bagian Ganti file contoh di atas.' : ' Minta RPM mengunggahnya.');
+    }
+    function bqAbdPlans() {
+      var sel = $('bqAbdPlan'), old = sel.value, sow = $('bqSow').value, site = $('bqSite').value.trim().toLowerCase();
+      var list = bq.hist.filter(function (h) { return h.sow === sow && h.status !== 'ABD'; });
+      list.sort(function (a, z) { return ((z.site || '').toLowerCase() === site) - ((a.site || '').toLowerCase() === site) || z.ms - a.ms; });
+      sel.innerHTML = '<option value="">- pilih BOQ plan yang dibuat di menu ini -</option>' + list.map(function (h) {
+        return '<option value="' + esc(h.id) + '">' + esc(h.name) + ' (' + esc(localStamp_(h.ms)) + ')</option>';
+      }).join('');
+      if (old && list.some(function (h) { return h.id === old; })) sel.value = old;
+    }
+    // Sumber As Plan untuk server: { id } dari daftar, atau { data, name } dari file yang diunggah.
+    function bqAbdSrc(done) {
+      var file = $('bqAbdFile').files[0];
+      if (!file) { done($('bqAbdPlan').value ? { id: $('bqAbdPlan').value } : null); return; }
+      if (!/\.xlsx$/i.test(file.name)) { done(null, 'BOQ plan harus file Excel .xlsx.'); return; }
+      var reader = new FileReader();
+      reader.onload = function () { done({ data: String(reader.result).split(',')[1], name: file.name }); };
+      reader.onerror = function () { done(null, 'File BOQ plan tidak bisa dibaca.'); };
+      reader.readAsDataURL(file);
+    }
+    function bqAbdLoadPlan() {
+      var msg = $('bqAbdMsg');
+      if (!bq.init || !bq.init.template) { msg.className = 'hint bad'; msg.textContent = 'Tunggu template BOQ ' + $('bqSow').value + ' selesai dimuat.'; return; }
+      bqAbdSrc(function (src, err) {
+        if (!src) { msg.className = 'hint bad'; msg.textContent = err || 'Pilih BOQ plan dulu.'; return; }
+        $('bqAbdLoad').disabled = true;
+        msg.className = 'hint'; msg.textContent = 'Membaca BOQ plan...';
+        GSR
+          .withSuccessHandler(function (r) {
+            $('bqAbdLoad').disabled = false;
+            var h = r.head || {};
+            if (!$('bqSite').value.trim() && h.site) $('bqSite').value = h.site;
+            if (!$('bqOlt').value.trim() && h.olt) $('bqOlt').value = h.olt;
+            if (!$('bqNet').value.trim() && h.net) $('bqNet').value = h.net;
+            if (!$('bqHp').value.trim() && h.hp !== '' && h.hp !== null && h.hp !== undefined) $('bqHp').value = h.hp;
+            if (r.bom && r.bom.length) {
+              $('bqItems').innerHTML = '';
+              r.bom.forEach(function (x) {
+                var tr = bqAddRow(), sel = tr.querySelector('.bq-item');
+                sel.value = x.k;
+                sel.dispatchEvent(new Event('change'));
+                if (x.line) tr.querySelector('.bq-line').value = x.line;
+                tr.querySelector('.bq-qty').value = String(x.qty).replace('.', ',');
+              });
+            }
+            msg.className = 'hint ok';
+            msg.textContent = r.name + ': ' + r.items + ' item bervolume di sheet BoQ. ' + (r.bom && r.bom.length
+              ? r.bom.length + ' isian BoM plan dimuat di tabel Volume As Built; ubah yang berbeda di lapangan.'
+              : 'Isian BoM-nya tidak cocok dengan template sekarang, jadi isi volume As Built sendiri.');
+            bqHint();
+          })
+          .withFailureHandler(function (e) {
+            $('bqAbdLoad').disabled = false;
+            msg.className = 'hint bad'; msg.textContent = 'Gagal: ' + (e && e.message ? e.message : e);
+          })
+          .getBoqAbdPlan($('bqSow').value, src);
+      });
+    }
+
     function bqSaveFile(f) {
       if (appSave(f.data, f.name, f.mime)) return;
       var bin = atob(f.data), arr = new Uint8Array(bin.length);
@@ -3685,6 +3806,7 @@
       if (bq.sending) return;
       var c = bqCollect();
       if (c.errs.length) { bqStatus('error', esc(c.errs[0])); return; }
+      if (bqIsAbd()) { bqCreateAbd(c); return; }
       bq.sending = true;
       $('bqBtn').disabled = true;
       $('bqBtn').textContent = 'Membuat BOQ...';
@@ -3707,12 +3829,40 @@
         .buatBoq({ sow: $('bqSow').value, status: $('bqStat').value, site: $('bqSite').value.trim(), olt: $('bqOlt').value.trim(), net: $('bqNet').value.trim(), hp: $('bqHp').value.trim(), items: c.items });
     }
 
+    function bqCreateAbd(c) {
+      bq.sending = true;
+      $('bqBtn').disabled = true;
+      $('bqBtn').textContent = 'Membuat BOQ ABD...';
+      bqStatus('info', 'Membuat file ABD ' + esc($('bqSow').value) + ': membaca BOQ plan, menghitung As Built, mengisi PO dan Form Opname... Biasanya 30 sampai 90 detik.');
+      function fail(m) {
+        bq.sending = false;
+        bqAbdMode();
+        bqStatus('error', '<strong>Gagal membuat BOQ ABD:</strong> ' + esc(m));
+      }
+      bqAbdSrc(function (src, err) {
+        if (!src) { fail(err || 'Pilih BOQ plan dulu.'); return; }
+        GSR
+          .withSuccessHandler(function (f) {
+            bq.sending = false;
+            bqAbdMode();
+            var miss = (f.missPlan || []).concat((f.missBuilt || []).filter(function (x) { return (f.missPlan || []).indexOf(x) < 0; }));
+            bqStatus(miss.length ? 'info' : 'success', 'BOQ ABD selesai: <strong>' + esc(f.name) + '</strong> (' + f.plan + ' isian As Plan, ' + f.built + ' isian As Built). File diunduh dan tersimpan di daftar BOQ yang Dibuat.' +
+              (miss.length ? '<br><strong>Tidak punya baris di template ABD, jadi tidak tercantum:</strong> ' + esc(miss.join('; ')) : ''));
+            bqSaveFile(f);
+            loadBqHistory();
+          })
+          .withFailureHandler(function (e) { fail(e && e.message ? e.message : e); })
+          .buatBoqAbd({ sow: $('bqSow').value, site: $('bqSite').value.trim(), olt: $('bqOlt').value.trim(), net: $('bqNet').value.trim(), hp: $('bqHp').value.trim(),
+            po: $('bqPo').value.trim(), tgl: $('bqTgl').value, picVendor: $('bqPicV').value.trim(), picCust: $('bqPicC').value.trim(), plan: src, items: c.items });
+      });
+    }
+
     function bqUploadTemplate() {
-      var file = $('bqTplFile').files[0], sow = $('bqSow').value, msg = $('bqTplMsg');
+      var file = $('bqTplFile').files[0], sow = $('bqSow').value, msg = $('bqTplMsg'), jenis = bqIsAbd() ? 'ABD' : '';
       if (!file) { msg.className = 'hint bad'; msg.textContent = 'Pilih file BOQ .xlsx dulu.'; return; }
       if (!/\.xlsx$/i.test(file.name)) { msg.className = 'hint bad'; msg.textContent = 'Template harus file Excel .xlsx.'; return; }
       $('bqTplBtn').disabled = true;
-      msg.className = 'hint'; msg.textContent = 'Mengunggah dan memeriksa template ' + sow + '...';
+      msg.className = 'hint'; msg.textContent = 'Mengunggah dan memeriksa template ' + (jenis ? 'ABD ' : '') + sow + '...';
       var reader = new FileReader();
       reader.onload = function () {
         GSR
@@ -3720,15 +3870,16 @@
             $('bqTplBtn').disabled = false;
             $('bqTplFile').value = '';
             msg.className = 'hint ok';
-            msg.textContent = 'Template ' + r.sow + ' diganti (sheet ' + r.sheet + ', ' + r.items + ' item isian BoM). Template lama masuk sampah Drive.';
-            bqLoad();
+            msg.textContent = jenis === 'ABD' ? 'Template ABD ' + r.sow + ' diganti (' + r.items + ' item di sheet PO). Template lama masuk sampah Drive.'
+              : 'Template ' + r.sow + ' diganti (sheet ' + r.sheet + ', ' + r.items + ' item isian BoM). Template lama masuk sampah Drive.';
+            if (jenis === 'ABD') { bq.abd = null; bqAbdLoadTpl(); } else bqLoad();
           })
           .withFailureHandler(function (err) {
             $('bqTplBtn').disabled = false;
             msg.className = 'hint bad';
             msg.textContent = 'Gagal: ' + (err && err.message ? err.message : err);
           })
-          .setBoqTemplate(sow, String(reader.result).split(',')[1], file.name);
+          .setBoqTemplate(sow, String(reader.result).split(',')[1], file.name, jenis);
       };
       reader.onerror = function () { $('bqTplBtn').disabled = false; msg.className = 'hint bad'; msg.textContent = 'File tidak bisa dibaca.'; };
       reader.readAsDataURL(file);
@@ -3759,13 +3910,18 @@
 
     function loadBqHistory() {
       GSR
-        .withSuccessHandler(function (list) { bq.hist = list || []; renderBqHistory(); })
+        .withSuccessHandler(function (list) { bq.hist = list || []; renderBqHistory(); if (bqIsAbd()) bqAbdPlans(); })
         .withFailureHandler(function (err) { $('bqHistory').innerHTML = '<tr><td colspan="5">Gagal memuat: ' + esc(err && err.message ? err.message : err) + '</td></tr>'; })
         .getBoqGenHistory();
     }
 
-    $('bqSow').addEventListener('change', bqLoad);
+    $('bqSow').addEventListener('change', function () { bqLoad(); bqAbdMode(); });
+    $('bqStat').addEventListener('change', bqAbdMode);
     $('bqSite').addEventListener('input', bqHint);
+    $('bqSite').addEventListener('change', function () { if (bqIsAbd()) bqAbdPlans(); });
+    $('bqAbdLoad').addEventListener('click', bqAbdLoadPlan);
+    ['bqAbdPlan', 'bqAbdFile'].forEach(function (id) { $(id).addEventListener('change', bqHint); });
+    $('bqPo').addEventListener('input', bqHint);
     $('bqAddRow').addEventListener('click', function () { if (bq.init && bq.init.template) bqAddRow(); });
     $('bqBtn').addEventListener('click', bqCreate);
     $('bqTplBtn').addEventListener('click', bqUploadTemplate);
