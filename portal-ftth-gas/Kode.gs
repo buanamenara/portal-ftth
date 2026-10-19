@@ -8793,15 +8793,19 @@ function boqAbdStd_(ss, t) {
 }
 
 // Volume per item satu sheet BoQ (plan) yang sudah terhitung: { items: { kunci: { name, d, e } }, head: { site, olt, net, hp } }.
+// err = sel Qty berisi error (mis. #ERROR! di BOQ plan lama), tetap = Qty angka tanpa rumus (isian manual di BoQ).
 function boqAbdQty_(sh) {
-  var p = boqGenParse_(sh), n = sh.getLastRow(), v = sh.getRange(1, 1, n, 17).getValues(), out = {};
+  var p = boqGenParse_(sh), n = sh.getLastRow(), rg = sh.getRange(1, 1, n, 17), v = rg.getValues(), f = rg.getFormulas(), out = {}, nErr = 0;
   var rows = boqAbdRows_(v, 2, p.hdr);
+  function bad(x) { return typeof x === 'string' && /^#/.test(x.trim()); }
   Object.keys(rows).forEach(function (k) {
-    var r = rows[k].r - 1;
-    out[k] = { name: rows[k].name, d: Number(v[r][3]) || 0, e: Number(v[r][4]) || 0 };
+    var r = rows[k].r - 1, err = bad(v[r][3]) || bad(v[r][4]);
+    if (err) nErr++;
+    out[k] = { name: rows[k].name, d: Number(v[r][3]) || 0, e: Number(v[r][4]) || 0, err: err,
+      tetap: (!f[r][3] && typeof v[r][3] === 'number' && v[r][3] > 0) || (!f[r][4] && typeof v[r][4] === 'number' && v[r][4] > 0) };
   });
   function hv(h) { return h ? v[h.r - 1][h.c - 1] : ''; }
-  return { items: out, head: { site: String(hv(p.head.cluster)).trim(), olt: String(hv(p.head.olt)).trim(), net: String(hv(p.head.net)).trim(), hp: hv(p.head.hp) } };
+  return { items: out, nErr: nErr, head: { site: String(hv(p.head.cluster)).trim(), olt: String(hv(p.head.olt)).trim(), net: String(hv(p.head.net)).trim(), hp: hv(p.head.hp) } };
 }
 
 // Isi salinan template ABD: kepala PO, As Plan ke PO kolom D/E, As Built ke Form Project Opname kolom G/H, PIC dan tanggal opname.
@@ -8920,26 +8924,58 @@ function boqAbdSameBom_(sow, ss, sh) {
   return { inp: inp, ok: ok, n: (init.inputs || []).length };
 }
 
+// Isian BoM BOQ plan yang barisnya sama dengan template sekarang: [{ k, line, q }].
+function boqAbdPlanBom_(o, same) {
+  var bom = boqGenBomSheet_(o.ss), bv = bom ? bom.getDataRange().getValues() : [], rows = [];
+  Object.keys(same.ok).forEach(function (k) {
+    same.ok[k].cells.forEach(function (c) {
+      var x = bv[c.r - 1] ? Number(bv[c.r - 1][c.c - 1]) : 0;
+      if (x) rows.push({ k: k, line: c.line || '', q: x });
+    });
+  });
+  return rows;
+}
 // Untuk halaman: kepala dan isian BoM BOQ plan yang dipilih, supaya isian As Built tinggal diubah yang berbeda.
 function boqAbdPlanInfo_(sow, src, scope) {
   sow = boqAbdSow_(sow);
   var o = boqAbdPlanOpen_(src, scope);
   try {
-    var q = boqAbdQty_(o.sh), same = boqAbdSameBom_(sow, o.ss, o.sh), bom = boqGenBomSheet_(o.ss), rows = [];
-    var bv = bom ? bom.getDataRange().getValues() : [];
-    Object.keys(same.ok).forEach(function (k) {
-      same.ok[k].cells.forEach(function (c) {
-        var x = bv[c.r - 1] ? Number(bv[c.r - 1][c.c - 1]) : 0;
-        if (x) rows.push({ k: k, line: c.line || '', qty: x });
-      });
-    });
-    var items = Object.keys(q.items).filter(function (k) { return q.items[k].d || q.items[k].e; }).length;
-    return { name: o.name, head: q.head, bom: rows, items: items };
+    var q = boqAbdQty_(o.sh), rows = boqAbdPlanBom_(o, boqAbdSameBom_(sow, o.ss, o.sh)).map(function (x) { return { k: x.k, line: x.line, qty: x.q }; });
+    var fixed = 0, err = q.nErr;
+    if (err) {
+      var calc = boqAbdCalc_(sow);
+      try { fixed = boqAbdPlanFix_(sow, o, q, calc); } finally { boqAbdTrash_(calc.id); }
+    }
+    var list = [];
+    Object.keys(q.items).forEach(function (k) { var x = q.items[k]; if (x.d || x.e) list.push({ name: x.name, d: x.d, e: x.e }); });
+    return { name: o.name, head: q.head, bom: rows, items: list.length, list: list, err: err, fixed: fixed };
   } finally { boqAbdTrash_(o.id); }
 }
 
 function boqAbdFileName_(site, sow) {
   return ('ABD BoQ ' + (sow === 'Cluster' ? 'Dist ' : 'SF ') + site).replace(/[\\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150) + '.xlsx';
+}
+
+// Salinan sementara template BOQ plan SOW ini untuk menghitung volume item dari isian BoM.
+function boqAbdCalc_(sow) {
+  var tpl = boqTplFile_(sow);
+  if (!tpl) throw new Error('Template BOQ ' + sow + ' belum ada.');
+  var c = tpl.makeCopy('TEMP_ABD_HITUNG_' + new Date().getTime()), ss = SpreadsheetApp.openById(c.getId()), sh = findBoqSheet_(ss);
+  return { id: c.getId(), sh: sh, bom: boqGenBomSheet_(ss), inp: boqGenInputs_(ss, sh) };
+}
+// Item As Plan yang error di file plan (BOQ plan lama, #ERROR!) dihitung ulang dari isian BoM plan itu. Hasil: jumlah item yang diperbaiki.
+function boqAbdPlanFix_(sow, o, pq, calc) {
+  if (!pq.nErr) return 0;
+  var pr = boqAbdPlanBom_(o, boqAbdSameBom_(sow, o.ss, o.sh)), n = 0;
+  if (!pr.length) return 0;
+  boqGenPutBom_(calc.bom, calc.inp, pr, sow);
+  SpreadsheetApp.flush();
+  var q = boqAbdQty_(calc.sh).items;
+  Object.keys(pq.items).forEach(function (k) {
+    var x = pq.items[k];
+    if (x.err && q[k]) { x.d = q[k].d; x.e = q[k].e; x.err = false; n++; }
+  });
+  return n;
 }
 
 function boqAbdBuild_(sow, data, userName, scope) {
@@ -8953,24 +8989,20 @@ function boqAbdBuild_(sow, data, userName, scope) {
   if (!abd) throw new Error('Template BOQ ABD ' + sow + ' belum ada. Minta RPM mengunggahnya di menu Buat BOQ.');
   var o = boqAbdPlanOpen_(data.plan, scope), tmp = [o.id];
   try {
-    var plan = boqAbdQty_(o.sh).items;
-    // As Built dihitung dengan rumus BOQ plan itu sendiri bila semua isian ada di sana; kalau tidak, dengan template plan SOW ini.
-    var same = boqAbdSameBom_(sow, o.ss, o.sh), eng = o, inp = same.inp;
-    var cocok = rows.every(function (x) { return same.ok[x.k]; });
-    if (!cocok) {
-      var tpl = boqTplFile_(sow);
-      if (!tpl) throw new Error('Template BOQ ' + sow + ' belum ada.');
-      var c1 = tpl.makeCopy('TEMP_ABD_BUILT_' + new Date().getTime());
-      tmp.push(c1.getId());
-      var ss1 = SpreadsheetApp.openById(c1.getId());
-      eng = { ss: ss1, sh: findBoqSheet_(ss1) };
-      inp = boqGenInputs_(ss1, eng.sh);
-    }
-    var bom = boqGenBomSheet_(eng.ss);
-    if (!bom) throw new Error('BOQ plan ' + o.name + ' tidak punya sheet BoM.');
-    var filled = boqGenPutBom_(bom, inp, rows, sow);
+    // Volume dihitung dengan rumus template BOQ plan SOW ini (bukan rumus di file plan: BOQ plan lama bisa berisi #ERROR!).
+    //  As Plan : angka di file plan; yang error dihitung ulang dari isian BoM plan itu.
+    //  As Built: isian BoM As Built; item yang di file plan berupa angka tetap (izin, K3, dll.) ikut angka plan bila rumus tidak mengisinya.
+    var pq = boqAbdQty_(o.sh), plan = pq.items, calc = boqAbdCalc_(sow);
+    tmp.push(calc.id);
+    var fixed = boqAbdPlanFix_(sow, o, pq, calc);
+    var filled = boqGenPutBom_(calc.bom, calc.inp, rows, sow);
     SpreadsheetApp.flush();
-    var built = boqAbdQty_(eng.sh).items;
+    var built = boqAbdQty_(calc.sh).items;
+    Object.keys(plan).forEach(function (k) {
+      var x = plan[k], b = built[k];
+      if (!x.tetap || (b && (b.d || b.e))) return;
+      built[k] = { name: x.name, d: x.d, e: x.e };
+    });
 
     var copy = abd.makeCopy('TEMP_BUAT_ABD_' + new Date().getTime());
     tmp.push(copy.getId());
@@ -8986,7 +9018,7 @@ function boqAbdBuild_(sow, data, userName, scope) {
     var out = boqOutFolder_().createFile(blob);
     out.setDescription(JSON.stringify({ site: site, sow: sow, status: 'ABD', user: userName || '', template: abd.getDescription() || '', plan: o.name, po: String(data.po).trim() }));
     return { id: out.getId(), name: name, mime: MimeType.MICROSOFT_EXCEL, data: Utilities.base64Encode(blob.getBytes()), filled: filled,
-      plan: miss.nPlan, built: miss.nBuilt, missPlan: miss.plan, missBuilt: miss.built, mesin: cocok ? 'plan' : 'template' };
+      plan: miss.nPlan, built: miss.nBuilt, missPlan: miss.plan, missBuilt: miss.built, planErr: pq.nErr, planFixed: fixed };
   } finally {
     tmp.forEach(boqAbdTrash_);
   }
