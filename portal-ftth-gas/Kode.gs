@@ -7942,12 +7942,12 @@ function buildSCurveData_(code) {
 }
 // =====================================================================
 // BUAT BOQ: volume yang diisi di portal -> file BOQ .xlsx dari template per SOW (kebalikan Submit BOQ).
-// Template = BOQ lama satu SOW, diunggah RPM lewat menu Buat BOQ dan disimpan sebagai Google Sheet "TEMPLATE BOQ - <SOW>"
-// di folder Drive BOQ_TPL_FOLDER_NAME. Sel Qty sheet BoQ yang dulu dihitung dari sheet BoM ditimpa angka isian,
-// lalu sheet BoM dibuang dari hasil (angkanya milik site asal template). Harga, susunan baris, dan rumus total tetap dari template.
+// Template = BOQ plan satu SOW (sheet Summary, BoQ, dan BoM), disimpan sebagai Google Sheet "TEMPLATE BOQ - <SOW>"
+// di folder Drive BOQ_TPL_FOLDER_NAME. Volume diisi ke sheet BoM (rute kabel per Line, FAT, tiang, strand, dst.),
+// sheet BoQ mengikuti rumusnya. Semua sheet tetap ada di file hasil. Rumus BoM disamakan saat template dipasang (boqGenBomStd_).
 // =====================================================================
 var BOQ_GEN_SOWS = ['Cluster', 'Subfeeder', 'Mainfeeder', 'Hubfeeder', 'Uplink', 'FWA'];
-var BOQ_TPL_FOLDER_NAME = 'Template BOQ Portal BMI';
+var BOQ_TPL_FOLDER_NAME = 'Template BOQ Portal BMI v2';   // v2: template berbasis BoM (folder lama tidak dipakai lagi)
 var BOQ_OUT_FOLDER_NAME = 'BOQ Dibuat Portal BMI';
 var BOQ_TPL_PREFIX = 'TEMPLATE BOQ - ';
 var BOQ_GEN_REF_ = /^=\s*\$?[DE]\$?\d+\s*$/i;   // Qty yang hanya menyalin sel lain di baris BoQ (mis. Material = Service baris bawah)
@@ -7963,7 +7963,7 @@ function boqFolder_(prop, name) {
   props.setProperty(prop, folder.getId());
   return folder;
 }
-function boqTplFolder_() { return boqFolder_('BOQ_TPL_FOLDER_ID', BOQ_TPL_FOLDER_NAME); }
+function boqTplFolder_() { return boqFolder_('BOQ_TPL2_FOLDER_ID', BOQ_TPL_FOLDER_NAME); }
 function boqOutFolder_() { return boqFolder_('BOQ_OUT_FOLDER_ID', BOQ_OUT_FOLDER_NAME); }
 
 function boqGenSow_(sow) {
@@ -8063,45 +8063,282 @@ function boqGenParse_(sh) {
   return { hdr: hdr + 1, head: head, items: items };
 }
 
-// Designator (daftar yang sama dengan BA Transaksi / Submit BOQ) -> kunci item Qty template. Pencocokan memakai kata kunci
-// DESIGNATOR_MAP seperti sumMatchingRows_, supaya file hasil dibaca balik Submit BOQ dengan angka yang sama. Baris pertama yang cocok dipakai.
-function boqGenDesigMap_(sh, items) {
-  var data = sh.getRange(1, 1, sh.getLastRow(), 2).getValues(), bySrc = {}, out = {};
-  items.forEach(function (it) { if (!bySrc[it.src]) bySrc[it.src] = it; });
-  DESIGNATOR_MAP.forEach(function (d) {
-    var terms = d.terms.map(function (t) { return String(t).toLowerCase(); });
-    for (var r = 0; r < data.length; r++) {
-      var desc = String(data[r][1] || '').toLowerCase().trim();
-      if (!terms.some(function (t) { return desc.indexOf(t) !== -1; })) continue;
-      if (!d.includeInstal && (desc.indexOf('instal') === 0 || desc.indexOf('pemasangan') === 0)) continue;
-      if (bySrc[r + 1]) { out[d.name] = bySrc[r + 1].k; break; }
-    }
-  });
+// ---- Sheet BoM: semua isian BOQ masuk ke sini, sheet BoQ mengikuti rumusnya (seperti BOQ plan yang dibuat manual). ----
+function boqGenBomSheet_(ss) {
+  var sheets = ss.getSheets();
+  for (var i = 0; i < sheets.length; i++) if (/^bom/i.test(sheets[i].getName().trim())) return sheets[i];
+  return null;
+}
+function boqColN_(s) { var n = 0; for (var i = 0; i < s.length; i++) n = n * 26 + s.charCodeAt(i) - 64; return n; }
+function boqColA_(n) { var s = ''; while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; } return s; }
+function boqA1_(r, c) { return boqColA_(c) + r; }
+// Rujukan sel dalam rumus: [{sheet, r1, c1, r2, c2}]; sheet '' = sheet yang sama.
+function boqRefs_(fo) {
+  var out = [], re = /(?:(?:'((?:[^']|'')+)'|([A-Za-z_][\w.]*))!)?(?<![\w.$])\$?([A-Z]{1,3})\$?(\d+)(?::\$?([A-Z]{1,3})\$?(\d+))?(?![\w(])/g, m;
+  var s = String(fo || '').replace(/"[^"]*"/g, '""');
+  while ((m = re.exec(s))) {
+    var r1 = +m[4], c1 = boqColN_(m[3]), r2 = m[6] ? +m[6] : r1, c2 = m[5] ? boqColN_(m[5]) : c1;
+    out.push({ sheet: m[1] ? m[1].replace(/''/g, "'") : (m[2] || ''), r1: Math.min(r1, r2), c1: Math.min(c1, c2), r2: Math.max(r1, r2), c2: Math.max(c1, c2) });
+  }
   return out;
 }
 
-// Volume per designator -> volume per sel Qty. Designator yang menunjuk baris BOQ yang sama dijumlahkan, kecuali pasangan
-// 'split' BOQ_CHOICES (Plat Belt = 50% dan Stopping = 100% Plate belt BOQ): BOQ = Stopping, atau Plat Belt x 2 bila Stopping kosong.
-function boqGenWant_(rows, dmap) {
-  var byKey = {}, want = {};
-  rows.forEach(function (x) {
-    var key = dmap[x.d];
-    if (!key) throw new Error('Material "' + x.d + '" tidak ada di template BOQ SOW ini.');
-    (byKey[key] = byKey[key] || []).push(x);
+// Baca sheet BoM sekali: teks, rumus, dan kelompok baris per blok (blok kiri mulai kolom A; blok "BoM - Main/Hub/Sub Feeder" di kanan).
+function boqGenBomRead_(bom) {
+  var rg = bom.getDataRange(), v = rg.getValues(), f = rg.getFormulas(), nr = v.length, nc = nr ? v[0].length : 0;
+  var starts = [1];
+  for (var c = 2; c <= nc; c++) if (/^bom\b/i.test(String(v[0][c - 1]).trim())) starts.push(c);
+  var blocks = starts.map(function (g, i) {
+    var end = i + 1 < starts.length ? starts[i + 1] - 1 : nc, lines = [];
+    for (var c = g + 3; c <= end; c++) if (/^(line\s*[a-z]|fdt\s*\d+)$/i.test(String(v[0][c - 1]).trim())) lines.push({ c: c, name: String(v[0][c - 1]).trim() });
+    var grp = [], cur = '';
+    for (var r = 1; r <= nr; r++) {
+      var t = String(v[r - 1][g - 1]).trim();
+      if (r > 1 && t && !f[r - 1][g - 1]) cur = t;
+      grp.push(cur);
+    }
+    return { g: g, end: end, lab: g + 1, qty: g + 2, unit: g + 3, lines: lines, grp: grp };
   });
-  Object.keys(byKey).forEach(function (key) {
-    var list = byKey[key], split = null;
-    BOQ_CHOICES.forEach(function (ch) {
-      if (ch.mode === 'split' && list.every(function (x) { return ch.options.indexOf(x.d) > -1; })) split = ch;
-    });
-    if (split) {
-      var full = list.filter(function (x) { return split.ratios[x.d] === 1; })[0] || list[0];
-      want[key] = Math.ceil(full.q / split.ratios[full.d]);
-    } else {
-      want[key] = list.reduce(function (a, x) { return a + x.q; }, 0);
+  return { sh: bom, name: bom.getName(), v: v, f: f, nr: nr, nc: nc, blocks: blocks };
+}
+function boqGenTxt_(b, r, c) { return String(b.v[r - 1][c - 1] || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
+// Baris-baris satu kelompok (teks kolom kelompok), mulai kemunculan pertama.
+function boqGenGrp_(b, blk, re) {
+  var out = [], on = false;
+  for (var r = 2; r <= b.nr; r++) {
+    var g = String(blk.grp[r - 1]).toLowerCase(), first = String(b.v[r - 1][blk.g - 1]).trim() && !b.f[r - 1][blk.g - 1];
+    if (on && first) break;
+    if (!on && first && re.test(g)) on = true;
+    if (on) out.push(r);
+  }
+  return out;
+}
+function boqGenRow_(b, blk, rows, re) {
+  for (var i = 0; i < rows.length; i++) if (re.test(boqGenTxt_(b, rows[i], blk.lab))) return rows[i];
+  return 0;
+}
+function boqGenRowAll_(b, blk, re) {
+  for (var r = 2; r <= b.nr; r++) if (re.test(boqGenTxt_(b, r, blk.lab))) return r;
+  return 0;
+}
+
+// Samakan rumus BoM dengan BOQ plan standar (dipakai saat template dipasang). Isian desain dikosongkan.
+//  Cluster: kabel = (rute + slack FAT/FDT x 20 m) x 1,05; Label Cable = 10% jumlah tiang (dibulatkan ke atas);
+//           Label FDT/FAT = jumlah FDT/FAT; Testcomm FDT-FAT dan splicing = jumlah FAT; Survey = kabel + strand; PM = Survey.
+//  Feeder : kabel = (rute + coil x 20 m) x 1,05, coil = rute/400 + 1; Label Cable = panjang kabel / 46,5 m (rata-rata 64 BOQ).
+function boqGenBomStd_(ss, boqSh) {
+  var bom = boqGenBomSheet_(ss);
+  if (!bom) return 0;
+  var b = boqGenBomRead_(bom), set = {}, n = 0;
+  function put(r, c, fo) { if (r && c) set[r + ':' + c] = { r: r, c: c, f: fo }; }
+  b.blocks.forEach(function (blk) {
+    var X = function (r, c) { return boqA1_(r, c); };
+    var fat = boqGenGrp_(b, blk, /^total fat\b/);
+    if (fat.length) {   // blok Cluster
+      var cols = blk.lines.length ? blk.lines.map(function (l) { return l.c; }) : [blk.qty];
+      var rute = boqGenGrp_(b, blk, /^total rute\b/).filter(function (r) { return /\d+c/.test(boqGenTxt_(b, r, blk.lab)); });
+      var kab = boqGenGrp_(b, blk, /^total panjang kabel\b/);
+      var sFdt = boqGenGrp_(b, blk, /^total slack di fdt/), sFat = boqGenGrp_(b, blk, /^total slack di fat/);
+      var fdt = boqGenGrp_(b, blk, /^total fdt\b/), pole = boqGenGrp_(b, blk, /^pole\b/);
+      var lab = boqGenGrp_(b, blk, /^label$/), acc = boqGenGrp_(b, blk, /^accessoris/), spl = boqGenGrp_(b, blk, /^splicing/);
+      var newPole = pole.filter(function (r) { return boqGenTxt_(b, r, blk.lab) && !/^existing/.test(boqGenTxt_(b, r, blk.lab)); });
+      var pole7 = pole.filter(function (r) { return /^7\s*m/.test(boqGenTxt_(b, r, blk.lab)); });
+      var pole7s = pole7.filter(function (r) { return !/^7\s*m\s*5/.test(boqGenTxt_(b, r, blk.lab)); });
+      var strand = boqGenRowAll_(b, blk, /rute strand wire/), strandTol = boqGenRowAll_(b, blk, /panjang strand wire/);
+      var totKab = boqGenGrp_(b, blk, /^total panjang cable/)[0];
+      var fat18 = boqGenRowAll_(b, blk, /^fat 1:8/), mod = boqGenRowAll_(b, blk, /^modular 1:8/);
+      var holder = boqGenRow_(b, blk, acc, /cable loop holder/), plate = boqGenRow_(b, blk, acc, /plate belt/), susp = boqGenRow_(b, blk, acc, /suspension/);
+      var dead = boqGenRow_(b, blk, acc, /dead end/), pond = boqGenRow_(b, blk, acc, /pondasi/), pclamp = boqGenRow_(b, blk, acc, /pole clamp single/);
+      var tFat = boqGenGrp_(b, blk, /testcom fat/)[0], surv = boqGenGrp_(b, blk, /^survey/)[0], pm = boqGenGrp_(b, blk, /^project management/)[0];
+      var gal = boqGenGrp_(b, blk, /^pekerjaan galian/), tol = boqGenGrp_(b, blk, /^toleransi/), sock = boqGenGrp_(b, blk, /^socket hdpe/);
+      var h32 = boqGenRow_(b, blk, gal, /hdpe 32/), h40 = boqGenRow_(b, blk, gal, /hdpe 40/);
+      var t32 = boqGenRow_(b, blk, tol, /hdpe 32/), t40 = boqGenRow_(b, blk, tol, /hdpe 40/);
+      var k32 = boqGenRow_(b, blk, sock, /32/), k40 = boqGenRow_(b, blk, sock, /40/);
+      var tamb = boqGenGrp_(b, blk, /^tambang/)[0], tee = boqGenGrp_(b, blk, /^large ra/);
+      cols.forEach(function (c) {
+        var L = function (r) { return X(r, c); }, sum = function (rs) { return rs.length ? 'SUM(' + L(rs[0]) + ':' + L(rs[rs.length - 1]) + ')' : '0'; };
+        if (rute.length === kab.length && sFdt.length === 4 && sFat.length === 4) kab.forEach(function (r, i) {
+          var k = i % 4;
+          put(r, c, '=IF(' + L(rute[i]) + '=0,0,ROUNDUP((' + L(rute[i]) + '+(' + L(sFat[k]) + '+' + L(sFdt[k]) + ')*20)*1.05,0))');
+        });
+        if (totKab && kab.length) put(totKab, c, '=' + sum(kab));
+        if (strandTol && strand) put(strandTol, c, '=ROUNDUP(' + L(strand) + '*1.05,0)');
+        if (fat18) put(fat18, c, '=' + sum(fat));
+        if (mod && fat18) put(mod, c, '=ROUNDUP(' + L(fat18) + '/8,0)');
+        fat.forEach(function (r, i) {
+          if (sFdt[i]) put(sFdt[i], c, '=IF(' + L(r) + '>=1,1,0)');
+          if (sFat[i]) put(sFat[i], c, '=' + L(r));
+        });
+        var lc = boqGenRow_(b, blk, lab, /^label cable/), lf = boqGenRow_(b, blk, lab, /^label fdt/), la = boqGenRow_(b, blk, lab, /^label fat/), lp = boqGenRow_(b, blk, lab, /^label pole/);
+        if (lc && pole.length) put(lc, c, blk.lines.length > 1 ? '=' + sum(pole) + '*10%' : '=ROUNDUP(' + sum(pole) + '*10%,0)');
+        if (lf && fdt.length) put(lf, c, '=' + sum(fdt));
+        if (la) put(la, c, '=' + sum(fat));
+        if (lp && newPole.length) put(lp, c, '=' + sum(newPole));
+        if (holder && sFdt.length && sFat.length) put(holder, c, '=MAX(SUM(' + L(Math.min(sFdt[0], sFat[0])) + ':' + L(Math.max(sFdt[3] || sFdt[0], sFat[3] || sFat[0])) + ')-1,0)');
+        if (plate && susp && holder) put(plate, c, '=(' + L(susp) + '*2)+(' + L(holder) + '*2)');
+        if (dead && holder) put(dead, c, '=IF(' + L(holder) + '=0,0,(' + L(holder) + '*2)+2)');
+        if (pclamp && dead) put(pclamp, c, '=' + L(dead) + '/2');
+        if (susp && pclamp && pole7s.length) put(susp, c, '=MAX(' + pole7s.map(L).join('+') + '-' + L(pclamp) + ',0)');
+        if (pond && pole7.length) put(pond, c, '=' + sum(pole7));
+        var sFatR = boqGenRow_(b, blk, spl, /^at fat/), sFdtR = boqGenRow_(b, blk, spl, /^at fdt/);
+        if (sFatR) put(sFatR, c, '=' + sum(fat));
+        if (sFdtR && sFatR) put(sFdtR, c, '=' + L(sFatR));
+        if (tFat) put(tFat, c, '=' + sum(fat));
+        if (surv && totKab) put(surv, c, '=' + L(totKab) + (strandTol ? '+' + L(strandTol) : ''));
+        if (pm && surv) put(pm, c, '=' + L(surv));
+        if (t32 && h32) put(t32, c, '=ROUNDUP(' + L(h32) + '*1.1,0)');
+        if (t40 && h40) put(t40, c, '=ROUNDUP(' + L(h40) + '*1.1,0)');
+        if (k32 && t32) put(k32, c, '=ROUNDUP(' + L(t32) + '/200,0)');
+        if (k40 && t40) put(k40, c, '=ROUNDUP(' + L(t40) + '/200,0)');
+        if (tamb && t40) put(tamb, c, '=' + L(t40));
+        if (tee.length > 1) put(tee[1], c, '=' + L(tee[0]));
+      });
+      if (blk.lines.length > 1) {   // kolom Qty = jumlah Line A..C
+        var c1 = blk.lines[0].c, c2 = blk.lines[blk.lines.length - 1].c;
+        var lcr = boqGenRow_(b, blk, boqGenGrp_(b, blk, /^label$/), /^label cable/);
+        for (var r = 2; r <= b.nr; r++) if (String(b.v[r - 1][blk.unit - 1]).trim() && b.f[r - 1][blk.qty - 1]) put(r, blk.qty, '=SUM(' + X(r, c1) + ':' + X(r, c2) + ')');
+        if (lcr) put(lcr, blk.qty, '=ROUNDUP(SUM(' + X(lcr, c1) + ':' + X(lcr, c2) + '),0)');   // Label Cable dibulatkan dari total semua Line
+      }
+    }
+    var route = boqGenGrp_(b, blk, /^total route/);
+    if (route.length) {   // blok Feeder
+      var q = blk.qty, cab = boqGenGrp_(b, blk, /^total panjang kabel/), coil = boqGenGrp_(b, blk, /^total coil/);
+      var poleF = boqGenGrp_(b, blk, /^pole\b/), newF = poleF.filter(function (r) { return /^new/.test(boqGenTxt_(b, r, blk.lab)); });
+      var labF = boqGenGrp_(b, blk, /^label$/);
+      if (cab.length === route.length && coil.length === route.length) route.forEach(function (r, i) {
+        put(coil[i], q, '=IF(' + X(r, q) + '=0,0,ROUNDUP((' + X(r, q) + '/400)+1,0))');
+        put(cab[i], q, '=ROUNDUP((' + X(r, q) + '+' + X(coil[i], q) + '*20)*1.05,0)');
+      });
+      var lcF = boqGenRow_(b, blk, labF, /^label cable/), lpF = boqGenRow_(b, blk, labF, /^la(b|bl)e?l pole|^lable pole/);
+      if (lcF && cab.length) {
+        put(lcF, q, '=ROUNDUP(SUM(' + X(cab[0], q) + ':' + X(cab[cab.length - 1], q) + ')/46.5,0)');
+        // Rumus lain yang dulu memakai Label Cable sebagai jumlah tiang (mis. suspension FWA) dialihkan ke jumlah tiang
+        var lcA = new RegExp('\\$?' + boqColA_(q) + '\\$?' + lcF + '(?!\\d)', 'g');
+        for (var r1 = 2; r1 <= b.nr; r1++) {
+          var fo1 = b.f[r1 - 1][q - 1];
+          if (r1 !== lcF && fo1 && poleF.length && lcA.test(fo1)) put(r1, q, fo1.replace(lcA, 'SUM(' + X(poleF[0], q) + ':' + X(poleF[poleF.length - 1], q) + ')'));
+          lcA.lastIndex = 0;
+        }
+      }
+      if (lpF && newF.length) put(lpF, q, '=SUM(' + X(newF[0], q) + ':' + X(newF[newF.length - 1], q) + ')');
+      for (var r2 = 2; r2 <= b.nr; r2++) {
+        var t = boqGenTxt_(b, r2, blk.lab);
+        if (/pondasi/.test(t) && newF.length) put(r2, q, '=SUM(' + X(newF[0], q) + ':' + X(newF[newF.length - 1], q) + ')');
+        if (/^socket hdpe 40/.test(t)) {
+          var tr = boqGenRowAll_(b, blk, /^toleransi panjang sub duct/);
+          if (tr) put(r2, q, '=IF(' + X(tr, q) + '=0,0,ROUNDUP(' + X(tr, q) + '/200,0))');
+        }
+      }
     }
   });
-  return want;
+  // Judul blok yang rusak (#REF!) diarahkan ke nama cluster di sheet BoQ
+  for (var c = 1; c <= b.nc; c++) if (/#REF!/i.test(b.f[0][c - 1]) && boqSh) put(1, c, "='" + boqSh.getName() + "'!O3");
+  Object.keys(set).forEach(function (k) {
+    var s = set[k];
+    if (b.f[s.r - 1][s.c - 1] !== s.f) { bom.getRange(s.r, s.c).setFormula(s.f); n++; }
+    b.f[s.r - 1][s.c - 1] = s.f;
+  });
+  // Angka desain site asal dikosongkan: angka tetap dan rumus angka saja (mis. =94+95+105)
+  for (var r3 = 2; r3 <= b.nr; r3++) for (var c3 = 1; c3 <= b.nc; c3++) {
+    var fo = b.f[r3 - 1][c3 - 1], val = b.v[r3 - 1][c3 - 1];
+    if (fo ? !/^=[\d\s+\-*\/().,%]+$/.test(fo) : typeof val !== 'number') continue;
+    bom.getRange(r3, c3).setValue('');
+    b.f[r3 - 1][c3 - 1] = ''; b.v[r3 - 1][c3 - 1] = ''; n++;
+  }
+  return n;
+}
+
+// Isian BoM = sel tanpa rumus yang (lewat rumus) dipakai sheet BoQ. Satu baris BoM = satu pilihan; kolom Line A/B/C jadi pilihan Line.
+function boqGenInputs_(ss, boqSh) {
+  var bom = boqGenBomSheet_(ss);
+  if (!bom) return { bom: '', opts: [] };
+  var b = boqGenBomRead_(bom), name = b.name.toLowerCase(), seen = {}, queue = [];
+  function visit(r1, c1, r2, c2) {
+    for (var r = r1; r <= Math.min(r2, b.nr); r++) for (var c = c1; c <= Math.min(c2, b.nc); c++) {
+      var k = r + ':' + c;
+      if (seen[k]) continue;
+      seen[k] = 1; queue.push([r, c]);
+    }
+  }
+  var qf = boqSh.getDataRange().getFormulas();
+  qf.forEach(function (row) {
+    row.forEach(function (fo) {
+      if (fo) boqRefs_(fo).forEach(function (x) { if (x.sheet.toLowerCase() === name) visit(x.r1, x.c1, x.r2, x.c2); });
+    });
+  });
+  var inputs = [];
+  while (queue.length) {
+    var rc = queue.shift(), fo = b.f[rc[0] - 1][rc[1] - 1];
+    if (!fo) { inputs.push(rc); continue; }
+    boqRefs_(fo).forEach(function (x) { if (!x.sheet) visit(x.r1, x.c1, x.r2, x.c2); });
+  }
+  var byKey = {}, opts = [];
+  inputs.sort(function (a, z) { return a[0] - z[0] || a[1] - z[1]; }).forEach(function (rc) {
+    var r = rc[0], c = rc[1], blk = b.blocks[0];
+    b.blocks.forEach(function (x) { if (x.g <= c) blk = x; });
+    if (c <= blk.unit && c !== blk.qty) return;   // kolom judul/satuan, bukan isian
+    var line = null;
+    blk.lines.forEach(function (l) { if (l.c === c) line = l; });
+    if (blk.lines.length && !line && c !== blk.qty) return;
+    var lab = String(b.v[r - 1][blk.lab - 1] || '').replace(/\s+/g, ' ').trim(), grp = String(blk.grp[r - 1] || '').replace(/\s+/g, ' ').trim();
+    var useLines = blk.lines.length > 1 && !!line;
+    if (useLines && /^line\s*[b-z]\b/i.test(lab)) return;   // Line B-D sudah diwakili kolom Line
+    if (useLines) lab = lab.replace(/^line\s*a\b\s*(-\s*)?/i, '');
+    var label = !lab ? grp : (grp && /^(\d+c\/|line\b|fdt\s*:|fat\s*:|hh\b|riser|at f)/i.test(lab) ? grp + ' - ' + lab : lab);
+    if (!label) return;
+    var key = 'R' + r + 'B' + blk.g;
+    if (!byKey[key]) {
+      byKey[key] = { k: key, label: label.replace(/\s*:\s*$/, ''), unit: String(b.v[r - 1][blk.unit - 1] || '').trim(), cells: [] };
+      opts.push(byKey[key]);
+    }
+    byKey[key].cells.push({ r: r, c: c, line: useLines ? line.name : '' });
+  });
+  opts.forEach(function (o) { if (o.cells.length > 1 || o.cells[0].line) o.lines = o.cells.map(function (x) { return x.line; }); });
+  return { bom: b.name, opts: opts };
+}
+
+// Rapikan sheet BoQ template: kolom volume tanpa warna, rumus harga #REF! diganti rumus baku,
+// Survey & Design feeder = kabel + strand wire (aturan sama dengan Cluster).
+function boqGenBoqStd_(ss, sh) {
+  var p = boqGenParse_(sh), last = sh.getLastRow(), n = last - p.hdr;
+  if (n > 0) {
+    var rg = sh.getRange(p.hdr + 1, 1, n, 9), v = rg.getValues(), f = rg.getFormulas();
+    var bgR = sh.getRange(p.hdr + 1, 4, n, 2), bg = bgR.getBackgrounds(), ch = false;
+    for (var i = 0; i < n; i++) {
+      if (!String(v[i][2]).trim()) continue;
+      for (var j = 0; j < 2; j++) if (bg[i][j] && bg[i][j] !== '#ffffff') { bg[i][j] = null; ch = true; }
+      var rr = p.hdr + 1 + i, std = ['=D' + rr + '*F' + rr, '=E' + rr + '*G' + rr];
+      for (var k = 0; k < 2; k++) if (f[i][7 + k].indexOf('#REF!') > -1) sh.getRange(rr, 8 + k).setFormula(std[k]);
+    }
+    if (ch) bgR.setBackgrounds(bg);
+    var bom = boqGenBomSheet_(ss);
+    if (bom) {
+      var b = boqGenBomRead_(bom), ref = '', jc = {};
+      b.blocks.forEach(function (blk) {
+        for (var r = 2; r <= b.nr; r++) {   // baris "JOIN CLOSURE 48" di BoM Cluster -> Qty joint closure in-line di BoQ
+          var m = /^join\s*closure\s*(\d+)/.exec(String(blk.grp[r - 1]).toLowerCase());
+          if (m && !jc[m[1]] && String(b.v[r - 1][blk.g - 1]).trim()) jc[m[1]] = "'" + b.name + "'!" + boqA1_(r, blk.qty);
+        }
+        if (!boqGenGrp_(b, blk, /^total route/).length) return;
+        var sw = boqGenGrp_(b, blk, /^strand wire/)[0];
+        if (sw) ref = "'" + b.name + "'!" + boqA1_(sw, blk.qty);
+      });
+      for (var y = 0; y < n; y++) {
+        var mj = /joint closure type in-line (\d+) core/.exec(String(v[y][1]).toLowerCase()), ry = p.hdr + 1 + y;
+        if (!mj || !jc[mj[1]] || f[y][3] || typeof v[y][3] !== 'number') continue;
+        sh.getRange(ry, 4).setFormula('=' + jc[mj[1]]);
+        if (!f[y][4] && typeof v[y][4] === 'number') sh.getRange(ry, 5).setFormula('=D' + ry);
+      }
+      if (ref) for (var z = 0; z < n; z++) {
+        var r = p.hdr + 1 + z, d = String(v[z][1]).toLowerCase();
+        if (/^survey\s*&\s*design/.test(d) && f[z][4] && f[z][4].indexOf(ref) < 0 && /bom/i.test(f[z][4])) sh.getRange(r, 5).setFormula(f[z][4] + '+' + ref);
+        if (/strand wire\/sling messenger/.test(d) && !f[z][3] && v[z][3] === '') {
+          sh.getRange(r, 4).setFormula('=' + ref);
+          if (!f[z][4] && v[z][4] === '') sh.getRange(r, 5).setFormula('=D' + r);
+        }
+      }
+    }
+  }
 }
 
 function boqGenInit_(sow) {
@@ -8110,19 +8347,22 @@ function boqGenInit_(sow) {
   if (!files[sow]) files[sow] = boqTplSeed_(sow);
   var sows = BOQ_GEN_SOWS.map(function (s) { return { sow: s, ada: !!files[s] }; });
   var tpl = files[sow];
-  if (!tpl) return { sow: sow, sows: sows, template: null, designators: [], head: {} };
-  var cache = CacheService.getScriptCache(), key = 'boqgen2_' + tpl.getId() + '_' + tpl.getLastUpdated().getTime(), p = null;
+  if (!tpl) return { sow: sow, sows: sows, template: null, inputs: [], head: {} };
+  var cache = CacheService.getScriptCache(), key = 'boqgen3_' + tpl.getId() + '_' + tpl.getLastUpdated().getTime(), p = null;
   try { var hit = cache.get(key); if (hit) p = JSON.parse(hit); } catch (e) { /* baca ulang */ }
   if (!p) {
-    var sh = findBoqSheet_(SpreadsheetApp.openById(tpl.getId()));
+    var ss = SpreadsheetApp.openById(tpl.getId()), sh = findBoqSheet_(ss);
     if (!sh) throw new Error('Template ' + tpl.getName() + ' tidak punya sheet yang namanya diawali "BoQ".');
-    var parsed = boqGenParse_(sh);
-    var dmap = boqGenDesigMap_(sh, parsed.items);
-    p = { sheet: sh.getName(), items: parsed.items, designators: boqDesigNames_().filter(function (n) { return dmap[n]; }), head: { olt: parsed.head.olt ? parsed.head.olt.val : '', net: parsed.head.net ? parsed.head.net.val : '' } };
+    var parsed = boqGenParse_(sh), inp = boqGenInputs_(ss, sh);
+    p = {
+      sheet: sh.getName(), bom: inp.bom,
+      inputs: inp.opts.map(function (o) { return { k: o.k, label: o.label, unit: o.unit, lines: o.lines || null }; }),
+      head: { olt: parsed.head.olt ? parsed.head.olt.val : '', net: parsed.head.net ? parsed.head.net.val : '' }
+    };
     try { cache.put(key, JSON.stringify(p), 21600); } catch (e) { /* tanpa cache */ }
   }
   return {
-    sow: sow, sows: sows, sheet: p.sheet, designators: p.designators, head: p.head,
+    sow: sow, sows: sows, sheet: p.sheet, bom: p.bom, inputs: p.inputs, head: p.head,
     template: { name: tpl.getName(), asal: tpl.getDescription() || '', updatedMs: tpl.getLastUpdated().getTime() }
   };
 }
@@ -8152,37 +8392,42 @@ function boqGenBuild_(sow, data, userName) {
   var rows = [];
   (data.items || []).forEach(function (it) {
     var q = boqGenNum_(it && it.qty);
-    if (q === null || !it.d) return;
-    rows.push({ d: String(it.d), q: q });
+    if (q === null || !it.k) return;
+    rows.push({ k: String(it.k), line: String(it.line || ''), q: q });
   });
-  if (!rows.length) throw new Error('Isi volume minimal satu material.');
+  if (!rows.length) throw new Error('Isi volume minimal satu item BoM.');
 
   var copy = tpl.makeCopy('TEMP_BUAT_BOQ_' + new Date().getTime());
   try {
     var ss = SpreadsheetApp.openById(copy.getId());
-    var sh = findBoqSheet_(ss);
-    var p = boqGenParse_(sh), filled = 0;
-    var want = boqGenWant_(rows, boqGenDesigMap_(sh, p.items));
-    // Material yang tidak diisi bervolume 0; item lump sum template (Qty 1, mis. Pengamanan, Transportasi, Warehouse) dan rumus lain dibiarkan.
-    p.items.forEach(function (it) {
-      var has = Object.prototype.hasOwnProperty.call(want, it.k);
-      if (!has && (it.kind === 'rumus' || (it.kind === 'angka' && it.def === 1))) return;
-      var q = has ? want[it.k] : 0;
-      sh.getRange(it.r, it.c).setValue(q);
-      if (it.twin) sh.getRange(it.twin.r, it.twin.c).setValue(q);
-      if (q) filled++;
+    var sh = findBoqSheet_(ss), bom = boqGenBomSheet_(ss);
+    if (!bom) throw new Error('Template ' + tpl.getName() + ' tidak punya sheet BoM.');
+    var p = boqGenParse_(sh), inp = boqGenInputs_(ss, sh), byK = {}, put = {}, filled = 0;
+    inp.opts.forEach(function (o) { byK[o.k] = o; });
+    rows.forEach(function (x) {
+      var o = byK[x.k];
+      if (!o) throw new Error('Item BoM yang dipilih tidak ada di template ' + sow + ' (muat ulang halaman).');
+      var cell = o.cells[0];
+      if (o.lines) {
+        cell = o.cells.filter(function (c) { return c.line === x.line; })[0];
+        if (!cell) throw new Error('Pilih Line untuk "' + o.label + '".');
+      }
+      var key = cell.r + ':' + cell.c;
+      put[key] = { r: cell.r, c: cell.c, q: (put[key] ? put[key].q : 0) + x.q };
     });
-    // Baris item lain yang Qty-nya kosong (tidak dipakai template) juga diisi 0, supaya semua item di file bervolume.
+    // Isian BoM: yang tidak diisi dikosongkan (angka site asal template tidak ikut), sheet BoQ mengikuti rumusnya.
+    inp.opts.forEach(function (o) {
+      o.cells.forEach(function (c) {
+        var w = put[c.r + ':' + c.c];
+        bom.getRange(c.r, c.c).setValue(w ? w.q : '');
+        if (w && w.q) filled++;
+      });
+    });
+    // Baris item BoQ yang Qty-nya kosong diisi 0, supaya semua item di file bervolume.
     var nr = sh.getLastRow() - p.hdr, blk = sh.getRange(p.hdr + 1, 1, nr, 16), bv = blk.getValues(), bf = blk.getFormulas();
     for (var z = 0; z < nr; z++) {
       if (!String(bv[z][2]).trim() || !String(bv[z][1]).trim() || bf[z][3] || bf[z][4] || bv[z][3] !== '' || bv[z][4] !== '') continue;
       sh.getRange(p.hdr + 1 + z, String(bv[z][15]).trim().toLowerCase() === 'service' ? 5 : 4).setValue(0);
-    }
-    // Rumus harga yang rusak (#REF!) di template diganti rumus baku baris itu: H = D*F, I = E*G, K = D+E
-    var last = sh.getLastRow(), fr = sh.getRange(1, 8, last, 4).getFormulas();
-    for (var r = p.hdr; r < last; r++) {
-      var rr = r + 1, std = ['=D' + rr + '*F' + rr, '=E' + rr + '*G' + rr, '', '=D' + rr + '+E' + rr];
-      for (var c = 0; c < 4; c++) if (std[c] && fr[r][c].indexOf('#REF!') > -1) sh.getRange(rr, 8 + c).setFormula(std[c]);
     }
     var hd = p.head;
     if (hd.cluster) sh.getRange(hd.cluster.r, hd.cluster.c).setValue(site);
@@ -8191,22 +8436,6 @@ function boqGenBuild_(sow, data, userName) {
     if (hd.hp) { var hp = boqGenNum_(data.hp); sh.getRange(hd.hp.r, hd.hp.c).setValue(hp === null ? '' : hp); }
     hd.status.forEach(function (s) { sh.getRange(s.r, s.c).setValue(s.upper ? status : (status === 'AS BUILT' ? 'As Built' : 'As Plan')); });
     SpreadsheetApp.flush();
-
-    // Sheet BoM dibuang; rumus lain yang masih merujuk BoM dibekukan jadi angka dulu supaya tidak menjadi #REF!
-    var boms = ss.getSheets().filter(function (s) { return /^bom/i.test(s.getName().trim()); });
-    if (boms.length) {
-      ss.getSheets().forEach(function (s) {
-        if (/^bom/i.test(s.getName().trim()) || s.getLastRow() < 1) return;
-        var rg = s.getDataRange(), fo = rg.getFormulas(), va = null;
-        for (var i = 0; i < fo.length; i++) for (var j = 0; j < fo[i].length; j++) {
-          if (!fo[i][j] || !/bom/i.test(fo[i][j])) continue;
-          if (!va) va = rg.getValues();
-          s.getRange(i + 1, j + 1).setValue(va[i][j]);
-        }
-      });
-      boms.forEach(function (s) { ss.deleteSheet(s); });
-      SpreadsheetApp.flush();
-    }
 
     var resp = UrlFetchApp.fetch('https:\/\/docs.google.com/spreadsheets/d/' + copy.getId() + '/export?format=xlsx', {
       headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true
@@ -8257,12 +8486,17 @@ function boqGenSetTemplate_(sow, base64Data, fileName) {
   var folder = boqTplFolder_();
   var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), MimeType.MICROSOFT_EXCEL, fileName);
   var g = Drive.Files.create({ name: BOQ_TPL_PREFIX + sow, mimeType: MimeType.GOOGLE_SHEETS, parents: [folder.getId()], description: 'Asal: ' + fileName }, blob);
-  var sh, p;
+  var sh, inp;
   try {
-    sh = findBoqSheet_(SpreadsheetApp.openById(g.id));
+    var ss = SpreadsheetApp.openById(g.id);
+    sh = findBoqSheet_(ss);
     if (!sh) throw new Error('Tidak ditemukan sheet yang namanya diawali "BoQ" di file ini.');
-    p = boqGenParse_(sh);
-    if (!p.items.length) throw new Error('Tidak ada kolom Qty yang bisa diisi di sheet ' + sh.getName() + '.');
+    if (!boqGenBomSheet_(ss)) throw new Error('Tidak ditemukan sheet BoM (mis. "BoM AE") di file ini.');
+    boqGenBomStd_(ss, sh);
+    boqGenBoqStd_(ss, sh);
+    SpreadsheetApp.flush();
+    inp = boqGenInputs_(ss, sh);
+    if (!inp.opts.length) throw new Error('Sheet BoQ tidak memakai isian dari sheet ' + inp.bom + '.');
   } catch (e) {
     try { Drive.Files.remove(g.id); } catch (x) { /* abaikan */ }
     throw e;
@@ -8272,7 +8506,7 @@ function boqGenSetTemplate_(sow, base64Data, fileName) {
     var f = it.next();
     if (f.getId() !== g.id && !f.isTrashed() && normalizeText_(f.getName()) === normalizeText_(BOQ_TPL_PREFIX + sow)) f.setTrashed(true);
   }
-  return { sow: sow, sheet: sh.getName(), items: p.items.length };
+  return { sow: sow, sheet: sh.getName(), items: inp.opts.length };
 }
 
 function getBoqGenInit(code, sow) { requireAccess_(code); return boqGenInit_(sow); }

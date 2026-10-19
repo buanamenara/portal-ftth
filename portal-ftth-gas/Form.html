@@ -567,7 +567,8 @@
       table.hist td:last-child button { width: 100%; min-height: 44px; font-size: 14px; }
       table.hist td .hint { display: block; margin: 2px 0 0; }
       table.hist-ba td:nth-child(1)::before { content: "ID / Nomor"; } table.hist-ba td:nth-child(2)::before { content: "Tanggal"; } table.hist-ba td:nth-child(3)::before { content: "Site"; } table.hist-ba td:nth-child(4)::before { content: "SOW"; } table.hist-ba td:nth-child(5)::before { content: "Jenis"; } table.hist-ba td:nth-child(6)::before { content: "Item"; }
-      #bqItems td.desig::before { content: "Material"; }
+      #bqItems td.desig::before { content: "Item BoM"; }
+      #bqItems td.line::before { content: "Line"; }
       #bqItems td.qty::before { content: "Volume"; }
       table.hist-bq td:nth-child(1)::before { content: "File"; } table.hist-bq td:nth-child(2)::before { content: "SOW"; } table.hist-bq td:nth-child(3)::before { content: "Status"; } table.hist-bq td:nth-child(4)::before { content: "Dibuat"; }
       table.hist-bg td:nth-child(1)::before { content: "Nomor BA"; } table.hist-bg td:nth-child(2)::before { content: "Tanggal"; } table.hist-bg td:nth-child(3)::before { content: "Region"; } table.hist-bg td:nth-child(4)::before { content: "Site"; } table.hist-bg td:nth-child(5)::before { content: "Jenis"; } table.hist-bg td:nth-child(6)::before { content: "Item"; }
@@ -967,7 +968,7 @@
   <div id="viewBoqGen" style="display:none">
     <div class="card wide">
       <h2>Buat BOQ</h2>
-      <p class="desc">Kebalikan dari Submit BOQ: pilih material dan isi <strong>volume</strong>, lalu portal membuat file <strong>BOQ .xlsx</strong> dari template BOQ SOW yang dipilih. Semua item BOQ tetap ada di file; material yang tidak diisi bervolume 0. File langsung terunduh dan tersimpan di daftar <strong>BOQ yang Dibuat</strong> di bawah.</p>
+      <p class="desc">Kebalikan dari Submit BOQ: isi volume desain ke <strong>sheet BoM</strong> (rute kabel per Line, jumlah FAT, tiang, strand wire, FDT, dan seterusnya), lalu portal membuat file <strong>BOQ .xlsx</strong> dari template BOQ plan SOW yang dipilih. Sheet BoQ mengikuti rumus BoM, jadi kabel (plus slack dan toleransi 5%), label, splicing, Testcomm, Survey &amp; Design, dan Project Management terhitung otomatis. Semua sheet tetap ada di file. File langsung terunduh dan tersimpan di daftar <strong>BOQ yang Dibuat</strong> di bawah.</p>
       <div class="row">
         <div><label for="bqSow">SOW</label>
           <select id="bqSow"><option value="Cluster">Cluster</option><option value="Subfeeder">Subfeeder</option><option value="Mainfeeder">Mainfeeder</option><option value="Hubfeeder">Hubfeeder</option><option value="Uplink">Uplink</option><option value="FWA">FWA</option></select></div>
@@ -977,7 +978,7 @@
       <div id="bqTpl" class="hint"></div>
       <details id="bqTplUp" style="display:none">
         <summary>Ganti file contoh BOQ untuk SOW ini (khusus RPM)</summary>
-        <div class="hint">Dipakai bila format BOQ dari klien berubah: unggah satu file BOQ .xlsx SOW ini yang sudah pernah disubmit. BOQ berikutnya untuk SOW ini memakai file itu.</div>
+        <div class="hint">Dipakai bila format BOQ dari klien berubah: unggah satu file BOQ plan .xlsx SOW ini (punya sheet BoQ dan sheet BoM). Rumus BoM disamakan otomatis dan angka site asalnya dikosongkan. BOQ berikutnya untuk SOW ini memakai file itu.</div>
         <input type="file" id="bqTplFile" accept=".xlsx">
         <button type="button" class="small" id="bqTplBtn">Unggah</button>
         <div id="bqTplMsg" class="hint"></div>
@@ -993,11 +994,11 @@
 
       <label>Volume</label>
       <table class="items">
-        <thead><tr><th>No</th><th>Material</th><th>Volume</th><th></th></tr></thead>
+        <thead><tr><th>No</th><th>Item BoM</th><th>Line</th><th>Volume</th><th></th></tr></thead>
         <tbody id="bqItems"></tbody>
       </table>
       <button type="button" class="small" id="bqAddRow" style="margin-top:8px">+ Tambah baris</button>
-      <div class="hint">Satu baris satu material. Volume Material dan Instal di BOQ diisi sama. Plat Belt mengikuti aturan sheet: Plate belt BOQ = Stopping, atau 2 &times; Plat Belt bila Stopping tidak diisi. Item lump sum template (Pengamanan, Transportasi, Warehouse, dan sejenisnya) tetap seperti template.</div>
+      <div class="hint">Satu baris satu item BoM. Kabel dan strand wire diisi <strong>panjang rute</strong> (meter); BOQ menambah slack 20 m per FAT/FDT dan toleransi 5% sesuai rumus BoM. Pilih Line bila template memakai kolom Line A/B/C. Item yang tidak diisi bernilai 0.</div>
 
       <div id="bqMsg" class="status"></div>
       <div><button type="button" class="primary" id="bqBtn">Buat BOQ (.xlsx)</button></div>
@@ -3556,20 +3557,32 @@
     }
 
     function bqOptionsHtml() {
-      return '<option value="">- pilih material -</option>' + (bq.init ? bq.init.designators : []).map(function (d) {
-        return '<option value="' + esc(d) + '">' + esc(d) + '</option>';
+      return '<option value="">- pilih item BoM -</option>' + (bq.init && bq.init.inputs ? bq.init.inputs : []).map(function (o) {
+        return '<option value="' + esc(o.k) + '">' + esc(o.label) + (o.unit ? ' (' + esc(o.unit) + ')' : '') + '</option>';
       }).join('');
+    }
+    function bqInput(k) {
+      var list = bq.init && bq.init.inputs ? bq.init.inputs : [];
+      for (var i = 0; i < list.length; i++) if (list[i].k === k) return list[i];
+      return null;
     }
 
     function bqAddRow() {
       var n = $('bqItems').querySelectorAll('tr').length;
       $('bqItems').insertAdjacentHTML('beforeend', '<tr><td class="no">' + (n + 1) + '</td>' +
         '<td class="desig" style="width:auto"><select class="bq-item" style="width:100%"></select></td>' +
+        '<td class="line"><select class="bq-line" disabled><option value="">-</option></select></td>' +
         '<td class="qty"><input type="text" class="bq-qty" inputmode="decimal" placeholder="0" autocomplete="off"></td>' +
         '<td class="act"><button type="button" class="small bq-del" title="Hapus baris">&times;</button></td></tr>');
-      var tr = $('bqItems').lastElementChild, sel = tr.querySelector('.bq-item');
+      var tr = $('bqItems').lastElementChild, sel = tr.querySelector('.bq-item'), line = tr.querySelector('.bq-line');
       sel.innerHTML = bqOptionsHtml();
-      sel.addEventListener('change', bqHint);
+      sel.addEventListener('change', function () {
+        var o = bqInput(sel.value), lines = o && o.lines ? o.lines : [];
+        line.innerHTML = lines.length ? lines.map(function (x) { return '<option value="' + esc(x) + '">' + esc(x) + '</option>'; }).join('') : '<option value="">-</option>';
+        line.disabled = !lines.length;
+        bqHint();
+      });
+      line.addEventListener('change', bqHint);
       tr.querySelector('.bq-qty').addEventListener('input', bqHint);
       tr.querySelector('.bq-del').addEventListener('click', function () {
         tr.parentNode.removeChild(tr);
@@ -3582,18 +3595,20 @@
     function bqCollect() {
       var items = [], errs = [], seen = {};
       $('bqItems').querySelectorAll('tr').forEach(function (tr, i) {
-        var d = tr.querySelector('.bq-item').value, q = tr.querySelector('.bq-qty').value.trim();
-        if (!q && !d) return;
-        if (!d) { errs.push('Baris ' + (i + 1) + ': pilih material.'); return; }
-        if (!q) { errs.push('Baris ' + (i + 1) + ': isi volume ' + d + '.'); return; }
+        var k = tr.querySelector('.bq-item').value, ln = tr.querySelector('.bq-line').value, q = tr.querySelector('.bq-qty').value.trim();
+        if (!q && !k) return;
+        var o = bqInput(k), nm = o ? o.label + (ln ? ' ' + ln : '') : '';
+        if (!o) { errs.push('Baris ' + (i + 1) + ': pilih item BoM.'); return; }
+        if (o.lines && !ln) { errs.push('Baris ' + (i + 1) + ': pilih Line untuk ' + o.label + '.'); return; }
+        if (!q) { errs.push('Baris ' + (i + 1) + ': isi volume ' + nm + '.'); return; }
         if (!/^\d+([.,]\d+)*$/.test(q)) { errs.push('Baris ' + (i + 1) + ': volume "' + q + '" bukan angka.'); return; }
-        if (seen[d]) { errs.push('Baris ' + (i + 1) + ': ' + d + ' sudah ada di baris ' + seen[d] + '.'); return; }
-        seen[d] = i + 1;
-        items.push({ d: d, qty: q });
+        if (seen[k + '|' + ln]) { errs.push('Baris ' + (i + 1) + ': ' + nm + ' sudah ada di baris ' + seen[k + '|' + ln] + '.'); return; }
+        seen[k + '|' + ln] = i + 1;
+        items.push({ k: k, line: ln, qty: q });
       });
       if (!bq.init || !bq.init.template) errs.unshift('Template BOQ ' + $('bqSow').value + ' belum ada.');
       if (!$('bqSite').value.trim()) errs.unshift('Site belum diisi.');
-      if (!items.length) errs.push('Isi volume minimal satu material.');
+      if (!items.length) errs.push('Isi volume minimal satu item BoM.');
       return { items: items, errs: errs };
     }
 
@@ -3621,7 +3636,7 @@
             bqHint();
             return;
           }
-          $('bqTpl').textContent = 'Contoh BOQ: ' + (r.template.asal ? r.template.asal.replace(/^Asal:\s*/, '') : r.template.name) + ' (sheet ' + (r.sheet || '-') + ')';
+          $('bqTpl').textContent = 'Contoh BOQ: ' + (r.template.asal ? r.template.asal.replace(/^Asal:\s*/, '') : r.template.name) + ' (isian di sheet ' + (r.bom || '-') + ', hasil di sheet ' + (r.sheet || '-') + ')';
           if (!$('bqNet').value && r.head && r.head.net) $('bqNet').value = r.head.net;
           $('bqOlt').placeholder = (r.head && r.head.olt) ? 'mis. ' + r.head.olt : 'Nama OLT';
           for (var i = 0; i < 3; i++) bqAddRow();
@@ -3660,7 +3675,7 @@
           bq.sending = false;
           $('bqBtn').textContent = 'Buat BOQ (.xlsx)';
           bqHint();
-          bqStatus('success', 'BOQ selesai: <strong>' + esc(f.name) + '</strong> (' + f.filled + ' item terisi). File diunduh dan tersimpan di daftar BOQ yang Dibuat.');
+          bqStatus('success', 'BOQ selesai: <strong>' + esc(f.name) + '</strong> (' + f.filled + ' isian BoM). File diunduh dan tersimpan di daftar BOQ yang Dibuat.');
           bqSaveFile(f);
           loadBqHistory();
         })
@@ -3686,7 +3701,7 @@
             $('bqTplBtn').disabled = false;
             $('bqTplFile').value = '';
             msg.className = 'hint ok';
-            msg.textContent = 'Template ' + r.sow + ' diganti (sheet ' + r.sheet + ', ' + r.items + ' item). Template lama masuk sampah Drive.';
+            msg.textContent = 'Template ' + r.sow + ' diganti (sheet ' + r.sheet + ', ' + r.items + ' item isian BoM). Template lama masuk sampah Drive.';
             bqLoad();
           })
           .withFailureHandler(function (err) {
