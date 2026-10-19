@@ -998,6 +998,7 @@
         <div class="hint">Atau unggah BOQ plan .xlsx yang dibuat di luar portal: <input type="file" id="bqAbdFile" accept=".xlsx"></div>
         <button type="button" class="small" id="bqAbdLoad">Ambil isian dari BOQ plan</button>
         <div id="bqAbdMsg" class="hint"></div>
+        <details id="bqAbdList" style="display:none"><summary></summary><table class="items"><thead><tr><th>Item BoQ (As Plan)</th><th>Material</th><th>Jasa</th></tr></thead><tbody></tbody></table></details>
         <div class="row">
           <div><label for="bqPo">No PO</label><input type="text" id="bqPo" inputmode="numeric" autocomplete="off" placeholder="7400xxxxxx"></div>
           <div><label for="bqTgl">Tanggal Opname</label><input type="date" id="bqTgl"></div>
@@ -3777,10 +3778,15 @@
                 tr.querySelector('.bq-qty').value = String(x.qty).replace('.', ',');
               });
             }
-            msg.className = 'hint ok';
-            msg.textContent = r.name + ': ' + r.items + ' item bervolume di sheet BoQ. ' + (r.bom && r.bom.length
-              ? r.bom.length + ' isian BoM plan dimuat di tabel Volume As Built; ubah yang berbeda di lapangan.'
-              : 'Isian BoM-nya tidak cocok dengan template sekarang, jadi isi volume As Built sendiri.');
+            msg.className = r.err && r.fixed < r.err ? 'hint bad' : 'hint ok';
+            msg.textContent = r.name + ': ' + r.items + ' item bervolume di sheet BoQ, semuanya ikut ke ABD. ' + (r.bom && r.bom.length
+              ? 'Item itu dihitung dari ' + r.bom.length + ' isian BoM yang dimuat di tabel Volume As Built; ubah isian yang berbeda di lapangan.'
+              : 'Isian BoM-nya tidak cocok dengan template sekarang, jadi isi volume As Built sendiri.') +
+              (r.err ? ' File plan ini berisi ' + r.err + ' item #ERROR! (dibuat sebelum @219); ' + (r.fixed ? r.fixed + ' di antaranya dihitung ulang dengan rumus yang sudah benar.' : 'tidak bisa dihitung ulang, sebaiknya buat ulang BOQ plan-nya.') : '');
+            var lst = $('bqAbdList');
+            lst.querySelector('summary').textContent = 'Lihat ' + (r.list || []).length + ' item As Plan';
+            lst.querySelector('tbody').innerHTML = (r.list || []).map(function (x) { return '<tr><td>' + esc(x.name) + '</td><td>' + (x.d || '') + '</td><td>' + (x.e || '') + '</td></tr>'; }).join('');
+            lst.style.display = (r.list || []).length ? '' : 'none';
             bqHint();
           })
           .withFailureHandler(function (e) {
@@ -3847,6 +3853,7 @@
             bqAbdMode();
             var miss = (f.missPlan || []).concat((f.missBuilt || []).filter(function (x) { return (f.missPlan || []).indexOf(x) < 0; }));
             bqStatus(miss.length ? 'info' : 'success', 'BOQ ABD selesai: <strong>' + esc(f.name) + '</strong> (' + f.plan + ' isian As Plan, ' + f.built + ' isian As Built). File diunduh dan tersimpan di daftar BOQ yang Dibuat.' +
+              (f.planFixed ? '<br>' + f.planFixed + ' item As Plan yang #ERROR! di file plan dihitung ulang dari isian BoM-nya.' : '') +
               (miss.length ? '<br><strong>Tidak punya baris di template ABD, jadi tidak tercantum:</strong> ' + esc(miss.join('; ')) : ''));
             bqSaveFile(f);
             loadBqHistory();
