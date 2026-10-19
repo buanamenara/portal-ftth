@@ -451,9 +451,8 @@
     #mainContent > [id^="view"] { margin-top: -16px; }
     #mainContent > [id^="view"] > .card { margin-top: 0; }
     #viewBa > .card, #viewBaGen > .card { margin-top: 0; }
-    #bqItems td.bq-unit { width: 70px; color: #555; font-size: 13px; }
-    #bqItems td.lbl { font-size: 13px; }
-    #bqItems td.lbl .hint { margin: 2px 0 0; }
+    #bqTplUp { margin-top: 6px; font-size: 13px; }
+    #bqTplUp summary { cursor: pointer; color: var(--gold-dark); }
     .rpTab { position: relative; overflow: hidden; border: 1px solid transparent; background: transparent; color: var(--gold-dark); font: inherit; font-size: 13px; font-weight: 700; letter-spacing: .02em; padding: 9px 20px; border-radius: 999px; cursor: pointer; transition: transform .15s ease, background-color .3s ease, color .3s ease, box-shadow .3s ease; }
     .rpTab:hover { background: rgba(201, 151, 44, .14); }
     .rpTab:active { transform: scale(.94); }
@@ -568,10 +567,8 @@
       table.hist td:last-child button { width: 100%; min-height: 44px; font-size: 14px; }
       table.hist td .hint { display: block; margin: 2px 0 0; }
       table.hist-ba td:nth-child(1)::before { content: "ID / Nomor"; } table.hist-ba td:nth-child(2)::before { content: "Tanggal"; } table.hist-ba td:nth-child(3)::before { content: "Site"; } table.hist-ba td:nth-child(4)::before { content: "SOW"; } table.hist-ba td:nth-child(5)::before { content: "Jenis"; } table.hist-ba td:nth-child(6)::before { content: "Item"; }
-      #bqItems td.desig::before { content: "Item BOQ"; }
+      #bqItems td.desig::before { content: "Material"; }
       #bqItems td.qty::before { content: "Volume"; }
-      #bqItems td.qty + td::before { content: "Satuan"; display: block; font-size: 11px; color: #777; margin-bottom: 2px; }
-      #bqItems td.lbl { font-size: 14px; }
       table.hist-bq td:nth-child(1)::before { content: "File"; } table.hist-bq td:nth-child(2)::before { content: "SOW"; } table.hist-bq td:nth-child(3)::before { content: "Status"; } table.hist-bq td:nth-child(4)::before { content: "Dibuat"; }
       table.hist-bg td:nth-child(1)::before { content: "Nomor BA"; } table.hist-bg td:nth-child(2)::before { content: "Tanggal"; } table.hist-bg td:nth-child(3)::before { content: "Region"; } table.hist-bg td:nth-child(4)::before { content: "Site"; } table.hist-bg td:nth-child(5)::before { content: "Jenis"; } table.hist-bg td:nth-child(6)::before { content: "Item"; }
       table.hist-rp td:nth-child(1)::before { content: "ID BA"; } table.hist-rp td:nth-child(2)::before { content: "Tanggal"; } table.hist-rp td:nth-child(3)::before { content: "Site"; } table.hist-rp td:nth-child(4)::before { content: "SOW"; } table.hist-rp td:nth-child(5)::before { content: "Jenis"; } table.hist-rp td:nth-child(6)::before { content: "Progres"; } table.hist-rp td:nth-child(7)::before { content: "Mandor"; }
@@ -970,7 +967,7 @@
   <div id="viewBoqGen" style="display:none">
     <div class="card wide">
       <h2>Buat BOQ</h2>
-      <p class="desc">Kebalikan dari Submit BOQ: isi <strong>volume</strong> per item, lalu portal membuat file <strong>BOQ .xlsx</strong> dari template BOQ SOW yang dipilih. Susunan baris, No Material, dan rumus total mengikuti BOQ yang sudah pernah disubmit untuk SOW itu. File langsung terunduh dan tersimpan di daftar <strong>BOQ yang Dibuat</strong> di bawah.</p>
+      <p class="desc">Kebalikan dari Submit BOQ: pilih material dan isi <strong>volume</strong>, lalu portal membuat file <strong>BOQ .xlsx</strong> dari template BOQ SOW yang dipilih. Semua item BOQ tetap ada di file; material yang tidak diisi bervolume 0. File langsung terunduh dan tersimpan di daftar <strong>BOQ yang Dibuat</strong> di bawah.</p>
       <div class="row">
         <div><label for="bqSow">SOW</label>
           <select id="bqSow"><option value="Cluster">Cluster</option><option value="Subfeeder">Subfeeder</option><option value="Mainfeeder">Mainfeeder</option><option value="Hubfeeder">Hubfeeder</option><option value="Uplink">Uplink</option><option value="FWA">FWA</option></select></div>
@@ -978,12 +975,13 @@
           <select id="bqStat"><option value="AS PLAN">AS PLAN</option><option value="AS BUILT">AS BUILT</option></select></div>
       </div>
       <div id="bqTpl" class="hint"></div>
-      <div id="bqTplUp" style="display:none">
-        <label for="bqTplFile">Ganti template SOW ini <span class="opt">(khusus RPM: file BOQ .xlsx yang sudah pernah disubmit)</span></label>
+      <details id="bqTplUp" style="display:none">
+        <summary>Ganti file contoh BOQ untuk SOW ini (khusus RPM)</summary>
+        <div class="hint">Dipakai bila format BOQ dari klien berubah: unggah satu file BOQ .xlsx SOW ini yang sudah pernah disubmit. BOQ berikutnya untuk SOW ini memakai file itu.</div>
         <input type="file" id="bqTplFile" accept=".xlsx">
-        <button type="button" class="small" id="bqTplBtn">Unggah template</button>
+        <button type="button" class="small" id="bqTplBtn">Unggah</button>
         <div id="bqTplMsg" class="hint"></div>
-      </div>
+      </details>
 
       <label for="bqSite">Site <span class="opt">(ketik lalu pilih dari daftar DATA BASE)</span></label>
       <input type="text" id="bqSite" list="siteList" autocomplete="off" placeholder="Contoh: JATI BARU RT 04 BANJARMASIN">
@@ -995,11 +993,11 @@
 
       <label>Volume</label>
       <table class="items">
-        <thead><tr><th>No</th><th>Item BOQ</th><th>Volume</th><th>Satuan</th><th></th></tr></thead>
+        <thead><tr><th>No</th><th>Material</th><th>Volume</th><th></th></tr></thead>
         <tbody id="bqItems"></tbody>
       </table>
-      <button type="button" class="small" id="bqAddRow" style="margin-top:8px">+ Tambah item lain</button>
-      <div class="hint">Baris awal = item yang dipakai template SOW ini. Volume yang dikosongkan dibiarkan kosong di BOQ. Item lain di BOQ bisa ditambahkan lewat <strong>+ Tambah item lain</strong>. Untuk pasangan Material dan Instal cukup isi sekali.</div>
+      <button type="button" class="small" id="bqAddRow" style="margin-top:8px">+ Tambah baris</button>
+      <div class="hint">Satu baris satu material. Volume Material dan Instal di BOQ diisi sama. Plat Belt mengikuti aturan sheet: Plate belt BOQ = Stopping, atau 2 &times; Plat Belt bila Stopping tidak diisi. Item lump sum template (Pengamanan, Transportasi, Warehouse, dan sejenisnya) tetap seperti template.</div>
 
       <div id="bqMsg" class="status"></div>
       <div><button type="button" class="primary" id="bqBtn">Buat BOQ (.xlsx)</button></div>
@@ -3548,7 +3546,7 @@
     $('bgQ').addEventListener('input', renderBgHistory);
 
     // ================= Submit BOQ - Buat BOQ (volume -> file BOQ .xlsx dari template per SOW) =================
-    var bq = { init: null, loading: false, sending: false, hist: [], byKey: {}, tok: 0 };
+    var bq = { init: null, loading: false, sending: false, hist: [], tok: 0 };
 
     function bqStatus(cls, html) {
       var el = $('bqMsg');
@@ -3558,30 +3556,20 @@
     }
 
     function bqOptionsHtml() {
-      var html = '<option value="">- pilih item BOQ -</option>', last = null;
-      (bq.init ? bq.init.items : []).forEach(function (it) {
-        if (it.sec !== last) { html += (last === null ? '' : '</optgroup>') + '<optgroup label="' + esc(it.sec || '-') + '">'; last = it.sec; }
-        html += '<option value="' + esc(it.k) + '">' + esc(it.label) + (it.unit ? ' (' + esc(it.unit) + ')' : '') + '</option>';
-      });
-      return html + (last === null ? '' : '</optgroup>');
+      return '<option value="">- pilih material -</option>' + (bq.init ? bq.init.designators : []).map(function (d) {
+        return '<option value="' + esc(d) + '">' + esc(d) + '</option>';
+      }).join('');
     }
 
-    // fixed = baris item template (nama item tetap); tanpa fixed = pilih item sendiri dari daftar
-    function bqAddRow(k, qty, fixed) {
-      var n = $('bqItems').querySelectorAll('tr').length, it = bq.byKey[k];
-      var item = (fixed && it)
-        ? '<td class="lbl" style="width:auto">' + esc(it.label) + (it.sec ? '<div class="hint">' + esc(it.sec) + '</div>' : '') + '</td>'
-        : '<td class="desig" style="width:auto"><select class="bq-item" style="width:100%"></select></td>';
-      $('bqItems').insertAdjacentHTML('beforeend', '<tr' + (fixed && it ? ' data-k="' + esc(k) + '"' : '') + '><td class="no">' + (n + 1) + '</td>' + item +
+    function bqAddRow() {
+      var n = $('bqItems').querySelectorAll('tr').length;
+      $('bqItems').insertAdjacentHTML('beforeend', '<tr><td class="no">' + (n + 1) + '</td>' +
+        '<td class="desig" style="width:auto"><select class="bq-item" style="width:100%"></select></td>' +
         '<td class="qty"><input type="text" class="bq-qty" inputmode="decimal" placeholder="0" autocomplete="off"></td>' +
-        '<td class="bq-unit">' + esc(it ? it.unit : '') + '</td>' +
         '<td class="act"><button type="button" class="small bq-del" title="Hapus baris">&times;</button></td></tr>');
       var tr = $('bqItems').lastElementChild, sel = tr.querySelector('.bq-item');
-      if (sel) {
-        sel.innerHTML = bqOptionsHtml();
-        sel.addEventListener('change', function () { var x = bq.byKey[sel.value]; tr.querySelector('.bq-unit').textContent = x ? x.unit : ''; bqHint(); });
-      }
-      if (qty !== undefined && qty !== null && qty !== '') tr.querySelector('.bq-qty').value = qty;
+      sel.innerHTML = bqOptionsHtml();
+      sel.addEventListener('change', bqHint);
       tr.querySelector('.bq-qty').addEventListener('input', bqHint);
       tr.querySelector('.bq-del').addEventListener('click', function () {
         tr.parentNode.removeChild(tr);
@@ -3594,18 +3582,18 @@
     function bqCollect() {
       var items = [], errs = [], seen = {};
       $('bqItems').querySelectorAll('tr').forEach(function (tr, i) {
-        var sel = tr.querySelector('.bq-item'), k = tr.getAttribute('data-k') || (sel ? sel.value : '');
-        var q = tr.querySelector('.bq-qty').value.trim();
-        if (!q) return;
-        if (!k) { errs.push('Baris ' + (i + 1) + ': pilih item BOQ.'); return; }
+        var d = tr.querySelector('.bq-item').value, q = tr.querySelector('.bq-qty').value.trim();
+        if (!q && !d) return;
+        if (!d) { errs.push('Baris ' + (i + 1) + ': pilih material.'); return; }
+        if (!q) { errs.push('Baris ' + (i + 1) + ': isi volume ' + d + '.'); return; }
         if (!/^\d+([.,]\d+)*$/.test(q)) { errs.push('Baris ' + (i + 1) + ': volume "' + q + '" bukan angka.'); return; }
-        if (seen[k]) { errs.push('Baris ' + (i + 1) + ': item ini sudah ada di baris ' + seen[k] + '.'); return; }
-        seen[k] = i + 1;
-        items.push({ k: k, qty: q });
+        if (seen[d]) { errs.push('Baris ' + (i + 1) + ': ' + d + ' sudah ada di baris ' + seen[d] + '.'); return; }
+        seen[d] = i + 1;
+        items.push({ d: d, qty: q });
       });
       if (!bq.init || !bq.init.template) errs.unshift('Template BOQ ' + $('bqSow').value + ' belum ada.');
       if (!$('bqSite').value.trim()) errs.unshift('Site belum diisi.');
-      if (!items.length) errs.push('Isi volume minimal satu item.');
+      if (!items.length) errs.push('Isi volume minimal satu material.');
       return { items: items, errs: errs };
     }
 
@@ -3617,7 +3605,7 @@
 
     function bqLoad() {
       var sow = $('bqSow').value, tok = ++bq.tok;
-      bq.init = null; bq.byKey = {}; bq.loading = true;
+      bq.init = null; bq.loading = true;
       $('bqItems').innerHTML = '';
       $('bqTpl').className = 'hint';
       $('bqTpl').textContent = 'Memuat template BOQ ' + sow + '...';
@@ -3627,17 +3615,16 @@
           if (tok !== bq.tok) return;
           bq.loading = false;
           bq.init = r;
-          (r.items || []).forEach(function (it) { bq.byKey[it.k] = it; });
           if (!r.template) {
             $('bqTpl').className = 'hint bad';
             $('bqTpl').textContent = 'Template BOQ ' + sow + ' belum ada.' + (ROLE === 'rpm' ? ' Unggah file BOQ ' + sow + ' yang sudah pernah disubmit di bawah ini.' : ' Minta RPM mengunggahnya.');
             bqHint();
             return;
           }
-          $('bqTpl').textContent = 'Template: ' + (r.template.asal ? r.template.asal.replace(/^Asal:\s*/, '') : r.template.name) + ' (sheet ' + (r.sheet || '-') + ', ' + r.items.length + ' item, diperbarui ' + localStamp_(r.template.updatedMs) + ')';
+          $('bqTpl').textContent = 'Contoh BOQ: ' + (r.template.asal ? r.template.asal.replace(/^Asal:\s*/, '') : r.template.name) + ' (sheet ' + (r.sheet || '-') + ')';
           if (!$('bqNet').value && r.head && r.head.net) $('bqNet').value = r.head.net;
           $('bqOlt').placeholder = (r.head && r.head.olt) ? 'mis. ' + r.head.olt : 'Nama OLT';
-          r.items.forEach(function (it) { if (it.kind !== 'kosong') bqAddRow(it.k, it.def, true); });
+          for (var i = 0; i < 3; i++) bqAddRow();
           bqHint();
         })
         .withFailureHandler(function (err) {
@@ -3745,7 +3732,7 @@
 
     $('bqSow').addEventListener('change', bqLoad);
     $('bqSite').addEventListener('input', bqHint);
-    $('bqAddRow').addEventListener('click', function () { if (bq.init && bq.init.template) bqAddRow('', '', false); });
+    $('bqAddRow').addEventListener('click', function () { if (bq.init && bq.init.template) bqAddRow(); });
     $('bqBtn').addEventListener('click', bqCreate);
     $('bqTplBtn').addEventListener('click', bqUploadTemplate);
     $('bqQ').addEventListener('input', renderBqHistory);

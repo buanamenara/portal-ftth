@@ -8032,7 +8032,7 @@ function boqGenParse_(sh) {
     var def = '';
     if (kind === 'rumus' && typeof v[r][c] === 'number') def = v[r][c];
     if (kind === 'angka' && v[r][c] === 1) def = 1;
-    var it = { k: 'DE'.charAt(c - 3) + (r + 1), r: r + 1, c: c + 1, label: label, unit: String(v[r][2]).trim(), sec: sec, def: def, kind: kind };
+    var it = { k: 'DE'.charAt(c - 3) + (r + 1), r: r + 1, c: c + 1, src: labelRow + 1, label: label, unit: String(v[r][2]).trim(), sec: sec, def: def, kind: kind };
     if (twin) it.twin = { r: twin.r + 1, c: twin.c + 1 };   // Qty Material baris atas ikut diisi angka yang sama
     items.push(it);
   }
@@ -8063,24 +8063,66 @@ function boqGenParse_(sh) {
   return { hdr: hdr + 1, head: head, items: items };
 }
 
+// Designator (daftar yang sama dengan BA Transaksi / Submit BOQ) -> kunci item Qty template. Pencocokan memakai kata kunci
+// DESIGNATOR_MAP seperti sumMatchingRows_, supaya file hasil dibaca balik Submit BOQ dengan angka yang sama. Baris pertama yang cocok dipakai.
+function boqGenDesigMap_(sh, items) {
+  var data = sh.getRange(1, 1, sh.getLastRow(), 2).getValues(), bySrc = {}, out = {};
+  items.forEach(function (it) { if (!bySrc[it.src]) bySrc[it.src] = it; });
+  DESIGNATOR_MAP.forEach(function (d) {
+    var terms = d.terms.map(function (t) { return String(t).toLowerCase(); });
+    for (var r = 0; r < data.length; r++) {
+      var desc = String(data[r][1] || '').toLowerCase().trim();
+      if (!terms.some(function (t) { return desc.indexOf(t) !== -1; })) continue;
+      if (!d.includeInstal && (desc.indexOf('instal') === 0 || desc.indexOf('pemasangan') === 0)) continue;
+      if (bySrc[r + 1]) { out[d.name] = bySrc[r + 1].k; break; }
+    }
+  });
+  return out;
+}
+
+// Volume per designator -> volume per sel Qty. Designator yang menunjuk baris BOQ yang sama dijumlahkan, kecuali pasangan
+// 'split' BOQ_CHOICES (Plat Belt = 50% dan Stopping = 100% Plate belt BOQ): BOQ = Stopping, atau Plat Belt x 2 bila Stopping kosong.
+function boqGenWant_(rows, dmap) {
+  var byKey = {}, want = {};
+  rows.forEach(function (x) {
+    var key = dmap[x.d];
+    if (!key) throw new Error('Material "' + x.d + '" tidak ada di template BOQ SOW ini.');
+    (byKey[key] = byKey[key] || []).push(x);
+  });
+  Object.keys(byKey).forEach(function (key) {
+    var list = byKey[key], split = null;
+    BOQ_CHOICES.forEach(function (ch) {
+      if (ch.mode === 'split' && list.every(function (x) { return ch.options.indexOf(x.d) > -1; })) split = ch;
+    });
+    if (split) {
+      var full = list.filter(function (x) { return split.ratios[x.d] === 1; })[0] || list[0];
+      want[key] = Math.ceil(full.q / split.ratios[full.d]);
+    } else {
+      want[key] = list.reduce(function (a, x) { return a + x.q; }, 0);
+    }
+  });
+  return want;
+}
+
 function boqGenInit_(sow) {
   sow = boqGenSow_(sow);
   var files = boqTplFiles_();
   if (!files[sow]) files[sow] = boqTplSeed_(sow);
   var sows = BOQ_GEN_SOWS.map(function (s) { return { sow: s, ada: !!files[s] }; });
   var tpl = files[sow];
-  if (!tpl) return { sow: sow, sows: sows, template: null, items: [], head: {} };
-  var cache = CacheService.getScriptCache(), key = 'boqgen1_' + tpl.getId() + '_' + tpl.getLastUpdated().getTime(), p = null;
+  if (!tpl) return { sow: sow, sows: sows, template: null, designators: [], head: {} };
+  var cache = CacheService.getScriptCache(), key = 'boqgen2_' + tpl.getId() + '_' + tpl.getLastUpdated().getTime(), p = null;
   try { var hit = cache.get(key); if (hit) p = JSON.parse(hit); } catch (e) { /* baca ulang */ }
   if (!p) {
     var sh = findBoqSheet_(SpreadsheetApp.openById(tpl.getId()));
     if (!sh) throw new Error('Template ' + tpl.getName() + ' tidak punya sheet yang namanya diawali "BoQ".');
     var parsed = boqGenParse_(sh);
-    p = { sheet: sh.getName(), items: parsed.items, head: { olt: parsed.head.olt ? parsed.head.olt.val : '', net: parsed.head.net ? parsed.head.net.val : '' } };
+    var dmap = boqGenDesigMap_(sh, parsed.items);
+    p = { sheet: sh.getName(), items: parsed.items, designators: boqDesigNames_().filter(function (n) { return dmap[n]; }), head: { olt: parsed.head.olt ? parsed.head.olt.val : '', net: parsed.head.net ? parsed.head.net.val : '' } };
     try { cache.put(key, JSON.stringify(p), 21600); } catch (e) { /* tanpa cache */ }
   }
   return {
-    sow: sow, sows: sows, sheet: p.sheet, items: p.items, head: p.head,
+    sow: sow, sows: sows, sheet: p.sheet, designators: p.designators, head: p.head,
     template: { name: tpl.getName(), asal: tpl.getDescription() || '', updatedMs: tpl.getLastUpdated().getTime() }
   };
 }
@@ -8107,27 +8149,35 @@ function boqGenBuild_(sow, data, userName) {
   var tpl = boqTplFile_(sow);
   if (!tpl) throw new Error('Template BOQ ' + sow + ' belum ada. Minta RPM mengunggahnya di menu Buat BOQ.');
   var status = /built/i.test(String(data.status || '')) ? 'AS BUILT' : 'AS PLAN';
-  var want = {}, n = 0;
+  var rows = [];
   (data.items || []).forEach(function (it) {
     var q = boqGenNum_(it && it.qty);
-    if (q === null || !it.k) return;
-    want[it.k] = (want[it.k] || 0) + q;
-    n++;
+    if (q === null || !it.d) return;
+    rows.push({ d: String(it.d), q: q });
   });
-  if (!n) throw new Error('Isi volume minimal satu item.');
+  if (!rows.length) throw new Error('Isi volume minimal satu material.');
 
   var copy = tpl.makeCopy('TEMP_BUAT_BOQ_' + new Date().getTime());
   try {
     var ss = SpreadsheetApp.openById(copy.getId());
     var sh = findBoqSheet_(ss);
     var p = boqGenParse_(sh), filled = 0;
+    var want = boqGenWant_(rows, boqGenDesigMap_(sh, p.items));
+    // Material yang tidak diisi bervolume 0; item lump sum template (Qty 1, mis. Pengamanan, Transportasi, Warehouse) dan rumus lain dibiarkan.
     p.items.forEach(function (it) {
       var has = Object.prototype.hasOwnProperty.call(want, it.k);
-      if (it.kind === 'rumus' && has && want[it.k] === Number(it.def)) { filled++; return; }   // rumus template dipertahankan
-      sh.getRange(it.r, it.c).setValue(has ? want[it.k] : '');
-      if (it.twin) sh.getRange(it.twin.r, it.twin.c).setValue(has ? want[it.k] : '');
-      if (has && want[it.k]) filled++;
+      if (!has && (it.kind === 'rumus' || (it.kind === 'angka' && it.def === 1))) return;
+      var q = has ? want[it.k] : 0;
+      sh.getRange(it.r, it.c).setValue(q);
+      if (it.twin) sh.getRange(it.twin.r, it.twin.c).setValue(q);
+      if (q) filled++;
     });
+    // Baris item lain yang Qty-nya kosong (tidak dipakai template) juga diisi 0, supaya semua item di file bervolume.
+    var nr = sh.getLastRow() - p.hdr, blk = sh.getRange(p.hdr + 1, 1, nr, 16), bv = blk.getValues(), bf = blk.getFormulas();
+    for (var z = 0; z < nr; z++) {
+      if (!String(bv[z][2]).trim() || !String(bv[z][1]).trim() || bf[z][3] || bf[z][4] || bv[z][3] !== '' || bv[z][4] !== '') continue;
+      sh.getRange(p.hdr + 1 + z, String(bv[z][15]).trim().toLowerCase() === 'service' ? 5 : 4).setValue(0);
+    }
     // Rumus harga yang rusak (#REF!) di template diganti rumus baku baris itu: H = D*F, I = E*G, K = D+E
     var last = sh.getLastRow(), fr = sh.getRange(1, 8, last, 4).getFormulas();
     for (var r = p.hdr; r < last; r++) {
