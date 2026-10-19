@@ -7947,7 +7947,7 @@ function buildSCurveData_(code) {
 // sheet BoQ mengikuti rumusnya. Semua sheet tetap ada di file hasil. Rumus BoM disamakan saat template dipasang (boqGenBomStd_).
 // =====================================================================
 var BOQ_GEN_SOWS = ['Cluster', 'Subfeeder', 'Mainfeeder', 'Hubfeeder', 'Uplink', 'FWA'];
-var BOQ_TPL_FOLDER_NAME = 'Template BOQ Portal BMI v2';   // v2: template berbasis BoM (folder lama tidak dipakai lagi)
+var BOQ_TPL_FOLDER_NAME = 'Template BOQ Portal BMI v3';   // v3: template berbasis BoM, rumus ditulis dengan lokal en_US (folder lama tidak dipakai lagi)
 var BOQ_OUT_FOLDER_NAME = 'BOQ Dibuat Portal BMI';
 var BOQ_TPL_PREFIX = 'TEMPLATE BOQ - ';
 var BOQ_GEN_REF_ = /^=\s*\$?[DE]\$?\d+\s*$/i;   // Qty yang hanya menyalin sel lain di baris BoQ (mis. Material = Service baris bawah)
@@ -7963,7 +7963,7 @@ function boqFolder_(prop, name) {
   props.setProperty(prop, folder.getId());
   return folder;
 }
-function boqTplFolder_() { return boqFolder_('BOQ_TPL2_FOLDER_ID', BOQ_TPL_FOLDER_NAME); }
+function boqTplFolder_() { return boqFolder_('BOQ_TPL3_FOLDER_ID', BOQ_TPL_FOLDER_NAME); }
 function boqOutFolder_() { return boqFolder_('BOQ_OUT_FOLDER_ID', BOQ_OUT_FOLDER_NAME); }
 
 function boqGenSow_(sow) {
@@ -8126,11 +8126,21 @@ function boqGenRowAll_(b, blk, re) {
 //  Cluster: kabel = (rute + slack FAT/FDT x 20 m) x 1,05; Label Cable = 10% jumlah tiang (dibulatkan ke atas);
 //           Label FDT/FAT = jumlah FDT/FAT; Testcomm FDT-FAT dan splicing = jumlah FAT; Survey = kabel + strand; PM = Survey.
 //  Feeder : kabel = (rute + coil x 20 m) x 1,05, coil = rute/400 + 1; Label Cable = panjang kabel / 46,5 m (rata-rata 64 BOQ).
+//  Semua SOW: aksesoris (holder, plate belt, suspension, buldog grip, pole clamp, dead end) diisi sendiri lewat Item BoM;
+//           Bahan Pondasi tiang = jumlah tiang baru.
+// Rumus ditulis dengan pemisah koma dan titik desimal, jadi spreadsheet harus berlokal en_US (lihat boqGenSetTemplate_).
+var BOQ_ACC_KEYS_ = [/cable loop holder/, /plate belt/, /suspension clamp/, /bul+dog grip/, /pole clamp single/, /clamps? dead end|clamp buaya/, /pondasi/];
+var BOQ_ACC_INPUT_ = /cable loop holder|plate belt|suspension clamp|bul+dog grip|pole clamp single|clamps? dead end|clamp buaya/;
 function boqGenBomStd_(ss, boqSh) {
   var bom = boqGenBomSheet_(ss);
   if (!bom) return 0;
   var b = boqGenBomRead_(bom), set = {}, n = 0;
   function put(r, c, fo) { if (r && c) set[r + ':' + c] = { r: r, c: c, f: fo }; }
+  function accInput(blk, cols) {   // fo '' = sel dikosongkan jadi isian
+    boqGenGrp_(b, blk, /^accessoris/).forEach(function (r) {
+      if (BOQ_ACC_INPUT_.test(boqGenTxt_(b, r, blk.lab))) cols.forEach(function (c) { put(r, c, ''); });
+    });
+  }
   b.blocks.forEach(function (blk) {
     var X = function (r, c) { return boqA1_(r, c); };
     var fat = boqGenGrp_(b, blk, /^total fat\b/);
@@ -8142,13 +8152,10 @@ function boqGenBomStd_(ss, boqSh) {
       var fdt = boqGenGrp_(b, blk, /^total fdt\b/), pole = boqGenGrp_(b, blk, /^pole\b/);
       var lab = boqGenGrp_(b, blk, /^label$/), acc = boqGenGrp_(b, blk, /^accessoris/), spl = boqGenGrp_(b, blk, /^splicing/);
       var newPole = pole.filter(function (r) { return boqGenTxt_(b, r, blk.lab) && !/^existing/.test(boqGenTxt_(b, r, blk.lab)); });
-      var pole7 = pole.filter(function (r) { return /^7\s*m/.test(boqGenTxt_(b, r, blk.lab)); });
-      var pole7s = pole7.filter(function (r) { return !/^7\s*m\s*5/.test(boqGenTxt_(b, r, blk.lab)); });
       var strand = boqGenRowAll_(b, blk, /rute strand wire/), strandTol = boqGenRowAll_(b, blk, /panjang strand wire/);
       var totKab = boqGenGrp_(b, blk, /^total panjang cable/)[0];
       var fat18 = boqGenRowAll_(b, blk, /^fat 1:8/), mod = boqGenRowAll_(b, blk, /^modular 1:8/);
-      var holder = boqGenRow_(b, blk, acc, /cable loop holder/), plate = boqGenRow_(b, blk, acc, /plate belt/), susp = boqGenRow_(b, blk, acc, /suspension/);
-      var dead = boqGenRow_(b, blk, acc, /dead end/), pond = boqGenRow_(b, blk, acc, /pondasi/), pclamp = boqGenRow_(b, blk, acc, /pole clamp single/);
+      var pond = boqGenRow_(b, blk, acc, /pondasi/);
       var tFat = boqGenGrp_(b, blk, /testcom fat/)[0], surv = boqGenGrp_(b, blk, /^survey/)[0], pm = boqGenGrp_(b, blk, /^project management/)[0];
       var gal = boqGenGrp_(b, blk, /^pekerjaan galian/), tol = boqGenGrp_(b, blk, /^toleransi/), sock = boqGenGrp_(b, blk, /^socket hdpe/);
       var h32 = boqGenRow_(b, blk, gal, /hdpe 32/), h40 = boqGenRow_(b, blk, gal, /hdpe 40/);
@@ -8174,12 +8181,7 @@ function boqGenBomStd_(ss, boqSh) {
         if (lf && fdt.length) put(lf, c, '=' + sum(fdt));
         if (la) put(la, c, '=' + sum(fat));
         if (lp && newPole.length) put(lp, c, '=' + sum(newPole));
-        if (holder && sFdt.length && sFat.length) put(holder, c, '=MAX(SUM(' + L(Math.min(sFdt[0], sFat[0])) + ':' + L(Math.max(sFdt[3] || sFdt[0], sFat[3] || sFat[0])) + ')-1,0)');
-        if (plate && susp && holder) put(plate, c, '=(' + L(susp) + '*2)+(' + L(holder) + '*2)');
-        if (dead && holder) put(dead, c, '=IF(' + L(holder) + '=0,0,(' + L(holder) + '*2)+2)');
-        if (pclamp && dead) put(pclamp, c, '=' + L(dead) + '/2');
-        if (susp && pclamp && pole7s.length) put(susp, c, '=MAX(' + pole7s.map(L).join('+') + '-' + L(pclamp) + ',0)');
-        if (pond && pole7.length) put(pond, c, '=' + sum(pole7));
+        if (pond && newPole.length) put(pond, c, '=' + sum(newPole));
         var sFatR = boqGenRow_(b, blk, spl, /^at fat/), sFdtR = boqGenRow_(b, blk, spl, /^at fdt/);
         if (sFatR) put(sFatR, c, '=' + sum(fat));
         if (sFdtR && sFatR) put(sFdtR, c, '=' + L(sFatR));
@@ -8193,6 +8195,7 @@ function boqGenBomStd_(ss, boqSh) {
         if (tamb && t40) put(tamb, c, '=' + L(t40));
         if (tee.length > 1) put(tee[1], c, '=' + L(tee[0]));
       });
+      accInput(blk, cols);
       if (blk.lines.length > 1) {   // kolom Qty = jumlah Line A..C
         var c1 = blk.lines[0].c, c2 = blk.lines[blk.lines.length - 1].c;
         var lcr = boqGenRow_(b, blk, boqGenGrp_(b, blk, /^label$/), /^label cable/);
@@ -8229,13 +8232,15 @@ function boqGenBomStd_(ss, boqSh) {
           if (tr) put(r2, q, '=IF(' + X(tr, q) + '=0,0,ROUNDUP(' + X(tr, q) + '/200,0))');
         }
       }
+      accInput(blk, [q]);
     }
   });
   // Judul blok yang rusak (#REF!) diarahkan ke nama cluster di sheet BoQ
   for (var c = 1; c <= b.nc; c++) if (/#REF!/i.test(b.f[0][c - 1]) && boqSh) put(1, c, "='" + boqSh.getName() + "'!O3");
   Object.keys(set).forEach(function (k) {
     var s = set[k];
-    if (b.f[s.r - 1][s.c - 1] !== s.f) { bom.getRange(s.r, s.c).setFormula(s.f); n++; }
+    if (!s.f) { bom.getRange(s.r, s.c).setValue(''); b.v[s.r - 1][s.c - 1] = ''; n++; }
+    else if (b.f[s.r - 1][s.c - 1] !== s.f) { bom.getRange(s.r, s.c).setFormula(s.f); n++; }
     b.f[s.r - 1][s.c - 1] = s.f;
   });
   // Angka desain site asal dikosongkan: angka tetap dan rumus angka saja (mis. =94+95+105)
@@ -8298,22 +8303,50 @@ function boqGenInputs_(ss, boqSh) {
 }
 
 // Rapikan sheet BoQ template: kolom volume tanpa warna, rumus harga #REF! diganti rumus baku,
-// Survey & Design feeder = kabel + strand wire (aturan sama dengan Cluster).
+// Survey & Design feeder = kabel + strand wire (aturan sama dengan Cluster),
+// Qty aksesoris / Survey yang masih angka tetap site asal dihubungkan ke baris BoM yang sama.
 function boqGenBoqStd_(ss, sh) {
   var p = boqGenParse_(sh), last = sh.getLastRow(), n = last - p.hdr;
   if (n > 0) {
-    var rg = sh.getRange(p.hdr + 1, 1, n, 9), v = rg.getValues(), f = rg.getFormulas();
+    var rg = sh.getRange(p.hdr + 1, 1, n, 11), v = rg.getValues(), f = rg.getFormulas();
     var bgR = sh.getRange(p.hdr + 1, 4, n, 2), bg = bgR.getBackgrounds(), ch = false;
     for (var i = 0; i < n; i++) {
       if (!String(v[i][2]).trim()) continue;
       for (var j = 0; j < 2; j++) if (bg[i][j] && bg[i][j] !== '#ffffff') { bg[i][j] = null; ch = true; }
-      var rr = p.hdr + 1 + i, std = ['=D' + rr + '*F' + rr, '=E' + rr + '*G' + rr];
-      for (var k = 0; k < 2; k++) if (f[i][7 + k].indexOf('#REF!') > -1) sh.getRange(rr, 8 + k).setFormula(std[k]);
+      var rr = p.hdr + 1 + i, std = ['=D' + rr + '*F' + rr, '=E' + rr + '*G' + rr, '', '=D' + rr + '+E' + rr];
+      for (var k = 0; k < 4; k++) if (std[k] && f[i][7 + k].indexOf('#REF!') > -1) sh.getRange(rr, 8 + k).setFormula(std[k]);
     }
     if (ch) bgR.setBackgrounds(bg);
+    // Biaya per HP: HP boleh kosong, jadi pembagian dengan sel HP dibungkus IFERROR (tidak tampil #DIV/0!)
+    var hp = p.head.hp, fa = sh.getRange(p.hdr + 1, 1, n, 17).getFormulas();
+    if (hp) for (var y0 = 0; y0 < n; y0++) for (var x0 = 0; x0 < 17; x0++) {
+      var fo0 = fa[y0][x0];
+      if (!fo0 || /^=IFERROR\(/i.test(fo0)) continue;
+      if (boqRefs_(fo0).some(function (x) { return !x.sheet && x.r1 <= hp.r && hp.r <= x.r2 && x.c1 <= hp.c && hp.c <= x.c2; }))
+        sh.getRange(p.hdr + 1 + y0, x0 + 1).setFormula('=IFERROR(' + fo0.slice(1) + ',0)');
+    }
     var bom = boqGenBomSheet_(ss);
     if (bom) {
-      var b = boqGenBomRead_(bom), ref = '', jc = {};
+      var b = boqGenBomRead_(bom), ref = '', jc = {}, bn = b.name.toLowerCase(), useN = {};
+      // Blok BoM yang paling banyak dipakai sheet BoQ (SF/FWA memakai blok kanan "BoM - Main/Hub/Sub Feeder")
+      f.forEach(function (row) {
+        row.forEach(function (fo) {
+          if (fo) boqRefs_(fo).forEach(function (x) {
+            if (x.sheet.toLowerCase() !== bn) return;
+            var g = b.blocks[0].g;
+            b.blocks.forEach(function (k) { if (k.g <= x.c1) g = k.g; });
+            useN[g] = (useN[g] || 0) + 1;
+          });
+        });
+      });
+      var main = b.blocks[0];
+      b.blocks.forEach(function (k) { if ((useN[k.g] || 0) > (useN[main.g] || 0)) main = k; });
+      var mq = function (r) { return "'" + b.name + "'!" + boqA1_(r, main.qty); }, accM = {};
+      boqGenGrp_(b, main, /^accessoris/).forEach(function (r) {
+        var t = boqGenTxt_(b, r, main.lab);
+        BOQ_ACC_KEYS_.forEach(function (re, i) { if (!accM[i] && re.test(t)) accM[i] = r; });
+      });
+      var cabM = boqGenGrp_(b, main, /^total panjang kabel/);
       b.blocks.forEach(function (blk) {
         for (var r = 2; r <= b.nr; r++) {   // baris "JOIN CLOSURE 48" di BoM Cluster -> Qty joint closure in-line di BoQ
           var m = /^join\s*closure\s*(\d+)/.exec(String(blk.grp[r - 1]).toLowerCase());
@@ -8329,8 +8362,23 @@ function boqGenBoqStd_(ss, sh) {
         sh.getRange(ry, 4).setFormula('=' + jc[mj[1]]);
         if (!f[y][4] && typeof v[y][4] === 'number') sh.getRange(ry, 5).setFormula('=D' + ry);
       }
-      if (ref) for (var z = 0; z < n; z++) {
+      for (var a = 0; a < n; a++) {
+        var da = String(v[a][1]).toLowerCase(), ra = p.hdr + 1 + a;
+        if (f[a][3] || typeof v[a][3] !== 'number') continue;
+        BOQ_ACC_KEYS_.forEach(function (re, i) {
+          if (!accM[i] || !re.test(da)) return;
+          sh.getRange(ra, 4).setFormula('=' + mq(accM[i]));
+          if (!f[a][4] && (v[a][4] === '' || typeof v[a][4] === 'number')) sh.getRange(ra, 5).setFormula('=D' + ra);
+          f[a][3] = '=' + mq(accM[i]);
+        });
+      }
+      for (var z = 0; z < n; z++) {
         var r = p.hdr + 1 + z, d = String(v[z][1]).toLowerCase();
+        if (/^survey\s*&\s*design/.test(d) && !f[z][4] && typeof v[z][4] === 'number' && cabM.length) {
+          f[z][4] = '=SUM(' + mq(cabM[0]) + ':' + boqA1_(cabM[cabM.length - 1], main.qty) + ')';
+          sh.getRange(r, 5).setFormula(f[z][4]);
+        }
+        if (!ref) continue;
         if (/^survey\s*&\s*design/.test(d) && f[z][4] && f[z][4].indexOf(ref) < 0 && /bom/i.test(f[z][4])) sh.getRange(r, 5).setFormula(f[z][4] + '+' + ref);
         if (/strand wire\/sling messenger/.test(d) && !f[z][3] && v[z][3] === '') {
           sh.getRange(r, 4).setFormula('=' + ref);
@@ -8489,6 +8537,8 @@ function boqGenSetTemplate_(sow, base64Data, fileName) {
   var sh, inp;
   try {
     var ss = SpreadsheetApp.openById(g.id);
+    // Hasil konversi ikut lokal akun (id_ID: desimal koma, pemisah ;) sehingga rumus baku (1.05, IF(..,1,0)) jadi #ERROR!.
+    ss.setSpreadsheetLocale('en_US');
     sh = findBoqSheet_(ss);
     if (!sh) throw new Error('Tidak ditemukan sheet yang namanya diawali "BoQ" di file ini.');
     if (!boqGenBomSheet_(ss)) throw new Error('Tidak ditemukan sheet BoM (mis. "BoM AE") di file ini.');
