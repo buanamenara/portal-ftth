@@ -7994,20 +7994,38 @@ function boqTplFiles_() {
 //  - 'kosong': Qty kosong tapi baris punya rumus harga, jadi masih bisa diisi
 // Template awal per SOW dari file proyek Apps Script BoqTemplateAwal<SOW>.html berisi JSON { name, data(base64 xlsx) }.
 // File itu hanya ada di proyek Apps Script (tidak di repo publik karena berisi BOQ proyek). Dipakai sekali saat SOW belum punya template.
+// Satu tanda per SOW (bukan kunci skrip) supaya SOW lain tidak ikut menunggu; permintaan kedua untuk SOW yang sama
+// mendapat pesan "sedang disiapkan" dan halaman mencoba lagi sendiri.
 function boqTplSeed_(sow) {
   var seed;
   try { seed = JSON.parse(HtmlService.createHtmlOutputFromFile('BoqTemplateAwal' + sow).getContent()); } catch (e) { return null; }
   if (!seed || !seed.data) return null;
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(60000)) return null;
+  var cache = CacheService.getScriptCache(), key = 'boqseed3_' + sow;
+  if (cache.get(key)) throw new Error('Template BOQ ' + sow + ' sedang disiapkan (pemakaian pertama). Tunggu sebentar.');
+  cache.put(key, '1', 300);
   try {
     var have = boqTplFiles_()[sow];
     if (have) return have;
-    boqGenSetTemplate_(sow, seed.data, seed.name);
-    return boqTplFiles_()[sow] || null;
-  } finally { lock.releaseLock(); }
+    return DriveApp.getFileById(boqGenSetTemplate_(sow, seed.data, seed.name).id);   // langsung dari id: daftar folder Drive bisa terlambat
+  } finally { cache.remove(key); }
 }
-function boqTplFile_(sow) { return boqTplFiles_()[sow] || boqTplSeed_(sow); }
+// Daftar template per SOW disimpan 10 menit di cache supaya ganti SOW tidak membaca folder Drive tiap kali.
+function boqTplList_() {
+  var cache = CacheService.getScriptCache(), hit = null;
+  try { hit = JSON.parse(cache.get('boqtpl3_list') || 'null'); } catch (e) { hit = null; }
+  if (hit) return hit;
+  var out = {}, files = boqTplFiles_();
+  Object.keys(files).forEach(function (s) { out[s] = boqTplMeta_(files[s]); });
+  try { cache.put('boqtpl3_list', JSON.stringify(out), 600); } catch (e) { /* tanpa cache */ }
+  return out;
+}
+function boqTplMeta_(f) { return { id: f.getId(), name: f.getName(), desc: f.getDescription() || '', upd: f.getLastUpdated().getTime() }; }
+function boqTplListReset_() { try { CacheService.getScriptCache().remove('boqtpl3_list'); } catch (e) { /* abaikan */ } }
+function boqTplFile_(sow) {
+  var m = boqTplList_()[sow];
+  if (m) { try { var f = DriveApp.getFileById(m.id); if (!f.isTrashed()) return f; } catch (e) { /* template dihapus */ } boqTplListReset_(); }
+  return boqTplFiles_()[sow] || boqTplSeed_(sow);
+}
 
 function boqGenParse_(sh) {
   var n = sh.getLastRow();
@@ -8391,16 +8409,15 @@ function boqGenBoqStd_(ss, sh) {
 
 function boqGenInit_(sow) {
   sow = boqGenSow_(sow);
-  var files = boqTplFiles_();
-  if (!files[sow]) files[sow] = boqTplSeed_(sow);
-  var sows = BOQ_GEN_SOWS.map(function (s) { return { sow: s, ada: !!files[s] }; });
-  var tpl = files[sow];
+  var list = boqTplList_(), tpl = list[sow];
+  if (!tpl) { var sf = boqTplSeed_(sow); if (sf) { boqTplListReset_(); tpl = list[sow] = boqTplMeta_(sf); } }
+  var sows = BOQ_GEN_SOWS.map(function (s) { return { sow: s, ada: !!list[s] }; });
   if (!tpl) return { sow: sow, sows: sows, template: null, inputs: [], head: {} };
-  var cache = CacheService.getScriptCache(), key = 'boqgen3_' + tpl.getId() + '_' + tpl.getLastUpdated().getTime(), p = null;
+  var cache = CacheService.getScriptCache(), key = 'boqgen3_' + tpl.id + '_' + tpl.upd, p = null;
   try { var hit = cache.get(key); if (hit) p = JSON.parse(hit); } catch (e) { /* baca ulang */ }
   if (!p) {
-    var ss = SpreadsheetApp.openById(tpl.getId()), sh = findBoqSheet_(ss);
-    if (!sh) throw new Error('Template ' + tpl.getName() + ' tidak punya sheet yang namanya diawali "BoQ".');
+    var ss = SpreadsheetApp.openById(tpl.id), sh = findBoqSheet_(ss);
+    if (!sh) throw new Error('Template ' + tpl.name + ' tidak punya sheet yang namanya diawali "BoQ".');
     var parsed = boqGenParse_(sh), inp = boqGenInputs_(ss, sh);
     p = {
       sheet: sh.getName(), bom: inp.bom,
@@ -8411,7 +8428,7 @@ function boqGenInit_(sow) {
   }
   return {
     sow: sow, sows: sows, sheet: p.sheet, bom: p.bom, inputs: p.inputs, head: p.head,
-    template: { name: tpl.getName(), asal: tpl.getDescription() || '', updatedMs: tpl.getLastUpdated().getTime() }
+    template: { name: tpl.name, asal: tpl.desc, updatedMs: tpl.upd }
   };
 }
 
@@ -8556,7 +8573,8 @@ function boqGenSetTemplate_(sow, base64Data, fileName) {
     var f = it.next();
     if (f.getId() !== g.id && !f.isTrashed() && normalizeText_(f.getName()) === normalizeText_(BOQ_TPL_PREFIX + sow)) f.setTrashed(true);
   }
-  return { sow: sow, sheet: sh.getName(), items: inp.opts.length };
+  boqTplListReset_();
+  return { sow: sow, sheet: sh.getName(), items: inp.opts.length, id: g.id };
 }
 
 function getBoqGenInit(code, sow) { requireAccess_(code); return boqGenInit_(sow); }

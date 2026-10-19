@@ -3547,7 +3547,7 @@
     $('bgQ').addEventListener('input', renderBgHistory);
 
     // ================= Submit BOQ - Buat BOQ (volume -> file BOQ .xlsx dari template per SOW) =================
-    var bq = { init: null, loading: false, sending: false, hist: [], tok: 0 };
+    var bq = { init: null, loading: false, sending: false, hist: [], tok: 0, warm: {}, warming: false };
 
     function bqStatus(cls, html) {
       var el = $('bqMsg');
@@ -3623,7 +3623,7 @@
       bq.init = null; bq.loading = true;
       $('bqItems').innerHTML = '';
       $('bqTpl').className = 'hint';
-      $('bqTpl').textContent = 'Memuat template BOQ ' + sow + '...';
+      $('bqTpl').textContent = 'Memuat template BOQ ' + sow + '... (pemakaian pertama tiap SOW bisa sampai 1 menit)';
       bqHint();
       GSR
         .withSuccessHandler(function (r) {
@@ -3641,14 +3641,33 @@
           $('bqOlt').placeholder = (r.head && r.head.olt) ? 'mis. ' + r.head.olt : 'Nama OLT';
           for (var i = 0; i < 3; i++) bqAddRow();
           bqHint();
+          bqWarm(r.sows);
         })
         .withFailureHandler(function (err) {
           if (tok !== bq.tok) return;
+          var m = err && err.message ? err.message : String(err);
+          if (/sedang disiapkan/i.test(m)) {   // SOW ini sedang disiapkan permintaan lain: coba lagi sendiri
+            $('bqTpl').textContent = m + ' Mencoba lagi otomatis...';
+            setTimeout(function () { if (tok === bq.tok) bqLoad(); }, 15000);
+            return;
+          }
           bq.loading = false;
           $('bqTpl').className = 'hint bad';
-          $('bqTpl').textContent = 'Gagal memuat template: ' + (err && err.message ? err.message : err);
+          $('bqTpl').textContent = 'Gagal memuat template: ' + m;
         })
         .getBoqGenInit(sow);
+    }
+
+    // Siapkan template SOW lain satu per satu di belakang layar, supaya ganti SOW nanti tidak menunggu.
+    function bqWarm(sows) {
+      if (bq.warming || !sows) return;
+      var next = sows.filter(function (x) { return !x.ada && !bq.warm[x.sow] && x.sow !== $('bqSow').value; })[0];
+      if (!next) return;
+      bq.warm[next.sow] = 1; bq.warming = true;
+      GSR
+        .withSuccessHandler(function (r) { bq.warming = false; bqWarm(r && r.sows ? r.sows : sows); })
+        .withFailureHandler(function () { bq.warming = false; bqWarm(sows); })
+        .getBoqGenInit(next.sow);
     }
 
     function bqSaveFile(f) {
