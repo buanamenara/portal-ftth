@@ -625,6 +625,10 @@ function waCmd_(p) {
       out = owner ? botBackup_(true) : ''; break;
     case 'potongan':
       out = botPotongan_(arg); break;
+    case 'ba':
+      out = botBa_(arg); break;
+    case 'panduan':
+      out = botPanduan_(p); break;
     case 'stokwh':
       out = botStokWh_(p, arg, owner); break;
     case 'setuju':
@@ -652,6 +656,8 @@ function botHelp_(owner) {
     g + 'rekap [kemarin | dd/mm] : Daily Report hari itu',
     g + 'site <kata> : cari nama site di DATA BASE',
     g + 'potongan [kabel] [gudang] : haspel utuh + potongan kabel dari Excel WH terakhir, mis. ' + g + 'potongan 24c',
+    g + 'ba <site> [sow] : BA Ambil / Pengembalian satu site + total bersih, mis. ' + g + 'ba penggalaman',
+    g + 'panduan : kirim PDF panduan perintah ke chat ini',
     'Kirim Excel stok WH dengan caption ' + g + 'stokwh : dibandingkan dengan SALDO GUDANG, admin yang menyetujui',
     '', '*Otomatis ke grup*',
     '07:00 Today\'s Plan (permit + implementasi)',
@@ -663,6 +669,7 @@ function botHelp_(owner) {
   if (owner) s = s.concat(['', '*Otomatis ke chat pribadi admin*',
     '07:00 stok berkurang di bawah standar (+ perkiraan habis; daftar lengkap tiap Senin)',
     '07:05 item yang baru melebihi Plan BOQ (daftar lengkap tiap Senin)',
+    '07:10 peringatan bila Excel stok WH (!stokwh) 7 hari tidak dikirim (diulang tiap 3 hari)',
     'Minggu 22:00 backup spreadsheet FTTH + Waspang ke Drive | email bila gateway mati',
     '', '*Pribadi*',
     'catat <teks> : simpan catatan',
@@ -895,7 +902,8 @@ var BOT_JADWAL_ = [
   { id: 'BULAN', from: '07:00', until: '10:00', date: 1, build: function (now) { return { text: botBulanan_(now) }; } },
   { id: 'MANGKRAK', from: '07:05', until: '10:00', build: function (now) { return botMangkrak_(now, Number(botWita_(now, 'u')) === 1); } },
   { id: 'BOQ', from: '07:05', until: '10:00', build: function (now) { return { text: botBoqLewat_(now, Number(botWita_(now, 'u')) === 1), to: botOwnerJid_() }; } },
-  { id: 'WH', from: '08:00', until: '11:00', build: function (now) { return botWhIngat_(now); } }   // Senin, tanggal 28 dan tanggal 1
+  { id: 'WH', from: '08:00', until: '11:00', build: function (now) { return botWhIngat_(now); } },   // Senin, tanggal 28 dan tanggal 1
+  { id: 'WHBASI', from: '07:10', until: '10:00', build: function (now) { return { text: botWhBasi_(now), to: botOwnerJid_() }; } }
 ];
 var BOT_GARIS_ = new Array(38).join('≡');
 
@@ -1409,6 +1417,8 @@ function botStokWh_(p, arg, owner) {
     var ba = botBaDesig_(), gs = botWhGudangs_();
     var r = botWhParse_(p.excel, arg, ba.desig, gs.names);
     if (r.err) return '❌ ' + r.err;
+    props.setProperty('BOT_STOKWH_LAST', String(Date.now()));   // untuk peringatan Excel WH basi
+    props.deleteProperty('BOT_STOKWH_WARN');
     var pend = null;
     try { pend = JSON.parse(props.getProperty('BOT_STOKWH') || 'null'); } catch (e) {}
     if (!pend || Date.now() - pend.t > 12 * 3600000) pend = { t: Date.now(), files: [], by: [], g: {}, skip: [] };
@@ -1516,6 +1526,155 @@ function botPotongan_(arg) {
     });
   });
   return out.length > 1 ? out.join('\n') : 'Tidak ada data potongan untuk "' + arg + '".';
+}
+
+// Peringatan ke admin bila Excel stok WH (!stokwh) 7 hari tidak dikirim; diulang tiap 3 hari sampai ada file baru.
+// BOT_STOKWH_LAST = waktu file terakhir terbaca (diisi botStokWh_); belum ada = mulai dihitung dari sekarang.
+function botWhBasi_(now) {
+  var props = PropertiesService.getScriptProperties(), last = Number(props.getProperty('BOT_STOKWH_LAST') || 0);
+  if (!last) { props.setProperty('BOT_STOKWH_LAST', String(now)); return null; }
+  var hari = Math.floor((now - last) / 864e5), warn = Number(props.getProperty('BOT_STOKWH_WARN') || 0);
+  if (hari < 7 || (warn && now - warn < 3 * 864e5 - 3600000)) return null;
+  props.setProperty('BOT_STOKWH_WARN', String(now));
+  return ['⏳ *Excel stok WH belum dikirim ' + hari + ' hari*',
+    'File terakhir: ' + botWita_(last, 'dd/MM/yyyy HH:mm') + ' WITA.',
+    'Saldo portal, cek stok menipis dan data potongan kabel bisa sudah tidak sesuai gudang.',
+    'Minta tim WH kirim Excel stok ke grup dengan caption *!stokwh*.'].join('\n');
+}
+
+// ba <site> [sow] : BA Ambil dan Pengembalian satu site dari BA TRANSAKSI (Portal FTTH) + total bersih per material.
+// Semua kata harus ada di Name. Kata terakhir yang sama dengan SOW (cluster, subfeeder, ...) = filter SOW.
+function botBa_(arg) {
+  if (!arg) return 'Tulis nama site, mis. *ba penggalaman* atau *ba jati baru rt 04 subfeeder*.';
+  var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('BA TRANSAKSI');
+  if (!sh || sh.getLastRow() < 2) return 'BA TRANSAKSI masih kosong.';
+  var vals = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
+  var head = vals[0].map(function (x) { return String(x).trim(); }), ix = function (n) { return head.indexOf(n); };
+  var cN = ix('Name'), cS = ix('SOW'), cJ = ix('Jenis Transaksi'), first = ix('FAT'), lastMat = ix('Galvanis');
+  var rows = vals.slice(1).filter(function (r) { return /^(Ambil|Pengembalian)$/.test(String(r[cJ] || '').trim()) && String(r[cN] || '').trim(); });
+  var words = arg.toLowerCase().split(/\s+/).filter(Boolean), sow = '';
+  var sows = rows.map(function (r) { return String(r[cS] || '').trim().toLowerCase(); });
+  if (words.length > 1 && sows.indexOf(words[words.length - 1]) >= 0) sow = words.pop();
+  var hit = rows.filter(function (r) {
+    var n = String(r[cN]).toLowerCase();
+    return words.every(function (w) { return n.indexOf(w) >= 0; }) && (!sow || String(r[cS] || '').trim().toLowerCase() === sow);
+  });
+  if (!hit.length) return 'Tidak ada BA Ambil / Pengembalian untuk "' + arg + '". Cek nama site dengan *site ' + words[0] + '*.';
+  var names = [];
+  hit.forEach(function (r) { var n = String(r[cN]).trim(); if (names.indexOf(n) < 0) names.push(n); });
+  var exact = names.filter(function (n) { return n.toLowerCase() === words.join(' '); });
+  if (names.length > 1 && exact.length) { names = exact; hit = hit.filter(function (r) { return String(r[cN]).trim() === exact[0]; }); }
+  if (names.length > 1) return ['*' + names.length + ' site cocok*, perjelas nama site:'].concat(names.slice(0, 12).map(function (n) {
+    return '- ' + n + ' (' + hit.filter(function (r) { return String(r[cN]).trim() === n; }).length + ' BA)';
+  })).concat(names.length > 12 ? ['... dan ' + (names.length - 12) + ' lagi.'] : []).join('\n');
+  var bulan = ['jan', 'feb', 'mar', 'apr', 'mei', 'jun', 'jul', 'agu', 'sep', 'okt', 'nov', 'des'];
+  var tglBa = function (v) {   // -> 'yyyyMMdd' untuk urutan; Date, nomor seri, "16 Okt 2026" atau "24/10/2026"
+    if (typeof v === 'number' && v > 30000) v = new Date(Date.UTC(1899, 11, 30) + v * 864e5 - 8 * 3600000);
+    if (v instanceof Date) return botWita_(v.getTime(), 'yyyyMMdd');
+    var t = String(v || '').trim().toLowerCase(), m = t.match(/^(\d{1,2})\s+([a-z]{3})[a-z]*\s+(\d{4})/), n;
+    if (m && (n = bulan.indexOf(m[2] === 'aug' ? 'agu' : m[2] === 'may' ? 'mei' : m[2] === 'oct' ? 'okt' : m[2] === 'dec' ? 'des' : m[2])) >= 0) return m[3] + ('0' + (n + 1)).slice(-2) + ('0' + m[1]).slice(-2);
+    if ((m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return m[3] + ('0' + m[2]).slice(-2) + ('0' + m[1]).slice(-2);
+    return '';
+  };
+  hit = hit.map(function (r) { return { r: r, k: tglBa(r[ix('Tanggal BA')]) }; })
+    .sort(function (a, b) { return a.k < b.k ? -1 : a.k > b.k ? 1 : 0; }).map(function (x) { x.r.k_ = x.k; return x.r; });
+  var bySow = {}, order = [];
+  hit.forEach(function (r) {
+    var s = String(r[cS] || '').trim() || '-';
+    if (!bySow[s]) { bySow[s] = { lines: [], ambil: {}, kembali: {} }; order.push(s); }
+    var x = bySow[s], kembali = String(r[cJ]).trim() === 'Pengembalian', items = [];
+    for (var c = first; c >= 0 && c <= lastMat; c++) {
+      var v = cellNumber_(r[c]);
+      if (!v) continue;
+      items.push(head[c] + ' ' + botNum_(v));
+      var t = kembali ? x.kembali : x.ambil;
+      t[head[c]] = (t[head[c]] || 0) + v;
+    }
+    var lain = String(r[ix('Material Lain')] || '').trim();
+    if (lain) items.push(lain);
+    var no = String(r[ix('Nomor BA')] || '').trim() || String(r[ix('ID BA')] || '').trim();
+    var tg = r.k_ ? r.k_.slice(6, 8) + '/' + r.k_.slice(4, 6) + '/' + r.k_.slice(2, 4) : String(r[ix('Tanggal BA')] || '-').trim();
+    x.lines.push('- ' + tg + ' ' + (kembali ? '↩️ Kembali' : 'Ambil') + ' ' + no + ' (' + String(r[ix('Mandor / Subcont')] || '-').trim() + '): ' + (items.join(', ') || '-'));
+  });
+  var out = ['📦 *BA ' + names[0] + '*'];
+  order.forEach(function (s) {
+    var x = bySow[s], mats = [];
+    for (var c = first; c >= 0 && c <= lastMat; c++) if (x.ambil[head[c]] || x.kembali[head[c]]) mats.push(head[c]);
+    out.push('', '_' + s + '_ (' + x.lines.length + ' BA)');
+    out = out.concat(x.lines.length > 15 ? ['(15 BA terakhir dari ' + x.lines.length + ')'].concat(x.lines.slice(-15)) : x.lines);
+    out.push('*Total bersih (Ambil - Kembali)*');
+    mats.forEach(function (m) {
+      var a = x.ambil[m] || 0, k = x.kembali[m] || 0;
+      out.push('- ' + m + ': ' + botNum_(a - k) + (k ? ' (ambil ' + botNum_(a) + ', kembali ' + botNum_(k) + ')' : ''));
+    });
+  });
+  var text = out.join('\n');
+  return text.length > 3400 ? text.slice(0, 3350) + '\n... (terpotong, tambahkan SOW, mis. *ba ' + words.join(' ') + ' cluster*)' : text;
+}
+
+// panduan : PDF panduan perintah untuk tim (tanpa perintah admin) dikirim lewat antrean gateway ke chat yang meminta.
+// PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN); versi baru = BOT_PANDUAN_VERSI_ diganti.
+// Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF buatan sendiri.
+var BOT_PANDUAN_VERSI_ = '2026-10-26';
+var BOT_PANDUAN_TIM_ = [
+  ['!bantu', 'Daftar perintah singkat di WhatsApp.', '!bantu'],
+  ['!panduan', 'Kirim PDF panduan ini ke grup.', '!panduan'],
+  ['!stok [material] [gudang]', 'Saldo gudang. Tanpa kata = semua material yang ada saldonya. Kabel ikut rincian haspel utuh + potongan.', '!stok | !stok kabel | !stok tiang batola | !stok fat'],
+  ['!progres &lt;site&gt;', 'Total realisasi vs Plan BOQ material satu site.', '!progres jati baru rt 04'],
+  ['!rekap [kemarin | dd/mm]', 'Isi Daily Report hari itu (tanpa kata = hari ini).', '!rekap | !rekap kemarin | !rekap 24/10'],
+  ['!site &lt;kata&gt;', 'Cari nama site di DATA BASE. Pakai ini kalau !progres atau !ba tidak menemukan site.', '!site jati baru'],
+  ['!ba &lt;site&gt; [sow]', 'Daftar BA Ambil dan Pengembalian satu site + total bersih per material.', '!ba penggalaman | !ba jati baru rt 04 subfeeder'],
+  ['!potongan [kabel] [gudang]', 'Haspel utuh + daftar panjang potongan kabel dari Excel WH terakhir.', '!potongan 24c | !potongan cable 48 batola'],
+  ['Excel + caption !stokwh [gudang]', 'Kirim file Excel stok WH (.xlsx). Selisih dengan saldo portal dikirim ke admin untuk disetujui.', '!stokwh | !stokwh batola']
+];
+var BOT_PANDUAN_JADWAL_ = [
+  ['07:00 tiap hari', "Today's Plan (permit + implementasi)"],
+  ['07:05 tiap hari', 'Site aktif 3 hari tanpa laporan, tag PIC (daftar lengkap tiap Senin)'],
+  ['17:30 tiap hari', 'Pengingat Daily Report, tag yang belum lapor'],
+  ['Senin 07:00', 'Rekap mingguan'],
+  ['Senin 08:00', 'Minta tim WH kirim Excel stok (!stokwh)'],
+  ['Tanggal 1', 'Rekap bulanan + tagih file stok opname'],
+  ['Tanggal 28', 'Persiapan stok opname akhir bulan'],
+  ['Saat ada', 'Cek Daily Report baru (tanggal, Total > Plan); BA Ambil dan BA Masuk baru diteruskan']
+];
+
+function botPanduanPdf_() {
+  var td = 'border-bottom:1px solid #dde2ea;padding:5px 6px;vertical-align:top;';
+  var h = ['<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;font-size:10pt;color:#1d2433;">',
+    '<h2 style="margin:0;">Panduan perintah bot AdminSuper</h2>',
+    '<div style="color:#5b6475;margin-bottom:8px;">Grup REPORT BMI · versi ' + BOT_PANDUAN_VERSI_ + '</div>',
+    '<div style="border:1px solid #f0c879;background:#fff6e6;padding:6px 8px;margin-bottom:8px;"><b>Cara pakai:</b> di grup setiap perintah diawali tanda <b>!</b> (tanpa ! bot diam). ',
+    'Huruf besar/kecil sama saja. [ ] = boleh dikosongkan, &lt; &gt; = wajib diisi. Singkatan: kabel = cable, tiang = pole, klem = clam; ',
+    'bjm = Banjarmasin, batola = Barito Kuala.</div>',
+    '<table style="width:100%;border-collapse:collapse;"><tr style="background:#1d2433;color:#fff;"><th style="' + td + 'text-align:left;">Perintah</th>',
+    '<th style="' + td + 'text-align:left;">Fungsi</th><th style="' + td + 'text-align:left;">Contoh</th></tr>'];
+  BOT_PANDUAN_TIM_.forEach(function (r) {
+    h.push('<tr><td style="' + td + 'font-weight:bold;width:28%;">' + r[0] + '</td><td style="' + td + '">' + r[1] + '</td><td style="' + td + 'font-family:monospace;width:32%;">' + r[2].split(' | ').join('<br>') + '</td></tr>');
+  });
+  h.push('</table><h3 style="margin:12px 0 4px;">Pesan otomatis ke grup (WITA)</h3><table style="width:100%;border-collapse:collapse;">');
+  BOT_PANDUAN_JADWAL_.forEach(function (r) {
+    h.push('<tr><td style="' + td + 'font-weight:bold;width:28%;">' + r[0] + '</td><td style="' + td + '">' + r[1] + '</td></tr>');
+  });
+  h.push('</table><p style="color:#5b6475;">Bot tidak menjawab kalau laptop gateway mati. Pertanyaan lain hubungi admin.</p></body></html>');
+  return Utilities.newBlob(h.join(''), 'text/html', 'panduan.html').getAs('application/pdf').setName('Panduan Bot AdminSuper ' + BOT_PANDUAN_VERSI_ + '.pdf');
+}
+
+function botPanduan_(p) {
+  var props = PropertiesService.getScriptProperties(), cache = {}, file = null;
+  try { cache = JSON.parse(props.getProperty('BOT_PANDUAN') || '{}'); } catch (e) {}
+  [props.getProperty('BOT_PANDUAN_FILE'), cache.v === BOT_PANDUAN_VERSI_ ? cache.id : ''].some(function (id) {
+    try { file = id ? DriveApp.getFileById(String(id).trim()) : null; if (file && file.isTrashed()) file = null; } catch (e) { file = null; }
+    return !!file;
+  });
+  if (!file) {
+    if (cache.id) try { DriveApp.getFileById(cache.id).setTrashed(true); } catch (e) {}   // PDF versi lama
+    file = DriveApp.createFile(botPanduanPdf_());
+    props.setProperty('BOT_PANDUAN', JSON.stringify({ v: BOT_PANDUAN_VERSI_, id: file.getId() }));
+  }
+  var t = Date.now();
+  props.setProperty(WAQ_PREFIX_ + t + '_panduan', JSON.stringify({ t: t, n: 0, last: 0, to: p.jid || '', mentions: [],
+    files: [{ id: file.getId(), name: file.getName() }], text: '📘 Panduan perintah bot AdminSuper' }));
+  return 'Panduan PDF dikirim sebentar lagi.';
 }
 
 // "setuju": selisih dihitung ulang terhadap saldo saat ini, lalu satu baris per gudang ditulis ke BA TRANSAKSI.
