@@ -612,7 +612,7 @@ function waCmd_(p) {
 function botHelp_(owner) {
   var g = owner ? '' : '!';
   var s = ['*AdminSuper*' + (owner ? '' : ' (di grup awali dengan !)'),
-    g + 'stok [kata]  : saldo gudang, mis. ' + g + 'stok cable',
+    g + 'stok [material] [gudang] : saldo gudang, mis. ' + g + 'stok kabel batola',
     g + 'progres <site> : Total vs Plan material, mis. ' + g + 'progres jati baru rt 04',
     g + 'rekap [kemarin | dd/mm] : Daily Report hari itu',
     g + 'site <kata> : cari nama site di DATA BASE'];
@@ -630,6 +630,9 @@ function botNum_(n) {
   return (neg ? '-' : '') + String(i).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (d ? ',' + ('0' + d).slice(-2).replace(/0$/, '') : '');
 }
 
+var BOT_MATERIAL_ALIAS_ = { kabel: 'cable', tiang: 'pole', klem: 'clam', galvanis: 'galvanis', sling: 'sling', hdpe: 'hdpe' };
+var BOT_GUDANG_ALIAS_ = { bjm: 'banjarmasin', ptk: 'pontianak', pml: 'pemalang', tpn: 'tapin', hst: 'hulu sungai', tnl: 'tanah laut', bka: 'barito', batola: 'barito', btk: 'barito' };
+
 // SALDO GUDANG di spreadsheet Portal FTTH (dihitung dari BA TRANSAKSI): judul di baris 3.
 function botStok_(arg) {
   var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('SALDO GUDANG');
@@ -642,17 +645,32 @@ function botStok_(arg) {
     }
   }
   if (hr < 0) return 'Kolom Designator / Saldo tidak ditemukan di SALDO GUDANG.';
-  var q = arg.toLowerCase(), by = {}, order = [], minus = false;
+  // Kata yang cocok dengan nama gudang (atau singkatannya) = filter gudang; sisanya harus ada semua di Designator.
+  // Tanpa nama gudang = semua gudang. Kata Indonesia diterjemahkan dulu (kabel -> cable, tiang -> pole).
+  var gudangs = [];
+  for (var r0 = hr + 1; r0 < vals.length; r0++) {
+    var g0 = c.g >= 0 ? String(vals[r0][c.g] || '').trim() : '';
+    if (g0 && gudangs.indexOf(g0) < 0) gudangs.push(g0);
+  }
+  var words = arg.toLowerCase().split(/\s+/).filter(Boolean), area = [], mat = [];
+  words.forEach(function (w) {
+    w = BOT_GUDANG_ALIAS_[w] || w;
+    var hit = w !== 'gudang' && gudangs.filter(function (g) { return g.toLowerCase().indexOf(w) >= 0; });
+    if (hit && hit.length) area = area.concat(hit);
+    else if (w !== 'gudang') mat.push(BOT_MATERIAL_ALIAS_[w] || w);
+  });
+  var by = {}, order = [], minus = false;
   for (var r = hr + 1; r < vals.length; r++) {
     var d = String(vals[r][c.d] || '').trim(), sal = cellNumber_(vals[r][c.s]);
-    if (!d || (q && d.toLowerCase().indexOf(q) < 0) || (!q && !sal)) continue;
     var g = c.g >= 0 ? String(vals[r][c.g] || '').trim() || '-' : '-';
+    if (!d || (area.length && area.indexOf(g) < 0)) continue;
+    if (mat.length ? !mat.every(function (m) { return d.toLowerCase().indexOf(m) >= 0; }) : !sal) continue;
     if (!by[g]) { by[g] = []; order.push(g); }
     by[g].push(d + ': ' + botNum_(sal));
     if (sal < 0) minus = true;
   }
-  if (!order.length) return q ? 'Tidak ada material yang cocok dengan "' + arg + '".' : 'Semua saldo gudang 0.';
-  var out = ['*Stok gudang*' + (q ? ' "' + arg + '"' : '')];
+  if (!order.length) return arg ? 'Tidak ada material yang cocok dengan "' + arg + '". Contoh: *stok kabel*, *stok tiang batola*.' : 'Semua saldo gudang 0.';
+  var out = ['*Stok gudang*' + (arg ? ' "' + arg + '"' : '')];
   order.forEach(function (g) { out.push('', '_' + g + '_'); out = out.concat(by[g]); });
   if (minus) out.push('', 'Angka minus = barang keluar lebih banyak dari BA Masuk yang tercatat.');
   return out.join('\n');
