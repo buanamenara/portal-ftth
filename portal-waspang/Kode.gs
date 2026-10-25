@@ -610,7 +610,7 @@ function waCmd_(p) {
     case 'batas':
       out = owner ? botBatasCmd_(arg) : ''; break;
     case 'stokmin': case 'menipis':
-      out = owner ? (botStokMenipis_() || 'Tidak ada stok di bawah batas.') : ''; break;
+      out = owner ? (botStokMenipis_(true) || 'Tidak ada stok di bawah batas.') : ''; break;
     case 'mingguan':
       out = owner ? botMingguan_(Date.now()) : ''; break;
     case 'pagi':
@@ -640,7 +640,7 @@ function botHelp_(owner) {
     'permit <daftar, satu per baris> : permit untuk Today\'s Plan berikutnya (permit hapus)',
     'tim <nama PIC> <nomor> : tim yang di-tag jam 17:30 (tim, tim hapus <nama>)',
     'pagi | sore | mingguan : lihat contoh pesan jadwal sekarang',
-    'batas <material> <angka> : batas stok menipis (dikirim ke sini tiap 07:00), menipis : cek sekarang']);
+    'batas <material> <angka> : batas stok menipis (07:00 hanya yang baru menipis, Senin daftar lengkap), menipis : cek sekarang']);
   return s.join('\n');
 }
 
@@ -841,7 +841,7 @@ function botPengingat_(jid) {
 var BOT_JADWAL_ = [
   { id: 'PAGI', from: '07:00', until: '10:00', build: function (now) { return { text: botPagi_(now), mentions: [] }; } },
   { id: 'SORE', from: '17:30', until: '19:30', build: function (now) { return botSore_(now); } },
-  { id: 'STOK', from: '07:00', until: '10:00', build: function (now) { return { text: botStokMenipis_(), to: botOwnerJid_() }; } },
+  { id: 'STOK', from: '07:00', until: '10:00', build: function (now) { return { text: botStokMenipis_(Number(botWita_(now, 'u')) === 1), to: botOwnerJid_() }; } },   // Senin: daftar lengkap
   { id: 'MINGGU', from: '07:00', until: '10:00', day: 1, build: function (now) { return { text: botMingguan_(now) }; } }
 ];
 var BOT_GARIS_ = new Array(38).join('≡');
@@ -1036,21 +1036,30 @@ function botBatas_() {
 }
 
 // Gudang yang dicek: Script Property BOT_STOK_GUDANG (bawaan "banjarmasin"; pisahkan koma).
-function botStokMenipis_() {
+// Harian (semua = false): hanya material yang BARU turun di bawah batas (sudah dilaporkan = BOT_STOK_LAPOR, dilupakan lagi
+// begitu stoknya naik di atas batas). Senin dan perintah "menipis" (semua = true): daftar lengkap.
+function botStokMenipis_(semua) {
   var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('SALDO GUDANG');
   if (!sh || sh.getLastRow() < 4) return '';
-  var batas = botBatas_(), keys = Object.keys(batas);
+  var props = PropertiesService.getScriptProperties(), batas = botBatas_();
+  var keys = Object.keys(batas).sort(function (a, b) { return b.length - a.length; });   // paling spesifik dulu: 'cable 24c' sebelum 'cable'
   if (!keys.length) return '';
-  var gud = String(PropertiesService.getScriptProperties().getProperty('BOT_STOK_GUDANG') || 'banjarmasin').toLowerCase()
+  var gud = String(props.getProperty('BOT_STOK_GUDANG') || 'banjarmasin').toLowerCase()
     .split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-  var vals = sh.getRange(4, 1, sh.getLastRow() - 3, 7).getValues(), out = [];
+  var lapor = {};
+  try { lapor = JSON.parse(props.getProperty('BOT_STOK_LAPOR') || '{}'); } catch (e) {}
+  var vals = sh.getRange(4, 1, sh.getLastRow() - 3, 7).getValues(), out = [], now = {};
   vals.forEach(function (r) {
     var g = String(r[0] || '').trim(), d = String(r[1] || '').trim(), sal = cellNumber_(r[6]);
     if (!d || !gud.some(function (x) { return g.toLowerCase().indexOf(x) >= 0; })) return;
     var k = keys.filter(function (k) { return d.toLowerCase().indexOf(k) >= 0; })[0];
-    if (k && sal < batas[k]) out.push('- ' + d + ' (' + g.replace(/^gudang\s+/i, '') + '): ' + botNum_(sal) + ' (batas ' + botNum_(batas[k]) + ')');
+    if (!k || sal >= batas[k]) return;
+    var id = g + '|' + d;
+    now[id] = true;
+    if (semua || !lapor[id]) out.push('- ' + d + ' (' + g.replace(/^gudang\s+/i, '') + '): ' + botNum_(sal) + ' (batas ' + botNum_(batas[k]) + ')');
   });
-  return out.length ? ['⚠️ *Stok menipis* ' + botWita_(Date.now(), 'dd/MM/yyyy')].concat(out).join('\n') : '';
+  props.setProperty('BOT_STOK_LAPOR', JSON.stringify(now));
+  return out.length ? ['⚠️ *Stok menipis* ' + botWita_(Date.now(), 'dd/MM/yyyy') + (semua ? ' (daftar lengkap)' : ' (baru di bawah batas)')].concat(out).join('\n') : '';
 }
 
 // batas | batas <material> <angka> | batas hapus <material> | batas awal (kembali ke bawaan)
