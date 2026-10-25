@@ -114,3 +114,4 @@ Membatalkan setelah `setuju` dilakukan dengan menghapus baris itu di BA TRANSAKS
 - **Minggu 22:00 backup** spreadsheet Portal FTTH dan Waspang ke folder Drive "Backup Portal BMI (otomatis)" milik akun yang menjalankan Apps Script. 4 backup terbaru disimpan, yang lebih lama dipindah ke Sampah. Backup jalan dari trigger `cekGatewayBot`, jadi tetap jalan walau laptop mati, asal `pasangAlarmGateway` sudah dijalankan. Backup manual: `backup`.
 - `bantu` / `bantuan` menampilkan semua perintah dan jadwal otomatis.
 
+- `sore kirim` (chat pribadi pemilik): pengingat Daily Report langsung dikirim ke grup saat itu juga, dengan tag anggota tim yang belum lapor, di luar jadwal 17:30.
