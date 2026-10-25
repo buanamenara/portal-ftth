@@ -640,7 +640,7 @@ function botHelp_(owner) {
     'permit <daftar, satu per baris> : permit untuk Today\'s Plan berikutnya (permit hapus)',
     'tim <nama PIC> <nomor> : tim yang di-tag jam 17:30 (tim, tim hapus <nama>)',
     'pagi | sore | mingguan : lihat contoh pesan jadwal sekarang',
-    'batas <material> <angka> : batas stok menipis (07:00 hanya yang baru menipis, Senin daftar lengkap), menipis : cek sekarang']);
+    'batas <material> <angka> : batas stok menipis untuk rekap Senin, menipis : daftar sekarang']);
   return s.join('\n');
 }
 
@@ -1036,32 +1036,77 @@ function botBatas_() {
 }
 
 // Gudang yang dicek: Script Property BOT_STOK_GUDANG (bawaan "banjarmasin"; pisahkan koma).
-// Harian (semua = false): hanya material yang BARU turun di bawah batas (sudah dilaporkan = BOT_STOK_LAPOR, dilupakan lagi
-// begitu stoknya naik di atas batas), ditambah sekali lagi saat stoknya habis (0). Senin dan perintah "menipis" (semua = true): daftar lengkap.
+// Senin dan perintah "menipis" (semua = true): daftar lengkap material di bawah batas.
+// Hari lain (semua = false): hanya material yang stoknya BERKURANG sejak pengecekan kemarin (BOT_STOK_KEMARIN) dan sudah
+// di bawah rata-rata pemakaian seminggu (BA Ambil 4 minggu terakhir / 4), artinya stok tidak cukup untuk seminggu.
+// Aksesoris (BOT_AKSESORIS_) lebih cepat: alarm bila stok kurang dari 2 minggu pemakaian, dan ikut rekap Senin walau tanpa batas.
+var BOT_AKSESORIS_ = /suspension|pole clam|dead end|slack hanger|plat belt|stopping|buldogrip|sling|galvanis|helical|stell clamp/i;
+
 function botStokMenipis_(semua) {
   var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('SALDO GUDANG');
   if (!sh || sh.getLastRow() < 4) return '';
   var props = PropertiesService.getScriptProperties(), batas = botBatas_();
   var keys = Object.keys(batas).sort(function (a, b) { return b.length - a.length; });   // paling spesifik dulu: 'cable 24c' sebelum 'cable'
-  if (!keys.length) return '';
   var gud = String(props.getProperty('BOT_STOK_GUDANG') || 'banjarmasin').toLowerCase()
     .split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-  var lapor = {};
-  try { lapor = JSON.parse(props.getProperty('BOT_STOK_LAPOR') || '{}'); } catch (e) {}
-  var vals = sh.getRange(4, 1, sh.getLastRow() - 3, 7).getValues(), out = [], now = {};
+  var kemarin = {};
+  try { kemarin = JSON.parse(props.getProperty('BOT_STOK_KEMARIN') || '{}'); } catch (e) {}
+  var avg = botPakaiMingguan_();
+  var vals = sh.getRange(4, 1, sh.getLastRow() - 3, 7).getValues(), out = [], snap = {};
   vals.forEach(function (r) {
     var g = String(r[0] || '').trim(), d = String(r[1] || '').trim(), sal = cellNumber_(r[6]);
     if (!d || !gud.some(function (x) { return g.toLowerCase().indexOf(x) >= 0; })) return;
-    var k = keys.filter(function (k) { return d.toLowerCase().indexOf(k) >= 0; })[0];
-    if (!k || sal >= batas[k]) return;
-    var id = g + '|' + d, habis = sal <= 0;
-    now[id] = habis ? 'habis' : 'min';
-    // sekali saat turun di bawah batas, sekali lagi saat habis (0)
-    if (semua || !lapor[id] || (habis && lapor[id] !== 'habis'))
-      out.push('- ' + d + ' (' + g.replace(/^gudang\s+/i, '') + '): ' + (habis ? '*HABIS* ' : '') + botNum_(sal) + ' (batas ' + botNum_(batas[k]) + ')');
+    var id = botGudangKey_(g).toLowerCase() + '|' + d.toLowerCase(), tempat = ' (' + botGudangKey_(g) + '): ';
+    snap[id] = sal;
+    var acc = BOT_AKSESORIS_.test(d), minggu = acc ? 2 : 1, kurang = avg[id] && sal < avg[id] * minggu;
+    var pakai = avg[id] ? ', pakai ' + botNum_(avg[id]) + '/minggu' : '';
+    if (semua) {
+      var k = keys.filter(function (k) { return d.toLowerCase().indexOf(k) >= 0; })[0];
+      if (k && sal < batas[k]) out.push('- ' + d + tempat + (sal <= 0 ? '*HABIS* ' : '') + botNum_(sal) + ' (batas ' + botNum_(batas[k]) + pakai + ')');
+      else if (acc && kurang) out.push('- ' + d + tempat + (sal <= 0 ? '*HABIS* ' : '') + botNum_(sal) + ' (kurang dari 2 minggu' + pakai + ')');
+    } else if (id in kemarin && sal < kemarin[id] && kurang) {
+      out.push('- ' + d + tempat + botNum_(kemarin[id]) + ' -> ' + (sal <= 0 ? '*HABIS* ' : '') + botNum_(sal) + ' (tidak cukup ' + minggu + ' minggu' + pakai + ')');
+    }
   });
-  props.setProperty('BOT_STOK_LAPOR', JSON.stringify(now));
-  return out.length ? ['⚠️ *Stok menipis* ' + botWita_(Date.now(), 'dd/MM/yyyy') + (semua ? ' (daftar lengkap)' : ' (baru di bawah batas)')].concat(out).join('\n') : '';
+  if (!semua) props.setProperty('BOT_STOK_KEMARIN', JSON.stringify(snap));
+  if (!out.length) return '';
+  return [semua ? '⚠️ *Stok di bawah batas* ' + botWita_(Date.now(), 'dd/MM/yyyy') + ' (rekap mingguan)'
+    : '⚠️ *Stok mulai kurang* ' + botWita_(Date.now(), 'dd/MM/yyyy')].concat(out).join('\n');
+}
+
+// "Gudang Banjarmasin" / "Banjarmasin" -> "Banjarmasin" (sama seperti pengelompokan SALDO GUDANG di Portal FTTH).
+function botGudangKey_(g) { return String(g || '').replace(/^\s*gudang\s+/i, '').replace(/\s+/g, ' ').trim(); }
+
+var BOT_BULAN_ = { jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, may: 5, jun: 6, jul: 7, agu: 8, aug: 8, sep: 9, okt: 10, oct: 10, nov: 11, des: 12, dec: 12 };
+
+// BA TRANSAKSI "Tanggal BA" (Date, "24 Okt 2026" atau "24/10/2026") -> 'yyyyMMdd' atau ''.
+function botBaTgl_(v) {
+  if (v instanceof Date) return botWita_(v.getTime(), 'yyyyMMdd');
+  var t = String(v || '').trim(), m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return m[3] + ('0' + m[2]).slice(-2) + ('0' + m[1]).slice(-2);
+  m = t.match(/^(\d{1,2})\s+([A-Za-z]{3})\w*\s+(\d{4})/);
+  var b = m && BOT_BULAN_[m[2].toLowerCase()];
+  return b ? m[3] + ('0' + b).slice(-2) + ('0' + m[1]).slice(-2) : '';
+}
+
+// Rata-rata pemakaian seminggu per 'gudang|designator' (huruf kecil) = BA Ambil 28 hari terakhir / 4.
+function botPakaiMingguan_() {
+  var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('BA TRANSAKSI');
+  if (!sh || sh.getLastRow() < 2) return {};
+  var w = sh.getLastColumn(), v = sh.getRange(1, 1, sh.getLastRow(), w).getValues(), head = v[0].map(function (x) { return String(x).trim(); });
+  var cJ = head.indexOf('Jenis Transaksi'), cG = head.indexOf('Gudang'), cT = head.indexOf('Tanggal BA');
+  var c0 = head.indexOf('FAT'), c1 = head.indexOf('Galvanis'), dari = botWita_(Date.now() - 28 * 864e5, 'yyyyMMdd'), sum = {};
+  if (cJ < 0 || cG < 0 || cT < 0 || c0 < 0 || c1 < c0) return {};
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][cJ]).trim() !== 'Ambil' || botBaTgl_(v[i][cT]) < dari) continue;
+    var g = botGudangKey_(v[i][cG]).toLowerCase();
+    for (var c = c0; c <= c1; c++) {
+      var q = cellNumber_(v[i][c]);
+      if (q) sum[g + '|' + head[c].toLowerCase()] = (sum[g + '|' + head[c].toLowerCase()] || 0) + q;
+    }
+  }
+  Object.keys(sum).forEach(function (k) { sum[k] = Math.round(sum[k] / 4); });
+  return sum;
 }
 
 // batas | batas <material> <angka> | batas hapus <material> | batas awal (kembali ke bawaan)
@@ -1075,7 +1120,7 @@ function botBatasCmd_(arg) {
     props.setProperty('BOT_STOK_MIN', JSON.stringify(b));
   } else if (arg) return 'Contoh: *batas cable 24c 3000*, *batas hapus fat*, *batas awal*, atau *batas* untuk melihat.';
   var ks = Object.keys(b).sort();
-  return ['*Batas stok menipis* (dicek tiap 07:00)'].concat(ks.length ? ks.map(function (k) { return '- ' + k + ': ' + botNum_(b[k]); }) : ['(kosong)']).join('\n');
+  return ['*Batas stok menipis* (rekap tiap Senin 07:00)'].concat(ks.length ? ks.map(function (k) { return '- ' + k + ': ' + botNum_(b[k]); }) : ['(kosong)']).join('\n');
 }
 
 // ---- Rekap mingguan (Senin pagi, ke grup): Senin-Minggu pekan lalu. ----
