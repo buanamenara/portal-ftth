@@ -7162,7 +7162,7 @@ function bagHistory_(scope) {
       jenis: r[BAG_RC.JENIS - 1], kategori: r[BAG_RC.KAT - 1], region: r[BAG_RC.REGION - 1], site: r[BAG_RC.SITE - 1], sow: r[BAG_RC.SOW - 1], mandor: r[BAG_RC.MANDOR - 1],
       items: r[BAG_RC.N - 1], idBa: r[BAG_RC.IDBA - 1] });
   });
-  return out.slice(-100).reverse();
+  return out.reverse(); // semua BA; portal membaginya per halaman
 }
 
 // Kolom "Nomor BA" di ujung kanan BA TRANSAKSI (rumus REKAP BA tidak bergeser). Aman diulang.

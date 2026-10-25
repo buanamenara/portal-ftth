@@ -403,6 +403,16 @@
     button.ghost:hover { border-color: var(--gold); }
     button.small { padding: 5px 10px; font-size: 12px; border: 1px solid var(--gold); background: #fff; color: var(--gold-dark); font-weight: bold; border-radius: 4px; cursor: pointer; }
     button.small:hover { background: #fff4d6; }
+    .pager { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .pager .rows { display: flex; align-items: center; margin: 0; font-size: 13px; color: #555; font-weight: bold; }
+    .pager .rows select { width: auto; padding: 5px 8px; margin-left: 6px; font-size: 13px; }
+    .pager .pages { display: flex; flex-wrap: wrap; }
+    .pager .pages button { min-width: 36px; padding: 6px 10px; margin-left: -1px; border: 1px solid #e3d8ba; background: #fff; color: var(--gold-dark); font-size: 13px; cursor: pointer; }
+    .pager .pages button:first-child { border-radius: 4px 0 0 4px; }
+    .pager .pages button:last-child { border-radius: 0 4px 4px 0; }
+    .pager .pages button:hover:not(:disabled) { background: #fff4d6; }
+    .pager .pages button.on { background: var(--gold); border-color: var(--gold); color: #fff; font-weight: bold; }
+    .pager .pages button:disabled:not(.on) { color: #aaa; cursor: default; }
     button.small:disabled { color: #aaa; border-color: #ddd; cursor: not-allowed; } input[type="file"] { font-family: inherit; font-size: 13px; color: #555; } input[type="file"]::file-selector-button { padding: 7px 14px; font-size: 12px; border: 1px solid var(--gold); background: #fff; color: var(--gold-dark); font-weight: bold; border-radius: 4px; cursor: pointer; margin-right: 10px; transition: background .15s; } input[type="file"]::file-selector-button:hover { background: #fff4d6; }
     .status { margin-top: 18px; padding: 12px; border-radius: 4px; display: none; font-size: 13px; }
     .status.success { background: #e6f4ea; color: #137333; display: block; }
@@ -1210,13 +1220,17 @@
 
     <div class="card wide">
       <h2>BA yang Dibuat</h2>
-      <p class="desc">100 BA terbaru yang dibuat lewat menu ini. Klik Unduh PDF untuk mengambil ulang file-nya.</p>
+      <p class="desc">Semua BA yang dibuat lewat menu ini, terbaru di atas. Klik Unduh PDF untuk mengambil ulang file-nya.</p>
       <div class="row"><div><input type="text" id="bgQ" placeholder="Cari Nomor BA, Site, atau Mandor..." autocomplete="off"></div></div>
       <div id="bgCount" class="hint"></div>
       <table class="hist hist-bg">
         <thead><tr><th>Nomor BA</th><th>Tanggal</th><th>Region</th><th>Name (Site)</th><th>Jenis</th><th>Item</th><th></th></tr></thead>
         <tbody id="bgHistory"><tr><td colspan="7">Memuat...</td></tr></tbody>
       </table>
+      <div class="pager" id="bgPager" style="display:none">
+        <label class="rows">Rows<select id="bgRows"><option>10</option><option selected>20</option><option>50</option><option>100</option></select></label>
+        <div class="pages" id="bgPages"></div>
+      </div>
     </div>
   <div class="card wide" id="masukCard">
     <h2>Masuk Material</h2>
@@ -3297,7 +3311,7 @@
     }
 
     // ================= Warehouse - BA Transaksi (buat BA otomatis) =================
-    var bg = { init: null, loaded: false, sending: false, hist: [], created: null };
+    var bg = { init: null, loaded: false, sending: false, hist: [], created: null, page: 1 };
 
     function bgStatus(cls, htmlText) {
       var el = $('bgStatus');
@@ -3537,7 +3551,12 @@
     function renderBgHistory() {
       var q = $('bgQ').value.trim().toLowerCase();
       var rows = bg.hist.filter(function (h) { return !q || (h.nomor + ' ' + h.site + ' ' + h.mandor).toLowerCase().indexOf(q) > -1; });
-      $('bgCount').textContent = bg.hist.length ? 'Menampilkan ' + rows.length + ' dari ' + bg.hist.length + ' BA.' : '';
+      var per = Number($('bgRows').value) || 20, pages = Math.max(1, Math.ceil(rows.length / per));
+      bg.page = Math.min(Math.max(1, bg.page), pages);
+      var from = (bg.page - 1) * per, total = rows.length;
+      rows = rows.slice(from, from + per);
+      $('bgCount').textContent = !bg.hist.length ? '' : total ? 'Menampilkan ' + (from + 1) + '-' + (from + rows.length) + ' dari ' + total + ' BA' + (total < bg.hist.length ? ' (hasil cari, total ' + bg.hist.length + ')' : '') + '.' : 'Menampilkan 0 dari ' + bg.hist.length + ' BA.';
+      renderBgPager(pages, total);
       var tb = $('bgHistory');
       if (!rows.length) { tb.innerHTML = '<tr><td colspan="7">' + (bg.hist.length ? 'Tidak ada BA yang cocok dengan pencarian.' : 'Belum ada BA yang dibuat lewat menu ini.') + '</td></tr>'; return; }
       tb.innerHTML = rows.map(function (h) {
@@ -3547,9 +3566,23 @@
       tb.querySelectorAll('.dl').forEach(function (b) { b.addEventListener('click', function () { downloadBa(b); }); });
     }
 
+    // Nomor halaman gaya tabel admin: 1 2 3 ... terakhir, dengan tombol << dan >>.
+    function renderBgPager(pages, total) {
+      $('bgPager').style.display = total > 10 ? '' : 'none';
+      var cur = bg.page, nums = [], i;
+      for (i = 1; i <= pages; i++) if (i === 1 || i === pages || Math.abs(i - cur) <= 1 || (cur <= 3 && i <= 3) || (cur >= pages - 2 && i >= pages - 2)) nums.push(i);
+      var html = '<button type="button" data-p="' + (cur - 1) + '"' + (cur === 1 ? ' disabled' : '') + ' title="Sebelumnya">&laquo;</button>';
+      nums.forEach(function (n, k) {
+        if (k && n - nums[k - 1] > 1) html += '<button type="button" disabled>&hellip;</button>';
+        html += '<button type="button" data-p="' + n + '"' + (n === cur ? ' class="on" disabled' : '') + '>' + n + '</button>';
+      });
+      html += '<button type="button" data-p="' + (cur + 1) + '"' + (cur === pages ? ' disabled' : '') + ' title="Berikutnya">&raquo;</button>';
+      $('bgPages').innerHTML = html;
+    }
+
     function loadBgHistory() {
       GSR
-        .withSuccessHandler(function (list) { bg.hist = list || []; renderBgHistory(); })
+        .withSuccessHandler(function (list) { bg.hist = list || []; bg.page = 1; renderBgHistory(); })
         .withFailureHandler(function (err) { $('bgHistory').innerHTML = '<tr><td colspan="7">Gagal memuat: ' + esc(err && err.message ? err.message : err) + '</td></tr>'; })
         .getBaGudangHistory();
     }
@@ -3562,7 +3595,14 @@
     ['bgTanggal', 'bgJam', 'bgMandor', 'bgGudang'].forEach(function (id) { $(id).addEventListener('input', bgUpdateHint); });
     $('bgAddRow').addEventListener('click', bgAddRow);
     $('bgBtn').addEventListener('click', bgCreate);
-    $('bgQ').addEventListener('input', renderBgHistory);
+    $('bgQ').addEventListener('input', function () { bg.page = 1; renderBgHistory(); });
+    $('bgRows').addEventListener('change', function () { bg.page = 1; renderBgHistory(); });
+    $('bgPages').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-p]');
+      if (!b || b.disabled) return;
+      bg.page = Number(b.getAttribute('data-p')); renderBgHistory();
+      $('bgQ').scrollIntoView({ block: 'nearest' });
+    });
 
     // ================= Submit BOQ - Buat BOQ (volume -> file BOQ .xlsx dari template per SOW) =================
     var bq = { init: null, loading: false, sending: false, hist: [], tok: 0, warm: {}, warming: false, abd: null, abdTok: 0 };
