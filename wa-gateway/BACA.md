@@ -36,6 +36,27 @@ Laporan dan foto tetap tersimpan di sheet dan Drive seperti biasa.
 
 `waPcStatus` (Run di editor) menunjukkan kapan laptop terakhir mengambil antrean dan berapa laporan yang menunggu.
 
+## Bot perintah pendek (tanpa AI)
+
+Program yang sama juga menjawab perintah pendek. Tidak ada biaya tambahan dan tidak memakai AI.
+
+- **Di grup REPORT BMI** perintah diawali `!`, supaya obrolan biasa tidak dijawab:
+  `!stok`, `!stok cable`, `!progres jati baru rt 04`, `!rekap`, `!rekap kemarin`, `!rekap 24/10`, `!site jati`, `!bantu`.
+- **Chat pribadi ke nomor laporan** hanya dilayani untuk nomor di Script Property `WA_OWNER`, dan boleh tanpa `!`.
+  Selain perintah di atas ada perintah pribadi: `catat <teks>` (masuk tab CATATAN BOT di spreadsheet Waspang),
+  `catatan [kata]`, `ingatkan 14:30 <teks>`, `ingatkan besok 08:00 <teks>`, `ingatkan 30m <teks>`, `ingatkan 2j <teks>`,
+  dan `pengingat`. Jam pengingat memakai WITA.
+- Pesan dari nomor lain di chat pribadi diabaikan, tidak dibalas.
+
+Cara menyalakan:
+1. Script Properties Waspang: tambahkan `WA_OWNER` = nomor WA pribadimu dengan format `62812xxxx` (beberapa nomor
+   dipisah koma).
+2. Ganti `gateway.mjs` di laptop dengan versi terbaru, lalu tutup jendela hitam dan jalankan `start.bat` lagi.
+   Tautan WhatsApp tidak perlu diulang.
+3. Dari HP pribadimu kirim `bantu` ke nomor laporan, dan kirim `!bantu` di grup.
+
+Pengingat dikirim saat laptop mengambil antrean, jadi bisa terlambat sampai 15 detik, atau lebih lama bila laptop mati.
+
 ## Supaya tetap menyala 24 jam
 
 - Pengaturan daya laptop: **Sleep = Never**, dan saat layar ditutup = **Do nothing**. Sambungkan charger terus.

@@ -2,6 +2,8 @@
 // Laptop menautkan nomor WA laporan sebagai "perangkat tertaut" (seperti WhatsApp Web), lalu setiap beberapa detik
 // mengambil antrean laporan dari Apps Script Waspang (WA_PULL), mengirimnya ke grup, dan melapor balik (WA_DONE).
 // Laptop yang menghubungi Apps Script, bukan sebaliknya: tidak perlu IP publik, port terbuka, atau tunnel.
+// Bot perintah pendek: pesan di grup yang diawali "!" dan chat pribadi ke nomor ini diteruskan ke Apps Script (WA_CMD);
+// Apps Script yang memutuskan perlu dijawab atau tidak (nomor pemilik di Script Property WA_OWNER), laptop mengirim jawabannya.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +28,10 @@ async function connect() {
   const { version } = await fetchLatestBaileysVersion();
   sock = makeWASocket({ version, auth: state, logger: pino({ level: 'silent' }), browser: Browsers.windows('Portal Waspang') });
   sock.ev.on('creds.update', saveCreds);
+  sock.ev.on('messages.upsert', ({ messages, type }) => {
+    if (type !== 'notify') return;
+    for (const m of messages) cmdQueue = cmdQueue.then(() => onMessage(m)).catch(e => log('Perintah gagal:', e.message));
+  });
   let pairingAsked = false;
   sock.ev.on('connection.update', async (u) => {
     if (u.qr) {
@@ -83,9 +89,39 @@ async function api(body) {
   return json;
 }
 
+// Nomor pengirim (628...) dari JID; akun yang tampil sebagai @lid dicari nomornya lewat peta LID Baileys.
+async function phoneOf(jid, alt) {
+  for (const j of [alt, jid]) if (j && /@s\.whatsapp\.net$/.test(j)) return j.split('@')[0].split(':')[0];
+  try {
+    const pn = jid && /@lid$/.test(jid) && await sock.signalRepository.lidMapping.getPNForLID(jid);
+    if (pn) return String(pn).split('@')[0].split(':')[0];
+  } catch (e) {}
+  return '';
+}
+
+let cmdQueue = Promise.resolve();
+async function onMessage(m) {
+  const k = m.key || {}, chat = k.remoteJid || '';
+  if (k.fromMe || !m.message || chat === 'status@broadcast' || /@newsletter$|@broadcast$/.test(chat)) return;
+  // Pesan lama yang ikut terunduh saat menyambung ulang tidak dijawab.
+  if (Date.now() / 1000 - Number(m.messageTimestamp || 0) > 120) return;
+  const msg = m.message.ephemeralMessage ? m.message.ephemeralMessage.message : m.message;
+  const text = String(msg.conversation || (msg.extendedTextMessage && msg.extendedTextMessage.text) || '').trim();
+  if (!text || text.length > 300) return;
+  const isGroup = /@g\.us$/.test(chat);
+  if (isGroup) {
+    if (!/^[!\/]/.test(text) || chat !== await targetJid()) return;
+  }
+  const from = isGroup ? await phoneOf(k.participant, k.participantAlt) : await phoneOf(chat, k.remoteJidAlt);
+  const { reply } = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, text });
+  if (!reply) return;
+  await sock.sendMessage(chat, { text: reply }, { quoted: m });
+  log('Perintah dijawab:', text.split(/\s+/)[0], isGroup ? '(grup)' : '(pribadi ' + from + ')');
+}
+
 // Satu laporan: teks saja, atau file (foto/PDF) dengan keterangan pada file pertama.
 async function sendJob(job) {
-  const jid = await targetJid();
+  const jid = job.to || await targetJid();   // job.to = pengingat bot ke chat pribadi
   const files = job.files || [];
   if (!files.length) {
     await sock.sendMessage(jid, { text: job.text || '' });

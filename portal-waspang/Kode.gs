@@ -81,6 +81,9 @@ function doPost(e) {
       case 'WA_DONE':
         result = waDone_(payload);
         break;
+      case 'WA_CMD':
+        result = waCmd_(payload);
+        break;
       default:
         result = { status: 'error', message: 'Action tidak dikenali: ' + payload.action };
     }
@@ -505,13 +508,14 @@ function waPull_(p) {
   Object.keys(all).filter(function (k) { return k.indexOf(WAQ_PREFIX_) === 0; }).sort().forEach(function (k) {
     var j;
     try { j = JSON.parse(all[k]); } catch (e) { props.deleteProperty(k); return; }
-    if (now - j.t > WAQ_MAX_AGE_MS_) {
+    if (j.due && j.due > now) return;   // pengingat bot yang belum waktunya
+    if (now - Math.max(j.t, j.due || 0) > WAQ_MAX_AGE_MS_) {
       console.error('Laporan WA kedaluwarsa (laptop mati > 3 hari), dibuang: ' + k);
       props.deleteProperty(k);
       return;
     }
     if (j.n && now - j.last < j.n * 60000) return;
-    if (jobs.length < 3) jobs.push({ key: k, text: j.text, files: j.files });
+    if (jobs.length < 3) jobs.push({ key: k, text: j.text, files: j.files, to: j.to || '' });
   });
   return { status: 'success', jobs: jobs };
 }
@@ -550,6 +554,262 @@ function waPcStatus() {
   var waiting = Object.keys(PropertiesService.getScriptProperties().getProperties())
     .filter(function (k) { return k.indexOf(WAQ_PREFIX_) === 0; }).length;
   console.log('Laptop terakhir terlihat: ' + (seen || 'belum pernah / > 6 jam lalu') + '. Laporan menunggu: ' + waiting + '.');
+}
+
+// ===================== BOT WHATSAPP (PERINTAH PENDEK, TANPA AI) =====================
+// Laptop gateway meneruskan pesan yang masuk ke nomor laporan (WA_CMD) dan mengirim balik jawabannya.
+// Di grup laporan perintah diawali "!" (mis. "!stok cable"), supaya obrolan biasa tidak dijawab bot.
+// Di chat pribadi ke nomor laporan, hanya nomor di Script Property WA_OWNER (pisahkan koma, format 62812...) yang
+// dilayani, boleh tanpa "!". Perintah pribadi (catat, ingatkan) hanya untuk WA_OWNER. Pesan dari nomor lain diabaikan.
+// Pengingat masuk ke antrean waq_ yang sama dengan laporan (field to + due), jadi ikut terkirim saat laptop mengambil antrean.
+var BOT_TZ_ = { id: 'GMT+08:00', label: 'WITA' };   // jam pengingat dan "hari ini" mengikuti WITA (Banjarmasin)
+var BOT_NOTE_SHEET_ = 'CATATAN BOT', BOT_NOTE_HEADER_ = ['Timestamp', 'Dari', 'Catatan'];
+
+function waOwner_(from) {
+  var list = String(PropertiesService.getScriptProperties().getProperty('WA_OWNER') || '').split(',')
+    .map(function (s) { return s.replace(/\D/g, ''); }).filter(Boolean);
+  var f = String(from || '').replace(/\D/g, '');
+  return !!f && list.indexOf(f) >= 0;
+}
+
+// p = {secret, chat: 'group' | 'dm', from: nomor pengirim, fromName, jid: tujuan balasan, text}
+// -> {status, reply: teks balasan atau '' (tidak dijawab)}
+function waCmd_(p) {
+  waPcAuth_(p);
+  var owner = waOwner_(p.from), text = String(p.text || '').trim();
+  if (p.chat !== 'group' && !owner) return { status: 'success', reply: '' };
+  if (text.charAt(0) === '!' || text.charAt(0) === '/') text = text.slice(1).trim();
+  else if (p.chat === 'group') return { status: 'success', reply: '' };
+  var m = text.match(/^(\S+)\s*([\s\S]*)$/);
+  if (!m) return { status: 'success', reply: '' };
+  var cmd = m[1].toLowerCase(), arg = m[2].trim(), out;
+  switch (cmd) {
+    case 'bantu': case 'menu': case 'help': case '?':
+      out = botHelp_(owner); break;
+    case 'stok': case 'stock': case 'saldo':
+      out = botStok_(arg); break;
+    case 'progres': case 'progress':
+      out = botProgres_(arg); break;
+    case 'rekap':
+      out = botRekap_(arg); break;
+    case 'site': case 'cari':
+      out = botSite_(arg); break;
+    case 'catat':
+      out = owner ? botCatat_(arg, p.fromName || p.from) : ''; break;
+    case 'catatan':
+      out = owner ? botCatatan_(arg) : ''; break;
+    case 'ingatkan':
+      out = owner ? botIngatkan_(arg, p.jid) : ''; break;
+    case 'pengingat':
+      out = owner ? botPengingat_(p.jid) : ''; break;
+    default:
+      out = p.chat === 'group' ? '' : 'Perintah "' + cmd + '" belum ada. Ketik *bantu* untuk daftar perintah.';
+  }
+  p.cmd = out ? cmd : '';
+  return { status: 'success', reply: out ? waText_('🤖 ' + out).slice(0, 3500) : '' };
+}
+
+function botHelp_(owner) {
+  var g = owner ? '' : '!';
+  var s = ['*AdminSuper*' + (owner ? '' : ' (di grup awali dengan !)'),
+    g + 'stok [material] [gudang] : saldo gudang, mis. ' + g + 'stok kabel batola',
+    g + 'progres <site> : Total vs Plan material, mis. ' + g + 'progres jati baru rt 04',
+    g + 'rekap [kemarin | dd/mm] : Daily Report hari itu',
+    g + 'site <kata> : cari nama site di DATA BASE'];
+  if (owner) s = s.concat(['', '*Pribadi*',
+    'catat <teks> : simpan catatan',
+    'catatan [kata] : 10 catatan terakhir',
+    'ingatkan 14:30 <teks> | besok 08:00 <teks> | 30m <teks> | 2j <teks>',
+    'pengingat : daftar pengingat yang menunggu']);
+  return s.join('\n');
+}
+
+// 69154 -> "69.154", 1.5 -> "1,5"
+function botNum_(n) {
+  var neg = n < 0, a = Math.round(Math.abs(n) * 100) / 100, i = Math.floor(a), d = Math.round((a - i) * 100);
+  return (neg ? '-' : '') + String(i).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (d ? ',' + ('0' + d).slice(-2).replace(/0$/, '') : '');
+}
+
+var BOT_MATERIAL_ALIAS_ = { kabel: 'cable', tiang: 'pole', klem: 'clam', galvanis: 'galvanis', sling: 'sling', hdpe: 'hdpe' };
+var BOT_GUDANG_ALIAS_ = { bjm: 'banjarmasin', ptk: 'pontianak', pml: 'pemalang', tpn: 'tapin', hst: 'hulu sungai', tnl: 'tanah laut', bka: 'barito', batola: 'barito', btk: 'barito' };
+
+// SALDO GUDANG di spreadsheet Portal FTTH (dihitung dari BA TRANSAKSI): judul di baris 3.
+function botStok_(arg) {
+  var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('SALDO GUDANG');
+  if (!sh || sh.getLastRow() < 4) return 'Tab SALDO GUDANG belum berisi data.';
+  var vals = sh.getRange(1, 1, sh.getLastRow(), Math.min(sh.getLastColumn(), 10)).getValues(), hr = -1, c = {};
+  for (var i = 0; i < Math.min(6, vals.length) && hr < 0; i++) {
+    var head = vals[i].map(normHeader_);
+    if (head.indexOf('designator') >= 0 && head.indexOf('saldo') >= 0) {
+      hr = i; c = { g: head.indexOf('gudang'), d: head.indexOf('designator'), s: head.indexOf('saldo') };
+    }
+  }
+  if (hr < 0) return 'Kolom Designator / Saldo tidak ditemukan di SALDO GUDANG.';
+  // Kata yang cocok dengan nama gudang (atau singkatannya) = filter gudang; sisanya harus ada semua di Designator.
+  // Tanpa nama gudang = semua gudang. Kata Indonesia diterjemahkan dulu (kabel -> cable, tiang -> pole).
+  var gudangs = [];
+  for (var r0 = hr + 1; r0 < vals.length; r0++) {
+    var g0 = c.g >= 0 ? String(vals[r0][c.g] || '').trim() : '';
+    if (g0 && gudangs.indexOf(g0) < 0) gudangs.push(g0);
+  }
+  var words = arg.toLowerCase().split(/\s+/).filter(Boolean), area = [], mat = [];
+  words.forEach(function (w) {
+    w = BOT_GUDANG_ALIAS_[w] || w;
+    var hit = w !== 'gudang' && gudangs.filter(function (g) { return g.toLowerCase().indexOf(w) >= 0; });
+    if (hit && hit.length) area = area.concat(hit);
+    else if (w !== 'gudang') mat.push(BOT_MATERIAL_ALIAS_[w] || w);
+  });
+  var by = {}, order = [], minus = false;
+  for (var r = hr + 1; r < vals.length; r++) {
+    var d = String(vals[r][c.d] || '').trim(), sal = cellNumber_(vals[r][c.s]);
+    var g = c.g >= 0 ? String(vals[r][c.g] || '').trim() || '-' : '-';
+    if (!d || (area.length && area.indexOf(g) < 0)) continue;
+    if (mat.length ? !mat.every(function (m) { return d.toLowerCase().indexOf(m) >= 0; }) : !sal) continue;
+    if (!by[g]) { by[g] = []; order.push(g); }
+    by[g].push(d + ': ' + botNum_(sal));
+    if (sal < 0) minus = true;
+  }
+  if (!order.length) return arg ? 'Tidak ada material yang cocok dengan "' + arg + '". Contoh: *stok kabel*, *stok tiang batola*.' : 'Semua saldo gudang 0.';
+  var out = ['*Stok gudang*' + (arg ? ' "' + arg + '"' : '')];
+  order.forEach(function (g) { out.push('', '_' + g + '_'); out = out.concat(by[g]); });
+  if (minus) out.push('', 'Angka minus = barang keluar lebih banyak dari BA Masuk yang tercatat.');
+  return out.join('\n');
+}
+
+// Cocokkan nama site: semua kata di arg harus ada di nama. -> [{name, sow}]
+function botFindSites_(arg) {
+  var words = arg.toLowerCase().split(/\s+/).filter(Boolean), res = getSites_();
+  if (!words.length || res.status !== 'success') return [];
+  return res.sites.filter(function (s) {
+    var n = s.name.toLowerCase();
+    return words.every(function (w) { return n.indexOf(w) >= 0; });
+  });
+}
+
+function botSite_(arg) {
+  if (!arg) return 'Tulis kata yang dicari, mis. *site jati baru*.';
+  var hit = botFindSites_(arg);
+  if (!hit.length) return 'Tidak ada site yang cocok dengan "' + arg + '".';
+  return ['*' + hit.length + ' site cocok*'].concat(hit.slice(0, 15).map(function (s) {
+    return '- ' + s.name + ' (' + s.sow + ')' + (s.region ? ', ' + s.region : '');
+  })).concat(hit.length > 15 ? ['... dan ' + (hit.length - 15) + ' lagi, perjelas kata kuncinya.'] : []).join('\n');
+}
+
+// Total (DAILY REPORT EMR) vs Plan (MASTER BOQ CLUSTER) per kolom material.
+function botProgres_(arg) {
+  if (!arg) return 'Tulis nama site, mis. *progres jati baru rt 04*.';
+  var hit = botFindSites_(arg);
+  if (!hit.length) return 'Tidak ada site yang cocok dengan "' + arg + '". Coba *site ' + arg.split(/\s+/)[0] + '*.';
+  if (hit.length > 3) return botSite_(arg) + '\n\nPerjelas nama site-nya.';
+  var bsh = boqSheet_(), bh = sheetHeader_(bsh), bdata = boqData_(bsh, bh), bmats = materialCols_(bh);
+  var dsh = dailySheet_(), dh = sheetHeader_(dsh), dmats = materialCols_(dh), cTgl = dh.idx['tanggal'];
+  return hit.map(function (s) {
+    var r = boqRowIndex_(bdata, bh, s.name, s.sow), plan = {};
+    if (r >= 0) bmats.forEach(function (m) { var v = cellNumber_(bdata[r][m.idx]); if (v) plan[m.col] = v; });
+    var rows = clusterRows_(dsh, dh, s.name, s.sow), tot = {}, last = '';
+    rows.forEach(function (row) {
+      dmats.forEach(function (m) { var v = cellNumber_(row[m.idx]); if (v) tot[m.col] = (tot[m.col] || 0) + v; });
+      var t = botDmy_(row[cTgl]);
+      if (t && (!last || botDmyKey_(t) > botDmyKey_(last))) last = t;
+    });
+    var cols = MATERIAL_HEADERS_.map(normHeader_).filter(function (k) { return plan[k] || tot[k]; });
+    var head = '*' + s.name + '* (' + s.sow + ')';
+    if (!cols.length) return head + '\nBelum ada BOQ Plan maupun Daily Report.';
+    var lines = cols.map(function (k) {
+      var t = Math.max(0, tot[k] || 0), p = plan[k] || 0, title = MATERIAL_HEADERS_[MATERIAL_HEADERS_.map(normHeader_).indexOf(k)].replace(/\s*\(.*$/, '');
+      return title + ': ' + botNum_(t) + (p ? ' / ' + botNum_(p) + ' (' + Math.round(t / p * 100) + '%)' : ' (tanpa plan)');
+    });
+    return [head, 'Laporan terakhir: ' + (last || '-')].concat(lines).join('\n');
+  }).join('\n\n');
+}
+
+// Isi sel Tanggal (teks dd/mm/yyyy atau Date) -> 'dd/MM/yyyy' ('' bila kosong).
+function botDmy_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, BOT_TZ_.id, 'dd/MM/yyyy');
+  var m = String(v || '').trim().replace(/^'/, '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  return m ? ('0' + m[1]).slice(-2) + '/' + ('0' + m[2]).slice(-2) + '/' + m[3] : '';
+}
+function botDmyKey_(t) { return t.slice(6) + t.slice(3, 5) + t.slice(0, 2); }
+
+function botRekap_(arg) {
+  var now = new Date(), a = arg.toLowerCase(), day;
+  if (!a || a === 'hari ini') day = Utilities.formatDate(now, BOT_TZ_.id, 'dd/MM/yyyy');
+  else if (a === 'kemarin') day = Utilities.formatDate(new Date(now.getTime() - 864e5), BOT_TZ_.id, 'dd/MM/yyyy');
+  else {
+    var m = a.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/);
+    if (!m) return 'Format tanggal: *rekap*, *rekap kemarin*, atau *rekap 24/10*.';
+    day = botDmy_(m[1] + '/' + m[2] + '/' + (m[3] || Utilities.formatDate(now, BOT_TZ_.id, 'yyyy')));
+  }
+  var sh = dailySheet_(), h = sheetHeader_(sh), last = sh.getLastRow();
+  if (last < 2) return 'DAILY REPORT EMR masih kosong.';
+  var c = { t: h.idx['tanggal'], n: h.idx['cluster name'], s: h.idx['sow'], p: h.idx['pic'], r: h.idx['ringkasan pencapaian'], a: h.idx['today activity'] };
+  var width = Math.max(c.t, c.n, c.s, c.p, c.r, c.a) + 1;
+  var rows = sh.getRange(2, 1, last - 1, width).getValues().filter(function (r) {
+    return botDmy_(r[c.t]) === day && !/^(saldo awal|koreksi total)/i.test(String(r[c.a] || ''));
+  });
+  if (!rows.length) return 'Belum ada Daily Report tanggal ' + day + '.';
+  return ['*Rekap Daily Report ' + day + '* (' + rows.length + ' laporan)'].concat(rows.map(function (r, i) {
+    return (i + 1) + '. ' + siteName_(r[c.n]) + (r[c.s] ? ' (' + r[c.s] + ')' : '') + (r[c.p] ? ' - ' + r[c.p] : '') +
+      '\n   ' + (String(r[c.r] || '').trim() || '-').slice(0, 300);
+  })).join('\n');
+}
+
+function botCatat_(arg, from) {
+  if (!arg) return 'Tulis isinya, mis. *catat beli 2 roll cable 24C*.';
+  var sh = sheetWithHeader_(BOT_NOTE_SHEET_, BOT_NOTE_HEADER_);
+  sh.appendRow(rowByHeader_(sheetHeader_(sh), { 'Timestamp': new Date(), 'Dari': String(from || ''), 'Catatan': /^[=+\-@]/.test(arg) ? "'" + arg : arg }));
+  return 'Tercatat (' + (sh.getLastRow() - 1) + ' catatan di tab ' + BOT_NOTE_SHEET_ + ').';
+}
+
+function botCatatan_(arg) {
+  var ss = getWaspangSpreadsheet_(), sh = ss.getSheetByName(BOT_NOTE_SHEET_);
+  if (!sh || sh.getLastRow() < 2) return 'Belum ada catatan. Mulai dengan *catat <teks>*.';
+  var h = sheetHeader_(sh), q = arg.toLowerCase();
+  var rows = sh.getRange(2, 1, sh.getLastRow() - 1, h.width).getValues().filter(function (r) {
+    return !q || String(r[h.idx['catatan']]).toLowerCase().indexOf(q) >= 0;
+  }).slice(-10);
+  if (!rows.length) return 'Tidak ada catatan yang berisi "' + arg + '".';
+  return ['*Catatan' + (q ? ' "' + arg + '"' : ' terakhir') + '*'].concat(rows.map(function (r) {
+    var t = r[h.idx['timestamp']];
+    return '- ' + (t instanceof Date ? Utilities.formatDate(t, BOT_TZ_.id, 'dd/MM HH:mm') + ' ' : '') + r[h.idx['catatan']];
+  })).join('\n');
+}
+
+// "14:30 teks" (hari ini, atau besok bila jamnya sudah lewat), "besok 08:00 teks", "30m teks", "2j teks".
+function botIngatkan_(arg, jid) {
+  if (!jid) return 'Tujuan pengingat tidak diketahui.';
+  var now = Date.now(), due = 0, text = '', m;
+  if ((m = arg.match(/^(\d+)\s*(m|mnt|menit|j|jam)\s+([\s\S]+)$/i))) {
+    due = now + Number(m[1]) * (/^m/i.test(m[2]) ? 60000 : 3600000);
+    text = m[3];
+  } else if ((m = arg.match(/^(besok\s+)?(\d{1,2})[:.](\d{2})\s+([\s\S]+)$/i))) {
+    var hh = Number(m[2]), mm = Number(m[3]);
+    if (hh > 23 || mm > 59) return 'Jamnya tidak valid.';
+    var today = Utilities.formatDate(new Date(now), BOT_TZ_.id, 'yyyy-MM-dd');
+    due = new Date(today + 'T' + ('0' + hh).slice(-2) + ':' + ('0' + mm).slice(-2) + ':00+08:00').getTime();
+    if (m[1] || due <= now) due += 864e5;
+    text = m[4];
+  } else {
+    return 'Contoh: *ingatkan 14:30 rapat Waspang*, *ingatkan besok 08:00 kirim BA*, *ingatkan 30m telpon mandor*.';
+  }
+  if (due - now > 30 * 864e5) return 'Pengingat paling lama 30 hari ke depan.';
+  var key = WAQ_PREFIX_ + due + '_r' + Math.floor(Math.random() * 1e6);
+  PropertiesService.getScriptProperties().setProperty(key, JSON.stringify({
+    t: now, n: 0, last: 0, due: due, to: jid, files: [], text: waText_('⏰ Pengingat: ' + text.trim()).slice(0, 3000)
+  }));
+  var hari = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'][Number(Utilities.formatDate(new Date(due), BOT_TZ_.id, 'u')) - 1];
+  return 'Siap, diingatkan ' + hari + ' ' + Utilities.formatDate(new Date(due), BOT_TZ_.id, 'dd/MM HH:mm') + ' ' + BOT_TZ_.label + '.';
+}
+
+function botPengingat_(jid) {
+  var all = PropertiesService.getScriptProperties().getProperties(), list = [];
+  Object.keys(all).filter(function (k) { return k.indexOf(WAQ_PREFIX_) === 0; }).sort().forEach(function (k) {
+    try { var j = JSON.parse(all[k]); if (j.due && j.to === jid) list.push(j); } catch (e) {}
+  });
+  if (!list.length) return 'Tidak ada pengingat yang menunggu.';
+  return ['*Pengingat menunggu*'].concat(list.map(function (j) {
+    return '- ' + Utilities.formatDate(new Date(j.due), BOT_TZ_.id, 'dd/MM HH:mm') + ' ' + String(j.text).replace(/^⏰ Pengingat: /, '');
+  })).join('\n');
 }
 
 // Satu baris per foto, mengikuti judul kolom tab LOG FOTO WASPANG.
@@ -1358,6 +1618,13 @@ function logWaspang_(p, res) {
       case 'DELETE_BOQ':
         aksi = 'Hapus BOQ Plan (RPM)';
         detail = site(p.name || p.cluster, p.sow) + (res && res.removedRow ? ' - baris dihapus (nama tidak ada di DATA BASE)' : '');
+        break;
+      case 'WA_CMD':
+        // Hanya nama perintah (isi catatan/pengingat tidak dicatat); pesan yang tidak dijawab bot tidak dicatat.
+        if (!p.cmd) return;
+        aksi = 'Perintah Bot WA';
+        detail = p.cmd + (/^(catat|ingatkan)$/.test(p.cmd) ? '' : ' ' + String(p.text || '').replace(/^[!\/]?\S+\s*/, '')).slice(0, 80);
+        who = { name: String(p.fromName || '').trim() || String(p.from || ''), role: p.chat === 'group' ? 'Grup WA' : 'WA pribadi' };
         break;
       case 'SET_TOTAL':
         aksi = 'Edit Total (RPM)';
