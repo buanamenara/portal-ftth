@@ -613,6 +613,12 @@ function waCmd_(p) {
       out = owner ? (botStokMenipis_(true) || 'Tidak ada stok di bawah batas.') : ''; break;
     case 'mingguan':
       out = owner ? botMingguan_(Date.now()) : ''; break;
+    case 'stokwh':
+      out = botStokWh_(p, arg, owner); break;
+    case 'setuju':
+      out = owner && p.chat !== 'group' ? botStokWhSetuju_(p.fromName || p.from) : ''; break;
+    case 'batal':
+      out = owner && p.chat !== 'group' ? botStokWhBatal_() : ''; break;
     case 'pagi':
       out = owner ? botPagi_(Date.now()) : ''; break;
     case 'sore':
@@ -630,7 +636,8 @@ function botHelp_(owner) {
     g + 'stok [material] [gudang] : saldo gudang, mis. ' + g + 'stok kabel batola',
     g + 'progres <site> : Total vs Plan material, mis. ' + g + 'progres jati baru rt 04',
     g + 'rekap [kemarin | dd/mm] : Daily Report hari itu',
-    g + 'site <kata> : cari nama site di DATA BASE'];
+    g + 'site <kata> : cari nama site di DATA BASE',
+    'Kirim Excel stok WH dengan caption ' + g + 'stokwh : dibandingkan dengan SALDO GUDANG, admin yang menyetujui'];
   if (owner) s = s.concat(['', '*Pribadi*',
     'catat <teks> : simpan catatan',
     'catatan [kata] : 10 catatan terakhir',
@@ -640,7 +647,8 @@ function botHelp_(owner) {
     'permit <daftar, satu per baris> : permit untuk Today\'s Plan berikutnya (permit hapus)',
     'tim <nama PIC> <nomor> : tim yang di-tag jam 17:30 (tim, tim hapus <nama>)',
     'pagi | sore | mingguan : lihat contoh pesan jadwal sekarang',
-    'batas <material> <angka> : batas stok menipis untuk rekap Senin, menipis : daftar sekarang']);
+    'batas <material> <angka> : batas stok menipis untuk rekap Senin, menipis : daftar sekarang',
+    'setuju | batal : usulan stok dari Excel WH (!stokwh)']);
   return s.join('\n');
 }
 
@@ -1194,7 +1202,8 @@ function botCekDaily_(payload) {
   PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + now + '_cek', JSON.stringify({ t: now, n: 0, last: 0, files: [], mentions: no ? [no] : [], text: text }));
 }
 
-// ---- BA Ambil baru di BA TRANSAKSI (Portal FTTH) diteruskan ke grup. Dicek paling sering tiap 5 menit dari WA_PULL. ----
+// ---- BA Ambil dan BA Masuk (Pembelian / Transfer) baru di BA TRANSAKSI (Portal FTTH) diteruskan ke grup. Dicek paling sering
+// tiap 5 menit dari WA_PULL. Baris penyesuaian stok opname (ID BA berisi "-OPN-") tidak diteruskan. ----
 function botBaBaru_() {
   var cache = CacheService.getScriptCache();
   if (cache.get('bot_ba_cek')) return;
@@ -1210,19 +1219,213 @@ function botBaBaru_() {
   props.setProperty('BOT_BA_LAST', String(last));
   var ix = function (n) { return head.indexOf(n); }, first = ix('FAT'), lastMat = ix('Galvanis');
   rows.forEach(function (r, i) {
-    if (String(r[ix('Jenis Transaksi')] || '').trim() !== 'Ambil') return;
+    var jenis = String(r[ix('Jenis Transaksi')] || '').trim(), masuk = /^Masuk/.test(jenis);
+    if ((jenis !== 'Ambil' && !masuk) || /-OPN-/.test(String(r[ix('ID BA')] || ''))) return;
     var items = [];
     for (var c = first; c >= 0 && c <= lastMat; c++) { var v = cellNumber_(r[c]); if (v) items.push('- ' + head[c] + ': ' + botNum_(v)); }
     var lain = String(r[ix('Material Lain')] || '').trim();
     if (lain) items.push('- ' + lain);
-    var tgl = r[ix('Tanggal BA')] instanceof Date ? botWita_(r[ix('Tanggal BA')].getTime(), 'dd/MM/yyyy') : String(r[ix('Tanggal BA')] || '');
-    var text = ['📦 *BA Ambil Material* ' + tgl,
+    var tv = r[ix('Tanggal BA')];
+    if (typeof tv === 'number' && tv > 30000) tv = new Date(Date.UTC(1899, 11, 30) + tv * 864e5 - 8 * 3600000);   // nomor seri tanggal (BA Masuk dari portal)
+    var tgl = tv instanceof Date ? botWita_(tv.getTime(), 'dd/MM/yyyy') : String(tv || '');
+    var asal = ix('Gudang Asal') >= 0 ? String(r[ix('Gudang Asal')] || '').trim() : '';
+    var sup = ix('Asal / Supplier') >= 0 ? String(r[ix('Asal / Supplier')] || '').trim() : '';
+    var text = (masuk ? ['📥 *BA Masuk Material* ' + tgl,
+      jenis.replace(/^Masuk - /, '') + ' ke ' + String(r[ix('Gudang')] || '-') + (asal ? ' dari ' + asal : ''),
+      sup ? 'Asal / Supplier: ' + sup : '',
+      r[ix('Mandor / Subcont')] ? 'Penerima: ' + r[ix('Mandor / Subcont')] : ''].filter(String)
+      : ['📦 *BA Ambil Material* ' + tgl,
       'Site: ' + String(r[ix('Name')] || '-') + (r[ix('SOW')] ? ' (' + r[ix('SOW')] + ')' : ''),
-      'Mandor: ' + String(r[ix('Mandor / Subcont')] || '-') + ' | ' + String(r[ix('Gudang')] || '-')]
+      'Mandor: ' + String(r[ix('Mandor / Subcont')] || '-') + ' | ' + String(r[ix('Gudang')] || '-')])
       .concat(items.length ? items : ['- (tanpa material)']).join('\n');
     var t = Date.now() + i;
     props.setProperty(WAQ_PREFIX_ + t + '_ba', JSON.stringify({ t: t, n: 0, last: 0, files: [], mentions: [], text: text.slice(0, 3000) }));
   });
+}
+
+// ---- Excel stok WH dari grup (!stokwh): gateway membaca file .xlsx, Apps Script membandingkan baris "Stock Gudang" dengan
+// SALDO GUDANG dan mengirim usulan selisihnya ke pemilik (WA_OWNER). Baru setelah pemilik membalas "setuju", selisihnya
+// dicatat sebagai satu baris "Masuk - Pembelian" per gudang di BA TRANSAKSI (seperti penyesuaian stok opname). "batal" membuang usulan.
+// Usulan disimpan di Script Property BOT_STOKWH; file berikutnya dalam 12 jam digabung ke usulan yang sama (file EMR + aksesoris).
+var BOT_WH_KODE_ = { 'banjarmasin': 'BJM', 'barito kuala': 'BTK' };
+
+// Judul kolom file WH -> kunci pembanding judul kolom BA TRANSAKSI. "HDPE Ungu (40/34)" -> "hdpe40/34", "JC Inline 48 C" -> "jc48",
+// "Pipa Galvanis" -> "galvanis", "Dead End 144C" -> "deadend144".
+function botWhNorm_(s) {
+  var k = String(s || '').toLowerCase().replace(/\b(inline|ungu|pipa)\b/g, '').replace(/[()\s]/g, '').replace(/(\d)c$/, '$1');
+  return k === 'suspension' ? 'suspension48' : k;
+}
+
+function botWhGudangs_() {
+  var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('SALDO GUDANG'), saldo = {}, names = {};
+  if (!sh || sh.getLastRow() < 4) return { saldo: saldo, names: names };
+  sh.getRange(4, 1, sh.getLastRow() - 3, 7).getValues().forEach(function (r) {
+    var g = botGudangKey_(r[0]), d = String(r[1] || '').trim();
+    if (!g || !d) return;
+    names[g.toLowerCase()] = names[g.toLowerCase()] || g;
+    saldo[g.toLowerCase() + '|' + d] = cellNumber_(r[6]);
+  });
+  return { saldo: saldo, names: names };
+}
+
+// "BANJARMASIN" / ": BARITO KUALA" / "batola" -> kunci gudang di SALDO GUDANG ('banjarmasin') atau ''.
+function botWhGudang_(text, names) {
+  var t = String(text || '').replace(/^[\s:]+/, '').toLowerCase().replace(/^gudang\s+/, '').trim();
+  t = BOT_GUDANG_ALIAS_[t] || t;
+  if (!t) return '';
+  return Object.keys(names).filter(function (k) { return k === t || k.indexOf(t) >= 0 || t.indexOf(k) >= 0; })[0] || '';
+}
+
+// excel = {name, sheets: [{name, rows: [[nomorBaris, [nilai...]]]}]} -> {g: {gudang: {designator: stok}}, skip: [], err: ''}
+function botWhParse_(excel, argGudang, desig, names) {
+  var byKey = {};
+  desig.forEach(function (d) { byKey[botWhNorm_(d)] = d; });
+  var out = { g: {}, skip: [], err: '' }, fileGudang = '';
+  (excel.sheets || []).forEach(function (s) {
+    (s.rows || []).forEach(function (r) {
+      if (/^area$/i.test(String(r[1][0] || '').trim())) fileGudang = fileGudang || botWhGudang_(r[1].slice(1).filter(String)[0], names);
+    });
+  });
+  var gudang = argGudang ? botWhGudang_(argGudang, names) : fileGudang;
+  if (argGudang && !gudang) return { err: 'Gudang "' + argGudang + '" tidak ada di SALDO GUDANG.' };
+  (excel.sheets || []).forEach(function (s) {
+    var rows = s.rows || [], head = null, g = gudang;
+    rows.forEach(function (r) {
+      var v = r[1], first = String(v[0] || '').trim();
+      if (/^area$/i.test(first) && !argGudang) g = botWhGudang_(v.slice(1).filter(String)[0], names) || g;
+      if (v.filter(function (x) { return typeof x === 'string' && byKey[botWhNorm_(x)]; }).length >= 3) head = v;
+      if (!/^stock gudang/i.test(first) || !head) return;
+      if (!g) { out.err = out.err || 'Baris "Area" (nama gudang) tidak ada di file. Kirim ulang dengan caption mis. *!stokwh banjarmasin*.'; return; }
+      var m = out.g[g] = out.g[g] || {};
+      head.forEach(function (h, c) {
+        if (typeof h !== 'string' || !h.trim() || c === 0 || v[c] === '' || v[c] == null) return;
+        var d = byKey[botWhNorm_(h)], q = cellNumber_(v[c]);
+        if (d) m[d] = q;
+        else if (q && !/stock|tanggal|keterangan|status|surat|gdr/i.test(h)) out.skip.push(h.trim() + ' (' + botNum_(q) + ')');
+      });
+    });
+  });
+  if (!Object.keys(out.g).length && !out.err) out.err = 'Baris "Stock Gudang" atau judul kolom material tidak ditemukan di file ' + (excel.name || '') + '.';
+  return out;
+}
+
+function botBaDesig_() {
+  var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('BA TRANSAKSI');
+  var head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (x) { return String(x).trim(); });
+  return { sh: sh, head: head, desig: head.slice(head.indexOf('FAT'), head.indexOf('Galvanis') + 1) };
+}
+
+// Pesan usulan untuk pemilik: selisih per gudang (stok file - saldo portal). ⚠️ = berubah > 30% atau stok file minus.
+function botStokWhUsulan_(pend) {
+  var gs = botWhGudangs_(), out = ['📥 *Usulan stok WH* (' + pend.files.join(', ') + (pend.by.length ? '; dari ' + pend.by.join(', ') : '') + ')'], ada = 0;
+  Object.keys(pend.g).forEach(function (g) {
+    var lines = [], sama = 0;
+    Object.keys(pend.g[g]).forEach(function (d) {
+      var now = gs.saldo[g + '|' + d] || 0, to = pend.g[g][d], diff = Math.round((to - now) * 100) / 100;
+      if (!diff) { sama++; return; }
+      var aneh = to < 0 || (now > 0 && Math.abs(diff) / now > 0.3) || (now <= 0 && to > 0);
+      lines.push('- ' + (aneh ? '⚠️ ' : '') + d + ': ' + botNum_(now) + ' -> ' + botNum_(to) + ' (' + (diff > 0 ? '+' : '') + botNum_(diff) + ')');
+    });
+    ada += lines.length;
+    out.push('', '_' + (gs.names[g] || g) + '_');
+    out = out.concat(lines.length ? lines : ['(tidak ada selisih)']);
+    if (sama) out.push('Sama dengan portal: ' + sama + ' item');
+  });
+  if (pend.skip.length) out.push('', 'Tidak ada kolomnya di portal, dilewati: ' + pend.skip.join(', '));
+  if (!ada) return { ada: 0, text: out.concat(['', 'Stok file sama dengan SALDO GUDANG, tidak ada yang perlu dicatat.']).join('\n') };
+  out.push('', '⚠️ = berubah lebih dari 30%, cek dulu tanggal filenya.', 'Balas *setuju* untuk mencatat penyesuaian ke BA TRANSAKSI, atau *batal*.');
+  return { ada: ada, text: out.join('\n') };
+}
+
+// p.excel dari gateway. Di grup: siapa saja di grup boleh mengirim; usulan selalu dikirim ke pemilik.
+function botStokWh_(p, arg, owner) {
+  if (!p.excel) return 'Kirim file Excel stok WH (.xlsx) dengan caption *!stokwh* (boleh ditambah nama gudang, mis. *!stokwh batola*).';
+  var props = PropertiesService.getScriptProperties(), lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ba = botBaDesig_(), gs = botWhGudangs_();
+    var r = botWhParse_(p.excel, arg, ba.desig, gs.names);
+    if (r.err) return '❌ ' + r.err;
+    var pend = null;
+    try { pend = JSON.parse(props.getProperty('BOT_STOKWH') || 'null'); } catch (e) {}
+    if (!pend || Date.now() - pend.t > 12 * 3600000) pend = { t: Date.now(), files: [], by: [], g: {}, skip: [] };
+    pend.t = Date.now();
+    pend.files.push(String(p.excel.name || 'file.xlsx').slice(0, 60));
+    var who = String(p.fromName || p.from || '').trim();
+    if (who && pend.by.indexOf(who) < 0) pend.by.push(who);
+    Object.keys(r.g).forEach(function (g) {
+      pend.g[g] = pend.g[g] || {};
+      Object.keys(r.g[g]).forEach(function (d) { pend.g[g][d] = r.g[g][d]; });
+    });
+    r.skip.forEach(function (s) { if (pend.skip.indexOf(s) < 0) pend.skip.push(s); });
+    var u = botStokWhUsulan_(pend);
+    if (u.ada) props.setProperty('BOT_STOKWH', JSON.stringify(pend));
+    else props.deleteProperty('BOT_STOKWH');
+    var jml = Object.keys(r.g).map(function (g) { return Object.keys(r.g[g]).length + ' item ' + (gs.names[g] || g); }).join(', ');
+    if (owner && p.chat !== 'group') return u.text;
+    var to = botOwnerJid_();
+    if (to) {
+      var t = Date.now();
+      props.setProperty(WAQ_PREFIX_ + t + '_wh', JSON.stringify({ t: t, n: 0, last: 0, files: [], mentions: [], to: to, text: u.text.slice(0, 3500) }));
+    }
+    return '📥 File stok WH diterima (' + jml + '). ' + (u.ada ? 'Selisihnya dikirim ke admin untuk disetujui.' : 'Sama dengan saldo portal, tidak ada yang berubah.');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// "setuju": selisih dihitung ulang terhadap saldo saat ini, lalu satu baris per gudang ditulis ke BA TRANSAKSI.
+function botStokWhSetuju_(who) {
+  var props = PropertiesService.getScriptProperties(), lock = LockService.getScriptLock(), pend = null;
+  try { pend = JSON.parse(props.getProperty('BOT_STOKWH') || 'null'); } catch (e) {}
+  if (!pend) return 'Tidak ada usulan stok WH yang menunggu.';
+  lock.waitLock(30000);
+  try {
+    var ba = botBaDesig_(), gs = botWhGudangs_(), sh = ba.sh, head = ba.head, ix = function (n) { return head.indexOf(n); };
+    var now = new Date(), tgl = botWita_(now.getTime(), 'yyyy-MM-dd').split('-');
+    var serial = (Date.UTC(+tgl[0], +tgl[1] - 1, +tgl[2]) - Date.UTC(1899, 11, 30)) / 864e5;
+    var ids = sh.getLastRow() > 1 ? sh.getRange(2, ix('ID BA') + 1, sh.getLastRow() - 1, 1).getValues().map(function (r) { return String(r[0]); }) : [];
+    var done = [];
+    Object.keys(pend.g).forEach(function (g) {
+      var row = head.map(function () { return ''; }), n = 0;
+      Object.keys(pend.g[g]).forEach(function (d) {
+        var diff = Math.round((pend.g[g][d] - (gs.saldo[g + '|' + d] || 0)) * 100) / 100;
+        if (diff && ix(d) >= 0) { row[ix(d)] = diff; n++; }
+      });
+      if (!n) return;
+      var kode = BOT_WH_KODE_[g] || g.replace(/[^a-z]/g, '').slice(0, 3).toUpperCase();
+      var id = 'MSK-' + botWita_(now.getTime(), 'yyMMdd') + '-OPN-' + kode, base = id, seq = 1;
+      while (ids.indexOf(id) >= 0) id = base + '-' + (++seq);
+      ids.push(id);
+      var tglTeks = botWita_(now.getTime(), 'dd/MM/yyyy');
+      row[ix('Tanggal BA')] = serial;
+      row[ix('Jam')] = botWita_(now.getTime(), 'HH:mm');
+      row[ix('Jenis Transaksi')] = 'Masuk - Pembelian';
+      row[ix('Mandor / Subcont')] = 'Tim WH';
+      row[ix('Gudang')] = 'Gudang ' + (gs.names[g] || g);
+      row[ix('Keterangan')] = ('Penyesuaian stok ' + tglTeks + ' dari Excel WH via WhatsApp (' + pend.files.join(', ') + ', baris Stock Gudang). Jumlah = stok file dikurangi saldo portal. Disetujui ' + who + ' ' + botWita_(now.getTime(), 'dd/MM/yyyy HH:mm') + ' WITA.').slice(0, 1000);
+      row[ix('ID BA')] = id;
+      row[ix('Waktu Submit')] = now;
+      if (ix('Asal / Supplier') >= 0) row[ix('Asal / Supplier')] = 'Penyesuaian Stok ' + tglTeks + ' (data WH)';
+      var at = sh.getLastRow() + 1;
+      if (at > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 50);
+      sh.getRange(at, 1, 1, head.length).setValues([row]);
+      done.push(id + ' (' + (gs.names[g] || g) + ', ' + n + ' item, baris ' + at + ')');
+    });
+    SpreadsheetApp.flush();
+    props.deleteProperty('BOT_STOKWH');
+    return done.length ? '✅ Penyesuaian dicatat di BA TRANSAKSI:\n' + done.join('\n') + '\nSALDO GUDANG langsung ikut berubah. Batalkan = hapus baris tersebut.'
+      : 'Saldo portal sudah sama dengan file, tidak ada yang dicatat.';
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function botStokWhBatal_() {
+  var props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('BOT_STOKWH')) return 'Tidak ada usulan stok WH yang menunggu.';
+  props.deleteProperty('BOT_STOKWH');
+  return 'Usulan stok WH dibuang, SALDO GUDANG tidak berubah.';
 }
 
 // ---- Alarm gateway mati: trigger tiap 15 menit, email ke Script Property BOT_ALARM_EMAIL (WA ikut mati, jadi lewat email). ----

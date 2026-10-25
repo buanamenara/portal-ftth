@@ -7,9 +7,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, DisconnectReason, Browsers } from '@whiskeysockets/baileys';
+import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, DisconnectReason, Browsers, downloadMediaMessage } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
+import { readXlsx } from './xlsx-mini.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const CFG = JSON.parse(fs.readFileSync(path.join(DIR, 'config.json'), 'utf8'));
@@ -100,20 +101,41 @@ async function phoneOf(jid, alt) {
 }
 
 let cmdQueue = Promise.resolve();
+const stokwhSender = {};
 async function onMessage(m) {
   const k = m.key || {}, chat = k.remoteJid || '';
   if (k.fromMe || !m.message || chat === 'status@broadcast' || /@newsletter$|@broadcast$/.test(chat)) return;
   // Pesan lama yang ikut terunduh saat menyambung ulang tidak dijawab.
   if (Date.now() / 1000 - Number(m.messageTimestamp || 0) > 120) return;
   const msg = m.message.ephemeralMessage ? m.message.ephemeralMessage.message : m.message;
-  const text = String(msg.conversation || (msg.extendedTextMessage && msg.extendedTextMessage.text) || '').trim();
+  const doc = msg.documentMessage || (msg.documentWithCaptionMessage && msg.documentWithCaptionMessage.message.documentMessage);
+  let text = String(msg.conversation || (msg.extendedTextMessage && msg.extendedTextMessage.text) || (doc && doc.caption) || '').trim();
   const isGroup = /@g\.us$/.test(chat);
+  const sender = isGroup ? k.participant || '' : chat;
+  // Excel stok WH: file .xlsx dengan caption "!stokwh". File .xlsx berikutnya dari pengirim yang sama dalam 3 menit
+  // (kirim beberapa file sekaligus, hanya file pertama yang ber-caption) ikut dibaca.
+  const isXlsx = doc && (/\.xlsx$/i.test(doc.fileName || '') || /spreadsheetml/.test(doc.mimetype || ''));
+  if (isXlsx && /^[!\/]?stokwh\b/i.test(text)) stokwhSender[chat + sender] = Date.now();
+  else if (isXlsx && Date.now() - (stokwhSender[chat + sender] || 0) < 180000) text = '!stokwh';
+  if (doc && !(isXlsx && /^[!\/]?stokwh\b/i.test(text))) return;
   if (!text || text.length > (isGroup ? 300 : 4000)) return;   // chat pribadi boleh panjang (daftar permit)
   if (isGroup) {
     if (!/^[!\/]/.test(text) || chat !== await targetJid()) return;
   }
+  let excel;
+  if (doc) {
+    if (Number(doc.fileLength || 0) > 30 * 1024 * 1024) { await sock.sendMessage(chat, { text: 'File terlalu besar (maks 30 MB).' }, { quoted: m }); return; }
+    try {
+      const buf = await downloadMediaMessage(m, 'buffer', {}, { logger: pino({ level: 'silent' }), reuploadRequest: sock.updateMediaMessage });
+      excel = { name: String(doc.fileName || 'file.xlsx').slice(0, 80), sheets: readXlsx(buf) };
+    } catch (e) {
+      log('Excel gagal dibaca:', e.message);
+      await sock.sendMessage(chat, { text: 'File Excel gagal dibaca: ' + e.message }, { quoted: m });
+      return;
+    }
+  }
   const from = isGroup ? await phoneOf(k.participant, k.participantAlt) : await phoneOf(chat, k.remoteJidAlt);
-  const { reply } = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, text });
+  const { reply } = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, text, excel });
   if (!reply) return;
   await sock.sendMessage(chat, { text: reply }, { quoted: m });
   log('Perintah dijawab:', text.split(/\s+/)[0], isGroup ? '(grup)' : '(pribadi ' + from + ')');
