@@ -107,8 +107,8 @@ async function onMessage(m) {
   if (Date.now() / 1000 - Number(m.messageTimestamp || 0) > 120) return;
   const msg = m.message.ephemeralMessage ? m.message.ephemeralMessage.message : m.message;
   const text = String(msg.conversation || (msg.extendedTextMessage && msg.extendedTextMessage.text) || '').trim();
-  if (!text || text.length > 300) return;
   const isGroup = /@g\.us$/.test(chat);
+  if (!text || text.length > (isGroup ? 300 : 4000)) return;   // chat pribadi boleh panjang (daftar permit)
   if (isGroup) {
     if (!/^[!\/]/.test(text) || chat !== await targetJid()) return;
   }
@@ -119,12 +119,30 @@ async function onMessage(m) {
   log('Perintah dijawab:', text.split(/\s+/)[0], isGroup ? '(grup)' : '(pribadi ' + from + ')');
 }
 
+// Tag anggota grup: Apps Script menulis "@628..." di teks dan nomornya di mentions. Grup yang memakai LID butuh
+// JID @lid, jadi nomor dicari LID-nya lewat peta Baileys; bila tidak ketemu dipakai JID nomor biasa.
+async function withMentions(text, nums) {
+  const mentions = [];
+  for (const n of nums || []) {
+    let jid = n + '@s.whatsapp.net';
+    try {
+      const lid = await sock.signalRepository.lidMapping.getLIDForPN(jid);
+      if (lid) {
+        jid = String(lid).split(':')[0].replace(/@.*$/, '') + '@lid';
+        text = text.split('@' + n).join('@' + jid.split('@')[0]);
+      }
+    } catch (e) {}
+    mentions.push(jid);
+  }
+  return mentions.length ? { text, mentions } : { text };
+}
+
 // Satu laporan: teks saja, atau file (foto/PDF) dengan keterangan pada file pertama.
 async function sendJob(job) {
   const jid = job.to || await targetJid();   // job.to = pengingat bot ke chat pribadi
   const files = job.files || [];
   if (!files.length) {
-    await sock.sendMessage(jid, { text: job.text || '' });
+    await sock.sendMessage(jid, await withMentions(job.text || '', job.mentions));
     return;
   }
   for (let i = 0; i < files.length; i++) {

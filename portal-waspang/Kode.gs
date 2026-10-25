@@ -504,6 +504,7 @@ function waJob_(key) {
 function waPull_(p) {
   waPcAuth_(p);
   CacheService.getScriptCache().put('wa_pc_seen', new Date().toISOString(), 21600);
+  try { botJadwal_(); } catch (e) { console.error('Jadwal bot: ' + e); }
   var props = PropertiesService.getScriptProperties(), all = props.getProperties(), now = Date.now(), jobs = [];
   Object.keys(all).filter(function (k) { return k.indexOf(WAQ_PREFIX_) === 0; }).sort().forEach(function (k) {
     var j;
@@ -515,7 +516,7 @@ function waPull_(p) {
       return;
     }
     if (j.n && now - j.last < j.n * 60000) return;
-    if (jobs.length < 3) jobs.push({ key: k, text: j.text, files: j.files, to: j.to || '' });
+    if (jobs.length < 3) jobs.push({ key: k, text: j.text, files: j.files, to: j.to || '', mentions: j.mentions || [] });
   });
   return { status: 'success', jobs: jobs };
 }
@@ -602,6 +603,14 @@ function waCmd_(p) {
       out = owner ? botIngatkan_(arg, p.jid) : ''; break;
     case 'pengingat':
       out = owner ? botPengingat_(p.jid) : ''; break;
+    case 'permit':
+      out = owner ? botPermit_(arg) : ''; break;
+    case 'tim':
+      out = owner ? botTimCmd_(arg) : ''; break;
+    case 'pagi':
+      out = owner ? botPagi_(Date.now()) : ''; break;
+    case 'sore':
+      out = owner ? botSore_(Date.now()).text : ''; break;
     default:
       out = p.chat === 'group' ? '' : 'Perintah "' + cmd + '" belum ada. Ketik *bantu* untuk daftar perintah.';
   }
@@ -620,7 +629,11 @@ function botHelp_(owner) {
     'catat <teks> : simpan catatan',
     'catatan [kata] : 10 catatan terakhir',
     'ingatkan 14:30 <teks> | besok 08:00 <teks> | 30m <teks> | 2j <teks>',
-    'pengingat : daftar pengingat yang menunggu']);
+    'pengingat : daftar pengingat yang menunggu',
+    '', '*Jadwal grup* (07:00 Today\'s Plan, 17:30 pengingat laporan)',
+    'permit <daftar, satu per baris> : permit untuk Today\'s Plan berikutnya (permit hapus)',
+    'tim <nama PIC> <nomor> : tim yang di-tag jam 17:30 (tim, tim hapus <nama>)',
+    'pagi | sore : lihat contoh pesan jadwal sekarang']);
   return s.join('\n');
 }
 
@@ -810,6 +823,167 @@ function botPengingat_(jid) {
   return ['*Pengingat menunggu*'].concat(list.map(function (j) {
     return '- ' + Utilities.formatDate(new Date(j.due), BOT_TZ_.id, 'dd/MM HH:mm') + ' ' + String(j.text).replace(/^⏰ Pengingat: /, '');
   })).join('\n');
+}
+
+// ===================== JADWAL BOT: TODAY'S PLAN 07:00 DAN PENGINGAT LAPORAN 17:30 (WITA) =====================
+// Tanpa trigger Apps Script: tiap kali laptop mengambil antrean (WA_PULL, tiap 15 detik), jadwal dicek. Begitu lewat jamnya
+// (dan belum lewat batas), pesan dibuat dari data terbaru lalu masuk antrean ke grup. Laptop mati sampai lewat batas = hari
+// itu dilewati. Script Properties (opsional): BOT_JADWAL = off (matikan), BOT_PIC (bawaan Rama), BOT_REGION (bawaan Banjarmasin).
+// Permit dikirim pemilik lewat chat pribadi ("permit" + daftar) dan dipakai di Today's Plan berikutnya.
+// Nomor WA tim untuk di-tag disimpan lewat perintah "tim <nama> <nomor>" (nama = PIC di Daily Report).
+var BOT_JADWAL_ = [
+  { id: 'PAGI', from: '07:00', until: '10:00', build: function (now) { return { text: botPagi_(now), mentions: [] }; } },
+  { id: 'SORE', from: '17:30', until: '19:30', build: function (now) { return botSore_(now); } }
+];
+var BOT_GARIS_ = new Array(38).join('≡');
+
+function botWita_(ms, fmt) { return Utilities.formatDate(new Date(ms), BOT_TZ_.id, fmt); }
+
+function botJadwal_() {
+  var props = PropertiesService.getScriptProperties();
+  if (String(props.getProperty('BOT_JADWAL') || '').trim().toLowerCase() === 'off') return;
+  var now = Date.now(), hm = botWita_(now, 'HH:mm'), today = botWita_(now, 'yyyyMMdd');
+  BOT_JADWAL_.forEach(function (j) {
+    if (hm < j.from || hm >= j.until || props.getProperty('BOT_SENT_' + j.id) === today) return;
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(5000)) return;
+    try {
+      if (props.getProperty('BOT_SENT_' + j.id) === today) return;
+      props.setProperty('BOT_SENT_' + j.id, today);   // dulu ditandai, supaya tidak terkirim dua kali bila gagal di tengah
+      var msg = j.build(now);
+      if (j.id === 'PAGI') Object.keys(props.getProperties()).forEach(function (k) {   // permit hari yang sudah lewat
+        if (k.indexOf('BOT_PERMIT_') === 0 && k.slice(11) < today) props.deleteProperty(k);
+      });
+      if (!msg || !msg.text) return;
+      props.setProperty(WAQ_PREFIX_ + now + '_' + j.id.toLowerCase(), JSON.stringify({
+        t: now, n: 0, last: 0, files: [], mentions: msg.mentions || [], text: String(msg.text).slice(0, 6000)
+      }));
+    } catch (e) {
+      console.error('Jadwal bot ' + j.id + ': ' + e);
+    } finally {
+      lock.releaseLock();
+    }
+  });
+}
+
+// Baris Daily Report asli (tanpa Saldo awal / Koreksi Total) -> [{day: 'dd/MM/yyyy', site, pic, act}]
+function botDailyRows_() {
+  var sh = dailySheet_(), h = sheetHeader_(sh), last = sh.getLastRow();
+  if (last < 2) return [];
+  var c = { ts: h.idx['timestamp'], t: h.idx['tanggal'], n: h.idx['cluster name'], p: h.idx['pic'], a: h.idx['today activity'] };
+  var width = Math.max(c.ts, c.t, c.n, c.p, c.a) + 1;
+  return sh.getRange(2, 1, last - 1, width).getValues().filter(function (r) {
+    return !/^(saldo awal|koreksi total)/i.test(String(r[c.a] || ''));
+  }).map(function (r) {
+    return { day: botDmy_(r[c.t]) || botDmy_(r[c.ts]), sent: botDmy_(r[c.ts]), site: siteName_(r[c.n]), pic: String(r[c.p] || '').trim(), act: String(r[c.a] || '') };
+  });
+}
+
+// "- Tanam tiang\n- Pulling cable Line B\n\nObstacle ..." -> ['Planting Pole', 'Pulling Cable Line B']
+function botAktivitas_(text) {
+  var out = [];
+  String(text || '').split(/\r?\n/).some(function (l) {
+    l = l.replace(/^[\s\-•*]+/, '').trim();
+    if (/^(obstacle|kendala)/i.test(l)) return true;
+    if (!l) return false;
+    var line = (l.match(/\bline\s+([a-d])\b/i) || [])[1];
+    if (/tanam|penanaman|planting/i.test(l)) l = 'Planting Pole';
+    else if (/digging|galian/i.test(l)) l = 'Digging Pole';
+    else if (/pulling|tarik(an)?\s*kabel|penarikan/i.test(l)) l = 'Pulling Cable' + (line ? ' Line ' + line.toUpperCase() : '');
+    else if (/(instal+|pemasangan|pasang)\s*acc/i.test(l)) l = 'Install Accessories';
+    else l = l.charAt(0).toUpperCase() + l.slice(1);
+    if (out.indexOf(l) < 0) out.push(l);
+    return false;
+  });
+  return out;
+}
+
+// Tanggal Today's Plan yang memakai permit yang dikirim sekarang: sebelum 07:00 = hari ini, sesudahnya = besok.
+function botPermitKey_(now) {
+  return 'BOT_PERMIT_' + botWita_(botWita_(now, 'HH:mm') < '07:00' ? now : now + 864e5, 'yyyyMMdd');
+}
+
+function botPagi_(now) {
+  var props = PropertiesService.getScriptProperties(), todayKey = botWita_(now, 'yyyyMMdd');
+  var rows = botDailyRows_().filter(function (r) { return r.day && botDmyKey_(r.day) < todayKey; });
+  var lastDay = rows.reduce(function (m, r) { var k = botDmyKey_(r.day); return k > m ? k : m; }, '');
+  var sites = [], acts = {};
+  rows.forEach(function (r) {
+    if (botDmyKey_(r.day) !== lastDay || !r.site) return;
+    if (!acts[r.site]) { acts[r.site] = []; sites.push(r.site); }
+    botAktivitas_(r.act).forEach(function (a) { if (acts[r.site].indexOf(a) < 0) acts[r.site].push(a); });
+  });
+  var permit = props.getProperty('BOT_PERMIT_' + todayKey) || '';
+  var s = ['» *TODAY\'S PLAN*  : ' + botWita_(now, 'dd/MM/yyyy'),
+    '» *PIC*  :  ' + (props.getProperty('BOT_PIC') || 'Rama'),
+    '» *REGION*  : ' + (props.getProperty('BOT_REGION') || 'Banjarmasin'),
+    BOT_GARIS_, '*Permit*', 'Cluster :'].concat(permit ? permit.split('\n') : ['-']);
+  s.push('', 'Implementasi');
+  if (!sites.length) s.push('-');
+  sites.forEach(function (n) {
+    s.push('- ' + n);
+    (acts[n].length ? acts[n] : ['-']).forEach(function (a) { s.push('-' + a); });
+  });
+  s.push(BOT_GARIS_, 'TERIMAKASIH');
+  return s.join('\n');
+}
+
+function botTim_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('BOT_TIM') || '{}'); } catch (e) { return {}; }
+}
+
+// 17:30: tim yang belum mengirim Daily Report hari ini di-tag; yang sudah disebut namanya.
+function botSore_(now) {
+  var day = botWita_(now, 'dd/MM/yyyy'), tim = botTim_();
+  var pics = botDailyRows_().filter(function (r) { return r.day === day || r.sent === day; })
+    .map(function (r) { return r.pic.toLowerCase(); }).filter(Boolean);
+  var sudah = [], belum = [];
+  Object.keys(tim).sort().forEach(function (n) {
+    var k = n.toLowerCase();
+    (pics.some(function (p) { return p.indexOf(k) >= 0 || k.indexOf(p) >= 0; }) ? sudah : belum).push(n);
+  });
+  var s = ['⏰ *Pengingat Laporan Harian* ' + day, 'Mohon kirim Daily Report hari ini lewat Portal Waspang sebelum pulang.'];
+  if (belum.length) s.push('', 'Belum laporan: ' + belum.map(function (n) { return '@' + tim[n]; }).join(' '));
+  if (sudah.length) s.push('Sudah laporan: ' + sudah.join(', ') + ' 🙏');
+  if (Object.keys(tim).length && !belum.length) s.push('', 'Semua tim sudah laporan hari ini, terima kasih 🙏');
+  return { text: s.join('\n'), mentions: belum.map(function (n) { return tim[n]; }) };
+}
+
+// permit <daftar, satu cluster per baris> | permit (lihat) | permit hapus
+function botPermit_(arg) {
+  var now = Date.now(), key = botPermitKey_(now), props = PropertiesService.getScriptProperties();
+  var tgl = key.slice(-2) + '/' + key.slice(-4, -2) + '/' + key.slice(-8, -4);
+  if (/^hapus$/i.test(arg)) { props.deleteProperty(key); return 'Permit untuk Today\'s Plan ' + tgl + ' dihapus.'; }
+  if (!arg) {
+    var cur = props.getProperty(key);
+    return cur ? '*Permit ' + tgl + '*\n' + cur : 'Belum ada permit untuk ' + tgl + '. Kirim *permit* diikuti daftar cluster, satu per baris.';
+  }
+  var lines = arg.split(/\r?\n/).map(function (l) {
+    return l.replace(/\t+/g, '  ').replace(/^[\s\-•*]+/, '').replace(/\s{3,}/g, '  ').trim();
+  }).filter(function (l) { return l && !/^cluster\s*:?$/i.test(l); });
+  if (!lines.length) return 'Daftar permit kosong.';
+  props.setProperty(key, lines.map(function (l) { return '- ' + l; }).join('\n').slice(0, 6000));
+  return 'Siap, ' + lines.length + ' permit masuk Today\'s Plan ' + tgl + ' jam 07:00.';
+}
+
+// tim | tim <nama> <nomor> | tim hapus <nama>
+function botTimCmd_(arg) {
+  var props = PropertiesService.getScriptProperties(), tim = botTim_(), m;
+  if ((m = arg.match(/^hapus\s+(.+)$/i))) {
+    var hit = Object.keys(tim).filter(function (n) { return n.toLowerCase() === m[1].trim().toLowerCase(); })[0];
+    if (!hit) return 'Nama "' + m[1].trim() + '" tidak ada di daftar tim.';
+    delete tim[hit];
+  } else if ((m = arg.match(/^(.+?)\s+(\+?[\d\s\-]{9,})$/))) {
+    var no = m[2].replace(/\D/g, '').replace(/^0/, '62');
+    if (!/^62\d{8,13}$/.test(no)) return 'Nomor tidak valid. Contoh: *tim Nazar 081234567890*.';
+    tim[m[1].trim()] = no;
+  } else if (arg) {
+    return 'Contoh: *tim Nazar 081234567890*, *tim hapus Nazar*, atau *tim* untuk melihat daftar.';
+  }
+  if (arg) props.setProperty('BOT_TIM', JSON.stringify(tim));
+  var names = Object.keys(tim).sort();
+  if (!names.length) return 'Daftar tim kosong. Tambah dengan *tim <nama PIC> <nomor WA>*.';
+  return ['*Tim yang di-tag jam 17:30*'].concat(names.map(function (n) { return '- ' + n + ': ' + tim[n]; })).join('\n');
 }
 
 // Satu baris per foto, mengikuti judul kolom tab LOG FOTO WASPANG.
@@ -1623,7 +1797,7 @@ function logWaspang_(p, res) {
         // Hanya nama perintah (isi catatan/pengingat tidak dicatat); pesan yang tidak dijawab bot tidak dicatat.
         if (!p.cmd) return;
         aksi = 'Perintah Bot WA';
-        detail = p.cmd + (/^(catat|ingatkan)$/.test(p.cmd) ? '' : ' ' + String(p.text || '').replace(/^[!\/]?\S+\s*/, '')).slice(0, 80);
+        detail = p.cmd + (/^(catat|ingatkan|permit|tim)$/.test(p.cmd) ? '' : ' ' + String(p.text || '').replace(/^[!\/]?\S+\s*/, '')).slice(0, 80);
         who = { name: String(p.fromName || '').trim() || String(p.from || ''), role: p.chat === 'group' ? 'Grup WA' : 'WA pribadi' };
         break;
       case 'SET_TOTAL':

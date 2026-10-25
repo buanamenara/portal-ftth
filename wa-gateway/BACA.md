@@ -74,3 +74,15 @@ Pengingat dikirim saat laptop mengambil antrean, jadi bisa terlambat sampai 15 d
 - Program ini memakai jalur tidak resmi (seperti Fonnte), jadi tetap ada risiko nomor diblokir WhatsApp. Pakai nomor
   khusus laporan, bukan nomor pribadi.
 - Folder `auth` berisi kunci tautan WhatsApp dan `config.json` berisi kata sandi: jangan dibagikan atau diunggah.
+
+## Jadwal otomatis grup (07:00 dan 17:30 WITA)
+
+- **07:00 Today's Plan**: PIC, region, daftar permit (kalau ada), dan Implementasi = site dan aktivitas dari Daily Report hari kerja terakhir.
+- **17:30 Pengingat laporan harian**: anggota tim yang belum mengirim Daily Report hari ini di-tag, yang sudah disebut namanya.
+- Jadwal dicek setiap kali laptop mengambil antrean, jadi laptop harus menyala. Kalau laptop mati sampai 10:00 (pagi) atau 19:30 (sore), jadwal hari itu dilewati.
+- Perintah pribadi (hanya WA_OWNER):
+  - `permit` diikuti daftar cluster, satu per baris. Dipakai di Today's Plan berikutnya. `permit hapus` untuk membatalkan.
+  - `tim Nazar 0812...` untuk menyimpan nomor yang di-tag. Nama harus sama dengan PIC di Daily Report.
+  - `pagi` / `sore` untuk melihat contoh pesan sekarang.
+- Script Properties opsional: `BOT_JADWAL=off` (matikan jadwal), `BOT_PIC`, `BOT_REGION`.
+- Fitur tag dan daftar permit yang panjang butuh `gateway.mjs` versi terbaru di laptop.
