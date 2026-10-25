@@ -1615,7 +1615,7 @@ function botBa_(arg) {
 // panduan : PDF panduan perintah untuk tim (tanpa perintah admin) dikirim lewat antrean gateway ke chat yang meminta.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-10-26';
+var BOT_PANDUAN_VERSI_ = '2026-10-26-2';
 var BOT_PANDUAN_TIM_ = [
   ['!bantu', 'Daftar perintah singkat di WhatsApp.', '!bantu'],
   ['!panduan', 'Kirim PDF panduan ini ke grup.', '!panduan'],
@@ -1655,7 +1655,8 @@ function botPanduanPdf_() {
   BOT_PANDUAN_JADWAL_.forEach(function (r) {
     h.push('<tr><td style="' + td + 'font-weight:bold;width:28%;">' + r[0] + '</td><td style="' + td + '">' + r[1] + '</td></tr>');
   });
-  h.push('</table><p style="color:#5b6475;">Bot tidak menjawab kalau laptop gateway mati. Pertanyaan lain hubungi admin.</p></body></html>');
+  h.push('</table><p style="color:#5b6475;">Bot tidak menjawab kalau laptop gateway mati. Pertanyaan lain hubungi admin.</p>',
+    '<p style="text-align:center;color:#5b6475;font-size:8.5pt;margin-top:14px;">© 2026 Rama · All Rights Reserved</p></body></html>');
   return Utilities.newBlob(h.join(''), 'text/html', 'panduan.html').getAs('application/pdf').setName('Panduan Bot AdminSuper ' + BOT_PANDUAN_VERSI_ + '.pdf');
 }
 
