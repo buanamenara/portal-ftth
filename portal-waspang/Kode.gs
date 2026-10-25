@@ -1037,9 +1037,9 @@ function botBatas_() {
 
 // Gudang yang dicek: Script Property BOT_STOK_GUDANG (bawaan "banjarmasin"; pisahkan koma).
 // Senin dan perintah "menipis" (semua = true): daftar lengkap material di bawah batas.
-// Hari lain (semua = false): hanya material yang stoknya BERKURANG sejak pengecekan kemarin (BOT_STOK_KEMARIN) dan sudah
-// di bawah rata-rata pemakaian seminggu (BA Ambil 4 minggu terakhir / 4), artinya stok tidak cukup untuk seminggu.
-// Aksesoris (BOT_AKSESORIS_) lebih cepat: alarm bila stok kurang dari 2 minggu pemakaian, dan ikut rekap Senin walau tanpa batas.
+// Hari lain (semua = false): hanya material yang stoknya BERKURANG sejak pengecekan kemarin (BOT_STOK_KEMARIN) dan ada di
+// bawah standar (batas: semua kabel 3000, tiang 30, ...). Aksesoris (BOT_AKSESORIS_) juga dianggap kurang bila stoknya
+// tidak cukup 2 minggu pemakaian (BA Ambil 4 minggu terakhir / 4 x 2), walau belum diberi batas.
 var BOT_AKSESORIS_ = /suspension|pole clam|dead end|slack hanger|plat belt|stopping|buldogrip|sling|galvanis|helical|stell clamp/i;
 
 function botStokMenipis_(semua) {
@@ -1058,20 +1058,17 @@ function botStokMenipis_(semua) {
     if (!d || !gud.some(function (x) { return g.toLowerCase().indexOf(x) >= 0; })) return;
     var id = botGudangKey_(g).toLowerCase() + '|' + d.toLowerCase(), tempat = ' (' + botGudangKey_(g) + '): ';
     snap[id] = sal;
-    var acc = BOT_AKSESORIS_.test(d), minggu = acc ? 2 : 1, kurang = avg[id] && sal < avg[id] * minggu;
-    var pakai = avg[id] ? ', pakai ' + botNum_(avg[id]) + '/minggu' : '';
-    if (semua) {
-      var k = keys.filter(function (k) { return d.toLowerCase().indexOf(k) >= 0; })[0];
-      if (k && sal < batas[k]) out.push('- ' + d + tempat + (sal <= 0 ? '*HABIS* ' : '') + botNum_(sal) + ' (batas ' + botNum_(batas[k]) + pakai + ')');
-      else if (acc && kurang) out.push('- ' + d + tempat + (sal <= 0 ? '*HABIS* ' : '') + botNum_(sal) + ' (kurang dari 2 minggu' + pakai + ')');
-    } else if (id in kemarin && sal < kemarin[id] && kurang) {
-      out.push('- ' + d + tempat + botNum_(kemarin[id]) + ' -> ' + (sal <= 0 ? '*HABIS* ' : '') + botNum_(sal) + ' (tidak cukup ' + minggu + ' minggu' + pakai + ')');
-    }
+    var k = keys.filter(function (k) { return d.toLowerCase().indexOf(k) >= 0; })[0], acc = BOT_AKSESORIS_.test(d);
+    var bawahBatas = k && sal < batas[k], kurang2mg = acc && avg[id] && sal < avg[id] * 2;
+    if (!bawahBatas && !kurang2mg) return;
+    var why = ' (' + (bawahBatas ? 'batas ' + botNum_(batas[k]) : 'kurang dari 2 minggu') + (avg[id] ? ', pakai ' + botNum_(avg[id]) + '/minggu' : '') + ')';
+    if (semua) out.push('- ' + d + tempat + (sal <= 0 ? '*HABIS* ' : '') + botNum_(sal) + why);
+    else if (id in kemarin && sal < kemarin[id]) out.push('- ' + d + tempat + botNum_(kemarin[id]) + ' -> ' + (sal <= 0 ? '*HABIS* ' : '') + botNum_(sal) + why);
   });
   if (!semua) props.setProperty('BOT_STOK_KEMARIN', JSON.stringify(snap));
   if (!out.length) return '';
   return [semua ? '⚠️ *Stok di bawah batas* ' + botWita_(Date.now(), 'dd/MM/yyyy') + ' (rekap mingguan)'
-    : '⚠️ *Stok mulai kurang* ' + botWita_(Date.now(), 'dd/MM/yyyy')].concat(out).join('\n');
+    : '⚠️ *Stok berkurang, di bawah standar* ' + botWita_(Date.now(), 'dd/MM/yyyy')].concat(out).join('\n');
 }
 
 // "Gudang Banjarmasin" / "Banjarmasin" -> "Banjarmasin" (sama seperti pengelompokan SALDO GUDANG di Portal FTTH).
