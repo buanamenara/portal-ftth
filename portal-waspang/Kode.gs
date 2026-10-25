@@ -607,6 +607,12 @@ function waCmd_(p) {
       out = owner ? botPermit_(arg) : ''; break;
     case 'tim':
       out = owner ? botTimCmd_(arg) : ''; break;
+    case 'batas':
+      out = owner ? botBatasCmd_(arg) : ''; break;
+    case 'stokmin': case 'menipis':
+      out = owner ? (botStokMenipis_() || 'Tidak ada stok di bawah batas.') : ''; break;
+    case 'mingguan':
+      out = owner ? botMingguan_(Date.now()) : ''; break;
     case 'pagi':
       out = owner ? botPagi_(Date.now()) : ''; break;
     case 'sore':
@@ -615,7 +621,7 @@ function waCmd_(p) {
       out = p.chat === 'group' ? '' : 'Perintah "' + cmd + '" belum ada. Ketik *bantu* untuk daftar perintah.';
   }
   p.cmd = out ? cmd : '';
-  return { status: 'success', reply: out ? waText_((/^(pagi|sore)$/.test(cmd) ? '' : '🤖 ') + out).slice(0, 3500) : '' };   // contoh pesan jadwal tampil persis seperti di grup
+  return { status: 'success', reply: out ? waText_((/^(pagi|sore|mingguan)$/.test(cmd) ? '' : '🤖 ') + out).slice(0, 3500) : '' };   // contoh pesan jadwal tampil persis seperti di grup
 }
 
 function botHelp_(owner) {
@@ -633,7 +639,8 @@ function botHelp_(owner) {
     '', '*Jadwal grup* (07:00 Today\'s Plan, 17:30 pengingat laporan)',
     'permit <daftar, satu per baris> : permit untuk Today\'s Plan berikutnya (permit hapus)',
     'tim <nama PIC> <nomor> : tim yang di-tag jam 17:30 (tim, tim hapus <nama>)',
-    'pagi | sore : lihat contoh pesan jadwal sekarang']);
+    'pagi | sore | mingguan : lihat contoh pesan jadwal sekarang',
+    'batas <material> <angka> : batas stok menipis (dikirim ke sini tiap 07:00), menipis : cek sekarang']);
   return s.join('\n');
 }
 
@@ -833,7 +840,9 @@ function botPengingat_(jid) {
 // Nomor WA tim untuk di-tag disimpan lewat perintah "tim <nama> <nomor>" (nama = PIC di Daily Report).
 var BOT_JADWAL_ = [
   { id: 'PAGI', from: '07:00', until: '10:00', build: function (now) { return { text: botPagi_(now), mentions: [] }; } },
-  { id: 'SORE', from: '17:30', until: '19:30', build: function (now) { return botSore_(now); } }
+  { id: 'SORE', from: '17:30', until: '19:30', build: function (now) { return botSore_(now); } },
+  { id: 'STOK', from: '07:00', until: '10:00', build: function (now) { return { text: botStokMenipis_(), to: botOwnerJid_() }; } },
+  { id: 'MINGGU', from: '07:00', until: '10:00', day: 1, build: function (now) { return { text: botMingguan_(now) }; } }
 ];
 var BOT_GARIS_ = new Array(38).join('≡');
 
@@ -845,6 +854,7 @@ function botJadwal_() {
   var now = Date.now(), hm = botWita_(now, 'HH:mm'), today = botWita_(now, 'yyyyMMdd');
   BOT_JADWAL_.forEach(function (j) {
     if (hm < j.from || hm >= j.until || props.getProperty('BOT_SENT_' + j.id) === today) return;
+    if (j.day && Number(botWita_(now, 'u')) !== j.day) return;   // u: 1 = Senin
     var lock = LockService.getScriptLock();
     if (!lock.tryLock(5000)) return;
     try {
@@ -856,7 +866,7 @@ function botJadwal_() {
       });
       if (!msg || !msg.text) return;
       props.setProperty(WAQ_PREFIX_ + now + '_' + j.id.toLowerCase(), JSON.stringify({
-        t: now, n: 0, last: 0, files: [], mentions: msg.mentions || [], text: String(msg.text).slice(0, 6000)
+        t: now, n: 0, last: 0, files: [], to: msg.to || '', mentions: msg.mentions || [], text: String(msg.text).slice(0, 6000)
       }));
     } catch (e) {
       console.error('Jadwal bot ' + j.id + ': ' + e);
@@ -864,6 +874,7 @@ function botJadwal_() {
       lock.releaseLock();
     }
   });
+  try { botBaBaru_(); } catch (e) { console.error('BA baru: ' + e); }
 }
 
 // Baris Daily Report asli (tanpa Saldo awal / Koreksi Total) -> [{day: 'dd/MM/yyyy', site, pic, act}]
@@ -987,6 +998,205 @@ function botTimCmd_(arg) {
   return ['*Tim yang di-tag jam 17:30*'].concat(names.map(function (n) { return '- ' + n + ': ' + tim[n]; })).join('\n');
 }
 
+// ===================== BOT: STOK MENIPIS, REKAP MINGGUAN, CEK DAILY REPORT, BA AMBIL, ALARM GATEWAY =====================
+function botMatTitle_(k) {
+  var i = MATERIAL_HEADERS_.map(normHeader_).indexOf(k);
+  return (i >= 0 ? MATERIAL_HEADERS_[i] : k).replace(/\s*\(.*$/, '');
+}
+
+// Nomor pertama di WA_OWNER sebagai chat tujuan pesan pribadi bot ('' bila belum diisi).
+function botOwnerJid_() {
+  var n = String(PropertiesService.getScriptProperties().getProperty('WA_OWNER') || '').split(',')[0].replace(/\D/g, '');
+  return n ? n + '@s.whatsapp.net' : '';
+}
+
+// Plan (MASTER BOQ CLUSTER) dan Total (semua Daily Report) satu site per kolom material.
+function botPlanTotal_(name, sow, ctx) {
+  ctx = ctx || {};
+  if (!ctx.bh) {
+    ctx.bsh = boqSheet_(); ctx.bh = sheetHeader_(ctx.bsh); ctx.bdata = boqData_(ctx.bsh, ctx.bh); ctx.bmats = materialCols_(ctx.bh);
+    ctx.dsh = dailySheet_(); ctx.dh = sheetHeader_(ctx.dsh); ctx.dmats = materialCols_(ctx.dh);
+  }
+  var r = boqRowIndex_(ctx.bdata, ctx.bh, name, sow), plan = {}, tot = {};
+  if (r >= 0) ctx.bmats.forEach(function (m) { var v = cellNumber_(ctx.bdata[r][m.idx]); if (v) plan[m.col] = v; });
+  clusterRows_(ctx.dsh, ctx.dh, name, sow).forEach(function (row) {
+    ctx.dmats.forEach(function (m) { var v = cellNumber_(row[m.idx]); if (v) tot[m.col] = (tot[m.col] || 0) + v; });
+  });
+  return { plan: plan, tot: tot, ctx: ctx };
+}
+
+// ---- Stok menipis: tiap pagi ke chat pribadi pemilik. Batas per material lewat perintah "batas". ----
+var BOT_STOK_MIN_DEFAULT_ = { 'cable 24c': 3000, 'cable 48c': 2000, 'cable 144c': 2000, 'pole 7/3': 100, 'pole 7/4': 50, 'fat': 20 };
+
+function botBatas_() {
+  try {
+    var raw = PropertiesService.getScriptProperties().getProperty('BOT_STOK_MIN');
+    return raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(BOT_STOK_MIN_DEFAULT_));
+  } catch (e) { return JSON.parse(JSON.stringify(BOT_STOK_MIN_DEFAULT_)); }
+}
+
+// Gudang yang dicek: Script Property BOT_STOK_GUDANG (bawaan "banjarmasin"; pisahkan koma).
+function botStokMenipis_() {
+  var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('SALDO GUDANG');
+  if (!sh || sh.getLastRow() < 4) return '';
+  var batas = botBatas_(), keys = Object.keys(batas);
+  if (!keys.length) return '';
+  var gud = String(PropertiesService.getScriptProperties().getProperty('BOT_STOK_GUDANG') || 'banjarmasin').toLowerCase()
+    .split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  var vals = sh.getRange(4, 1, sh.getLastRow() - 3, 7).getValues(), out = [];
+  vals.forEach(function (r) {
+    var g = String(r[0] || '').trim(), d = String(r[1] || '').trim(), sal = cellNumber_(r[6]);
+    if (!d || !gud.some(function (x) { return g.toLowerCase().indexOf(x) >= 0; })) return;
+    var k = keys.filter(function (k) { return d.toLowerCase().indexOf(k) >= 0; })[0];
+    if (k && sal < batas[k]) out.push('- ' + d + ' (' + g.replace(/^gudang\s+/i, '') + '): ' + botNum_(sal) + ' (batas ' + botNum_(batas[k]) + ')');
+  });
+  return out.length ? ['⚠️ *Stok menipis* ' + botWita_(Date.now(), 'dd/MM/yyyy')].concat(out).join('\n') : '';
+}
+
+// batas | batas <material> <angka> | batas hapus <material> | batas awal (kembali ke bawaan)
+function botBatasCmd_(arg) {
+  var props = PropertiesService.getScriptProperties(), b = botBatas_(), m;
+  if (/^awal$/i.test(arg)) { props.deleteProperty('BOT_STOK_MIN'); b = botBatas_(); }
+  else if ((m = arg.match(/^hapus\s+(.+)$/i))) { delete b[m[1].trim().toLowerCase()]; props.setProperty('BOT_STOK_MIN', JSON.stringify(b)); }
+  else if ((m = arg.match(/^(.+?)\s+([\d.]+)$/))) {
+    var mat = m[1].trim().toLowerCase().split(/\s+/).map(function (w) { return BOT_MATERIAL_ALIAS_[w] || w; }).join(' ');
+    b[mat] = Number(m[2].replace(/\./g, ''));
+    props.setProperty('BOT_STOK_MIN', JSON.stringify(b));
+  } else if (arg) return 'Contoh: *batas cable 24c 3000*, *batas hapus fat*, *batas awal*, atau *batas* untuk melihat.';
+  var ks = Object.keys(b).sort();
+  return ['*Batas stok menipis* (dicek tiap 07:00)'].concat(ks.length ? ks.map(function (k) { return '- ' + k + ': ' + botNum_(b[k]); }) : ['(kosong)']).join('\n');
+}
+
+// ---- Rekap mingguan (Senin pagi, ke grup): Senin-Minggu pekan lalu. ----
+function botMingguan_(now) {
+  var endKey = botWita_(now - 864e5, 'yyyyMMdd'), startKey = botWita_(now - 7 * 864e5, 'yyyyMMdd');
+  var sh = dailySheet_(), h = sheetHeader_(sh), last = sh.getLastRow(), mats = materialCols_(h);
+  var c = { t: h.idx['tanggal'], ts: h.idx['timestamp'], n: h.idx['cluster name'], s: h.idx['sow'], a: h.idx['today activity'] };
+  var rows = last < 2 ? [] : sh.getRange(2, 1, last - 1, h.width).getValues().filter(function (r) {
+    if (/^(saldo awal|koreksi total)/i.test(String(r[c.a] || ''))) return false;
+    var d = botDmy_(r[c.t]) || botDmy_(r[c.ts]), k = d && botDmyKey_(d);
+    return k && k >= startKey && k <= endKey;
+  });
+  var dari = botWita_(now - 7 * 864e5, 'dd/MM'), sampai = botWita_(now - 864e5, 'dd/MM/yyyy');
+  var s = ['📊 *REKAP MINGGUAN* ' + dari + ' - ' + sampai, BOT_GARIS_];
+  if (!rows.length) return s.concat(['Tidak ada Daily Report pekan ini.', BOT_GARIS_]).join('\n');
+  var sites = [], by = {}, all = {};
+  rows.forEach(function (r) {
+    var key = siteName_(r[c.n]) + '|' + String(r[c.s] || '');
+    if (!by[key]) { by[key] = { name: siteName_(r[c.n]), sow: String(r[c.s] || ''), n: 0, sum: {} }; sites.push(key); }
+    by[key].n++;
+    mats.forEach(function (m) {
+      var v = cellNumber_(r[m.idx]);
+      if (v) { by[key].sum[m.col] = (by[key].sum[m.col] || 0) + v; all[m.col] = (all[m.col] || 0) + v; }
+    });
+  });
+  var ctx = {};
+  sites.forEach(function (key) {
+    var x = by[key], pt = botPlanTotal_(x.name, x.sow, ctx);
+    ctx = pt.ctx;
+    s.push('', '*' + x.name + '* (' + x.sow + '), ' + x.n + ' laporan');
+    var cols = Object.keys(x.sum);
+    if (!cols.length) s.push('- Tidak ada volume');
+    cols.forEach(function (k) {
+      var p = pt.plan[k], t = Math.max(0, pt.tot[k] || 0);
+      s.push('- ' + botMatTitle_(k) + ': +' + botNum_(x.sum[k]) + (p ? ' (total ' + botNum_(t) + '/' + botNum_(p) + ', ' + Math.round(t / p * 100) + '%)' : ''));
+    });
+  });
+  var allCols = Object.keys(all);
+  if (allCols.length) s.push('', '*Total pemakaian pekan ini*');
+  allCols.forEach(function (k) { s.push('- ' + botMatTitle_(k) + ': ' + botNum_(all[k])); });
+  s.push(BOT_GARIS_);
+  return s.join('\n').slice(0, 5900);
+}
+
+// ---- Cek Daily Report yang baru masuk; temuan dikirim ke grup (PIC di-tag bila nomornya ada di daftar tim). ----
+function botCekDaily_(payload) {
+  var r = payload.report || {}, cluster = payload.cluster;
+  if (!cluster) return;
+  var tgl = botDmy_(dmyText_(r.tanggal)), start = botDmy_(dmyText_(r.startImpl)), now = Date.now(), cek = [];
+  var today = botWita_(now, 'yyyyMMdd');
+  if (tgl) {
+    if (start && botDmyKey_(tgl) < botDmyKey_(start)) cek.push('Tanggal laporan ' + tgl + ' lebih awal dari Start Implementation ' + start + '.');
+    if (botDmyKey_(tgl) > today) cek.push('Tanggal laporan ' + tgl + ' ada di masa depan.');
+    else if (botDmyKey_(tgl) < botWita_(now - 3 * 864e5, 'yyyyMMdd')) cek.push('Tanggal laporan ' + tgl + ' sudah lewat lebih dari 3 hari, mungkin salah pilih tanggal.');
+  }
+  var name = siteName_(cluster), sow = r.sow || payload.sow || sowFromId_(cluster);
+  var today_ = payload.today || {}, todayCols = {};
+  Object.keys(today_).forEach(function (k) { var col = materialColumn_(k); if (col && cellNumber_(today_[k])) todayCols[col] = true; });
+  if (Object.keys(todayCols).length) {
+    var pt = botPlanTotal_(name, sow);
+    Object.keys(todayCols).forEach(function (k) {
+      var p = pt.plan[k], t = pt.tot[k] || 0;
+      if (p && t > p) cek.push(botMatTitle_(k) + ': Total ' + botNum_(t) + ' melebihi Plan ' + botNum_(p) + '.');
+    });
+  }
+  if (!cek.length) return;
+  var pic = String(r.pic || payload.by || '').trim(), tim = botTim_(), no = '';
+  Object.keys(tim).forEach(function (n) {
+    var a = n.toLowerCase(), b = pic.toLowerCase();
+    if (b && (a.indexOf(b) >= 0 || b.indexOf(a) >= 0)) no = tim[n];
+  });
+  var text = ['⚠️ *Cek Daily Report*', name + ' (' + sow + ')' + (pic ? ' - PIC ' + (no ? '@' + no : pic) : '')]
+    .concat(cek.map(function (x) { return '- ' + x; })).concat(['Mohon dicek dan diperbaiki bila keliru.']).join('\n');
+  PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + now + '_cek', JSON.stringify({ t: now, n: 0, last: 0, files: [], mentions: no ? [no] : [], text: text }));
+}
+
+// ---- BA Ambil baru di BA TRANSAKSI (Portal FTTH) diteruskan ke grup. Dicek paling sering tiap 5 menit dari WA_PULL. ----
+function botBaBaru_() {
+  var cache = CacheService.getScriptCache();
+  if (cache.get('bot_ba_cek')) return;
+  cache.put('bot_ba_cek', '1', 300);
+  var props = PropertiesService.getScriptProperties();
+  var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('BA TRANSAKSI');
+  if (!sh) return;
+  var last = sh.getLastRow(), seen = Number(props.getProperty('BOT_BA_LAST') || 0);
+  if (!seen || last < seen) { props.setProperty('BOT_BA_LAST', String(last)); return; }   // pertama kali / ada baris dihapus: mulai dari sini
+  if (last === seen) return;
+  var width = sh.getLastColumn(), head = sh.getRange(1, 1, 1, width).getValues()[0].map(function (x) { return String(x).trim(); });
+  var rows = sh.getRange(seen + 1, 1, Math.min(last - seen, 20), width).getValues();
+  props.setProperty('BOT_BA_LAST', String(last));
+  var ix = function (n) { return head.indexOf(n); }, first = ix('FAT'), lastMat = ix('Galvanis');
+  rows.forEach(function (r, i) {
+    if (String(r[ix('Jenis Transaksi')] || '').trim() !== 'Ambil') return;
+    var items = [];
+    for (var c = first; c >= 0 && c <= lastMat; c++) { var v = cellNumber_(r[c]); if (v) items.push('- ' + head[c] + ': ' + botNum_(v)); }
+    var lain = String(r[ix('Material Lain')] || '').trim();
+    if (lain) items.push('- ' + lain);
+    var tgl = r[ix('Tanggal BA')] instanceof Date ? botWita_(r[ix('Tanggal BA')].getTime(), 'dd/MM/yyyy') : String(r[ix('Tanggal BA')] || '');
+    var text = ['📦 *BA Ambil Material* ' + tgl,
+      'Site: ' + String(r[ix('Name')] || '-') + (r[ix('SOW')] ? ' (' + r[ix('SOW')] + ')' : ''),
+      'Mandor: ' + String(r[ix('Mandor / Subcont')] || '-') + ' | ' + String(r[ix('Gudang')] || '-')]
+      .concat(items.length ? items : ['- (tanpa material)']).join('\n');
+    var t = Date.now() + i;
+    props.setProperty(WAQ_PREFIX_ + t + '_ba', JSON.stringify({ t: t, n: 0, last: 0, files: [], mentions: [], text: text.slice(0, 3000) }));
+  });
+}
+
+// ---- Alarm gateway mati: trigger tiap 15 menit, email ke Script Property BOT_ALARM_EMAIL (WA ikut mati, jadi lewat email). ----
+// Pasang sekali dari editor Apps Script: jalankan pasangAlarmGateway lalu setujui izin (trigger + kirim email).
+function pasangAlarmGateway() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'cekGatewayBot') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('cekGatewayBot').timeBased().everyMinutes(15).create();
+  cekGatewayBot();
+  console.log('Alarm gateway terpasang, email ke: ' + (PropertiesService.getScriptProperties().getProperty('BOT_ALARM_EMAIL') || '(BOT_ALARM_EMAIL belum diisi)'));
+}
+
+function cekGatewayBot() {
+  var props = PropertiesService.getScriptProperties();
+  if (!waPcMode_()) return;
+  var to = String(props.getProperty('BOT_ALARM_EMAIL') || '').trim();
+  var seen = CacheService.getScriptCache().get('wa_pc_seen'), seenMs = seen ? Date.parse(seen) : 0;
+  var down = !seenMs || Date.now() - seenMs > 15 * 60000, was = props.getProperty('BOT_GW_DOWN') === '1';
+  if (down === was) return;
+  props.setProperty('BOT_GW_DOWN', down ? '1' : '0');
+  if (!to) return;
+  var jam = botWita_(Date.now(), 'dd/MM/yyyy HH:mm') + ' ' + BOT_TZ_.label;
+  if (down) MailApp.sendEmail(to, '⚠️ Gateway WA mati (' + jam + ')',
+    'Laptop gateway WhatsApp tidak mengambil antrean sejak ' + (seen ? botWita_(seenMs, 'dd/MM HH:mm') + ' ' + BOT_TZ_.label : 'lebih dari 6 jam') + '.\n' +
+    'Bot tidak membalas dan laporan menunggu di antrean (paling lama 3 hari).\n\nCek laptop: nyalakan, lalu jalankan gateway.');
+  else MailApp.sendEmail(to, '✅ Gateway WA jalan lagi (' + jam + ')', 'Laptop gateway sudah mengambil antrean lagi. Laporan yang menunggu akan terkirim.');
+}
+
 // Satu baris per foto, mengikuti judul kolom tab LOG FOTO WASPANG.
 function logWaspangPhotoToSheet_(payload, folderUrl, saved, waOk) {
   try {
@@ -1039,6 +1249,7 @@ function sendDailyReportEMR_(payload) {
     res = { status: 'success', totalsError: err.toString() };
   }
   res.waSent = waOk;
+  if (waPcMode_()) try { botCekDaily_(payload); } catch (e) { console.error('Cek Daily Report: ' + e); }
   return res;
 }
 

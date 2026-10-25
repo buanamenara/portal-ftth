@@ -86,3 +86,11 @@ Pengingat dikirim saat laptop mengambil antrean, jadi bisa terlambat sampai 15 d
   - `pagi` / `sore` untuk melihat contoh pesan sekarang.
 - Script Properties opsional: `BOT_JADWAL=off` (matikan jadwal), `BOT_PIC`, `BOT_REGION`.
 - Fitur tag dan daftar permit yang panjang butuh `gateway.mjs` versi terbaru di laptop.
+
+## Fitur tambahan bot (stok menipis, rekap mingguan, cek Daily Report, BA Ambil, alarm)
+
+- **07:00 stok menipis**: dikirim ke chat pribadi pemilik (nomor pertama di WA_OWNER), hanya kalau ada material di bawah batas. Atur batasnya dengan `batas cable 24c 3000`, hapus dengan `batas hapus fat`, kembalikan ke bawaan dengan `batas awal`. Gudang yang dicek diatur di Script Property `BOT_STOK_GUDANG` (bawaan banjarmasin).
+- **Senin 07:00 rekap mingguan** ke grup: volume per site Senin–Minggu pekan lalu, progres terhadap Plan, dan total pemakaian. Untuk melihat contohnya, ketik `mingguan`.
+- **Cek Daily Report**: setiap laporan yang masuk dicek, misalnya tanggal lebih awal dari Start Implementation, tanggal di masa depan atau lebih dari 3 hari lalu, atau Total melebihi Plan. Temuannya dikirim ke grup, dan PIC di-tag kalau nomornya ada di daftar `tim`.
+- **BA Ambil** baru di Portal FTTH (BA TRANSAKSI) diteruskan ke grup, dicek setiap 5 menit.
+- **Alarm gateway mati**: email ke Script Property `BOT_ALARM_EMAIL` kalau laptop tidak mengambil antrean selama lebih dari 15 menit, dan email lagi saat gateway jalan kembali. Pasang sekali dari editor Apps Script: jalankan `pasangAlarmGateway`, lalu setujui izinnya.
