@@ -618,7 +618,7 @@ function waCmd_(p) {
     case 'mangkrak':
       out = owner ? ((botMangkrak_(Date.now(), true) || {}).text || 'Tidak ada site aktif yang 3 hari tanpa laporan.') : ''; break;
     case 'boq':
-      out = owner ? (botBoqLewat_(Date.now(), true) || 'Tidak ada item yang melebihi Plan BOQ.') : ''; break;
+      out = !owner ? '' : /^ok\b/i.test(arg) ? botBoqOk_(arg.replace(/^ok\s*/i, '')) : (botBoqLewat_(Date.now()) || 'Tidak ada item yang melebihi Plan BOQ (di luar site yang sudah di-OK).'); break;
     case 'bulanan':
       out = owner ? botBulanan_(Date.now()) : ''; break;
     case 'backup':
@@ -640,6 +640,7 @@ function waCmd_(p) {
     case 'sore':
       out = owner ? (/^kirim$/i.test(arg) ? botSoreKirim_() : botSore_(Date.now()).text) : ''; break;
     default:
+      if (owner && /\s+ok$/i.test(text)) { out = botBoqOk_(text.replace(/\s+ok$/i, '').trim()); break; }   // "<site> ok" (BOQ melebihi Plan)
       out = p.chat === 'group' ? '' : 'Perintah "' + cmd + '" belum ada. Ketik *bantu* untuk daftar perintah.';
   }
   p.cmd = out ? cmd : '';
@@ -668,7 +669,7 @@ function botHelp_(owner) {
     'Setiap Daily Report dicek (tanggal, Total > Plan) | BA Ambil dan BA Masuk baru diteruskan'];
   if (owner) s = s.concat(['', '*Otomatis ke chat pribadi admin*',
     '07:00 stok berkurang di bawah standar (+ perkiraan habis; daftar lengkap tiap Senin)',
-    '07:05 item yang baru melebihi Plan BOQ (daftar lengkap tiap Senin)',
+    'Senin 07:05 item yang melebihi Plan BOQ (balas <site> ok supaya tidak dilaporkan lagi)',
     '07:10 peringatan bila Excel stok WH (!stokwh) 7 hari tidak dikirim (diulang tiap 3 hari)',
     'Minggu 22:00 backup spreadsheet FTTH + Waspang ke Drive | email bila gateway mati',
     '', '*Pribadi*',
@@ -683,7 +684,8 @@ function botHelp_(owner) {
     'panduan lengkap : PDF semua perintah termasuk admin, selalu ke chat pribadi admin',
     'menipis : stok di bawah standar sekarang',
     'mangkrak : site aktif 3+ hari tanpa laporan',
-    'boq : semua item yang melebihi Plan BOQ',
+    'boq : semua item yang melebihi Plan BOQ (kecuali site yang sudah di-OK)',
+    '<site> ok : site itu tidak dilaporkan lagi di BOQ melebihi Plan (boq ok = daftar, boq ok hapus <site>)',
     'setuju | batal : usulan stok dari Excel WH (!stokwh)',
     'pagi | sore | mingguan | bulanan : lihat contoh pesan jadwal sekarang',
     'sore kirim : kirim pengingat laporan ke grup sekarang (tag yang belum lapor)',
@@ -902,7 +904,7 @@ var BOT_JADWAL_ = [
   { id: 'MINGGU', from: '07:00', until: '10:00', day: 1, build: function (now) { return { text: botMingguan_(now) }; } },
   { id: 'BULAN', from: '07:00', until: '10:00', date: 1, build: function (now) { return { text: botBulanan_(now) }; } },
   { id: 'MANGKRAK', from: '07:05', until: '10:00', build: function (now) { return botMangkrak_(now, Number(botWita_(now, 'u')) === 1); } },
-  { id: 'BOQ', from: '07:05', until: '10:00', build: function (now) { return { text: botBoqLewat_(now, Number(botWita_(now, 'u')) === 1), to: botOwnerJid_() }; } },
+  { id: 'BOQ', from: '07:05', until: '10:00', day: 1, build: function (now) { return { text: botBoqLewat_(now), to: botOwnerJid_() }; } },   // Senin saja
   { id: 'WH', from: '08:00', until: '11:00', build: function (now) { return botWhIngat_(now); } },   // Senin, tanggal 28 dan tanggal 1
   { id: 'WHBASI', from: '07:10', until: '10:00', build: function (now) { return { text: botWhBasi_(now), to: botOwnerJid_() }; } }
 ];
@@ -1617,7 +1619,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-10-26-2';
+var BOT_PANDUAN_VERSI_ = '2026-10-26-3';
 var BOT_PANDUAN_TIM_ = [
   ['!bantu', 'Daftar perintah singkat di WhatsApp.', '!bantu'],
   ['!panduan', 'Kirim PDF panduan tim ini ke grup.', '!panduan'],
@@ -1652,7 +1654,8 @@ var BOT_PANDUAN_ADMIN_ = [
   ['batas &lt;material&gt; &lt;angka&gt;', 'Standar stok menipis. batas = lihat, batas awal = standar bawaan (kabel 3000, tiang 30, FAT 20).', 'batas cable 24c 3000 | batas | batas hapus fat | batas awal'],
   ['menipis', 'Stok di bawah standar sekarang (alias stokmin).', 'menipis'],
   ['setuju / batal', 'Terima atau tolak usulan stok dari Excel WH. Hanya di chat pribadi, usulan berlaku 12 jam.', 'setuju | batal'],
-  ['boq', 'Semua item yang realisasinya melebihi Plan BOQ.', 'boq'],
+  ['boq', 'Semua item yang realisasinya melebihi Plan BOQ, kecuali site yang sudah di-OK.', 'boq'],
+  ['&lt;site&gt; ok', 'Site itu tidak dilaporkan lagi di BOQ melebihi Plan. boq ok = daftar, boq ok hapus = batalkan.', 'penggalaman ok | boq ok | boq ok hapus penggalaman'],
   ['mangkrak', 'Site aktif yang 3+ hari tanpa Daily Report.', 'mangkrak'],
   ['pagi / sore', "Contoh Today's Plan 07:00 / pengingat 17:30 (tidak dikirim ke grup).", 'pagi | sore'],
   ['mingguan / bulanan', 'Contoh rekap mingguan / bulanan sekarang.', 'mingguan | bulanan'],
@@ -1660,7 +1663,7 @@ var BOT_PANDUAN_ADMIN_ = [
 ];
 var BOT_PANDUAN_JADWAL_ADMIN_ = [
   ['07:00 tiap hari', 'Stok yang berkurang dan di bawah standar + perkiraan habis (Senin: daftar lengkap)'],
-  ['07:05 tiap hari', 'Item yang baru melebihi Plan BOQ (Senin: daftar lengkap)'],
+  ['Senin 07:05', 'Item yang melebihi Plan BOQ, kecuali site yang sudah di-OK'],
   ['07:10 tiap hari', 'Peringatan bila Excel stok WH 7 hari tidak dikirim (diulang tiap 3 hari)'],
   ['Minggu 22:00', 'Backup spreadsheet ke Drive (4 terbaru disimpan)'],
   ['Saat ada', 'Usulan stok dari Excel !stokwh (balas setuju / batal); email bila laptop gateway mati']
@@ -1828,34 +1831,69 @@ function botMangkrak_(now, semua) {
     .concat(['Kalau site memang berhenti (menunggu izin, material, dll.), mohon kabari di grup.']).join('\n'), mentions: mentions };
 }
 
-// 8. BOQ lewat 100%: Total Daily Report > Plan MASTER BOQ, per site + SOW + item. Ke chat pribadi pemilik.
-function botBoqLewat_(now, semua) {
-  var props = PropertiesService.getScriptProperties();
+// 8. BOQ lewat 100%: Total Daily Report > Plan MASTER BOQ, per site + SOW + item. Ke chat pribadi pemilik tiap Senin 07:05.
+// Site yang sudah dibalas "<site> ok" oleh pemilik (BOT_BOQ_OK) tidak dilaporkan lagi.
+function botBoqItems_() {
   var bsh = boqSheet_(), bh = sheetHeader_(bsh), bdata = boqData_(bsh, bh), bmats = materialCols_(bh);
-  var dsh = dailySheet_(), dh = sheetHeader_(dsh), dmats = materialCols_(dh), last = dsh.getLastRow(), tot = {};
+  var dsh = dailySheet_(), dh = sheetHeader_(dsh), dmats = materialCols_(dh), last = dsh.getLastRow(), tot = {}, out = [];
   var cN = dh.idx['cluster name'], cS = dh.idx['sow'];
   if (last >= 2) dsh.getRange(2, 1, last - 1, dh.width).getValues().forEach(function (r) {
     var k = totalsClusterKey_(r[cN]) + '|' + ((cS === undefined ? '' : normSow_(r[cS])) || sowFromId_(r[cN]) || 'Cluster');
     var t = tot[k] = tot[k] || {};
     dmats.forEach(function (m) { var v = cellNumber_(r[m.idx]); if (v) t[m.col] = (t[m.col] || 0) + v; });
   });
-  var bN = bh.idx['cluster name'], bS = bh.idx['sow'], first = !props.getProperty('BOT_BOQ_LEWAT'), lama = {}, now_ = {}, list = [];
-  try { lama = JSON.parse(props.getProperty('BOT_BOQ_LEWAT') || '{}'); } catch (e) {}
+  var bN = bh.idx['cluster name'], bS = bh.idx['sow'];
   bdata.forEach(function (row) {
     var name = siteName_(row[bN]), sow = normSow_(row[bS]) || 'Cluster', t = tot[name.toLowerCase() + '|' + sow];
     if (!name || !t) return;
     bmats.forEach(function (m) {
       var p = cellNumber_(row[m.idx]), v = t[m.col] || 0;
-      if (!p || v <= p) return;
-      var id = name.toLowerCase() + '|' + sow + '|' + m.col;
-      now_[id] = 1;
-      if (semua || (!first && !lama[id])) list.push('- ' + name + ' (' + sow + ') ' + botMatTitle_(m.col) + ': ' + botNum_(v) + ' / plan ' + botNum_(p) + ' (' + Math.round(v / p * 100) + '%)');
+      if (p && v > p) out.push({ name: name, line: '- ' + name + ' (' + sow + ') ' + botMatTitle_(m.col) + ': ' + botNum_(v) + ' / plan ' + botNum_(p) + ' (' + Math.round(v / p * 100) + '%)' });
     });
   });
-  props.setProperty('BOT_BOQ_LEWAT', JSON.stringify(now_));   // pertama kali: yang sudah lewat dianggap sudah diketahui
+  return out;
+}
+
+function botBoqOkData_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('BOT_BOQ_OK') || '{}'); } catch (e) { return {}; }
+}
+
+function botBoqLewat_(now) {
+  var ok = botBoqOkData_(), skip = {};
+  var list = botBoqItems_().filter(function (x) { if (ok[x.name.toLowerCase()]) { skip[x.name] = 1; return false; } return true; });
+  var nSkip = Object.keys(skip).length;
   if (!list.length) return null;
-  return ['📐 *Realisasi melebihi Plan BOQ* ' + botWita_(now, 'dd/MM/yyyy') + (semua ? ' (daftar lengkap)' : '')].concat(list)
-    .concat(['Cek Daily Report (salah ketik?) atau perbarui Plan di BOQ Plan.']).join('\n').slice(0, 3800);
+  return ['📐 *Realisasi melebihi Plan BOQ* ' + botWita_(now, 'dd/MM/yyyy')].concat(list.map(function (x) { return x.line; }))
+    .concat(['Cek Daily Report (salah ketik?) atau perbarui Plan di BOQ Plan.',
+      'Kalau sudah dicek, balas *<nama site> ok* supaya site itu tidak dilaporkan lagi.'])
+    .concat(nSkip ? ['(' + nSkip + ' site sudah di-OK tidak ditampilkan; ketik *boq ok* untuk daftar)'] : []).join('\n').slice(0, 3800);
+}
+
+// "<site> ok" / "boq ok <site>" : site itu tidak dilaporkan lagi di BOQ melebihi Plan. "boq ok" = daftar, "boq ok hapus <site>" = batalkan.
+function botBoqOk_(arg) {
+  var props = PropertiesService.getScriptProperties(), ok = botBoqOkData_(), m;
+  var simpan = function () { props.setProperty('BOT_BOQ_OK', JSON.stringify(ok)); };
+  if (!arg) {
+    var ks = Object.keys(ok);
+    return ks.length ? ['*Site yang sudah di-OK* (tidak dilaporkan di BOQ melebihi Plan)'].concat(ks.map(function (k) { return '- ' + ok[k]; }))
+      .concat(['Batalkan dengan *boq ok hapus <nama site>*.']).join('\n') : 'Belum ada site yang di-OK. Balas *<nama site> ok* setelah dicek.';
+  }
+  var words = function (t) { return t.toLowerCase().split(/\s+/).filter(Boolean); };
+  var cocok = function (names, t) { var w = words(t); return names.filter(function (n) { return w.every(function (x) { return n.toLowerCase().indexOf(x) >= 0; }); }); };
+  if ((m = arg.match(/^hapus\s+(.+)$/i))) {
+    var hit0 = cocok(Object.keys(ok).map(function (k) { return ok[k]; }), m[1]);
+    if (hit0.length !== 1) return hit0.length ? 'Lebih dari satu site cocok: ' + hit0.join(', ') + '. Perjelas namanya.' : 'Site "' + m[1] + '" tidak ada di daftar OK.';
+    delete ok[hit0[0].toLowerCase()]; simpan();
+    return 'Siap, ' + hit0[0] + ' dilaporkan lagi kalau melebihi Plan BOQ.';
+  }
+  var names = [];
+  botBoqItems_().forEach(function (x) { if (names.indexOf(x.name) < 0) names.push(x.name); });
+  var hit = cocok(names, arg), exact = hit.filter(function (n) { return n.toLowerCase() === arg.toLowerCase().trim(); });
+  if (exact.length) hit = exact;
+  if (!hit.length) return 'Tidak ada site yang melebihi Plan BOQ dengan nama "' + arg + '". Ketik *boq* untuk daftar.';
+  if (hit.length > 1) return ['Lebih dari satu site cocok, perjelas namanya:'].concat(hit.slice(0, 10).map(function (n) { return '- ' + n; })).join('\n');
+  ok[hit[0].toLowerCase()] = hit[0]; simpan();
+  return '✅ ' + hit[0] + ' di-OK, tidak dilaporkan lagi di BOQ melebihi Plan. Batalkan dengan *boq ok hapus ' + hit[0].toLowerCase() + '*.';
 }
 
 // 12 + 17. Tim WH: Senin pengingat kirim Excel stok, tanggal 28 pengingat stok opname, tanggal 1 tagih file opname.
