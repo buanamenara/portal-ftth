@@ -611,7 +611,7 @@ function waCmd_(p) {
 
 function botHelp_(owner) {
   var g = owner ? '' : '!';
-  var s = ['*Perintah bot*' + (owner ? '' : ' (di grup awali dengan !)'),
+  var s = ['*AdminSuper*' + (owner ? '' : ' (di grup awali dengan !)'),
     g + 'stok [kata]  : saldo gudang, mis. ' + g + 'stok cable',
     g + 'progres <site> : Total vs Plan material, mis. ' + g + 'progres jati baru rt 04',
     g + 'rekap [kemarin | dd/mm] : Daily Report hari itu',
