@@ -1,7 +1,7 @@
 // Pembaca Excel (.xlsx) kecil tanpa paket tambahan, khusus untuk file stok WH yang dikirim ke grup (!stokwh).
 // Hanya mengambil nilai sel yang tersimpan (hasil rumus), tidak menghitung ulang rumus.
-// Baris yang dikirim ke Apps Script dibatasi pada baris yang ada teksnya (judul kolom, "Area", "Stock Gudang", ...),
-// karena sheet WH bisa berisi > 1 juta baris kosong ber-format.
+// Baris tanpa nilai dilewati (sheet WH bisa berisi > 1 juta baris kosong ber-format) dan tiap sheet dibatasi maxRows baris.
+// Baris angka saja ikut dikirim (mis. sheet POTONGAN: panjang potongan kabel per baris).
 import zlib from 'node:zlib';
 
 // Isi file di dalam zip -> { 'xl/workbook.xml': Buffer, ... } (hanya nama yang diminta lewat want()).
@@ -51,7 +51,6 @@ export function readXlsx(buf, { maxCols = 40, maxRows = 1500, keep = null } = {}
     for (const r of s.matchAll(/<row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/row>)/g)) {
       if (!r[2] || rows.length >= maxRows) continue;
       const vals = [];
-      let hasText = false;
       for (const c of r[2].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
         if (!c[2]) continue;
         const col = colNum(attr(c[1], 'r'));
@@ -64,10 +63,10 @@ export function readXlsx(buf, { maxCols = 40, maxRows = 1500, keep = null } = {}
         else if (t === 'b') val = v === '1';
         else val = v === undefined || v === '' ? '' : Number(v);
         if (val === '' || val === null) continue;
-        if (typeof val === 'string') { val = val.slice(0, 100); hasText = true; }
+        if (typeof val === 'string') val = val.slice(0, 100);
         vals[col] = val;
       }
-      if (!hasText || (keep && !keep(vals))) continue;
+      if (!vals.length || (keep && !keep(vals))) continue;
       for (let i = 0; i < vals.length; i++) if (vals[i] === undefined) vals[i] = '';
       rows.push([Number(attr(r[1], 'r')) || 0, vals]);
     }
