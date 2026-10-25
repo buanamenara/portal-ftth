@@ -623,6 +623,8 @@ function waCmd_(p) {
       out = owner ? botBulanan_(Date.now()) : ''; break;
     case 'backup':
       out = owner ? botBackup_(true) : ''; break;
+    case 'status':
+      out = owner ? botStatus_() : ''; break;
     case 'potongan':
       out = botPotongan_(arg); break;
     case 'ba':
@@ -689,7 +691,8 @@ function botHelp_(owner) {
     'setuju | batal : usulan stok dari Excel WH (!stokwh)',
     'pagi | sore | mingguan | bulanan : lihat contoh pesan jadwal sekarang',
     'sore kirim : kirim pengingat laporan ke grup sekarang (tag yang belum lapor)',
-    'backup : backup spreadsheet sekarang']);
+    'backup : backup spreadsheet sekarang',
+    'status : status gateway, antrean pesan, jadwal hari ini, alarm, Excel WH dan backup terakhir']);
   return s.join('\n');
 }
 
@@ -1619,7 +1622,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-10-26-3';
+var BOT_PANDUAN_VERSI_ = '2026-10-26-4';
 var BOT_PANDUAN_TIM_ = [
   ['!bantu', 'Daftar perintah singkat di WhatsApp.', '!bantu'],
   ['!panduan', 'Kirim PDF panduan tim ini ke grup.', '!panduan'],
@@ -1659,7 +1662,8 @@ var BOT_PANDUAN_ADMIN_ = [
   ['mangkrak', 'Site aktif yang 3+ hari tanpa Daily Report.', 'mangkrak'],
   ['pagi / sore', "Contoh Today's Plan 07:00 / pengingat 17:30 (tidak dikirim ke grup).", 'pagi | sore'],
   ['mingguan / bulanan', 'Contoh rekap mingguan / bulanan sekarang.', 'mingguan | bulanan'],
-  ['backup', 'Backup spreadsheet FTTH + Waspang ke Drive sekarang.', 'backup']
+  ['backup', 'Backup spreadsheet FTTH + Waspang ke Drive sekarang.', 'backup'],
+  ['status', 'Status gateway: terakhir ambil antrean, pesan yang menunggu / gagal, jadwal hari ini, alarm email, Excel WH dan backup terakhir.', 'status | status gateway']
 ];
 var BOT_PANDUAN_JADWAL_ADMIN_ = [
   ['07:00 tiap hari', 'Stok yang berkurang dan di bawah standar + perkiraan habis (Senin: daftar lengkap)'],
@@ -1951,6 +1955,51 @@ function botBackup_(paksa) {
 
 // ---- Alarm gateway mati: trigger tiap 15 menit, email ke Script Property BOT_ALARM_EMAIL (WA ikut mati, jadi lewat email). ----
 // Pasang sekali dari editor Apps Script: jalankan pasangAlarmGateway lalu setujui izin (trigger + kirim email).
+// status [gateway] : ringkasan untuk admin. Balasan ini sendiri lewat laptop gateway, jadi kalau bot menjawab berarti gateway hidup;
+// kalau gateway mati bot diam dan yang memberi tahu adalah email alarm (cekGatewayBot).
+var BOT_JADWAL_NAMA_ = { PAGI: "Today's Plan", SORE: 'Pengingat Daily Report', STOK: 'Stok menipis (admin)', MINGGU: 'Rekap mingguan',
+  BULAN: 'Rekap bulanan', MANGKRAK: 'Site tanpa laporan', BOQ: 'BOQ melebihi Plan (admin)', WH: 'Pengingat tim WH', WHBASI: 'Cek Excel WH basi (admin)' };
+
+function botStatus_() {
+  var props = PropertiesService.getScriptProperties(), all = props.getProperties(), now = Date.now();
+  var today = botWita_(now, 'yyyyMMdd'), hm = botWita_(now, 'HH:mm'), lalu = function (ms) {
+    var m = Math.round((now - ms) / 60000);
+    return m < 60 ? m + ' menit lalu' : m < 2880 ? Math.round(m / 60) + ' jam lalu' : Math.round(m / 1440) + ' hari lalu';
+  };
+  var out = ['🟢 *Status gateway* ' + botWita_(now, 'dd/MM/yyyy HH:mm') + ' ' + BOT_TZ_.label];
+  var seen = CacheService.getScriptCache().get('wa_pc_seen'), seenMs = seen ? Date.parse(seen) : 0;
+  out.push('Gateway: hidup (balasan ini lewat laptop gateway). Mode: ' + (waPcMode_() ? 'laptop' : String(all.WA_MODE || 'bukan laptop')) +
+    '. Terakhir ambil antrean: ' + (seenMs ? botWita_(seenMs, 'HH:mm') + ' (' + lalu(seenMs) + ')' : 'belum tercatat / > 6 jam'));
+  var tunggu = 0, gagal = 0, nanti = 0, tertua = 0;
+  Object.keys(all).forEach(function (k) {
+    if (k.indexOf(WAQ_PREFIX_) !== 0) return;
+    var j; try { j = JSON.parse(all[k]); } catch (e) { return; }
+    if (j.due && j.due > now) { nanti++; return; }
+    tunggu++;
+    if (j.n) gagal++;
+    if (!tertua || j.t < tertua) tertua = j.t;
+  });
+  out.push('Antrean: ' + tunggu + ' pesan menunggu kirim' + (gagal ? ' (' + gagal + ' gagal, dicoba ulang; dibuang setelah ' + WAQ_MAX_TRY_ + 'x)' : '') +
+    (tertua ? ', tertua ' + lalu(tertua) : '') + '; ' + nanti + ' pengingat terjadwal.');
+  var jadwal = BOT_JADWAL_.filter(function (j) {
+    return (!j.day || Number(botWita_(now, 'u')) === j.day) && (!j.date || Number(botWita_(now, 'd')) === j.date);
+  }).sort(function (a, b) { return a.from < b.from ? -1 : a.from > b.from ? 1 : 0; }).map(function (j) {
+    var done = all['BOT_SENT_' + j.id] === today;
+    return (done ? '✅ ' : hm >= j.until ? '❌ ' : '⏳ ') + j.from + ' ' + (BOT_JADWAL_NAMA_[j.id] || j.id) +
+      (done ? '' : hm >= j.until ? ' (terlewat, gateway mati saat jadwal?)' : ' (belum)');
+  });
+  out.push('', '*Jadwal hari ini*' + (String(all.BOT_JADWAL || '').trim().toLowerCase() === 'off' ? ' (BOT_JADWAL=off, semua jadwal mati)' : ''));
+  out = out.concat(jadwal);
+  var email = String(all.BOT_ALARM_EMAIL || '').trim(), trig = null;
+  try { trig = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'cekGatewayBot'; }); } catch (e) {}
+  out.push('', '*Lainnya*',
+    'Alarm email gateway mati: ' + (email ? email.replace(/^(.{3}).*@/, '$1***@') : 'BOT_ALARM_EMAIL belum diisi') +
+      (trig === null ? '' : trig ? ', trigger aktif' : ', trigger BELUM dipasang (jalankan pasangAlarmGateway)') + (all.BOT_GW_DOWN === '1' ? ' (status terakhir: mati)' : ''),
+    'Excel WH terakhir: ' + (Number(all.BOT_STOKWH_LAST) ? botWita_(Number(all.BOT_STOKWH_LAST), 'dd/MM/yyyy HH:mm') + ' (' + lalu(Number(all.BOT_STOKWH_LAST)) + ')' : 'belum tercatat'),
+    'Backup terakhir: ' + (all.BOT_SENT_BACKUP ? all.BOT_SENT_BACKUP.replace(/^(\d{4})(\d{2})(\d{2})$/, '$3/$2/$1') : 'belum pernah'));
+  return out.join('\n');
+}
+
 function pasangAlarmGateway() {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'cekGatewayBot') ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger('cekGatewayBot').timeBased().everyMinutes(15).create();
