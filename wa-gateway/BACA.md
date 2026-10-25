@@ -103,3 +103,14 @@ Pengingat dikirim saat laptop mengambil antrean, jadi bisa terlambat sampai 15 d
 4. Balas `setuju` untuk mencatatnya. Bot menulis satu baris "Masuk - Pembelian" (Tim WH, ID `MSK-yyMMdd-OPN-BJM`) per gudang di BA TRANSAKSI, dan SALDO GUDANG langsung ikut berubah. Balas `batal` untuk membuang usulan. Usulan yang tidak dijawab hangus setelah 12 jam, saat file baru masuk.
 
 Membatalkan setelah `setuju` dilakukan dengan menghapus baris itu di BA TRANSAKSI. Fitur ini butuh `gateway.mjs` dan `xlsx-mini.mjs` versi baru di laptop, tanpa paket npm tambahan.
+
+## Pengingat, rekap bulanan dan backup
+
+- **07:05 site tanpa laporan** (grup): site yang laporan terakhirnya 3-30 hari lalu dan belum RFS / Drop di DATA BASE (kolom Implementation Status). PIC terakhir di-tag kalau ada di daftar `tim`. Satu site hanya diingatkan sekali per masa diam, daftar lengkapnya tiap Senin. Cek kapan saja dengan `mangkrak`.
+- **07:05 melebihi Plan BOQ** (chat pribadi pemilik): item yang Total Daily Report-nya baru melewati Plan di MASTER BOQ. Saat pertama jalan, item yang sudah lewat dianggap sudah diketahui. Daftar lengkapnya tiap Senin, atau ketik `boq`.
+- **Stok menipis** kini ikut menampilkan perkiraan habis (stok dibagi rata-rata BA Ambil 4 minggu).
+- **Tim WH** (grup, 08:00): Senin diminta mengirim Excel stok (`!stokwh`), tanggal 28 diingatkan persiapan stok opname, tanggal 1 ditagih file opname. Daftarkan nomor tim gudang dengan `wh <nama> <nomor>` supaya di-tag.
+- **Tanggal 1, 07:00 rekap bulanan** ke grup (isinya sama dengan rekap mingguan, untuk bulan lalu). Contohnya: `bulanan`.
+- **Minggu 22:00 backup** spreadsheet Portal FTTH dan Waspang ke folder Drive "Backup Portal BMI (otomatis)" milik akun yang menjalankan Apps Script. 4 backup terbaru disimpan, yang lebih lama dipindah ke Sampah. Backup jalan dari trigger `cekGatewayBot`, jadi tetap jalan walau laptop mati, asal `pasangAlarmGateway` sudah dijalankan. Backup manual: `backup`.
+- `bantu` / `bantuan` menampilkan semua perintah dan jadwal otomatis.
+
