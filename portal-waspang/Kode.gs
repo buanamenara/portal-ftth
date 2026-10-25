@@ -1026,7 +1026,7 @@ function botPlanTotal_(name, sow, ctx) {
 }
 
 // ---- Stok menipis: tiap pagi ke chat pribadi pemilik. Batas per material lewat perintah "batas". ----
-var BOT_STOK_MIN_DEFAULT_ = { 'cable 24c': 3000, 'cable 48c': 2000, 'cable 144c': 2000, 'pole 7/3': 100, 'pole 7/4': 50, 'fat': 20 };
+var BOT_STOK_MIN_DEFAULT_ = { 'cable': 3000, 'pole 7/3': 100, 'pole 7/4': 50, 'fat': 20 };   // 'cable' = semua jenis kabel
 
 function botBatas_() {
   try {
