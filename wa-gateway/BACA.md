@@ -86,3 +86,31 @@ Pengingat dikirim saat laptop mengambil antrean, jadi bisa terlambat sampai 15 d
   - `pagi` / `sore` untuk melihat contoh pesan sekarang.
 - Script Properties opsional: `BOT_JADWAL=off` (matikan jadwal), `BOT_PIC`, `BOT_REGION`.
 - Fitur tag dan daftar permit yang panjang butuh `gateway.mjs` versi terbaru di laptop.
+
+## Fitur tambahan bot (stok menipis, rekap mingguan, cek Daily Report, BA Ambil, alarm)
+
+- **07:00 stok menipis**: dikirim ke chat pribadi pemilik (nomor pertama di WA_OWNER), hanya kalau ada material di bawah batas. Atur batasnya dengan `batas cable 24c 3000`, hapus dengan `batas hapus fat`, kembalikan ke bawaan dengan `batas awal`. Gudang yang dicek diatur di Script Property `BOT_STOK_GUDANG` (bawaan banjarmasin).
+- **Senin 07:00 rekap mingguan** ke grup: volume per site Senin–Minggu pekan lalu, progres terhadap Plan, dan total pemakaian. Untuk melihat contohnya, ketik `mingguan`.
+- **Cek Daily Report**: setiap laporan yang masuk dicek, misalnya tanggal lebih awal dari Start Implementation, tanggal di masa depan atau lebih dari 3 hari lalu, atau Total melebihi Plan. Temuannya dikirim ke grup, dan PIC di-tag kalau nomornya ada di daftar `tim`.
+- **BA Ambil dan BA Masuk** (Pembelian / Transfer) baru di Portal FTTH (BA TRANSAKSI) diteruskan ke grup, dicek setiap 5 menit. Baris penyesuaian stok opname (ID berisi `-OPN-`) tidak diteruskan.
+- **Alarm gateway mati**: email ke Script Property `BOT_ALARM_EMAIL` kalau laptop tidak mengambil antrean selama lebih dari 15 menit, dan email lagi saat gateway jalan kembali. Pasang sekali dari editor Apps Script: jalankan `pasangAlarmGateway`, lalu setujui izinnya.
+
+## Excel stok WH lewat grup (!stokwh)
+
+1. Tim WH mengirim file Excel stok (.xlsx) ke grup dengan caption `!stokwh`. Kalau beberapa file dikirim sekaligus, cukup file pertama yang diberi caption; file .xlsx berikutnya dari orang yang sama dalam 3 menit ikut dibaca. Nama gudang diambil dari baris **Area** di file. Kalau baris itu tidak ada, tulis nama gudangnya di caption, mis. `!stokwh batola`.
+2. Laptop membaca baris **Stock Gudang** (juga "Stock Gudang (Fisik)") dan judul kolom materialnya, lalu Apps Script membandingkannya dengan SALDO GUDANG. Grup hanya mendapat konfirmasi bahwa file sudah diterima.
+3. Pemilik (nomor pertama di WA_OWNER) mendapat chat pribadi berisi selisih per material. Material yang berubah lebih dari 30% diberi tanda ⚠️. Kolom yang tidak ada di portal, seperti HDPE 32/28 atau Helical, ikut disebut tapi dilewati.
+4. Balas `setuju` untuk mencatatnya. Bot menulis satu baris "Masuk - Pembelian" (Tim WH, ID `MSK-yyMMdd-OPN-BJM`) per gudang di BA TRANSAKSI, dan SALDO GUDANG langsung ikut berubah. Balas `batal` untuk membuang usulan. Usulan yang tidak dijawab hangus setelah 12 jam, saat file baru masuk.
+
+Membatalkan setelah `setuju` dilakukan dengan menghapus baris itu di BA TRANSAKSI. Fitur ini butuh `gateway.mjs` dan `xlsx-mini.mjs` versi baru di laptop, tanpa paket npm tambahan.
+
+## Pengingat, rekap bulanan dan backup
+
+- **07:05 site tanpa laporan** (grup): site yang laporan terakhirnya 3-30 hari lalu dan belum RFS / Drop di DATA BASE (kolom Implementation Status). PIC terakhir di-tag kalau ada di daftar `tim`. Satu site hanya diingatkan sekali per masa diam, daftar lengkapnya tiap Senin. Cek kapan saja dengan `mangkrak`.
+- **07:05 melebihi Plan BOQ** (chat pribadi pemilik): item yang Total Daily Report-nya baru melewati Plan di MASTER BOQ. Saat pertama jalan, item yang sudah lewat dianggap sudah diketahui. Daftar lengkapnya tiap Senin, atau ketik `boq`.
+- **Stok menipis** kini ikut menampilkan perkiraan habis (stok dibagi rata-rata BA Ambil 4 minggu).
+- **Tim WH** (grup, 08:00): Senin diminta mengirim Excel stok (`!stokwh`), tanggal 28 diingatkan persiapan stok opname, tanggal 1 ditagih file opname. Daftarkan nomor tim gudang dengan `wh <nama> <nomor>` supaya di-tag.
+- **Tanggal 1, 07:00 rekap bulanan** ke grup (isinya sama dengan rekap mingguan, untuk bulan lalu). Contohnya: `bulanan`.
+- **Minggu 22:00 backup** spreadsheet Portal FTTH dan Waspang ke folder Drive "Backup Portal BMI (otomatis)" milik akun yang menjalankan Apps Script. 4 backup terbaru disimpan, yang lebih lama dipindah ke Sampah. Backup jalan dari trigger `cekGatewayBot`, jadi tetap jalan walau laptop mati, asal `pasangAlarmGateway` sudah dijalankan. Backup manual: `backup`.
+- `bantu` / `bantuan` menampilkan semua perintah dan jadwal otomatis.
+
