@@ -1037,7 +1037,7 @@ function botBatas_() {
 
 // Gudang yang dicek: Script Property BOT_STOK_GUDANG (bawaan "banjarmasin"; pisahkan koma).
 // Harian (semua = false): hanya material yang BARU turun di bawah batas (sudah dilaporkan = BOT_STOK_LAPOR, dilupakan lagi
-// begitu stoknya naik di atas batas). Senin dan perintah "menipis" (semua = true): daftar lengkap.
+// begitu stoknya naik di atas batas), ditambah sekali lagi saat stoknya habis (0). Senin dan perintah "menipis" (semua = true): daftar lengkap.
 function botStokMenipis_(semua) {
   var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('SALDO GUDANG');
   if (!sh || sh.getLastRow() < 4) return '';
@@ -1054,9 +1054,11 @@ function botStokMenipis_(semua) {
     if (!d || !gud.some(function (x) { return g.toLowerCase().indexOf(x) >= 0; })) return;
     var k = keys.filter(function (k) { return d.toLowerCase().indexOf(k) >= 0; })[0];
     if (!k || sal >= batas[k]) return;
-    var id = g + '|' + d;
-    now[id] = true;
-    if (semua || !lapor[id]) out.push('- ' + d + ' (' + g.replace(/^gudang\s+/i, '') + '): ' + botNum_(sal) + ' (batas ' + botNum_(batas[k]) + ')');
+    var id = g + '|' + d, habis = sal <= 0;
+    now[id] = habis ? 'habis' : 'min';
+    // sekali saat turun di bawah batas, sekali lagi saat habis (0)
+    if (semua || !lapor[id] || (habis && lapor[id] !== 'habis'))
+      out.push('- ' + d + ' (' + g.replace(/^gudang\s+/i, '') + '): ' + (habis ? '*HABIS* ' : '') + botNum_(sal) + ' (batas ' + botNum_(batas[k]) + ')');
   });
   props.setProperty('BOT_STOK_LAPOR', JSON.stringify(now));
   return out.length ? ['⚠️ *Stok menipis* ' + botWita_(Date.now(), 'dd/MM/yyyy') + (semua ? ' (daftar lengkap)' : ' (baru di bawah batas)')].concat(out).join('\n') : '';
