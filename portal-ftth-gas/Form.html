@@ -192,6 +192,8 @@
     #appShell { display: flex; min-height: 80vh; }
     #sidebar { width: 260px; flex-shrink: 0; background: var(--navy); padding: 18px 0; display: flex; flex-direction: column; transition: width .2s; position: sticky; top: 96px; height: calc(100vh - 96px); overflow-y: auto; }
     .sidebar-nav { display: flex; flex-direction: column; gap: 4px; padding: 0 12px; }
+    .sidebar-foot { margin-top: auto; padding: 18px 24px 4px; font-size: 11px; line-height: 1.5; color: rgba(255,255,255,.4); }
+    body.sidebar-collapsed .sidebar-foot { display: none; }
     .nav-item { display: flex; align-items: flex-start; gap: 12px; width: 100%; text-align: left; background: transparent; border: none; border-radius: 12px; font-family: inherit; padding: 12px 14px; cursor: pointer; transition: background .15s; }
     .nav-item svg { width: 20px; height: 20px; margin-top: 1px; stroke: #fff; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
     .nav-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -738,6 +740,7 @@
         <button type="button" class="nav-item" id="navAdministration" data-view="viewAdministration" style="display:none"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.97 7.97 0 0 0 0-2l2-1.5-2-3.5-2.4 1a8 8 0 0 0-1.7-1L15 3h-4l-.3 2.5a8 8 0 0 0-1.7 1l-2.4-1-2 3.5L6.6 11a7.97 7.97 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a8 8 0 0 0 1.7 1L11 21h4l.3-2.5a8 8 0 0 0 1.7-1l2.4 1 2-3.5z"/></svg><span class="nav-text"><span class="nav-title">Administration</span><span class="nav-sub">User &amp; Master Data</span></span></button>
         <button type="button" class="nav-item" id="navLogHistory" data-view="viewLogHistory" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg><span class="nav-text"><span class="nav-title">Log History</span><span class="nav-sub">Riwayat aktivitas user</span></span></button>
       </nav>
+      <div class="sidebar-foot">&copy; 2026 Rama - FTTH Project &amp; Management</div>
     </aside>
     <div id="mainContent">
       <div id="viewHome" style="display:none">
@@ -897,6 +900,10 @@
         <thead><tr><th>Site</th><th>SOW</th><th>Permit</th><th>Drawing</th><th>Instalasi</th><th>ATP</th><th>Recti</th><th>Opname</th><th>BA Closing</th></tr></thead>
         <tbody id="cpTable"><tr><td colspan="9">Memuat...</td></tr></tbody>
       </table>
+      <div class="pager" id="cpPager" style="display:none">
+        <label class="rows">Rows<select id="cpRows"><option selected>5</option><option>10</option><option>20</option><option>50</option><option>100</option></select></label>
+        <div class="pages" id="cpPages"></div>
+      </div>
       </div>
     </div>
   </div>
@@ -1042,6 +1049,10 @@
         <thead><tr><th>File</th><th>SOW</th><th>Status</th><th>Dibuat</th><th></th></tr></thead>
         <tbody id="bqHistory"><tr><td colspan="5">Memuat...</td></tr></tbody>
       </table>
+      <div class="pager" id="bqPager" style="display:none">
+        <label class="rows">Rows<select id="bqRows"><option selected>5</option><option>10</option><option>20</option><option>50</option><option>100</option></select></label>
+        <div class="pages" id="bqPages"></div>
+      </div>
     </div>
   </div>
 
@@ -1155,6 +1166,10 @@
         <thead><tr><th>ID BA / Nomor BA</th><th>Tanggal</th><th>Name (Site)</th><th>SOW</th><th>Jenis</th><th>Item</th><th></th></tr></thead>
         <tbody id="baHistory"><tr><td colspan="7">Memuat...</td></tr></tbody>
       </table>
+      <div class="pager" id="hfPager" style="display:none">
+        <label class="rows">Rows<select id="hfRows"><option selected>5</option><option>10</option><option>20</option><option>50</option><option>100</option></select></label>
+        <div class="pages" id="hfPages"></div>
+      </div>
     </div>
   </div>
 
@@ -1228,7 +1243,7 @@
         <tbody id="bgHistory"><tr><td colspan="7">Memuat...</td></tr></tbody>
       </table>
       <div class="pager" id="bgPager" style="display:none">
-        <label class="rows">Rows<select id="bgRows"><option>10</option><option selected>20</option><option>50</option><option>100</option></select></label>
+        <label class="rows">Rows<select id="bgRows"><option selected>5</option><option>10</option><option>20</option><option>50</option><option>100</option></select></label>
         <div class="pages" id="bgPages"></div>
       </div>
     </div>
@@ -1367,6 +1382,10 @@
         <thead><tr><th>ID BA</th><th>Tanggal</th><th>Name (Site)</th><th>SOW</th><th>Jenis</th><th>Progres</th><th>Mandor</th><th></th></tr></thead>
         <tbody id="rpHistory"><tr><td colspan="8">Memuat...</td></tr></tbody>
       </table>
+      <div class="pager" id="rpPager" style="display:none">
+        <label class="rows">Rows<select id="rpRows"><option selected>5</option><option>10</option><option>20</option><option>50</option><option>100</option></select></label>
+        <div class="pages" id="rpPages"></div>
+      </div>
     </div>
   </div>
 
@@ -1424,6 +1443,10 @@
           <thead><tr><th>Username</th><th>Nama</th><th>Role</th><th>Area</th><th>Status</th><th></th></tr></thead>
           <tbody id="adminTable"><tr><td colspan="6">Memuat...</td></tr></tbody>
         </table>
+      <div class="pager" id="adminPager" style="display:none">
+        <label class="rows">Rows<select id="adminRows"><option selected>5</option><option>10</option><option>20</option><option>50</option><option>100</option></select></label>
+        <div class="pages" id="adminPages"></div>
+      </div>
         </div>
       </div>
     </div>
@@ -1450,11 +1473,14 @@
         <thead><tr><th>Waktu</th><th>Sumber</th><th>User</th><th>Peran</th><th>Aksi</th><th>Detail</th></tr></thead>
         <tbody id="logTable"><tr><td colspan="6">Memuat...</td></tr></tbody>
       </table>
+      <div class="pager" id="logPager" style="display:none">
+        <label class="rows">Rows<select id="logRows"><option selected>5</option><option>10</option><option>20</option><option>50</option><option>100</option></select></label>
+        <div class="pages" id="logPages"></div>
+      </div>
       </div>
     </div>
   </div>
 
-  <div class="footer">PT Buana Menara Indonesia - FTTH Project Data &amp; Material Reconciliation Management Created by Rama</div>
 
   </div>
   </div>
@@ -1663,6 +1689,40 @@
         })
         .checkAccess(saved);
     }
+    // Tabel per halaman (Rows 5/10/20/50/100, nomor halaman 1 2 3 ... terakhir). Dipakai semua tabel daftar
+    // kecuali Dashboard utama. key = awalan id: <key>Count, <key>Pager, <key>Rows, <key>Pages.
+    // Halaman kembali ke 1 bila pencarian/filter (sig) atau jumlah data berubah.
+    var PG = {}, PG_RENDER = { admin: renderAdminUsers, hf: renderBaHistory, cp: renderCheckpoint, bg: renderBgHistory, bq: renderBqHistory, rp: renderRpmHistory, log: renderLogHistory };
+    function pgSlice(key, rows, all, sig, noun) {
+      var st = PG[key] || (PG[key] = { page: 1, sig: null });
+      sig = String(sig) + '|' + all.length;
+      if (st.sig !== sig) { st.sig = sig; st.page = 1; }
+      var per = Number($(key + 'Rows').value) || 5, total = rows.length, pages = Math.max(1, Math.ceil(total / per));
+      st.page = Math.min(Math.max(1, st.page), pages);
+      var from = (st.page - 1) * per, out = rows.slice(from, from + per);
+      $(key + 'Count').textContent = !all.length ? '' : total ? 'Menampilkan ' + (from + 1) + '-' + (from + out.length) + ' dari ' + total + ' ' + noun + (total < all.length ? ' (hasil cari/filter, total ' + all.length + ')' : '') + '.' : 'Menampilkan 0 dari ' + all.length + ' ' + noun + '.';
+      $(key + 'Pager').style.display = total > 5 ? '' : 'none';
+      var cur = st.page, nums = [], i;
+      for (i = 1; i <= pages; i++) if (i === 1 || i === pages || Math.abs(i - cur) <= 1 || (cur <= 3 && i <= 3) || (cur >= pages - 2 && i >= pages - 2)) nums.push(i);
+      var html = '<button type="button" data-p="' + (cur - 1) + '"' + (cur === 1 ? ' disabled' : '') + ' title="Sebelumnya">&laquo;</button>';
+      nums.forEach(function (n, k) {
+        if (k && n - nums[k - 1] > 1) html += '<button type="button" disabled>&hellip;</button>';
+        html += '<button type="button" data-p="' + n + '"' + (n === cur ? ' class="on" disabled' : '') + '>' + n + '</button>';
+      });
+      html += '<button type="button" data-p="' + (cur + 1) + '"' + (cur === pages ? ' disabled' : '') + ' title="Berikutnya">&raquo;</button>';
+      $(key + 'Pages').innerHTML = html;
+      return out;
+    }
+    Object.keys(PG_RENDER).forEach(function (key) {
+      function rerender() { PG_RENDER[key](); }
+      $(key + 'Rows').addEventListener('change', function () { (PG[key] || (PG[key] = {})).page = 1; rerender(); });
+      $(key + 'Pages').addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-p]');
+        if (!b || b.disabled) return;
+        (PG[key] || (PG[key] = {})).page = Number(b.getAttribute('data-p')); rerender();
+        $(key + 'Count').scrollIntoView({ block: 'nearest' });
+      });
+    });
     var adminUsers = [];
     var adminEditingUsername = null;
     function loadAdminUsers() {
@@ -1674,7 +1734,7 @@
     function renderAdminUsers() {
       var q = $('adminQ').value.trim().toLowerCase();
       var rows = adminUsers.filter(function (u) { return !q || u.username.toLowerCase().indexOf(q) >= 0 || u.nama.toLowerCase().indexOf(q) >= 0; });
-      $('adminCount').textContent = adminUsers.length ? 'Menampilkan ' + rows.length + ' dari ' + adminUsers.length + ' user.' : '';
+      rows = pgSlice('admin', rows, adminUsers, q, 'user');
       var tb = $('adminTable');
       if (!rows.length) {
         tb.innerHTML = '<tr><td colspan="6">' + (adminUsers.length ? 'Tidak ada user yang cocok.' : 'Belum ada user.') + '</td></tr>';
@@ -2983,7 +3043,7 @@
         return (!j || h.jenis === j) && (!s || h.sow === s) &&
           (!q || (String(h.name) + ' ' + String(h.id) + ' ' + String(h.nomor || '')).toLowerCase().indexOf(q) > -1);
       });
-      $('hfCount').textContent = baHist.length ? 'Menampilkan ' + rows.length + ' dari ' + baHist.length + ' BA.' : '';
+      rows = pgSlice('hf', rows, baHist, q + '|' + j + '|' + s, 'BA');
       var tb = $('baHistory');
       if (!rows.length) {
         tb.innerHTML = '<tr><td colspan="7">' + (baHist.length ? 'Tidak ada BA yang cocok dengan pencarian/filter.' : 'Belum ada BA tersimpan.') + '</td></tr>';
@@ -3028,7 +3088,7 @@
         if (q && String(s.name).toLowerCase().indexOf(q) === -1) return;
         rows.push(i);
       });
-      $('cpCount').textContent = cpData.length ? 'Menampilkan ' + rows.length + ' dari ' + cpData.length + ' site.' : '';
+      rows = pgSlice('cp', rows, cpData, q + '|' + sow + '|' + st, 'site');
       var tb = $('cpTable');
       if (!rows.length) {
         tb.innerHTML = '<tr><td colspan="9">' + (cpData.length ? 'Tidak ada site yang cocok dengan pencarian/filter.' : 'Belum ada data site.') + '</td></tr>';
@@ -3311,7 +3371,7 @@
     }
 
     // ================= Warehouse - BA Transaksi (buat BA otomatis) =================
-    var bg = { init: null, loaded: false, sending: false, hist: [], created: null, page: 1 };
+    var bg = { init: null, loaded: false, sending: false, hist: [], created: null };
 
     function bgStatus(cls, htmlText) {
       var el = $('bgStatus');
@@ -3551,12 +3611,7 @@
     function renderBgHistory() {
       var q = $('bgQ').value.trim().toLowerCase();
       var rows = bg.hist.filter(function (h) { return !q || (h.nomor + ' ' + h.site + ' ' + h.mandor).toLowerCase().indexOf(q) > -1; });
-      var per = Number($('bgRows').value) || 20, pages = Math.max(1, Math.ceil(rows.length / per));
-      bg.page = Math.min(Math.max(1, bg.page), pages);
-      var from = (bg.page - 1) * per, total = rows.length;
-      rows = rows.slice(from, from + per);
-      $('bgCount').textContent = !bg.hist.length ? '' : total ? 'Menampilkan ' + (from + 1) + '-' + (from + rows.length) + ' dari ' + total + ' BA' + (total < bg.hist.length ? ' (hasil cari, total ' + bg.hist.length + ')' : '') + '.' : 'Menampilkan 0 dari ' + bg.hist.length + ' BA.';
-      renderBgPager(pages, total);
+      rows = pgSlice('bg', rows, bg.hist, q, 'BA');
       var tb = $('bgHistory');
       if (!rows.length) { tb.innerHTML = '<tr><td colspan="7">' + (bg.hist.length ? 'Tidak ada BA yang cocok dengan pencarian.' : 'Belum ada BA yang dibuat lewat menu ini.') + '</td></tr>'; return; }
       tb.innerHTML = rows.map(function (h) {
@@ -3566,23 +3621,9 @@
       tb.querySelectorAll('.dl').forEach(function (b) { b.addEventListener('click', function () { downloadBa(b); }); });
     }
 
-    // Nomor halaman gaya tabel admin: 1 2 3 ... terakhir, dengan tombol << dan >>.
-    function renderBgPager(pages, total) {
-      $('bgPager').style.display = total > 10 ? '' : 'none';
-      var cur = bg.page, nums = [], i;
-      for (i = 1; i <= pages; i++) if (i === 1 || i === pages || Math.abs(i - cur) <= 1 || (cur <= 3 && i <= 3) || (cur >= pages - 2 && i >= pages - 2)) nums.push(i);
-      var html = '<button type="button" data-p="' + (cur - 1) + '"' + (cur === 1 ? ' disabled' : '') + ' title="Sebelumnya">&laquo;</button>';
-      nums.forEach(function (n, k) {
-        if (k && n - nums[k - 1] > 1) html += '<button type="button" disabled>&hellip;</button>';
-        html += '<button type="button" data-p="' + n + '"' + (n === cur ? ' class="on" disabled' : '') + '>' + n + '</button>';
-      });
-      html += '<button type="button" data-p="' + (cur + 1) + '"' + (cur === pages ? ' disabled' : '') + ' title="Berikutnya">&raquo;</button>';
-      $('bgPages').innerHTML = html;
-    }
-
     function loadBgHistory() {
       GSR
-        .withSuccessHandler(function (list) { bg.hist = list || []; bg.page = 1; renderBgHistory(); })
+        .withSuccessHandler(function (list) { bg.hist = list || []; renderBgHistory(); })
         .withFailureHandler(function (err) { $('bgHistory').innerHTML = '<tr><td colspan="7">Gagal memuat: ' + esc(err && err.message ? err.message : err) + '</td></tr>'; })
         .getBaGudangHistory();
     }
@@ -3595,14 +3636,7 @@
     ['bgTanggal', 'bgJam', 'bgMandor', 'bgGudang'].forEach(function (id) { $(id).addEventListener('input', bgUpdateHint); });
     $('bgAddRow').addEventListener('click', bgAddRow);
     $('bgBtn').addEventListener('click', bgCreate);
-    $('bgQ').addEventListener('input', function () { bg.page = 1; renderBgHistory(); });
-    $('bgRows').addEventListener('change', function () { bg.page = 1; renderBgHistory(); });
-    $('bgPages').addEventListener('click', function (e) {
-      var b = e.target.closest('button[data-p]');
-      if (!b || b.disabled) return;
-      bg.page = Number(b.getAttribute('data-p')); renderBgHistory();
-      $('bgQ').scrollIntoView({ block: 'nearest' });
-    });
+    $('bgQ').addEventListener('input', renderBgHistory);
 
     // ================= Submit BOQ - Buat BOQ (volume -> file BOQ .xlsx dari template per SOW) =================
     var bq = { init: null, loading: false, sending: false, hist: [], tok: 0, warm: {}, warming: false, abd: null, abdTok: 0 };
@@ -3935,7 +3969,7 @@
     function renderBqHistory() {
       var q = $('bqQ').value.trim().toLowerCase();
       var rows = bq.hist.filter(function (h) { return !q || (h.name + ' ' + h.site).toLowerCase().indexOf(q) > -1; });
-      $('bqCount').textContent = bq.hist.length ? 'Menampilkan ' + rows.length + ' dari ' + bq.hist.length + ' BOQ.' : '';
+      rows = pgSlice('bq', rows, bq.hist, q, 'BOQ');
       var tb = $('bqHistory');
       if (!rows.length) { tb.innerHTML = '<tr><td colspan="5">' + (bq.hist.length ? 'Tidak ada BOQ yang cocok dengan pencarian.' : 'Belum ada BOQ yang dibuat lewat menu ini.') + '</td></tr>'; return; }
       tb.innerHTML = rows.map(function (h) {
@@ -4258,7 +4292,7 @@
       var rows = rp.hist.filter(function (h) {
         return !q || (String(h.name) + ' ' + String(h.mandor) + ' ' + String(h.id)).toLowerCase().indexOf(q) > -1;
       });
-      $('rpCount').textContent = rp.hist.length ? 'Menampilkan ' + rows.length + ' dari ' + rp.hist.length + ' BA.' : '';
+      rows = pgSlice('rp', rows, rp.hist, q, 'BA');
       var tb = $('rpHistory');
       if (!rows.length) {
         tb.innerHTML = '<tr><td colspan="8">' + (rp.hist.length ? 'Tidak ada BA yang cocok dengan pencarian.' : 'Belum ada BA Pekerjaan diterbitkan.') + '</td></tr>';
@@ -4337,7 +4371,7 @@
         if (!q) return true;
         return (String(r.user) + ' ' + String(r.peran) + ' ' + String(r.aksi) + ' ' + String(r.detail)).toLowerCase().indexOf(q) > -1;
       });
-      $('logCount').textContent = logData.length ? 'Menampilkan ' + rows.length + ' dari ' + logData.length + ' log.' : '';
+      rows = pgSlice('log', rows, logData, q + '|' + sumber, 'log');
       var tb = $('logTable');
       if (!rows.length) {
         tb.innerHTML = '<tr><td colspan="6">' + (logData.length ? 'Tidak ada log yang cocok.' : 'Belum ada log.') + '</td></tr>';
@@ -4408,8 +4442,16 @@
         bad(e);
       }
     };
+    // Data pra-muat memakai kode lama yang tersimpan di perangkat. Bila kode itu sudah tidak berlaku (password
+    // diganti / user lain masuk lewat Gateway), hasilnya error "Username atau password salah": minta ulang
+    // dengan kode baru setelah cek akses selesai (class 'entering' hilang), jangan tampilkan error lamanya.
+    var retry = function () {
+      if (!loading) return;
+      if (document.body.classList.contains('entering')) { setTimeout(retry, 300); return; }
+      callScurve();
+    };
     var pre = takePrefetch_('sc');
-    if (pre) { pre.then(done, callScurve); return; }
+    if (pre) { pre.then(function (d) { if (d && d.error) retry(); else done(d); }, retry); return; }
     callScurve();
   }
 
