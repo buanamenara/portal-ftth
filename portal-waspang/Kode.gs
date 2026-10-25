@@ -917,8 +917,9 @@ function botPagi_(now) {
   var s = ['» *TODAY\'S PLAN*  : ' + botWita_(now, 'dd/MM/yyyy'),
     '» *PIC*  :  ' + (props.getProperty('BOT_PIC') || 'Rama'),
     '» *REGION*  : ' + (props.getProperty('BOT_REGION') || 'Banjarmasin'),
-    BOT_GARIS_, '*Permit*', 'Cluster :'].concat(permit ? permit.split('\n') : ['-']);
-  s.push('', 'Implementasi');
+    BOT_GARIS_];
+  if (permit) s = s.concat(['*Permit*', 'Cluster :'], permit.split('\n'), ['']);   // tanpa permit malam itu = bagian Permit tidak ada
+  s.push('Implementasi');
   if (!sites.length) s.push('-');
   sites.forEach(function (n) {
     s.push('- ' + n);
