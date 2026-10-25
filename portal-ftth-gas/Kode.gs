@@ -5781,8 +5781,29 @@ function setupSaldoGudang_() {
     sh.getRange(r0, 1, names.length, 2).setValues(names);
     sh.getRange(r0, 3, names.length, 5).setFormulas(formulas);
   }
+  saldoGudangFormat_(sh, names.length);
   sh.setFrozenRows(3);
   return { ok: true, gudang: list.length, baris: names.length };
+}
+
+// Tampilan SALDO GUDANG (sh.clear() di atas ikut menghapus format, jadi dipasang ulang tiap setup).
+function saldoGudangFormat_(sh, n) {
+  sh.getRange(1, 1).setFontWeight('bold').setFontSize(12);
+  sh.getRange(2, 1).setFontStyle('italic').setFontSize(9).setFontColor('#66736e');
+  sh.getRange(3, 1, 1, 7).setFontWeight('bold').setFontColor('#ffffff').setBackground('#1f5e4a')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  if (n) {
+    sh.getRange(4, 3, n, 5).setNumberFormat('#,##0;[Red]-#,##0;0').setHorizontalAlignment('right');
+    sh.getRange(4, 7, n, 1).setFontWeight('bold').setBackground('#edf5f0');
+  }
+  var t = sh.getRange(3, 1, n + 1, 7);
+  t.setBorder(true, true, true, true, null, null, '#bfccc7', SpreadsheetApp.BorderStyle.SOLID);
+  t.setBorder(null, null, null, null, true, true, '#dee6e0', SpreadsheetApp.BorderStyle.SOLID);
+  sh.setColumnWidth(1, 170);
+  sh.setColumnWidth(2, 150);
+  sh.setColumnWidths(3, 5, 110);
+  sh.setRowHeight(3, 30);
+  sh.setHiddenGridlines(true);
 }
 
 // ----- Fungsi pemilik (menu "BA Transaksi" dan editor Apps Script) -----
