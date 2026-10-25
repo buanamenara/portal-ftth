@@ -623,6 +623,8 @@ function waCmd_(p) {
       out = owner ? botBulanan_(Date.now()) : ''; break;
     case 'backup':
       out = owner ? botBackup_(true) : ''; break;
+    case 'potongan':
+      out = botPotongan_(arg); break;
     case 'stokwh':
       out = botStokWh_(p, arg, owner); break;
     case 'setuju':
@@ -649,6 +651,7 @@ function botHelp_(owner) {
     g + 'progres <site> : Total vs Plan material, mis. ' + g + 'progres jati baru rt 04',
     g + 'rekap [kemarin | dd/mm] : Daily Report hari itu',
     g + 'site <kata> : cari nama site di DATA BASE',
+    g + 'potongan [kabel] [gudang] : haspel utuh + potongan kabel dari Excel WH terakhir, mis. ' + g + 'potongan 24c',
     'Kirim Excel stok WH dengan caption ' + g + 'stokwh : dibandingkan dengan SALDO GUDANG, admin yang menyetujui',
     '', '*Otomatis ke grup*',
     '07:00 Today\'s Plan (permit + implementasi)',
@@ -728,6 +731,16 @@ function botStok_(arg) {
   if (!order.length) return arg ? 'Tidak ada material yang cocok dengan "' + arg + '". Contoh: *stok kabel*, *stok tiang batola*.' : 'Semua saldo gudang 0.';
   var out = ['*Stok gudang*' + (arg ? ' "' + arg + '"' : '')];
   order.forEach(function (g) { out.push('', '_' + g + '_'); out = out.concat(by[g]); });
+  var pd = botPotonganData_(), potLines = [];
+  order.forEach(function (g) {
+    var x = pd[botGudangKey_(g).toLowerCase()];
+    if (!x) return;
+    by[g].forEach(function (line) {
+      var d = line.split(':')[0], o = x.items[d];
+      if (o) potLines.push('- ' + d + ' (' + botGudangKey_(g) + '): ' + botPotonganTeks_(o));
+    });
+  });
+  if (potLines.length) out = out.concat(['', '✂️ _Rincian kabel (Excel WH ' + (pd[Object.keys(pd)[0]] || {}).tgl + ', ketik ' + 'potongan <kabel> untuk daftar)_']).concat(potLines);
   if (minus) out.push('', 'Angka minus = barang keluar lebih banyak dari BA Masuk yang tercatat.');
   return out.join('\n');
 }
@@ -1408,6 +1421,12 @@ function botStokWh_(p, arg, owner) {
       Object.keys(r.g[g]).forEach(function (d) { pend.g[g][d] = r.g[g][d]; });
     });
     r.skip.forEach(function (s) { if (pend.skip.indexOf(s) < 0) pend.skip.push(s); });
+    var pot = botWhPotongan_(p.excel, ba.desig), gPot = arg ? botWhGudang_(arg, gs.names) : Object.keys(r.g)[0];
+    if (pot && gPot) {   // info saja (tidak mengubah saldo), jadi langsung disimpan tanpa persetujuan
+      var pd = botPotonganData_();
+      pd[gPot] = { nama: gs.names[gPot] || gPot, file: String(p.excel.name || '').slice(0, 60), tgl: botWita_(Date.now(), 'dd/MM/yyyy'), items: pot };
+      props.setProperty('BOT_POTONGAN', JSON.stringify(pd));
+    }
     var u = botStokWhUsulan_(pend);
     if (u.ada) props.setProperty('BOT_STOKWH', JSON.stringify(pend));
     else props.deleteProperty('BOT_STOKWH');
@@ -1418,10 +1437,85 @@ function botStokWh_(p, arg, owner) {
       var t = Date.now();
       props.setProperty(WAQ_PREFIX_ + t + '_wh', JSON.stringify({ t: t, n: 0, last: 0, files: [], mentions: [], to: to, text: u.text.slice(0, 3500) }));
     }
-    return '📥 File stok WH diterima (' + jml + '). ' + (u.ada ? 'Selisihnya dikirim ke admin untuk disetujui.' : 'Sama dengan saldo portal, tidak ada yang berubah.');
+    return '📥 File stok WH diterima (' + jml + (pot ? ', potongan ' + Object.keys(pot).length + ' kabel' : '') + '). ' + (u.ada ? 'Selisihnya dikirim ke admin untuk disetujui.' : 'Sama dengan saldo portal, tidak ada yang berubah.');
   } finally {
     lock.releaseLock();
   }
+}
+
+// Sheet POTONGAN di Excel stok WH: per kabel kolom "POTONGAN KABEL 24 C" (panjang tiap potongan) dan "UTUH KABEL 24 C"
+// (haspel utuh, biasanya 3.000 m). Dua baris terakhir file berisi total kolom dan total gabungan; keduanya dibuang.
+// -> {'Cable 24C': {utuh: [3000], pot: [10, 17, ...]}} atau null bila sheet tidak ada.
+function botWhPotongan_(excel, desig) {
+  var byKey = {};
+  desig.forEach(function (d) { byKey[botWhNorm_(d)] = d; });
+  var sheet = (excel.sheets || []).filter(function (s) { return /potongan/i.test(s.name); })[0];
+  if (!sheet) return null;
+  var head = null, cols = {}, out = {};
+  sheet.rows.forEach(function (r) {
+    var v = r[1];
+    if (!head) {
+      v.forEach(function (h, c) {
+        var m = typeof h === 'string' && h.match(/^\s*(potongan|utuh)\s+kabel\s+(.+)$/i);
+        var d = m && byKey[botWhNorm_('Cable ' + m[2])];
+        if (d) { cols[c] = { d: d, jenis: m[1].toLowerCase() === 'utuh' ? 'utuh' : 'pot' }; head = true; }
+      });
+      return;
+    }
+    Object.keys(cols).forEach(function (c) {
+      var x = v[c];
+      if (typeof x !== 'number') return;
+      var o = out[cols[c].d] = out[cols[c].d] || { utuh: [], pot: [] };
+      o[cols[c].jenis].push(x);
+    });
+  });
+  var sum = function (a) { return a.reduce(function (t, x) { return t + x; }, 0); };
+  Object.keys(out).forEach(function (d) {
+    var o = out[d];
+    if (o.utuh.length >= 1 && o.utuh[o.utuh.length - 1] === sum(o.utuh.slice(0, -1))) o.utuh.pop();   // total utuh
+    var su = sum(o.utuh);
+    if (o.pot.length >= 2 && o.pot[o.pot.length - 1] === o.pot[o.pot.length - 2] + su) o.pot.pop();   // total gabungan
+    if (o.pot.length >= 1 && o.pot[o.pot.length - 1] === sum(o.pot.slice(0, -1))) o.pot.pop();   // total potongan
+    o.utuh = o.utuh.filter(function (x) { return x > 0; });
+    o.pot = o.pot.filter(function (x) { return x > 0; });
+    if (!o.utuh.length && !o.pot.length) delete out[d];
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+// Ringkasan potongan satu kabel: "1 haspel utuh (3.000 m) + 34 potongan 7.682 m, terpanjang 1.071 m, 2 potongan >= 500 m"
+function botPotonganTeks_(o) {
+  var s = [], su = o.utuh.reduce(function (t, x) { return t + x; }, 0), sp = o.pot.reduce(function (t, x) { return t + x; }, 0);
+  if (o.utuh.length) s.push(o.utuh.length + ' haspel utuh (' + botNum_(su) + ' m)');
+  if (o.pot.length) s.push(o.pot.length + ' potongan ' + botNum_(sp) + ' m, terpanjang ' + botNum_(Math.max.apply(null, o.pot)) + ' m'
+    + ', ' + o.pot.filter(function (x) { return x >= 500; }).length + ' potongan >= 500 m');
+  return s.join(' + ');
+}
+
+function botPotonganData_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('BOT_POTONGAN') || '{}'); } catch (e) { return {}; }
+}
+
+// potongan [kabel] [gudang] : rincian potongan kabel dari Excel WH terakhir.
+function botPotongan_(arg) {
+  var data = botPotonganData_(), gs = Object.keys(data);
+  if (!gs.length) return 'Belum ada data potongan kabel. Kirim Excel WH yang berisi sheet POTONGAN dengan caption *!stokwh*.';
+  var words = arg.toLowerCase().split(/\s+/).filter(Boolean).map(function (w) { return BOT_GUDANG_ALIAS_[w] || BOT_MATERIAL_ALIAS_[w] || w; });
+  var out = ['✂️ *Potongan kabel*'];
+  gs.forEach(function (g) {
+    var x = data[g], gw = words.filter(function (w) { return g.indexOf(w) >= 0; });
+    var mw = words.filter(function (w) { return g.indexOf(w) < 0 && w !== 'cable' && w !== 'kabel'; });
+    if (words.length && !gw.length && !mw.length && words.some(function (w) { return w !== 'cable'; })) return;
+    var lines = Object.keys(x.items).filter(function (d) { return !mw.length || mw.every(function (w) { return d.toLowerCase().indexOf(w) >= 0; }); });
+    if (!lines.length) return;
+    out.push('', '_' + (x.nama || g) + '_ (file ' + x.file + ', ' + x.tgl + ')');
+    lines.forEach(function (d) {
+      var o = x.items[d];
+      out.push('*' + d + '*: ' + botPotonganTeks_(o));
+      if (mw.length && o.pot.length) out.push('  ' + o.pot.slice().sort(function (a, b) { return b - a; }).map(botNum_).join(', '));
+    });
+  });
+  return out.length > 1 ? out.join('\n') : 'Tidak ada data potongan untuk "' + arg + '".';
 }
 
 // "setuju": selisih dihitung ulang terhadap saldo saat ini, lalu satu baris per gudang ditulis ke BA TRANSAKSI.

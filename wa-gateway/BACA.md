@@ -115,3 +115,4 @@ Membatalkan setelah `setuju` dilakukan dengan menghapus baris itu di BA TRANSAKS
 - `bantu` / `bantuan` menampilkan semua perintah dan jadwal otomatis.
 
 - `sore kirim` (chat pribadi pemilik): pengingat Daily Report langsung dikirim ke grup saat itu juga, dengan tag anggota tim yang belum lapor, di luar jadwal 17:30.
+- **Potongan kabel**: kalau Excel `!stokwh` berisi sheet POTONGAN (kolom "POTONGAN KABEL 24 C" / "UTUH KABEL 24 C"), jumlah haspel utuh dan potongan per kabel disimpan (hanya info, tidak mengubah saldo). `stok kabel` menampilkan ringkasannya, `potongan 24c` menampilkan daftar panjang tiap potongan. Butuh `xlsx-mini.mjs` versi 26 Okt di laptop gateway (baris berisi angka saja ikut dibaca).
