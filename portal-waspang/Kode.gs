@@ -628,7 +628,7 @@ function waCmd_(p) {
     case 'ba':
       out = botBa_(arg); break;
     case 'panduan':
-      out = botPanduan_(p); break;
+      out = botPanduan_(p, owner, arg); break;
     case 'stokwh':
       out = botStokWh_(p, arg, owner); break;
     case 'setuju':
@@ -680,6 +680,7 @@ function botHelp_(owner) {
     'tim <nama PIC> <nomor> : tim yang di-tag jam 17:30 (tim, tim hapus <nama>)',
     'wh <nama> <nomor> : tim gudang yang di-tag pengingat stok / opname (wh, wh hapus <nama>)',
     'batas <material> <angka> : standar stok (batas, batas hapus <material>, batas awal)',
+    'panduan lengkap : PDF semua perintah termasuk admin, selalu ke chat pribadi admin',
     'menipis : stok di bawah standar sekarang',
     'mangkrak : site aktif 3+ hari tanpa laporan',
     'boq : semua item yang melebihi Plan BOQ',
@@ -1613,12 +1614,13 @@ function botBa_(arg) {
 }
 
 // panduan : PDF panduan perintah untuk tim (tanpa perintah admin) dikirim lewat antrean gateway ke chat yang meminta.
-// PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN); versi baru = BOT_PANDUAN_VERSI_ diganti.
-// Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF buatan sendiri.
+// panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
+// PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
+// Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
 var BOT_PANDUAN_VERSI_ = '2026-10-26-2';
 var BOT_PANDUAN_TIM_ = [
   ['!bantu', 'Daftar perintah singkat di WhatsApp.', '!bantu'],
-  ['!panduan', 'Kirim PDF panduan ini ke grup.', '!panduan'],
+  ['!panduan', 'Kirim PDF panduan tim ini ke grup.', '!panduan'],
   ['!stok [material] [gudang]', 'Saldo gudang. Tanpa kata = semua material yang ada saldonya. Kabel ikut rincian haspel utuh + potongan.', '!stok | !stok kabel | !stok tiang batola | !stok fat'],
   ['!progres &lt;site&gt;', 'Total realisasi vs Plan BOQ material satu site.', '!progres jati baru rt 04'],
   ['!rekap [kemarin | dd/mm]', 'Isi Daily Report hari itu (tanpa kata = hari ini).', '!rekap | !rekap kemarin | !rekap 24/10'],
@@ -1637,45 +1639,79 @@ var BOT_PANDUAN_JADWAL_ = [
   ['Tanggal 28', 'Persiapan stok opname akhir bulan'],
   ['Saat ada', 'Cek Daily Report baru (tanggal, Total > Plan); BA Ambil dan BA Masuk baru diteruskan']
 ];
+var BOT_PANDUAN_ADMIN_ = [
+  ['panduan lengkap', 'PDF panduan lengkap ini, selalu dikirim ke chat pribadi admin.', 'panduan lengkap'],
+  ['catat &lt;teks&gt;', 'Simpan catatan ke sheet CATATAN BOT.', 'catat beli 2 roll cable 24C'],
+  ['catatan [kata]', '10 catatan terakhir, bisa disaring kata.', 'catatan | catatan cable'],
+  ['ingatkan &lt;waktu&gt; &lt;teks&gt;', 'Pengingat ke chat yang sama (maks 30 hari). Jam WITA, besok + jam, menit (m) atau jam (j).', 'ingatkan 14:30 rapat Waspang | ingatkan besok 08:00 kirim BA | ingatkan 30m telpon mandor | ingatkan 2j cek gudang'],
+  ['pengingat', 'Daftar pengingat yang menunggu.', 'pengingat'],
+  ['permit &lt;daftar&gt;', "Blok Permit di Today's Plan 07:00 berikutnya, satu permit per baris. permit hapus = kosongkan.", 'permit (enter) Cluster Kuin Utara (enter) Subfeeder Jati Baru | permit hapus'],
+  ['tim &lt;nama&gt; &lt;nomor&gt;', 'Tim yang di-tag pengingat Daily Report 17:30. tim = lihat daftar.', 'tim Nazar 081234567890 | tim | tim hapus Nazar'],
+  ['wh &lt;nama&gt; &lt;nomor&gt;', 'Tim gudang yang di-tag pengingat Excel stok dan opname.', 'wh Fahreza 081234567890 | wh | wh hapus Fahreza'],
+  ['sore kirim', 'Kirim pengingat Daily Report ke grup sekarang (tag yang belum lapor).', 'sore kirim'],
+  ['batas &lt;material&gt; &lt;angka&gt;', 'Standar stok menipis. batas = lihat, batas awal = standar bawaan (kabel 3000, tiang 30, FAT 20).', 'batas cable 24c 3000 | batas | batas hapus fat | batas awal'],
+  ['menipis', 'Stok di bawah standar sekarang (alias stokmin).', 'menipis'],
+  ['setuju / batal', 'Terima atau tolak usulan stok dari Excel WH. Hanya di chat pribadi, usulan berlaku 12 jam.', 'setuju | batal'],
+  ['boq', 'Semua item yang realisasinya melebihi Plan BOQ.', 'boq'],
+  ['mangkrak', 'Site aktif yang 3+ hari tanpa Daily Report.', 'mangkrak'],
+  ['pagi / sore', "Contoh Today's Plan 07:00 / pengingat 17:30 (tidak dikirim ke grup).", 'pagi | sore'],
+  ['mingguan / bulanan', 'Contoh rekap mingguan / bulanan sekarang.', 'mingguan | bulanan'],
+  ['backup', 'Backup spreadsheet FTTH + Waspang ke Drive sekarang.', 'backup']
+];
+var BOT_PANDUAN_JADWAL_ADMIN_ = [
+  ['07:00 tiap hari', 'Stok yang berkurang dan di bawah standar + perkiraan habis (Senin: daftar lengkap)'],
+  ['07:05 tiap hari', 'Item yang baru melebihi Plan BOQ (Senin: daftar lengkap)'],
+  ['07:10 tiap hari', 'Peringatan bila Excel stok WH 7 hari tidak dikirim (diulang tiap 3 hari)'],
+  ['Minggu 22:00', 'Backup spreadsheet ke Drive (4 terbaru disimpan)'],
+  ['Saat ada', 'Usulan stok dari Excel !stokwh (balas setuju / batal); email bila laptop gateway mati']
+];
 
-function botPanduanPdf_() {
+function botPanduanPdf_(lengkap) {
   var td = 'border-bottom:1px solid #dde2ea;padding:5px 6px;vertical-align:top;';
+  var head = '<table style="width:100%;border-collapse:collapse;"><tr style="background:#1d2433;color:#fff;"><th style="' + td + 'text-align:left;">Perintah</th>' +
+    '<th style="' + td + 'text-align:left;">Fungsi</th><th style="' + td + 'text-align:left;">Contoh</th></tr>';
+  var baris = function (r) {
+    return '<tr><td style="' + td + 'font-weight:bold;width:28%;">' + r[0] + '</td><td style="' + td + '">' + r[1] + '</td><td style="' + td + 'font-family:monospace;width:32%;">' + r[2].split(' | ').join('<br>') + '</td></tr>';
+  };
+  var jadwal = function (r) { return '<tr><td style="' + td + 'font-weight:bold;width:28%;">' + r[0] + '</td><td style="' + td + '">' + r[1] + '</td></tr>'; };
   var h = ['<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;font-size:10pt;color:#1d2433;">',
-    '<h2 style="margin:0;">Panduan perintah bot AdminSuper</h2>',
+    '<h2 style="margin:0;">Panduan perintah bot AdminSuper' + (lengkap ? ' (lengkap, khusus admin)' : '') + '</h2>',
     '<div style="color:#5b6475;margin-bottom:8px;">Grup REPORT BMI · versi ' + BOT_PANDUAN_VERSI_ + '</div>',
     '<div style="border:1px solid #f0c879;background:#fff6e6;padding:6px 8px;margin-bottom:8px;"><b>Cara pakai:</b> di grup setiap perintah diawali tanda <b>!</b> (tanpa ! bot diam). ',
     'Huruf besar/kecil sama saja. [ ] = boleh dikosongkan, &lt; &gt; = wajib diisi. Singkatan: kabel = cable, tiang = pole, klem = clam; ',
-    'bjm = Banjarmasin, batola = Barito Kuala.</div>',
-    '<table style="width:100%;border-collapse:collapse;"><tr style="background:#1d2433;color:#fff;"><th style="' + td + 'text-align:left;">Perintah</th>',
-    '<th style="' + td + 'text-align:left;">Fungsi</th><th style="' + td + 'text-align:left;">Contoh</th></tr>'];
-  BOT_PANDUAN_TIM_.forEach(function (r) {
-    h.push('<tr><td style="' + td + 'font-weight:bold;width:28%;">' + r[0] + '</td><td style="' + td + '">' + r[1] + '</td><td style="' + td + 'font-family:monospace;width:32%;">' + r[2].split(' | ').join('<br>') + '</td></tr>');
-  });
-  h.push('</table><h3 style="margin:12px 0 4px;">Pesan otomatis ke grup (WITA)</h3><table style="width:100%;border-collapse:collapse;">');
-  BOT_PANDUAN_JADWAL_.forEach(function (r) {
-    h.push('<tr><td style="' + td + 'font-weight:bold;width:28%;">' + r[0] + '</td><td style="' + td + '">' + r[1] + '</td></tr>');
-  });
-  h.push('</table><p style="color:#5b6475;">Bot tidak menjawab kalau laptop gateway mati. Pertanyaan lain hubungi admin.</p>',
+    'bjm = Banjarmasin, batola = Barito Kuala.' + (lengkap ? ' Perintah admin hanya dijawab dari nomor admin (WA_OWNER): di chat pribadi ke nomor bot tanpa !, atau di grup dengan ! (balasannya terbaca semua anggota).' : '') + '</div>',
+    lengkap ? '<h3 style="margin:8px 0 4px;">1. Perintah untuk semua anggota grup</h3>' : '', head];
+  h = h.concat(BOT_PANDUAN_TIM_.map(baris));
+  if (lengkap) h = h.concat(['</table><h3 style="margin:12px 0 4px;">2. Perintah khusus admin</h3>', head], BOT_PANDUAN_ADMIN_.map(baris));
+  h.push('</table><h3 style="margin:12px 0 4px;">' + (lengkap ? '3. ' : '') + 'Pesan otomatis ke grup (WITA)</h3><table style="width:100%;border-collapse:collapse;">');
+  h = h.concat(BOT_PANDUAN_JADWAL_.map(jadwal));
+  if (lengkap) h = h.concat(['</table><h3 style="margin:12px 0 4px;">4. Pesan otomatis ke chat pribadi admin (WITA)</h3><table style="width:100%;border-collapse:collapse;">'], BOT_PANDUAN_JADWAL_ADMIN_.map(jadwal));
+  h.push('</table><p style="color:#5b6475;">Bot tidak menjawab kalau laptop gateway mati.' + (lengkap ? ' Dokumen ini khusus admin, jangan diteruskan ke grup.' : ' Pertanyaan lain hubungi admin.') + '</p>',
     '<p style="text-align:center;color:#5b6475;font-size:8.5pt;margin-top:14px;">© 2026 Rama · All Rights Reserved</p></body></html>');
-  return Utilities.newBlob(h.join(''), 'text/html', 'panduan.html').getAs('application/pdf').setName('Panduan Bot AdminSuper ' + BOT_PANDUAN_VERSI_ + '.pdf');
+  return Utilities.newBlob(h.join(''), 'text/html', 'panduan.html').getAs('application/pdf')
+    .setName('Panduan Bot AdminSuper ' + (lengkap ? 'Lengkap (Admin) ' : '') + BOT_PANDUAN_VERSI_ + '.pdf');
 }
 
-function botPanduan_(p) {
-  var props = PropertiesService.getScriptProperties(), cache = {}, file = null;
-  try { cache = JSON.parse(props.getProperty('BOT_PANDUAN') || '{}'); } catch (e) {}
-  [props.getProperty('BOT_PANDUAN_FILE'), cache.v === BOT_PANDUAN_VERSI_ ? cache.id : ''].some(function (id) {
+function botPanduan_(p, owner, arg) {
+  var lengkap = /^(lengkap|admin|full)$/i.test(arg || ''), to = p.jid || '';
+  if (lengkap && !owner) return 'Panduan lengkap hanya untuk admin. Ketik *!panduan* untuk versi tim.';
+  if (lengkap && p.chat === 'group') to = botOwnerJid_();   // versi admin tidak pernah dikirim ke grup
+  if (!to) return 'Nomor admin (WA_OWNER) belum diatur.';
+  var props = PropertiesService.getScriptProperties(), key = lengkap ? 'BOT_PANDUAN_ADMIN' : 'BOT_PANDUAN', cache = {}, file = null;
+  try { cache = JSON.parse(props.getProperty(key) || '{}'); } catch (e) {}
+  [lengkap ? '' : props.getProperty('BOT_PANDUAN_FILE'), cache.v === BOT_PANDUAN_VERSI_ ? cache.id : ''].some(function (id) {
     try { file = id ? DriveApp.getFileById(String(id).trim()) : null; if (file && file.isTrashed()) file = null; } catch (e) { file = null; }
     return !!file;
   });
   if (!file) {
     if (cache.id) try { DriveApp.getFileById(cache.id).setTrashed(true); } catch (e) {}   // PDF versi lama
-    file = DriveApp.createFile(botPanduanPdf_());
-    props.setProperty('BOT_PANDUAN', JSON.stringify({ v: BOT_PANDUAN_VERSI_, id: file.getId() }));
+    file = DriveApp.createFile(botPanduanPdf_(lengkap));
+    props.setProperty(key, JSON.stringify({ v: BOT_PANDUAN_VERSI_, id: file.getId() }));
   }
   var t = Date.now();
-  props.setProperty(WAQ_PREFIX_ + t + '_panduan', JSON.stringify({ t: t, n: 0, last: 0, to: p.jid || '', mentions: [],
-    files: [{ id: file.getId(), name: file.getName() }], text: '📘 Panduan perintah bot AdminSuper' }));
-  return 'Panduan PDF dikirim sebentar lagi.';
+  props.setProperty(WAQ_PREFIX_ + t + '_panduan', JSON.stringify({ t: t, n: 0, last: 0, to: to, mentions: [],
+    files: [{ id: file.getId(), name: file.getName() }], text: '📘 Panduan perintah bot AdminSuper' + (lengkap ? ' (lengkap, khusus admin)' : '') }));
+  return lengkap && p.chat === 'group' ? 'Panduan lengkap dikirim ke chat pribadi admin.' : 'Panduan PDF dikirim sebentar lagi.';
 }
 
 // "setuju": selisih dihitung ulang terhadap saldo saat ini, lalu satu baris per gudang ditulis ke BA TRANSAKSI.
