@@ -779,7 +779,8 @@ function botIngatkan_(arg, jid) {
   PropertiesService.getScriptProperties().setProperty(key, JSON.stringify({
     t: now, n: 0, last: 0, due: due, to: jid, files: [], text: waText_('⏰ Pengingat: ' + text.trim()).slice(0, 3000)
   }));
-  return 'Siap, diingatkan ' + Utilities.formatDate(new Date(due), BOT_TZ_.id, 'EEE dd/MM HH:mm') + ' ' + BOT_TZ_.label + '.';
+  var hari = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'][Number(Utilities.formatDate(new Date(due), BOT_TZ_.id, 'u')) - 1];
+  return 'Siap, diingatkan ' + hari + ' ' + Utilities.formatDate(new Date(due), BOT_TZ_.id, 'dd/MM HH:mm') + ' ' + BOT_TZ_.label + '.';
 }
 
 function botPengingat_(jid) {
