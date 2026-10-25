@@ -615,7 +615,7 @@ function waCmd_(p) {
       out = p.chat === 'group' ? '' : 'Perintah "' + cmd + '" belum ada. Ketik *bantu* untuk daftar perintah.';
   }
   p.cmd = out ? cmd : '';
-  return { status: 'success', reply: out ? waText_('🤖 ' + out).slice(0, 3500) : '' };
+  return { status: 'success', reply: out ? waText_((/^(pagi|sore)$/.test(cmd) ? '' : '🤖 ') + out).slice(0, 3500) : '' };   // contoh pesan jadwal tampil persis seperti di grup
 }
 
 function botHelp_(owner) {
