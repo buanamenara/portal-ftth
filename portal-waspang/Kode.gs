@@ -632,7 +632,7 @@ function waCmd_(p) {
     case 'pagi':
       out = owner ? botPagi_(Date.now()) : ''; break;
     case 'sore':
-      out = owner ? botSore_(Date.now()).text : ''; break;
+      out = owner ? (/^kirim$/i.test(arg) ? botSoreKirim_() : botSore_(Date.now()).text) : ''; break;
     default:
       out = p.chat === 'group' ? '' : 'Perintah "' + cmd + '" belum ada. Ketik *bantu* untuk daftar perintah.';
   }
@@ -675,6 +675,7 @@ function botHelp_(owner) {
     'boq : semua item yang melebihi Plan BOQ',
     'setuju | batal : usulan stok dari Excel WH (!stokwh)',
     'pagi | sore | mingguan | bulanan : lihat contoh pesan jadwal sekarang',
+    'sore kirim : kirim pengingat laporan ke grup sekarang (tag yang belum lapor)',
     'backup : backup spreadsheet sekarang']);
   return s.join('\n');
 }
@@ -985,6 +986,15 @@ function botTim_() {
 }
 
 // 17:30: tim yang belum mengirim Daily Report hari ini di-tag; yang sudah disebut namanya.
+// "sore kirim": pengingat laporan dikirim ke grup saat itu juga (tag yang belum lapor), di luar jadwal 17:30.
+function botSoreKirim_() {
+  var now = Date.now(), msg = botSore_(now);
+  PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + now + '_sore', JSON.stringify({
+    t: now, n: 0, last: 0, files: [], to: '', mentions: msg.mentions || [], text: msg.text
+  }));
+  return 'Pengingat laporan dikirim ke grup' + (msg.mentions.length ? ', ' + msg.mentions.length + ' orang di-tag.' : '. Semua tim sudah lapor, tidak ada yang di-tag.');
+}
+
 function botSore_(now) {
   var day = botWita_(now, 'dd/MM/yyyy'), tim = botTim_();
   var pics = botDailyRows_().filter(function (r) { return r.day === day || r.sent === day; })
