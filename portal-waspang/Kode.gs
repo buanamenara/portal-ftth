@@ -612,6 +612,8 @@ function waCmd_(p) {
       out = owner ? botPengingat_(p.jid) : ''; break;
     case 'permit':
       out = owner ? botPermit_(arg) : ''; break;
+    case 'implementasi': case 'impl':
+      out = owner ? botImplementasi_(arg) : ''; break;
     case 'tim':
       out = owner ? botTimCmd_(arg) : ''; break;
     case 'batas':
@@ -644,8 +646,8 @@ function waCmd_(p) {
       out = owner && p.chat !== 'group' ? botStokWhSetuju_(p.fromName || p.from) : ''; break;
     case 'batal':
       out = owner && p.chat !== 'group' ? botStokWhBatal_() : ''; break;
-    case 'pagi':
-      out = owner ? botPagi_(Date.now()) : ''; break;
+    case 'pagi':   // pratinjau Today's Plan berikutnya: sesudah 07:00 = besok (memakai Daily Report dan tambahan hari ini)
+      out = owner ? botPagi_(botWita_(Date.now(), 'HH:mm') < '07:00' ? Date.now() : Date.now() + 864e5) : ''; break;
     case 'sore':
       out = owner ? (/^kirim$/i.test(arg) ? botSoreKirim_() : botSore_(Date.now()).text) : ''; break;
     default:
@@ -687,6 +689,8 @@ function botHelp_(owner) {
     'ingatkan 14:30 <teks> | besok 08:00 <teks> | 30m <teks> | 2j <teks>',
     'pengingat : daftar pengingat yang menunggu',
     'permit <daftar, satu per baris> : permit untuk Today\'s Plan berikutnya (permit hapus)',
+    'implementasi <daftar, satu per baris> : tambah ke blok Implementasi Today\'s Plan berikutnya (implementasi hapus)',
+    'implementasi buang <nama site> : buang site dari daftar otomatis Today\'s Plan berikutnya',
     'tim <nama PIC> <nomor> : tim yang di-tag jam 17:30 (tim, tim hapus <nama>)',
     'wh <nama> <nomor> : tim gudang yang di-tag pengingat stok / opname (wh, wh hapus <nama>)',
     'batas <material> <angka> : standar stok (batas, batas hapus <material>, batas awal)',
@@ -936,8 +940,9 @@ function botJadwal_() {
       if (props.getProperty('BOT_SENT_' + j.id) === today) return;
       props.setProperty('BOT_SENT_' + j.id, today);   // dulu ditandai, supaya tidak terkirim dua kali bila gagal di tengah
       var msg = j.build(now);
-      if (j.id === 'PAGI') Object.keys(props.getProperties()).forEach(function (k) {   // permit hari yang sudah lewat
-        if (k.indexOf('BOT_PERMIT_') === 0 && k.slice(11) < today) props.deleteProperty(k);
+      if (j.id === 'PAGI') Object.keys(props.getProperties()).forEach(function (k) {   // permit / implementasi hari yang sudah lewat
+        var m = k.match(/^BOT_(PERMIT|IMPL|IMPLX)_(\d{8})$/);
+        if (m && m[2] < today) props.deleteProperty(k);
       });
       if (!msg || !msg.text) return;
       props.setProperty(WAQ_PREFIX_ + now + '_' + j.id.toLowerCase(), JSON.stringify({
@@ -984,13 +989,13 @@ function botAktivitas_(text) {
   return out;
 }
 
-// Tanggal Today's Plan yang memakai permit yang dikirim sekarang: sebelum 07:00 = hari ini, sesudahnya = besok.
-function botPermitKey_(now) {
-  return 'BOT_PERMIT_' + botWita_(botWita_(now, 'HH:mm') < '07:00' ? now : now + 864e5, 'yyyyMMdd');
+// Tanggal Today's Plan yang memakai permit / implementasi yang dikirim sekarang: sebelum 07:00 = hari ini, sesudahnya = besok.
+function botPermitKey_(now, jenis) {
+  return 'BOT_' + (jenis || 'PERMIT') + '_' + botWita_(botWita_(now, 'HH:mm') < '07:00' ? now : now + 864e5, 'yyyyMMdd');
 }
 
-function botPagi_(now) {
-  var props = PropertiesService.getScriptProperties(), todayKey = botWita_(now, 'yyyyMMdd');
+// Daftar Implementasi otomatis untuk Today's Plan tanggal todayKey: site + aktivitas dari hari Daily Report terakhir sebelumnya.
+function botPagiOtomatis_(todayKey) {
   var rows = botDailyRows_().filter(function (r) { return r.day && botDmyKey_(r.day) < todayKey; });
   var lastDay = rows.reduce(function (m, r) { var k = botDmyKey_(r.day); return k > m ? k : m; }, '');
   var sites = [], acts = {};
@@ -999,12 +1004,41 @@ function botPagi_(now) {
     if (!acts[r.site]) { acts[r.site] = []; sites.push(r.site); }
     botAktivitas_(r.act).forEach(function (a) { if (acts[r.site].indexOf(a) < 0) acts[r.site].push(a); });
   });
+  return { sites: sites, acts: acts };
+}
+
+function botImplBuang_(key) {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(key) || '[]'); } catch (e) { return []; }
+}
+
+function botPagi_(now) {
+  var props = PropertiesService.getScriptProperties(), todayKey = botWita_(now, 'yyyyMMdd');
+  var oto = botPagiOtomatis_(todayKey), acts = oto.acts, buang = botImplBuang_('BOT_IMPLX_' + todayKey);
+  // implementasi buang <kata>: site otomatis yang namanya memuat kata itu tidak dimasukkan
+  var sites = oto.sites.filter(function (n) { return !buang.some(function (k) { return n.toLowerCase().indexOf(k) >= 0; }); });
   var permit = props.getProperty('BOT_PERMIT_' + todayKey) || '';
+  var impl = props.getProperty('BOT_IMPL_' + todayKey) || '';   // dari perintah implementasi, ditambahkan ke daftar dari Daily Report terakhir
   var s = ['» *TODAY\'S PLAN*  : ' + botWita_(now, 'dd/MM/yyyy'),
     '» *PIC*  :  ' + (props.getProperty('BOT_PIC') || 'Rama'),
     '» *REGION*  : ' + (props.getProperty('BOT_REGION') || 'Banjarmasin'),
     BOT_GARIS_];
   if (permit) s = s.concat(['*Permit*', 'Cluster :'], permit.split('\n'), ['']);   // tanpa permit malam itu = bagian Permit tidak ada
+  // Daftar dari perintah implementasi digabung ke daftar otomatis: site baru ditambah di bawah.
+  // Site yang sama dengan daftar otomatis: aktivitasnya diganti dengan yang dikirim pemilik.
+  // Aktivitas sebelum site pertama (mis. "- Rumpiang" yang ditampilkan WhatsApp sebagai bullet) dianggap nama site.
+  var cur = null;
+  impl.split('\n').forEach(function (l) {
+    if (!l) return;
+    if (/^- /.test(l) || !cur) {
+      var nm = l.replace(/^-\s*/, '').trim(), ada = sites.filter(function (x) { return x.toLowerCase() === nm.toLowerCase(); })[0];
+      cur = ada || nm;
+      acts[cur] = [];
+      if (!ada) sites.push(nm);
+    } else {
+      var a = l.replace(/^-/, '').trim();
+      if (a && !acts[cur].some(function (x) { return x.toLowerCase() === a.toLowerCase(); })) acts[cur].push(a);
+    }
+  });
   s.push('Implementasi');
   if (!sites.length) s.push('-');
   sites.forEach(function (n) {
@@ -1060,6 +1094,42 @@ function botPermit_(arg) {
   if (!lines.length) return 'Daftar permit kosong.';
   props.setProperty(key, lines.map(function (l) { return '- ' + l; }).join('\n').slice(0, 6000));
   return 'Siap, ' + lines.length + ' permit masuk Today\'s Plan ' + tgl + ' jam 07:00.';
+}
+
+// implementasi <daftar, satu per baris> | implementasi (lihat) | implementasi hapus
+// Daftar dari pemilik ditambahkan ke blok Implementasi otomatis (dari Daily Report terakhir) di Today's Plan berikutnya. Site yang namanya sama dengan daftar otomatis: aktivitasnya menimpa yang dari Daily Report.
+// Baris yang diawali - • * jadi aktivitas ("-Pulling Cable"), baris lain jadi site ("- Jati Baru RT 04"), sama dengan format otomatis.
+function botImplementasi_(arg) {
+  var now = Date.now(), key = botPermitKey_(now, 'IMPL'), props = PropertiesService.getScriptProperties();
+  var tgl = key.slice(-2) + '/' + key.slice(-4, -2) + '/' + key.slice(-8, -4), xkey = key.replace('BOT_IMPL_', 'BOT_IMPLX_'), m;
+  if (/^hapus$/i.test(arg)) {
+    props.deleteProperty(key); props.deleteProperty(xkey);
+    return 'Tambahan dan site yang dibuang untuk Today\'s Plan ' + tgl + ' dihapus, kembali ke daftar otomatis dari Daily Report terakhir.';
+  }
+  // implementasi buang <kata nama site> | implementasi buang (lihat)
+  if ((m = arg.match(/^buang\b\s*([\s\S]*)$/i))) {
+    var buang = botImplBuang_(xkey), kata = m[1].replace(/\s+/g, ' ').trim().toLowerCase();
+    var oto = botPagiOtomatis_(key.slice(-8)).sites;
+    if (!kata) return buang.length ? '*Site dibuang dari Today\'s Plan ' + tgl + '*\n' + buang.map(function (k) { return '- ' + k; }).join('\n') : 'Belum ada site yang dibuang untuk ' + tgl + '. Kirim *implementasi buang* diikuti sebagian nama site.';
+    var kena = oto.filter(function (n) { return n.toLowerCase().indexOf(kata) >= 0; });
+    if (!kena.length) return 'Tidak ada site di daftar otomatis Today\'s Plan ' + tgl + ' yang memuat "' + kata + '". Cek dengan *pagi*.';
+    if (buang.indexOf(kata) < 0) buang.push(kata);
+    props.setProperty(xkey, JSON.stringify(buang));
+    return 'Siap, dibuang dari Today\'s Plan ' + tgl + ':\n' + kena.map(function (n) { return '- ' + n; }).join('\n') + '\n(implementasi hapus = kembalikan semua)';
+  }
+  if (!arg) {
+    var cur = props.getProperty(key);
+    return cur ? '*Implementasi ' + tgl + '*\n' + cur : 'Belum ada tambahan implementasi untuk ' + tgl + ' (Today\'s Plan hanya memakai Daily Report terakhir). Kirim *implementasi* diikuti daftar, satu per baris.';
+  }
+  var lines = arg.split(/\r?\n/).map(function (l) {
+    l = l.replace(/\t+/g, '  ').replace(/\s{3,}/g, '  ').trim();
+    if (!l || /^implementasi\s*:?$/i.test(l)) return '';
+    var b = l.match(/^[-•*]+\s*/);
+    return b ? (l.slice(b[0].length).trim() ? '-' + l.slice(b[0].length).trim() : '') : '- ' + l;
+  }).filter(Boolean);
+  if (!lines.length) return 'Daftar implementasi kosong.';
+  props.setProperty(key, lines.join('\n').slice(0, 6000));
+  return 'Siap, ' + lines.length + ' baris implementasi ditambahkan ke Today\'s Plan ' + tgl + ' jam 07:00, bersama daftar dari Daily Report terakhir.';
 }
 
 // tim | tim <nama> <nomor> | tim hapus <nama>
@@ -1632,7 +1702,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-10-26-5';
+var BOT_PANDUAN_VERSI_ = '2026-10-26-8';
 var BOT_PANDUAN_TIM_ = [
   ['!bantu', 'Daftar perintah singkat di WhatsApp.', '!bantu'],
   ['!panduan', 'Kirim PDF panduan tim ini ke grup.', '!panduan'],
@@ -1661,6 +1731,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['ingatkan &lt;waktu&gt; &lt;teks&gt;', 'Pengingat ke chat yang sama (maks 30 hari). Jam WITA, besok + jam, menit (m) atau jam (j).', 'ingatkan 14:30 rapat Waspang | ingatkan besok 08:00 kirim BA | ingatkan 30m telpon mandor | ingatkan 2j cek gudang'],
   ['pengingat', 'Daftar pengingat yang menunggu.', 'pengingat'],
   ['permit &lt;daftar&gt;', "Blok Permit di Today's Plan 07:00 berikutnya, satu permit per baris. permit hapus = kosongkan.", 'permit (enter) Cluster Kuin Utara (enter) Subfeeder Jati Baru | permit hapus'],
+  ['implementasi &lt;daftar&gt;', "Tambah ke blok Implementasi Today's Plan 07:00 berikutnya (digabung dengan daftar dari Daily Report terakhir; site yang sama = aktivitasnya diganti). Satu baris per site; baris diawali - = aktivitas di bawah site. implementasi buang &lt;nama site&gt; = site dari Daily Report tidak dimasukkan. implementasi hapus = buang semua tambahan.", 'implementasi (enter) Jati Baru RT 04 (enter) -Pulling Cable Line A | implementasi buang pemurus | implementasi hapus'],
   ['tim &lt;nama&gt; &lt;nomor&gt;', 'Tim yang di-tag pengingat Daily Report 17:30. tim = lihat daftar.', 'tim Nazar 081234567890 | tim | tim hapus Nazar'],
   ['wh &lt;nama&gt; &lt;nomor&gt;', 'Tim gudang yang di-tag pengingat Excel stok dan opname.', 'wh Fahreza 081234567890 | wh | wh hapus Fahreza'],
   ['sore kirim', 'Kirim pengingat Daily Report ke grup sekarang (tag yang belum lapor).', 'sore kirim'],
@@ -2934,7 +3005,7 @@ function logWaspang_(p, res) {
         // hanya membaca data (stok, progres, ba, status, ...) tidak dicatat, supaya LOG HISTORY tidak cepat penuh.
         if (!p.cmd || waCmdBaca_(p)) return;
         aksi = 'Perintah Bot WA';
-        detail = p.cmd + (/^(catat|ingatkan|permit|tim)$/.test(p.cmd) ? '' : ' ' + String(p.text || '').replace(/^[!\/]?\S+\s*/, '')).slice(0, 80);
+        detail = p.cmd + (/^(catat|ingatkan|permit|implementasi|impl|tim)$/.test(p.cmd) ? '' : ' ' + String(p.text || '').replace(/^[!\/]?\S+\s*/, '')).slice(0, 80);
         who = { name: String(p.fromName || '').trim() || String(p.from || ''), role: p.chat === 'group' ? 'Grup WA' : 'WA pribadi' };
         break;
       case 'SET_TOTAL':
