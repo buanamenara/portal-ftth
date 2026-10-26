@@ -3441,7 +3441,7 @@
     function bgRefreshRegion() {
       var r = bgRegionObj();
       var sites = [];
-      if (bg.init && r) bg.init.sites.forEach(function (d) { if (regionKeyClient(d.region) === r.key) sites.push(d); });
+      if (bg.init && r) bg.init.sites.forEach(function (d) { if (siteInRegionClient(d, r.key)) sites.push(d); });
       var seenNm = {};
       $('bgSiteList').innerHTML = sites.filter(function (d) { if (seenNm[d.name]) return false; seenNm[d.name] = 1; return true; }).map(function (d) { return '<option value="' + esc(d.name) + '">'; }).join('');
       var ms = (bg.init && r && bg.init.mandors[r.key]) || [];
@@ -3452,12 +3452,17 @@
     }
 
     function regionKeyClient(s) { return String(s == null ? '' : s).toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+    // sama dengan siteInRegion_ di server: Region atau KOTA DATA BASE sama, atau nama site memuat nama region
+    function siteInRegionClient(d, rk) {
+      if (regionKeyClient(d.region) === rk || (d.kota && regionKeyClient(d.kota) === rk)) return true;
+      return rk.length >= 4 && regionKeyClient(d.name).indexOf(rk) > -1;
+    }
 
     // Satu site bisa punya beberapa baris DATA BASE dengan SOW berbeda (mis. Cluster dan Subfeeder)
     function bgSiteRows() {
       var r = bgRegionObj(), v = $('bgSite').value.trim().toLowerCase(), out = [];
       if (!bg.init || !r || !v) return out;
-      bg.init.sites.forEach(function (d) { if (regionKeyClient(d.region) === r.key && d.name.toLowerCase() === v) out.push(d); });
+      bg.init.sites.forEach(function (d) { if (siteInRegionClient(d, r.key) && d.name.toLowerCase() === v) out.push(d); });
       return out;
     }
 
