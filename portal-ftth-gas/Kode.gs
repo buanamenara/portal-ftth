@@ -955,10 +955,10 @@ function baParse_(struct) {
 }
 
 // ---------- Pencocokan nama Site dengan DATA BASE ----------
-// Site masuk region bila kolom Region DATA BASE sama, atau namanya memuat nama region
-// (mis. "[FWA] HULU SUNGAI TENGAH_..." ber-Region Banjarmasin tetap muncul di region Hulu Sungai Tengah).
-function siteInRegion_(dbRegion, name, rk) {
-  if (regionKey_(dbRegion) === rk) return true;
+// Site masuk region bila kolom Region atau KOTA di DATA BASE sama, atau namanya memuat nama region
+// (mis. "[FWA] HULU SUNGAI TENGAH_..." ber-Region Banjarmasin, KOTA HULU SUNGAI TENGAH, tetap muncul di region Hulu Sungai Tengah).
+function siteInRegion_(dbRegion, name, rk, kota) {
+  if (regionKey_(dbRegion) === rk || (kota && regionKey_(kota) === rk)) return true;
   return rk.length >= 4 && regionKey_(name).indexOf(rk) > -1;
 }
 
@@ -966,12 +966,19 @@ function baReadDbSites_(region) {
   var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DATA BASE');
   if (!sh || sh.getLastRow() < 4) return [];
   var vals = sh.getRange(4, 1, sh.getLastRow() - 3, 3).getValues(); // A: Region, B: Name, C: SOW
+  // Kolom KOTA (judul di baris 2 atau 3) bila ada: kabupaten/kota site, mis. HULU SUNGAI TENGAH
+  var head = sh.getRange(2, 1, 2, sh.getLastColumn()).getValues(), cK = -1;
+  for (var c = 0; c < head[0].length && cK < 0; c++) {
+    if (normalizeText_(head[0][c]) === 'kota' || normalizeText_(head[1][c]) === 'kota') cK = c + 1;
+  }
+  var kota = cK > 0 ? sh.getRange(4, cK, vals.length, 1).getValues() : null;
   var out = [], rk = region ? regionKey_(region) : '';
-  vals.forEach(function (r) {
+  vals.forEach(function (r, i) {
     var n = baClean_(r[1]);
     if (!n) return;
-    if (rk && !siteInRegion_(r[0], n, rk)) return;      // kode region: hanya site region itu
-    out.push({ name: n, sow: baClean_(r[2]), region: baClean_(r[0]) });
+    var k = kota ? baClean_(kota[i][0]) : '';
+    if (rk && !siteInRegion_(r[0], n, rk, k)) return;   // kode region: hanya site region itu
+    out.push({ name: n, sow: baClean_(r[2]), region: baClean_(r[0]), kota: k });
   });
   return out;
 }
@@ -4246,7 +4253,7 @@ function regionCheckSite_(scope, siteName) {
   var key = normalizeText_(siteName), mine = false, other = false;
   baReadDbSites_().forEach(function (d) {
     if (normalizeText_(d.name) !== key) return;
-    if (siteInRegion_(d.region, d.name, regionKey_(scope))) mine = true; else other = true;
+    if (siteInRegion_(d.region, d.name, regionKey_(scope), d.kota)) mine = true; else other = true;
   });
   if (mine) return;
   if (!other && REGION_ALLOW_NEW_SITE) return;

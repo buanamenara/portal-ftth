@@ -3452,9 +3452,10 @@
     }
 
     function regionKeyClient(s) { return String(s == null ? '' : s).toUpperCase().replace(/[^A-Z0-9]/g, ''); }
-    // sama dengan siteInRegion_ di server: Region DATA BASE sama, atau nama site memuat nama region
+    // sama dengan siteInRegion_ di server: Region atau KOTA DATA BASE sama, atau nama site memuat nama region
     function siteInRegionClient(d, rk) {
-      return regionKeyClient(d.region) === rk || (rk.length >= 4 && regionKeyClient(d.name).indexOf(rk) > -1);
+      if (regionKeyClient(d.region) === rk || (d.kota && regionKeyClient(d.kota) === rk)) return true;
+      return rk.length >= 4 && regionKeyClient(d.name).indexOf(rk) > -1;
     }
 
     // Satu site bisa punya beberapa baris DATA BASE dengan SOW berbeda (mis. Cluster dan Subfeeder)
