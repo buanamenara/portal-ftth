@@ -2784,15 +2784,47 @@ function kirimSaran_(payload) {
 // Catat aksi Portal Waspang yang berhasil ke LOG HISTORY (spreadsheet Portal FTTH). Nama dan peran diambil dari sesi Gateway;
 // tanpa sesi dipakai nama PIC/Waspang yang diketik. Gagal mencatat tidak boleh menggagalkan aksi utamanya.
 var LOG_RESET_ROWS = 550;
-// LOG HISTORY dimulai lagi dari nol setiap kali terisi lebih dari LOG_RESET_ROWS baris: baris terbaru dipindah ke
-// baris 5 dan baris lainnya dikosongkan (bukan dihapus, supaya format dan warna baris tetap).
+// LOG HISTORY dimulai lagi dari nol setiap kali terisi lebih dari LOG_RESET_ROWS baris: baris lama disalin dulu ke tab
+// LOG ARSIP (logArsip_), lalu baris terbaru dipindah ke baris 5 dan baris lainnya dikosongkan (bukan dihapus, supaya
+// format dan warna baris tetap). Bila arsip gagal, log tidak dikosongkan (dicoba lagi pada catatan berikutnya).
+var LOG_ARSIP_SH = 'LOG ARSIP';
 function logResetIfFull_(sh, row) {
   if (row - 4 <= LOG_RESET_ROWS) return;
+  if (!logArsip_(sh, row - 5)) return;
   var last = sh.getRange(row, 1, 1, 6).getValues()[0].map(function (v) {
     return typeof v === 'string' && /^[=+\-@]/.test(v) ? "'" + v : v;
   });
   sh.getRange(5, 1, row - 4, 6).clearContent();
   sh.getRange(5, 1, 1, 6).setValues([last]);
+}
+
+// Salin n baris log (mulai baris 5) ke bawah tab LOG ARSIP di spreadsheet yang sama. Tab dibuat bila belum ada,
+// dengan proteksi yang sama seperti LOG HISTORY (hanya editor log yang boleh mengubah).
+function logArsip_(sh, n) {
+  if (n < 1) return true;
+  try {
+    var ss = sh.getParent(), ar = ss.getSheetByName(LOG_ARSIP_SH);
+    if (!ar) {
+      ar = ss.insertSheet(LOG_ARSIP_SH);
+      ar.getRange(1, 1, 1, 6).setValues([['Waktu', 'Sumber', 'User', 'Peran', 'Aksi', 'Detail']]).setFontWeight('bold');
+      ar.setFrozenRows(1);
+      [140, 90, 160, 90, 180, 420].forEach(function (w, i) { ar.setColumnWidth(i + 1, w); });
+      try {
+        var src = sh.getProtections(SpreadsheetApp.ProtectionType.SHEET)[0];
+        if (src) {
+          var pr = ar.protect().setDescription(LOG_ARSIP_SH);
+          pr.removeEditors(pr.getEditors());
+          pr.addEditors(src.getEditors());
+          if (pr.canDomainEdit()) pr.setDomainEdit(false);
+        }
+      } catch (e2) { /* arsip tetap jalan tanpa proteksi */ }
+    }
+    var start = ar.getLastRow() + 1;
+    if (ar.getMaxRows() < start + n - 1) ar.insertRowsAfter(ar.getMaxRows(), start + n - 1 - ar.getMaxRows());
+    sh.getRange(5, 1, n, 6).copyTo(ar.getRange(start, 1, n, 6), { contentsOnly: true });
+    ar.getRange(start, 1, n, 1).setNumberFormat('dd mmm yyyy HH:mm');
+    return true;
+  } catch (e) { return false; }
 }
 
 function logWaspang_(p, res) {
@@ -2833,8 +2865,9 @@ function logWaspang_(p, res) {
         detail = site(p.name || p.cluster, p.sow) + (res && res.removedRow ? ' - baris dihapus (nama tidak ada di DATA BASE)' : '');
         break;
       case 'WA_CMD':
-        // Hanya nama perintah (isi catatan/pengingat tidak dicatat); pesan yang tidak dijawab bot tidak dicatat.
-        if (!p.cmd) return;
+        // Hanya nama perintah (isi catatan/pengingat tidak dicatat); pesan yang tidak dijawab bot dan perintah yang
+        // hanya membaca data (stok, progres, ba, status, ...) tidak dicatat, supaya LOG HISTORY tidak cepat penuh.
+        if (!p.cmd || waCmdBaca_(p)) return;
         aksi = 'Perintah Bot WA';
         detail = p.cmd + (/^(catat|ingatkan|permit|tim)$/.test(p.cmd) ? '' : ' ' + String(p.text || '').replace(/^[!\/]?\S+\s*/, '')).slice(0, 80);
         who = { name: String(p.fromName || '').trim() || String(p.from || ''), role: p.chat === 'group' ? 'Grup WA' : 'WA pribadi' };
@@ -2859,6 +2892,16 @@ function logWaspang_(p, res) {
     sh.getRange(row - w + 1, 1, w, 6).setVerticalAlignment('middle').setWrap(true);
     logResetIfFull_(sh, row);
   } catch (e) { console.error('LOG HISTORY: ' + e); }
+}
+
+// Perintah bot yang hanya membaca/menampilkan data (tidak mengubah Script Properties, sheet atau mengirim ke grup).
+function waCmdBaca_(p) {
+  var arg = String(p.text || '').trim().replace(/^[!\/]?\S+\s*/, '');
+  if (/^(bantu|bantuan|menu|help|\?|stok|stock|saldo|progres|progress|rekap|site|cari|catatan|pengingat|stokmin|menipis|mingguan|mangkrak|bulanan|status|potongan|ba|panduan|pagi)$/.test(p.cmd)) return true;
+  if (p.cmd === 'sore') return !/^kirim$/i.test(arg);
+  if (p.cmd === 'boq') return !/^ok\b/i.test(arg);
+  if (/^(tim|batas|wh)$/.test(p.cmd)) return !arg;
+  return false;
 }
 
 function wsSession_(sid) {
