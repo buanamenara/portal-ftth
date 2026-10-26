@@ -658,52 +658,62 @@ function waCmd_(p) {
   return { status: 'success', reply: out ? waText_((/^(pagi|sore|mingguan|bulanan)$/.test(cmd) ? '' : '🤖 ') + out).slice(0, 3500) : '' };   // contoh pesan jadwal tampil persis seperti di grup
 }
 
+// Format WhatsApp: *tebal* = perintah, _miring_ = isian / contoh, • = satu perintah per baris.
 function botHelp_(owner) {
   var g = owner ? '' : '!';
-  var s = ['*AdminSuper - daftar perintah*' + (owner ? '' : ' (di grup awali dengan !)'),
-    '', '*Perintah*',
-    g + 'bantu / ' + g + 'bantuan : daftar ini',
-    g + 'stok [material] [gudang] : saldo gudang, mis. ' + g + 'stok kabel batola',
-    g + 'progres <site> : Total vs Plan material, mis. ' + g + 'progres jati baru rt 04',
-    g + 'rekap [kemarin | dd/mm] : Daily Report hari itu',
-    g + 'site <kata> : cari nama site di DATA BASE',
-    g + 'potongan [kabel] [gudang] : haspel utuh + potongan kabel dari Excel WH terakhir, mis. ' + g + 'potongan 24c',
-    g + 'ba <site> [sow] : BA Ambil / Pengembalian satu site + total bersih, mis. ' + g + 'ba penggalaman',
-    g + 'panduan : kirim PDF panduan perintah ke chat ini',
-    'Kirim Excel stok WH dengan caption ' + g + 'stokwh : dibandingkan dengan SALDO GUDANG, admin yang menyetujui',
-    '', '*Otomatis ke grup*',
-    '07:00 Today\'s Plan (permit + implementasi)',
-    '07:05 site 3 hari tanpa laporan (tag PIC; daftar lengkap tiap Senin)',
-    '17:30 pengingat Daily Report (tag yang belum lapor)',
-    'Senin 07:00 rekap mingguan | tanggal 1 07:00 rekap bulanan',
-    'Senin 08:00 minta Excel stok WH | tgl 28 persiapan opname | tgl 1 tagih file opname',
-    'Setiap Daily Report dicek (tanggal, Total > Plan) | BA Ambil dan BA Masuk baru diteruskan'];
-  if (owner) s = s.concat(['', '*Otomatis ke chat pribadi admin*',
-    '07:00 stok berkurang di bawah standar (+ perkiraan habis; daftar lengkap tiap Senin)',
-    'Senin 07:05 item yang melebihi Plan BOQ (balas <site> ok supaya tidak dilaporkan lagi)',
-    '07:10 peringatan bila Excel stok WH (!stokwh) 7 hari tidak dikirim (diulang tiap 3 hari)',
-    'Minggu 22:00 backup spreadsheet FTTH + Waspang ke Drive | email bila gateway mati',
-    '', '*Pribadi*',
-    'catat <teks> : simpan catatan',
-    'catatan [kata] : 10 catatan terakhir',
-    'ingatkan 14:30 <teks> | besok 08:00 <teks> | 30m <teks> | 2j <teks>',
-    'pengingat : daftar pengingat yang menunggu',
-    'permit <daftar, satu per baris> : permit untuk Today\'s Plan berikutnya (permit hapus)',
-    'implementasi <daftar, satu per baris> : tambah ke blok Implementasi Today\'s Plan berikutnya (implementasi hapus)',
-    'implementasi buang <nama site> : buang site dari daftar otomatis Today\'s Plan berikutnya',
-    'tim <nama PIC> <nomor> : tim yang di-tag jam 17:30 (tim, tim hapus <nama>)',
-    'wh <nama> <nomor> : tim gudang yang di-tag pengingat stok / opname (wh, wh hapus <nama>)',
-    'batas <material> <angka> : standar stok (batas, batas hapus <material>, batas awal)',
-    'panduan lengkap : PDF semua perintah termasuk admin, selalu ke chat pribadi admin',
-    'menipis : stok di bawah standar sekarang',
-    'mangkrak : site aktif 3+ hari tanpa laporan',
-    'boq : semua item yang melebihi Plan BOQ (kecuali site yang sudah di-OK)',
-    '<site> ok : site itu tidak dilaporkan lagi di BOQ melebihi Plan (boq ok = daftar, boq ok hapus <site>)',
-    'setuju | batal : usulan stok dari Excel WH (!stokwh)',
-    'pagi | sore | mingguan | bulanan : lihat contoh pesan jadwal sekarang',
-    'sore kirim : kirim pengingat laporan ke grup sekarang (tag yang belum lapor)',
-    'backup : backup spreadsheet sekarang',
-    'status : status gateway, antrean pesan, jadwal hari ini, alarm, Excel WH, backup terakhir, kesehatan spreadsheet dan error hari ini']);
+  var s = ['📖 *AdminSuper · Daftar Perintah*',
+    owner ? '_Ketik perintahnya langsung di chat ini._' : '_Di grup, awali perintah dengan tanda *!*_',
+    '', '📦 *CEK DATA*',
+    '• *' + g + 'stok* _[material] [gudang]_ → saldo gudang',
+    '   _contoh: ' + g + 'stok kabel batola_',
+    '• *' + g + 'progres* _<site>_ → Total vs Plan material',
+    '   _contoh: ' + g + 'progres jati baru rt 04_',
+    '• *' + g + 'rekap* _[kemarin | dd/mm]_ → Daily Report hari itu',
+    '• *' + g + 'site* _<kata>_ → cari nama site',
+    '• *' + g + 'potongan* _[kabel] [gudang]_ → haspel utuh + potongan kabel',
+    '• *' + g + 'ba* _<site>_ → BA Ambil / Pengembalian + total bersih',
+    '• *' + g + 'panduan* → PDF panduan perintah',
+    '• *' + g + 'bantu* → daftar ini',
+    '• Kirim Excel stok WH dengan caption *' + g + 'stokwh* → dicocokkan dengan SALDO GUDANG',
+    '', '⏰ *OTOMATIS KE GRUP*',
+    '• *07:00* Today\'s Plan _(permit + implementasi)_',
+    '• *07:05* site 3 hari tanpa laporan _(tag PIC)_',
+    '• *17:30* pengingat Daily Report _(tag yang belum lapor)_',
+    '• *Senin 07:00* rekap mingguan · *tgl 1* rekap bulanan',
+    '• *Senin 08:00* minta Excel stok WH · *tgl 28* persiapan opname',
+    '• Daily Report dicek _(tanggal, Total > Plan)_, BA baru diteruskan'];
+  if (owner) s = s.concat(['', '🔔 *OTOMATIS KE ADMIN*',
+    '• *07:00* stok di bawah standar _(+ perkiraan habis)_',
+    '• *Senin 07:05* item melebihi Plan BOQ',
+    '• *07:10* Excel stok WH 7 hari belum dikirim',
+    '• *Minggu 22:00* backup spreadsheet · email bila gateway mati',
+    '', '📝 *CATATAN & PENGINGAT*',
+    '• *catat* _<teks>_ → simpan catatan',
+    '• *catatan* _[kata]_ → 10 catatan terakhir',
+    '• *ingatkan* _14:30 <teks>_ · _besok 08:00 <teks>_ · _30m <teks>_',
+    '• *pengingat* → daftar pengingat',
+    '', '📋 *TODAY\'S PLAN*',
+    '• *permit* _<daftar>_ → permit besok · _permit hapus_',
+    '• *implementasi* _<daftar>_ → tambah site/aktivitas besok',
+    '   _• Nama Site_ = site · _-Pulling Cable_ = aktivitas',
+    '• *implementasi buang* _<nama site>_ → buang site otomatis',
+    '• *implementasi hapus* → kembali ke daftar otomatis',
+    '• *pagi* · *sore* · *mingguan* · *bulanan* → lihat contoh pesan',
+    '• *sore kirim* → kirim pengingat laporan sekarang',
+    '', '👥 *TIM*',
+    '• *tim* _<nama> <nomor>_ → di-tag jam 17:30 · _tim hapus <nama>_',
+    '• *wh* _<nama> <nomor>_ → tim gudang · _wh hapus <nama>_',
+    '', '📊 *STOK & BOQ*',
+    '• *menipis* → stok di bawah standar',
+    '• *batas* _<material> <angka>_ → standar stok · _batas awal_',
+    '• *setuju* · *batal* → usulan stok dari Excel WH',
+    '• *mangkrak* → site 3+ hari tanpa laporan',
+    '• *boq* → item melebihi Plan BOQ',
+    '• _<site>_ *ok* → site itu tidak dilaporkan lagi · _boq ok_',
+    '', '⚙️ *SISTEM*',
+    '• *status* → gateway, antrean, jadwal, error hari ini',
+    '• *backup* → backup spreadsheet sekarang',
+    '• *panduan lengkap* → PDF semua perintah (ke chat pribadi)']);
   return s.join('\n');
 }
 
@@ -1098,7 +1108,7 @@ function botPermit_(arg) {
 
 // implementasi <daftar, satu per baris> | implementasi (lihat) | implementasi hapus
 // Daftar dari pemilik ditambahkan ke blok Implementasi otomatis (dari Daily Report terakhir) di Today's Plan berikutnya. Site yang namanya sama dengan daftar otomatis: aktivitasnya menimpa yang dari Daily Report.
-// Baris yang diawali - • * jadi aktivitas ("-Pulling Cable"), baris lain jadi site ("- Jati Baru RT 04"), sama dengan format otomatis.
+// Format sama dengan Today's Plan: bullet tanpa spasi = aktivitas ("-Pulling Cable"); bullet + spasi ("• Rumpiang", "- Rumpiang") atau baris tanpa bullet = site.
 function botImplementasi_(arg) {
   var now = Date.now(), key = botPermitKey_(now, 'IMPL'), props = PropertiesService.getScriptProperties();
   var tgl = key.slice(-2) + '/' + key.slice(-4, -2) + '/' + key.slice(-8, -4), xkey = key.replace('BOT_IMPL_', 'BOT_IMPLX_'), m;
@@ -1124,8 +1134,12 @@ function botImplementasi_(arg) {
   var lines = arg.split(/\r?\n/).map(function (l) {
     l = l.replace(/\t+/g, '  ').replace(/\s{3,}/g, '  ').trim();
     if (!l || /^implementasi\s*:?$/i.test(l)) return '';
-    var b = l.match(/^[-•*]+\s*/);
-    return b ? (l.slice(b[0].length).trim() ? '-' + l.slice(b[0].length).trim() : '') : '- ' + l;
+    // "-Pulling Cable" (bullet tanpa spasi) = aktivitas; "• Rumpiang", "- Rumpiang" (bullet + spasi, daftar WhatsApp) atau tanpa bullet = site
+    var b = l.match(/^[-•·*]+(\s*)/), isi = b ? l.slice(b[0].length).trim() : l;
+    if (!isi) return '';
+    // "-RUMPIANG RT 01" tetap site: huruf besar semua (3 kata atau lebih) atau memuat RT/RW/CLUSTER/FEEDER/FWA/UPLINK/PERUMAHAN
+    var miripSite = /(^|[^a-z])(RT|RW|CLUSTER|FEEDER|SUBFEEDER|FWA|UPLINK|PERUMAHAN)([^a-z]|$)/i.test(isi) || (isi === isi.toUpperCase() && /[A-Z]/.test(isi) && isi.split(/\s+/).length >= 3);
+    return b && !b[1] && !miripSite ? '-' + isi : '- ' + isi;
   }).filter(Boolean);
   if (!lines.length) return 'Daftar implementasi kosong.';
   props.setProperty(key, lines.join('\n').slice(0, 6000));
@@ -1702,7 +1716,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-10-26-8';
+var BOT_PANDUAN_VERSI_ = '2026-10-26-9';
 var BOT_PANDUAN_TIM_ = [
   ['!bantu', 'Daftar perintah singkat di WhatsApp.', '!bantu'],
   ['!panduan', 'Kirim PDF panduan tim ini ke grup.', '!panduan'],
@@ -1731,7 +1745,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['ingatkan &lt;waktu&gt; &lt;teks&gt;', 'Pengingat ke chat yang sama (maks 30 hari). Jam WITA, besok + jam, menit (m) atau jam (j).', 'ingatkan 14:30 rapat Waspang | ingatkan besok 08:00 kirim BA | ingatkan 30m telpon mandor | ingatkan 2j cek gudang'],
   ['pengingat', 'Daftar pengingat yang menunggu.', 'pengingat'],
   ['permit &lt;daftar&gt;', "Blok Permit di Today's Plan 07:00 berikutnya, satu permit per baris. permit hapus = kosongkan.", 'permit (enter) Cluster Kuin Utara (enter) Subfeeder Jati Baru | permit hapus'],
-  ['implementasi &lt;daftar&gt;', "Tambah ke blok Implementasi Today's Plan 07:00 berikutnya (digabung dengan daftar dari Daily Report terakhir; site yang sama = aktivitasnya diganti). Satu baris per site; baris diawali - = aktivitas di bawah site. implementasi buang &lt;nama site&gt; = site dari Daily Report tidak dimasukkan. implementasi hapus = buang semua tambahan.", 'implementasi (enter) Jati Baru RT 04 (enter) -Pulling Cable Line A | implementasi buang pemurus | implementasi hapus'],
+  ['implementasi &lt;daftar&gt;', "Tambah ke blok Implementasi Today's Plan 07:00 berikutnya (digabung dengan daftar dari Daily Report terakhir; site yang sama = aktivitasnya diganti). Satu baris per site (boleh pakai bullet daftar WhatsApp); baris -aktivitas (tanpa spasi) = aktivitas di bawah site, kecuali mirip nama site (huruf besar semua, atau memuat RT/CLUSTER/FEEDER/FWA). implementasi buang &lt;nama site&gt; = site dari Daily Report tidak dimasukkan. implementasi hapus = buang semua tambahan.", 'implementasi (enter) Jati Baru RT 04 (enter) -Pulling Cable Line A | implementasi buang pemurus | implementasi hapus'],
   ['tim &lt;nama&gt; &lt;nomor&gt;', 'Tim yang di-tag pengingat Daily Report 17:30. tim = lihat daftar.', 'tim Nazar 081234567890 | tim | tim hapus Nazar'],
   ['wh &lt;nama&gt; &lt;nomor&gt;', 'Tim gudang yang di-tag pengingat Excel stok dan opname.', 'wh Fahreza 081234567890 | wh | wh hapus Fahreza'],
   ['sore kirim', 'Kirim pengingat Daily Report ke grup sekarang (tag yang belum lapor).', 'sore kirim'],
