@@ -646,8 +646,8 @@ function waCmd_(p) {
       out = owner && p.chat !== 'group' ? botStokWhSetuju_(p.fromName || p.from) : ''; break;
     case 'batal':
       out = owner && p.chat !== 'group' ? botStokWhBatal_() : ''; break;
-    case 'pagi':
-      out = owner ? botPagi_(Date.now()) : ''; break;
+    case 'pagi':   // pratinjau Today's Plan berikutnya: sesudah 07:00 = besok (memakai Daily Report dan tambahan hari ini)
+      out = owner ? botPagi_(botWita_(Date.now(), 'HH:mm') < '07:00' ? Date.now() : Date.now() + 864e5) : ''; break;
     case 'sore':
       out = owner ? (/^kirim$/i.test(arg) ? botSoreKirim_() : botSore_(Date.now()).text) : ''; break;
     default:
