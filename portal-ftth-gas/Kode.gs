@@ -7466,15 +7466,41 @@ function setupLogHistory_() {
 }
 function setupLogHistory() { ownerOnly_(); return setupLogHistory_(); }
 
-// LOG HISTORY dimulai lagi dari nol setiap kali terisi lebih dari LOG_RESET_ROWS baris: baris terbaru dipindah ke
-// baris 5 dan baris lainnya dikosongkan (bukan dihapus, supaya format dan warna baris tetap).
+// LOG HISTORY dimulai lagi dari nol setiap kali terisi lebih dari LOG_RESET_ROWS baris: baris lama disalin dulu ke
+// spreadsheet LOG ARSIP (logArsip_), lalu baris terbaru dipindah ke baris 5 dan baris lainnya dikosongkan (bukan dihapus, supaya
+// format dan warna baris tetap). Bila arsip gagal, log tidak dikosongkan (dicoba lagi pada catatan berikutnya).
+var LOG_ARSIP_SH = 'LOG ARSIP';
 function logResetIfFull_(sh, row) {
   if (row - 4 <= LOG_RESET_ROWS) return;
+  if (!logArsip_(sh, row - 5)) return;
   var last = sh.getRange(row, 1, 1, 6).getValues()[0].map(function (v) {
     return typeof v === 'string' && /^[=+\-@]/.test(v) ? "'" + v : v;
   });
   sh.getRange(5, 1, row - 4, 6).clearContent();
   sh.getRange(5, 1, 1, 6).setValues([last]);
+}
+
+// Salin n baris log (mulai baris 5) ke bawah tab LOG ARSIP di spreadsheet terpisah "LOG ARSIP - Portal BMI"
+// (milik akun pemasang), supaya arsip yang terus bertambah tidak membebani spreadsheet FTTH.
+var LOG_ARSIP_SS_ID = '1PT42Ioq2FsMyDkIciHOFev4cSYirHagRkpBi4qEQNOk';
+function logArsip_(sh, n) {
+  if (n < 1) return true;
+  try {
+    var ss = SpreadsheetApp.openById(LOG_ARSIP_SS_ID), ar = ss.getSheetByName(LOG_ARSIP_SH);
+    if (!ar) {
+      ar = ss.insertSheet(LOG_ARSIP_SH);
+      ar.getRange(1, 1, 1, 6).setValues([['Waktu', 'Sumber', 'User', 'Peran', 'Aksi', 'Detail']]).setFontWeight('bold');
+      ar.setFrozenRows(1);
+    }
+    var vals = sh.getRange(5, 1, n, 6).getValues().map(function (r) {
+      return r.map(function (v) { return typeof v === 'string' && /^[=+\-@]/.test(v) ? "'" + v : v; });
+    });
+    var start = ar.getLastRow() + 1;
+    if (ar.getMaxRows() < start + n - 1) ar.insertRowsAfter(ar.getMaxRows(), start + n - 1 - ar.getMaxRows());
+    ar.getRange(start, 1, n, 6).setValues(vals);
+    ar.getRange(start, 1, n, 1).setNumberFormat('dd mmm yyyy HH:mm');
+    return true;
+  } catch (e) { return false; }
 }
 
 // Dipanggil dari aksi Portal dan dari onEdit (Spreadsheet). Tidak boleh membuat aksi utama gagal,
@@ -7546,7 +7572,7 @@ function logEditTargets_() {
 // label = nama spreadsheet selain FTTH (kosong untuk FTTH). Isi kolom password/token tidak pernah ditulis ke log.
 function logSheetEdit_(e, who, label) {
   var rg = e.range, sh = rg.getSheet(), tab = sh.getName();
-  if (!label && tab === LOG_SH) return;
+  if (!label && (tab === LOG_SH || tab === LOG_ARSIP_SH)) return;
   if (!label && tab === 'DATA BASE') return logEditDataBase_(e, rg, who);
   var src = label ? tab + ' (' + label + ')' : tab;
   if (rg.getNumRows() > 1 || rg.getNumColumns() > 1) {
