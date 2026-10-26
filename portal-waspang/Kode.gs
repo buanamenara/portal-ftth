@@ -1127,7 +1127,9 @@ function botImplementasi_(arg) {
     // "-Pulling Cable" (bullet tanpa spasi) = aktivitas; "• Rumpiang", "- Rumpiang" (bullet + spasi, daftar WhatsApp) atau tanpa bullet = site
     var b = l.match(/^[-•·*]+(\s*)/), isi = b ? l.slice(b[0].length).trim() : l;
     if (!isi) return '';
-    return b && !b[1] ? '-' + isi : '- ' + isi;
+    // "-RUMPIANG RT 01" tetap site: huruf besar semua (3 kata atau lebih) atau memuat RT/RW/CLUSTER/FEEDER/FWA/UPLINK/PERUMAHAN
+    var miripSite = /\b(RT|RW|CLUSTER|FEEDER|FWA|UPLINK|PERUMAHAN)\b/i.test(isi) || (isi === isi.toUpperCase() && /[A-Z]/.test(isi) && isi.split(/\s+/).length >= 3);
+    return b && !b[1] && !miripSite ? '-' + isi : '- ' + isi;
   }).filter(Boolean);
   if (!lines.length) return 'Daftar implementasi kosong.';
   props.setProperty(key, lines.join('\n').slice(0, 6000));
@@ -1733,7 +1735,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['ingatkan &lt;waktu&gt; &lt;teks&gt;', 'Pengingat ke chat yang sama (maks 30 hari). Jam WITA, besok + jam, menit (m) atau jam (j).', 'ingatkan 14:30 rapat Waspang | ingatkan besok 08:00 kirim BA | ingatkan 30m telpon mandor | ingatkan 2j cek gudang'],
   ['pengingat', 'Daftar pengingat yang menunggu.', 'pengingat'],
   ['permit &lt;daftar&gt;', "Blok Permit di Today's Plan 07:00 berikutnya, satu permit per baris. permit hapus = kosongkan.", 'permit (enter) Cluster Kuin Utara (enter) Subfeeder Jati Baru | permit hapus'],
-  ['implementasi &lt;daftar&gt;', "Tambah ke blok Implementasi Today's Plan 07:00 berikutnya (digabung dengan daftar dari Daily Report terakhir; site yang sama = aktivitasnya diganti). Satu baris per site (boleh pakai bullet daftar WhatsApp); baris -aktivitas (tanpa spasi) = aktivitas di bawah site. implementasi buang &lt;nama site&gt; = site dari Daily Report tidak dimasukkan. implementasi hapus = buang semua tambahan.", 'implementasi (enter) Jati Baru RT 04 (enter) -Pulling Cable Line A | implementasi buang pemurus | implementasi hapus'],
+  ['implementasi &lt;daftar&gt;', "Tambah ke blok Implementasi Today's Plan 07:00 berikutnya (digabung dengan daftar dari Daily Report terakhir; site yang sama = aktivitasnya diganti). Satu baris per site (boleh pakai bullet daftar WhatsApp); baris -aktivitas (tanpa spasi) = aktivitas di bawah site, kecuali mirip nama site (huruf besar semua, atau memuat RT/CLUSTER/FEEDER/FWA). implementasi buang &lt;nama site&gt; = site dari Daily Report tidak dimasukkan. implementasi hapus = buang semua tambahan.", 'implementasi (enter) Jati Baru RT 04 (enter) -Pulling Cable Line A | implementasi buang pemurus | implementasi hapus'],
   ['tim &lt;nama&gt; &lt;nomor&gt;', 'Tim yang di-tag pengingat Daily Report 17:30. tim = lihat daftar.', 'tim Nazar 081234567890 | tim | tim hapus Nazar'],
   ['wh &lt;nama&gt; &lt;nomor&gt;', 'Tim gudang yang di-tag pengingat Excel stok dan opname.', 'wh Fahreza 081234567890 | wh | wh hapus Fahreza'],
   ['sore kirim', 'Kirim pengingat Daily Report ke grup sekarang (tag yang belum lapor).', 'sore kirim'],
