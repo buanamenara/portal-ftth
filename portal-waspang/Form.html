@@ -6293,6 +6293,11 @@ ${todayActivity}`;
           statusBox.style.border = "1px solid #86efac";
           statusBox.style.color = "#15803d";
           statusBox.innerHTML = `<strong>✅ KONEKSI BERHASIL!</strong><br>${data.message}<br>Target Drive: <code>${data.targetDriveFolder}</code>`;
+        } else if (data.status === "gangguan") {
+          statusBox.style.background = "#fefce8";
+          statusBox.style.border = "1px solid #fde047";
+          statusBox.style.color = "#854d0e";
+          statusBox.innerHTML = `<strong>⚠️ WEB APP AKTIF, ADA GANGGUAN</strong><br>${escOpt(data.message)}`;
         } else {
           throw new Error("Respon tidak dikenali: " + JSON.stringify(data));
         }
