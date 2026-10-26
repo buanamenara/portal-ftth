@@ -955,6 +955,13 @@ function baParse_(struct) {
 }
 
 // ---------- Pencocokan nama Site dengan DATA BASE ----------
+// Site masuk region bila kolom Region DATA BASE sama, atau namanya memuat nama region
+// (mis. "[FWA] HULU SUNGAI TENGAH_..." ber-Region Banjarmasin tetap muncul di region Hulu Sungai Tengah).
+function siteInRegion_(dbRegion, name, rk) {
+  if (regionKey_(dbRegion) === rk) return true;
+  return rk.length >= 4 && regionKey_(name).indexOf(rk) > -1;
+}
+
 function baReadDbSites_(region) {
   var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DATA BASE');
   if (!sh || sh.getLastRow() < 4) return [];
@@ -963,7 +970,7 @@ function baReadDbSites_(region) {
   vals.forEach(function (r) {
     var n = baClean_(r[1]);
     if (!n) return;
-    if (rk && regionKey_(r[0]) !== rk) return;          // kode region: hanya site region itu
+    if (rk && !siteInRegion_(r[0], n, rk)) return;      // kode region: hanya site region itu
     out.push({ name: n, sow: baClean_(r[2]), region: baClean_(r[0]) });
   });
   return out;
@@ -4239,7 +4246,7 @@ function regionCheckSite_(scope, siteName) {
   var key = normalizeText_(siteName), mine = false, other = false;
   baReadDbSites_().forEach(function (d) {
     if (normalizeText_(d.name) !== key) return;
-    if (regionKey_(d.region) === regionKey_(scope)) mine = true; else other = true;
+    if (siteInRegion_(d.region, d.name, regionKey_(scope))) mine = true; else other = true;
   });
   if (mine) return;
   if (!other && REGION_ALLOW_NEW_SITE) return;
