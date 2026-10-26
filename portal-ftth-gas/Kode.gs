@@ -1134,11 +1134,13 @@ function saveBa_(base64Data, fileName, data) {
     SpreadsheetApp.flush();
 
     var known = baReadDbSites_().some(function (d) { return normalizeText_(d.name) === normalizeText_(name); });
-    return { ok: true, idBa: idBa, rows: items.length, name: name, sow: sow, jenis: data.jenis, inDb: known,
+    var res = { ok: true, idBa: idBa, rows: items.length, name: name, sow: sow, jenis: data.jenis, inDb: known,
       lain: lain.length, fileUrl: file.getUrl(), fileId: file.getId() };
   } finally {
     lock.releaseLock();
   }
+  saldoGudangPastikan_([data.gudang]);
+  return res;
 }
 
 // Cari BA yang sama (Site + SOW + Jenis + jam + tanggal); mengembalikan ID BA-nya atau ''. Tipe Nomor BA (OUT-CW / OUT-EL / IN)
@@ -5709,10 +5711,12 @@ function saveMasuk_(data) {
     if (startRow > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 50);
     sh.getRange(startRow, 1, 1, C.TOTAL).setValues([row]);
     SpreadsheetApp.flush();
-    return { ok: true, idBa: idBa, jumlahItem: items.length };
+    var res = { ok: true, idBa: idBa, jumlahItem: items.length };
   } finally {
     lock.releaseLock();
   }
+  saldoGudangPastikan_([gudang, gAsal]);
+  return res;
 }
 
 function saveMasuk(code, data) {
@@ -5728,6 +5732,30 @@ function setupSaldoGudang() { ownerOnly_(); return setupSaldoGudang_(); }
 // Nama gudang dikelompokkan per kunci tanpa awalan "Gudang " (Banjarmasin dan Gudang Banjarmasin = satu gudang).
 function baGudangKey_(g) {
   return String(g || '').replace(/^\s*gudang\s+/i, '').replace(/\s+/g, ' ').trim();
+}
+
+// Gudang baru di BA (tujuan atau asal) yang belum punya baris di SALDO GUDANG -> susun ulang SALDO GUDANG otomatis.
+// Gagal di sini tidak membatalkan BA yang sudah tersimpan.
+function saldoGudangPastikan_(gudangs) {
+  try {
+    var want = (gudangs || []).map(baGudangKey_).filter(function (k) { return k; });
+    if (!want.length) return;
+    var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('SALDO GUDANG');
+    var ada = {};
+    if (sh && sh.getLastRow() >= 4) {
+      sh.getRange(4, 1, sh.getLastRow() - 3, 1).getValues().forEach(function (r) {
+        var k = baGudangKey_(r[0]);
+        if (k) ada[k.toLowerCase()] = true;
+      });
+    }
+    var baru = want.filter(function (k) { return !ada[k.toLowerCase()]; });
+    if (!baru.length) return;
+    var lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+    try { setupSaldoGudang_(); } finally { lock.releaseLock(); }
+  } catch (e) {
+    console.log('saldoGudangPastikan_: ' + (e && e.message || e));
+  }
 }
 
 function setupSaldoGudang_() {
