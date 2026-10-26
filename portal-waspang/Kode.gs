@@ -18,10 +18,15 @@ var CONFIG = {
 
 function doGet(e) {
   if (e && e.parameter && e.parameter.api === 'json') {
+    // Cek kesehatan sungguhan: spreadsheet FTTH, Waspang, RPM BMI dan folder dokumentasi benar-benar dibuka.
+    var cek = wsHealth_(), err = wsErrHariIni_();
     return ContentService.createTextOutput(JSON.stringify({
-      status: "online",
-      message: "Portal Waspang & Daily Report EMR aktif.",
-      targetDriveFolder: "DOKUMENTASI FTTH"
+      status: cek.ok ? "online" : "gangguan",
+      message: cek.ok ? "Portal Waspang & Daily Report EMR aktif. Semua spreadsheet terhubung." : "Gangguan: " + cek.masalah.join('; '),
+      targetDriveFolder: "DOKUMENTASI FTTH",
+      checks: cek.items,
+      errorsToday: err.n,
+      lastError: err.items.length ? err.items[err.items.length - 1] : null
     })).setMimeType(ContentService.MimeType.JSON);
   }
   return withSites_(HtmlService.createHtmlOutputFromFile('Form'))
@@ -31,9 +36,9 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  var result;
+  var result, payload = null;
   try {
-    var payload = JSON.parse(e.postData.contents);
+    payload = JSON.parse(e.postData.contents);
     WS_TZ_ = payload;   // zona waktu HP pengirim (tzOff), dipakai wsTz_()
     switch (payload.action) {
       case 'UPLOAD_PHOTOS':
@@ -88,8 +93,10 @@ function doPost(e) {
         result = { status: 'error', message: 'Action tidak dikenali: ' + payload.action };
     }
     if (result && result.status === 'success') logWaspang_(payload, result);
+    else if (result && result.status === 'error') wsErrCatat_(payload.action, result.message);
   } catch (err) {
     result = { status: 'error', message: err.toString() };
+    wsErrCatat_(payload && payload.action, err.toString());
   }
   return ContentService.createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
@@ -692,7 +699,7 @@ function botHelp_(owner) {
     'pagi | sore | mingguan | bulanan : lihat contoh pesan jadwal sekarang',
     'sore kirim : kirim pengingat laporan ke grup sekarang (tag yang belum lapor)',
     'backup : backup spreadsheet sekarang',
-    'status : status gateway, antrean pesan, jadwal hari ini, alarm, Excel WH dan backup terakhir']);
+    'status : status gateway, antrean pesan, jadwal hari ini, alarm, Excel WH, backup terakhir, kesehatan spreadsheet dan error hari ini']);
   return s.join('\n');
 }
 
@@ -1622,7 +1629,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-10-26-4';
+var BOT_PANDUAN_VERSI_ = '2026-10-26-5';
 var BOT_PANDUAN_TIM_ = [
   ['!bantu', 'Daftar perintah singkat di WhatsApp.', '!bantu'],
   ['!panduan', 'Kirim PDF panduan tim ini ke grup.', '!panduan'],
@@ -1663,7 +1670,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['pagi / sore', "Contoh Today's Plan 07:00 / pengingat 17:30 (tidak dikirim ke grup).", 'pagi | sore'],
   ['mingguan / bulanan', 'Contoh rekap mingguan / bulanan sekarang.', 'mingguan | bulanan'],
   ['backup', 'Backup spreadsheet FTTH + Waspang ke Drive sekarang.', 'backup'],
-  ['status', 'Status gateway: terakhir ambil antrean, pesan yang menunggu / gagal, jadwal hari ini, alarm email, Excel WH dan backup terakhir.', 'status | status gateway']
+  ['status', 'Status gateway: terakhir ambil antrean, pesan yang menunggu / gagal, jadwal hari ini, alarm email, Excel WH dan backup terakhir, cek spreadsheet FTTH/Waspang/RPM BMI + folder dokumentasi, dan jumlah error Portal Waspang hari ini.', 'status | status gateway']
 ];
 var BOT_PANDUAN_JADWAL_ADMIN_ = [
   ['07:00 tiap hari', 'Stok yang berkurang dan di bawah standar + perkiraan habis (Senin: daftar lengkap)'],
@@ -1997,7 +2004,68 @@ function botStatus_() {
       (trig === null ? '' : trig ? ', trigger aktif' : ', trigger BELUM dipasang (jalankan pasangAlarmGateway)') + (all.BOT_GW_DOWN === '1' ? ' (status terakhir: mati)' : ''),
     'Excel WH terakhir: ' + (Number(all.BOT_STOKWH_LAST) ? botWita_(Number(all.BOT_STOKWH_LAST), 'dd/MM/yyyy HH:mm') + ' (' + lalu(Number(all.BOT_STOKWH_LAST)) + ')' : 'belum tercatat'),
     'Backup terakhir: ' + (all.BOT_SENT_BACKUP ? all.BOT_SENT_BACKUP.replace(/^(\d{4})(\d{2})(\d{2})$/, '$3/$2/$1') : 'belum pernah'));
+  var cek = wsHealth_(), err = wsErrHariIni_();
+  out.push('', '*Kesehatan web & spreadsheet*');
+  out = out.concat(cek.items.map(function (c) { return (c.ok ? '✅ ' : '❌ ') + c.nama + ': ' + c.info; }));
+  out.push('Error Portal Waspang hari ini: ' + (err.n ? err.n + 'x' : 'tidak ada'));
+  out = out.concat(err.items.slice(-3).map(function (x) { return '• ' + x.jam + ' ' + x.aksi + ': ' + x.pesan; }));
   return out.join('\n');
+}
+
+// ---- Cek kesehatan: buka tiap spreadsheet/folder yang dipakai portal dan baca data terakhirnya. ----
+// -> {ok, masalah: [teks], items: [{nama, ok, info, ms}]}
+function wsHealth_() {
+  var items = [], now = Date.now(), cek = function (nama, fn) {
+    var t0 = Date.now();
+    try { items.push({ nama: nama, ok: true, info: fn(), ms: Date.now() - t0 }); }
+    catch (e) { items.push({ nama: nama, ok: false, info: String(e.message || e).slice(0, 150), ms: Date.now() - t0 }); }
+  };
+  var lalu = function (ms) {
+    var m = Math.round((now - ms) / 60000);
+    return m < 60 ? m + ' menit lalu' : m < 2880 ? Math.round(m / 60) + ' jam lalu' : Math.round(m / 1440) + ' hari lalu';
+  };
+  var tab = function (ss, nama) { var sh = ss.getSheetByName(nama); if (!sh) throw new Error('tab ' + nama + ' tidak ada'); return sh; };
+  cek('Spreadsheet Waspang', function () {
+    var ss = getWaspangSpreadsheet_(), dr = tab(ss, 'DAILY REPORT EMR'), last = dr.getLastRow();
+    tab(ss, 'MASTER BOQ CLUSTER');
+    var t = last >= 2 ? dr.getRange(last, 1).getValue() : null, ms = t instanceof Date ? t.getTime() : 0;
+    return 'Daily Report terakhir ' + (ms ? botWita_(ms, 'dd/MM HH:mm') + ' (' + lalu(ms) + ')' : 'tidak terbaca');
+  });
+  cek('Spreadsheet FTTH', function () {
+    var ss = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID), ba = tab(ss, 'BA TRANSAKSI'), last = ba.getLastRow();
+    ['DATA BASE', 'SALDO GUDANG', CONFIG.LOG_SHEET_NAME].forEach(function (n) { tab(ss, n); });
+    var r = last >= 2 ? ba.getRange(last, 3, 1, 3).getDisplayValues()[0] : null;
+    return 'BA terakhir ' + (r ? r[0] + ' ' + r[1] + ' (' + r[2] + ')' : 'tidak ada');
+  });
+  cek('Spreadsheet RPM BMI', function () {
+    var ss = SpreadsheetApp.openById(CONFIG.SARAN_SPREADSHEET_ID);
+    var n = tab(ss, 'USERS').getLastRow() - 1;
+    tab(ss, CONFIG.SARAN_SHEET_NAME);
+    return n + ' akun login';
+  });
+  cek('Folder dokumentasi', function () { return DriveApp.getFolderById(CONFIG.DOKUMENTASI_FOLDER_ID).getName(); });
+  var masalah = items.filter(function (c) { return !c.ok; }).map(function (c) { return c.nama + ': ' + c.info; });
+  if (masalah.length) wsErrCatat_('CEK_KESEHATAN', masalah.join('; '));
+  return { ok: !masalah.length, masalah: masalah, items: items };
+}
+
+// ---- Hitungan error Portal Waspang per hari (Script Property WS_ERR): jumlah + 5 pesan terakhir. ----
+function wsErrCatat_(aksi, pesan) {
+  try {
+    var props = PropertiesService.getScriptProperties(), now = Date.now(), d = botWita_(now, 'yyyyMMdd'), j = null;
+    try { j = JSON.parse(props.getProperty('WS_ERR') || 'null'); } catch (e) { j = null; }
+    if (!j || j.d !== d) j = { d: d, n: 0, items: [] };
+    j.n++;
+    j.items.push({ jam: botWita_(now, 'HH:mm'), aksi: String(aksi || '-'), pesan: String(pesan || '').replace(/\s+/g, ' ').slice(0, 160) });
+    j.items = j.items.slice(-5);
+    props.setProperty('WS_ERR', JSON.stringify(j));
+  } catch (e) { /* mencatat error tidak boleh membuat error baru */ }
+}
+
+function wsErrHariIni_() {
+  var j = null;
+  try { j = JSON.parse(PropertiesService.getScriptProperties().getProperty('WS_ERR') || 'null'); } catch (e) { j = null; }
+  return j && j.d === botWita_(Date.now(), 'yyyyMMdd') ? j : { n: 0, items: [] };
 }
 
 function pasangAlarmGateway() {
