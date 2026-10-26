@@ -1322,8 +1322,11 @@ function botBaBaru_() {
       'Site: ' + String(r[ix('Name')] || '-') + (r[ix('SOW')] ? ' (' + r[ix('SOW')] + ')' : ''),
       'Mandor: ' + String(r[ix('Mandor / Subcont')] || '-') + ' | ' + String(r[ix('Gudang')] || '-')])
       .concat(items.length ? items : ['- (tanpa material)']).join('\n');
+    // PDF BA (dibuat Portal FTTH, kolom File ID) ikut dikirim sebagai dokumen; BA tanpa PDF hanya teks.
+    var fid = ix('File ID') >= 0 ? String(r[ix('File ID')] || '').trim() : '';
+    var fname = (ix('Nama File PDF') >= 0 ? String(r[ix('Nama File PDF')] || '').trim() : '') || (String(r[ix('ID BA')] || 'BA') + '.pdf');
     var t = Date.now() + i;
-    props.setProperty(WAQ_PREFIX_ + t + '_ba', JSON.stringify({ t: t, n: 0, last: 0, files: [], mentions: [], text: text.slice(0, 3000) }));
+    props.setProperty(WAQ_PREFIX_ + t + '_ba', JSON.stringify({ t: t, n: 0, last: 0, files: fid ? [{ id: fid, name: fname }] : [], mentions: [], text: text.slice(0, 3000) }));
   });
 }
 
