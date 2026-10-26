@@ -5730,6 +5730,8 @@ function getBaDesignators(code) { requireAccess_(code); return baDesigNames_(); 
 // SALDO GUDANG: rumus dari sheet BA TRANSAKSI (bukan input manual). Jalankan ulang bila gudang atau Designator berubah.
 function setupSaldoGudang() { ownerOnly_(); return setupSaldoGudang_(); }
 // Nama gudang dikelompokkan per kunci tanpa awalan "Gudang " (Banjarmasin dan Gudang Banjarmasin = satu gudang).
+// Gudang yang selalu tampil di SALDO GUDANG walau belum ada BA-nya.
+var SALDO_GUDANG_TETAP = ['Tanah Laut', 'Tapin'];
 function baGudangKey_(g) {
   return String(g || '').replace(/^\s*gudang\s+/i, '').replace(/\s+/g, ' ').trim();
 }
@@ -5766,6 +5768,7 @@ function setupSaldoGudang_() {
   var C = baLayout_(src);
   var cGA = C.headers.indexOf('Gudang Asal') + 1;
   var keys = {};
+  SALDO_GUDANG_TETAP.forEach(function (g) { keys[baGudangKey_(g)] = true; });
   var last = src.getLastRow();
   if (last > 1) {
     src.getRange(2, BA_COL.GUDANG, last - 1, 1).getValues().concat(src.getRange(2, cGA, last - 1, 1).getValues()).forEach(function (r) {
