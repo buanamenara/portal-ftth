@@ -1011,21 +1011,21 @@ function botPagi_(now) {
     BOT_GARIS_];
   if (permit) s = s.concat(['*Permit*', 'Cluster :'], permit.split('\n'), ['']);   // tanpa permit malam itu = bagian Permit tidak ada
   // Daftar dari perintah implementasi digabung ke daftar otomatis: site yang sama dapat aktivitas tambahan, site baru ditambah di bawah.
-  var lepas = [], cur = null;
+  // Aktivitas sebelum site pertama (mis. "- Rumpiang" yang ditampilkan WhatsApp sebagai bullet) dianggap nama site.
+  var cur = null;
   impl.split('\n').forEach(function (l) {
     if (!l) return;
-    if (/^- /.test(l)) {
-      var nm = l.slice(2).trim(), ada = sites.filter(function (x) { return x.toLowerCase() === nm.toLowerCase(); })[0];
+    if (/^- /.test(l) || !cur) {
+      var nm = l.replace(/^-\s*/, '').trim(), ada = sites.filter(function (x) { return x.toLowerCase() === nm.toLowerCase(); })[0];
       cur = ada || nm;
       if (!ada) { sites.push(nm); acts[nm] = []; }
-    } else if (cur) {
+    } else {
       var a = l.replace(/^-/, '').trim();
       if (a && !acts[cur].some(function (x) { return x.toLowerCase() === a.toLowerCase(); })) acts[cur].push(a);
-    } else lepas.push(l);
+    }
   });
   s.push('Implementasi');
-  if (!sites.length && !lepas.length) s.push('-');
-  s = s.concat(lepas);
+  if (!sites.length) s.push('-');
   sites.forEach(function (n) {
     s.push('- ' + n);
     (acts[n].length ? acts[n] : ['-']).forEach(function (a) { s.push('-' + a); });
