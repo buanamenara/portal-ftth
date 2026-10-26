@@ -2784,8 +2784,8 @@ function kirimSaran_(payload) {
 // Catat aksi Portal Waspang yang berhasil ke LOG HISTORY (spreadsheet Portal FTTH). Nama dan peran diambil dari sesi Gateway;
 // tanpa sesi dipakai nama PIC/Waspang yang diketik. Gagal mencatat tidak boleh menggagalkan aksi utamanya.
 var LOG_RESET_ROWS = 550;
-// LOG HISTORY dimulai lagi dari nol setiap kali terisi lebih dari LOG_RESET_ROWS baris: baris lama disalin dulu ke tab
-// LOG ARSIP (logArsip_), lalu baris terbaru dipindah ke baris 5 dan baris lainnya dikosongkan (bukan dihapus, supaya
+// LOG HISTORY dimulai lagi dari nol setiap kali terisi lebih dari LOG_RESET_ROWS baris: baris lama disalin dulu ke
+// spreadsheet LOG ARSIP (logArsip_), lalu baris terbaru dipindah ke baris 5 dan baris lainnya dikosongkan (bukan dihapus, supaya
 // format dan warna baris tetap). Bila arsip gagal, log tidak dikosongkan (dicoba lagi pada catatan berikutnya).
 var LOG_ARSIP_SH = 'LOG ARSIP';
 function logResetIfFull_(sh, row) {
@@ -2798,30 +2798,24 @@ function logResetIfFull_(sh, row) {
   sh.getRange(5, 1, 1, 6).setValues([last]);
 }
 
-// Salin n baris log (mulai baris 5) ke bawah tab LOG ARSIP di spreadsheet yang sama. Tab dibuat bila belum ada,
-// dengan proteksi yang sama seperti LOG HISTORY (hanya editor log yang boleh mengubah).
+// Salin n baris log (mulai baris 5) ke bawah tab LOG ARSIP di spreadsheet terpisah "LOG ARSIP - Portal BMI"
+// (milik akun pemasang), supaya arsip yang terus bertambah tidak membebani spreadsheet FTTH.
+var LOG_ARSIP_SS_ID = '1PT42Ioq2FsMyDkIciHOFev4cSYirHagRkpBi4qEQNOk';
 function logArsip_(sh, n) {
   if (n < 1) return true;
   try {
-    var ss = sh.getParent(), ar = ss.getSheetByName(LOG_ARSIP_SH);
+    var ss = SpreadsheetApp.openById(LOG_ARSIP_SS_ID), ar = ss.getSheetByName(LOG_ARSIP_SH);
     if (!ar) {
       ar = ss.insertSheet(LOG_ARSIP_SH);
       ar.getRange(1, 1, 1, 6).setValues([['Waktu', 'Sumber', 'User', 'Peran', 'Aksi', 'Detail']]).setFontWeight('bold');
       ar.setFrozenRows(1);
-      [140, 90, 160, 90, 180, 420].forEach(function (w, i) { ar.setColumnWidth(i + 1, w); });
-      try {
-        var src = sh.getProtections(SpreadsheetApp.ProtectionType.SHEET)[0];
-        if (src) {
-          var pr = ar.protect().setDescription(LOG_ARSIP_SH);
-          pr.removeEditors(pr.getEditors());
-          pr.addEditors(src.getEditors());
-          if (pr.canDomainEdit()) pr.setDomainEdit(false);
-        }
-      } catch (e2) { /* arsip tetap jalan tanpa proteksi */ }
     }
+    var vals = sh.getRange(5, 1, n, 6).getValues().map(function (r) {
+      return r.map(function (v) { return typeof v === 'string' && /^[=+\-@]/.test(v) ? "'" + v : v; });
+    });
     var start = ar.getLastRow() + 1;
     if (ar.getMaxRows() < start + n - 1) ar.insertRowsAfter(ar.getMaxRows(), start + n - 1 - ar.getMaxRows());
-    sh.getRange(5, 1, n, 6).copyTo(ar.getRange(start, 1, n, 6), { contentsOnly: true });
+    ar.getRange(start, 1, n, 6).setValues(vals);
     ar.getRange(start, 1, n, 1).setNumberFormat('dd mmm yyyy HH:mm');
     return true;
   } catch (e) { return false; }
