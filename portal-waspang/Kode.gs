@@ -1010,7 +1010,8 @@ function botPagi_(now) {
     '» *REGION*  : ' + (props.getProperty('BOT_REGION') || 'Banjarmasin'),
     BOT_GARIS_];
   if (permit) s = s.concat(['*Permit*', 'Cluster :'], permit.split('\n'), ['']);   // tanpa permit malam itu = bagian Permit tidak ada
-  // Daftar dari perintah implementasi digabung ke daftar otomatis: site yang sama dapat aktivitas tambahan, site baru ditambah di bawah.
+  // Daftar dari perintah implementasi digabung ke daftar otomatis: site baru ditambah di bawah.
+  // Site yang sama dengan daftar otomatis: aktivitasnya diganti dengan yang dikirim pemilik.
   // Aktivitas sebelum site pertama (mis. "- Rumpiang" yang ditampilkan WhatsApp sebagai bullet) dianggap nama site.
   var cur = null;
   impl.split('\n').forEach(function (l) {
@@ -1018,7 +1019,8 @@ function botPagi_(now) {
     if (/^- /.test(l) || !cur) {
       var nm = l.replace(/^-\s*/, '').trim(), ada = sites.filter(function (x) { return x.toLowerCase() === nm.toLowerCase(); })[0];
       cur = ada || nm;
-      if (!ada) { sites.push(nm); acts[nm] = []; }
+      acts[cur] = [];
+      if (!ada) sites.push(nm);
     } else {
       var a = l.replace(/^-/, '').trim();
       if (a && !acts[cur].some(function (x) { return x.toLowerCase() === a.toLowerCase(); })) acts[cur].push(a);
@@ -1082,7 +1084,7 @@ function botPermit_(arg) {
 }
 
 // implementasi <daftar, satu per baris> | implementasi (lihat) | implementasi hapus
-// Daftar dari pemilik ditambahkan ke blok Implementasi otomatis (dari Daily Report terakhir) di Today's Plan berikutnya.
+// Daftar dari pemilik ditambahkan ke blok Implementasi otomatis (dari Daily Report terakhir) di Today's Plan berikutnya. Site yang namanya sama dengan daftar otomatis: aktivitasnya menimpa yang dari Daily Report.
 // Baris yang diawali - • * jadi aktivitas ("-Pulling Cable"), baris lain jadi site ("- Jati Baru RT 04"), sama dengan format otomatis.
 function botImplementasi_(arg) {
   var now = Date.now(), key = botPermitKey_(now, 'IMPL'), props = PropertiesService.getScriptProperties();
@@ -1702,7 +1704,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['ingatkan &lt;waktu&gt; &lt;teks&gt;', 'Pengingat ke chat yang sama (maks 30 hari). Jam WITA, besok + jam, menit (m) atau jam (j).', 'ingatkan 14:30 rapat Waspang | ingatkan besok 08:00 kirim BA | ingatkan 30m telpon mandor | ingatkan 2j cek gudang'],
   ['pengingat', 'Daftar pengingat yang menunggu.', 'pengingat'],
   ['permit &lt;daftar&gt;', "Blok Permit di Today's Plan 07:00 berikutnya, satu permit per baris. permit hapus = kosongkan.", 'permit (enter) Cluster Kuin Utara (enter) Subfeeder Jati Baru | permit hapus'],
-  ['implementasi &lt;daftar&gt;', "Tambah ke blok Implementasi Today's Plan 07:00 berikutnya (digabung dengan daftar dari Daily Report terakhir). Satu baris per site; baris diawali - = aktivitas di bawah site. implementasi hapus = buang tambahan.", 'implementasi (enter) Jati Baru RT 04 (enter) -Pulling Cable Line A | implementasi hapus'],
+  ['implementasi &lt;daftar&gt;', "Tambah ke blok Implementasi Today's Plan 07:00 berikutnya (digabung dengan daftar dari Daily Report terakhir; site yang sama = aktivitasnya diganti). Satu baris per site; baris diawali - = aktivitas di bawah site. implementasi hapus = buang tambahan.", 'implementasi (enter) Jati Baru RT 04 (enter) -Pulling Cable Line A | implementasi hapus'],
   ['tim &lt;nama&gt; &lt;nomor&gt;', 'Tim yang di-tag pengingat Daily Report 17:30. tim = lihat daftar.', 'tim Nazar 081234567890 | tim | tim hapus Nazar'],
   ['wh &lt;nama&gt; &lt;nomor&gt;', 'Tim gudang yang di-tag pengingat Excel stok dan opname.', 'wh Fahreza 081234567890 | wh | wh hapus Fahreza'],
   ['sore kirim', 'Kirim pengingat Daily Report ke grup sekarang (tag yang belum lapor).', 'sore kirim'],
