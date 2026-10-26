@@ -1098,7 +1098,7 @@ function botPermit_(arg) {
 
 // implementasi <daftar, satu per baris> | implementasi (lihat) | implementasi hapus
 // Daftar dari pemilik ditambahkan ke blok Implementasi otomatis (dari Daily Report terakhir) di Today's Plan berikutnya. Site yang namanya sama dengan daftar otomatis: aktivitasnya menimpa yang dari Daily Report.
-// Baris yang diawali - • * jadi aktivitas ("-Pulling Cable"), baris lain jadi site ("- Jati Baru RT 04"), sama dengan format otomatis.
+// Format sama dengan Today's Plan: bullet tanpa spasi = aktivitas ("-Pulling Cable"); bullet + spasi ("• Rumpiang", "- Rumpiang") atau baris tanpa bullet = site.
 function botImplementasi_(arg) {
   var now = Date.now(), key = botPermitKey_(now, 'IMPL'), props = PropertiesService.getScriptProperties();
   var tgl = key.slice(-2) + '/' + key.slice(-4, -2) + '/' + key.slice(-8, -4), xkey = key.replace('BOT_IMPL_', 'BOT_IMPLX_'), m;
@@ -1124,8 +1124,10 @@ function botImplementasi_(arg) {
   var lines = arg.split(/\r?\n/).map(function (l) {
     l = l.replace(/\t+/g, '  ').replace(/\s{3,}/g, '  ').trim();
     if (!l || /^implementasi\s*:?$/i.test(l)) return '';
-    var b = l.match(/^[-•*]+\s*/);
-    return b ? (l.slice(b[0].length).trim() ? '-' + l.slice(b[0].length).trim() : '') : '- ' + l;
+    // "-Pulling Cable" (bullet tanpa spasi) = aktivitas; "• Rumpiang", "- Rumpiang" (bullet + spasi, daftar WhatsApp) atau tanpa bullet = site
+    var b = l.match(/^[-•·*]+(\s*)/), isi = b ? l.slice(b[0].length).trim() : l;
+    if (!isi) return '';
+    return b && !b[1] ? '-' + isi : '- ' + isi;
   }).filter(Boolean);
   if (!lines.length) return 'Daftar implementasi kosong.';
   props.setProperty(key, lines.join('\n').slice(0, 6000));
@@ -1702,7 +1704,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-10-26-8';
+var BOT_PANDUAN_VERSI_ = '2026-10-26-9';
 var BOT_PANDUAN_TIM_ = [
   ['!bantu', 'Daftar perintah singkat di WhatsApp.', '!bantu'],
   ['!panduan', 'Kirim PDF panduan tim ini ke grup.', '!panduan'],
@@ -1731,7 +1733,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['ingatkan &lt;waktu&gt; &lt;teks&gt;', 'Pengingat ke chat yang sama (maks 30 hari). Jam WITA, besok + jam, menit (m) atau jam (j).', 'ingatkan 14:30 rapat Waspang | ingatkan besok 08:00 kirim BA | ingatkan 30m telpon mandor | ingatkan 2j cek gudang'],
   ['pengingat', 'Daftar pengingat yang menunggu.', 'pengingat'],
   ['permit &lt;daftar&gt;', "Blok Permit di Today's Plan 07:00 berikutnya, satu permit per baris. permit hapus = kosongkan.", 'permit (enter) Cluster Kuin Utara (enter) Subfeeder Jati Baru | permit hapus'],
-  ['implementasi &lt;daftar&gt;', "Tambah ke blok Implementasi Today's Plan 07:00 berikutnya (digabung dengan daftar dari Daily Report terakhir; site yang sama = aktivitasnya diganti). Satu baris per site; baris diawali - = aktivitas di bawah site. implementasi buang &lt;nama site&gt; = site dari Daily Report tidak dimasukkan. implementasi hapus = buang semua tambahan.", 'implementasi (enter) Jati Baru RT 04 (enter) -Pulling Cable Line A | implementasi buang pemurus | implementasi hapus'],
+  ['implementasi &lt;daftar&gt;', "Tambah ke blok Implementasi Today's Plan 07:00 berikutnya (digabung dengan daftar dari Daily Report terakhir; site yang sama = aktivitasnya diganti). Satu baris per site (boleh pakai bullet daftar WhatsApp); baris -aktivitas (tanpa spasi) = aktivitas di bawah site. implementasi buang &lt;nama site&gt; = site dari Daily Report tidak dimasukkan. implementasi hapus = buang semua tambahan.", 'implementasi (enter) Jati Baru RT 04 (enter) -Pulling Cable Line A | implementasi buang pemurus | implementasi hapus'],
   ['tim &lt;nama&gt; &lt;nomor&gt;', 'Tim yang di-tag pengingat Daily Report 17:30. tim = lihat daftar.', 'tim Nazar 081234567890 | tim | tim hapus Nazar'],
   ['wh &lt;nama&gt; &lt;nomor&gt;', 'Tim gudang yang di-tag pengingat Excel stok dan opname.', 'wh Fahreza 081234567890 | wh | wh hapus Fahreza'],
   ['sore kirim', 'Kirim pengingat Daily Report ke grup sekarang (tag yang belum lapor).', 'sore kirim'],
