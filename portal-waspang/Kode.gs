@@ -1128,7 +1128,7 @@ function botImplementasi_(arg) {
     var b = l.match(/^[-•·*]+(\s*)/), isi = b ? l.slice(b[0].length).trim() : l;
     if (!isi) return '';
     // "-RUMPIANG RT 01" tetap site: huruf besar semua (3 kata atau lebih) atau memuat RT/RW/CLUSTER/FEEDER/FWA/UPLINK/PERUMAHAN
-    var miripSite = /\b(RT|RW|CLUSTER|FEEDER|FWA|UPLINK|PERUMAHAN)\b/i.test(isi) || (isi === isi.toUpperCase() && /[A-Z]/.test(isi) && isi.split(/\s+/).length >= 3);
+    var miripSite = /(^|[^a-z])(RT|RW|CLUSTER|FEEDER|SUBFEEDER|FWA|UPLINK|PERUMAHAN)([^a-z]|$)/i.test(isi) || (isi === isi.toUpperCase() && /[A-Z]/.test(isi) && isi.split(/\s+/).length >= 3);
     return b && !b[1] && !miripSite ? '-' + isi : '- ' + isi;
   }).filter(Boolean);
   if (!lines.length) return 'Daftar implementasi kosong.';
