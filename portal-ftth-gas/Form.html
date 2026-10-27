@@ -671,7 +671,30 @@
       #viewHome .kpi-card:nth-child(-n+2) { border-bottom: 1px solid var(--h-bd); }
       #viewHome .area-body { grid-template-columns: minmax(0, 1fr); }
     }
-    @media (max-width: 700px) { #viewHome .dash-row-2 { grid-template-columns: 1fr; } #viewHome .dt-card { text-align: left; } }
+    /* HP: hanya ringkasan, sembunyikan yang dobel (Top 5 = rata-rata grafik area) atau besar (peta) */
+    @media (max-width: 700px) {
+      #viewHome .dash-row-2 { grid-template-columns: 1fr; }
+      #viewHome .dash-head { align-items: baseline; gap: 2px 10px; }
+      #viewHome .dash-hello { font-size: 18px; }
+      #viewHome .dash-sub, #viewHome .dt-date, #viewHome .area-legend, #viewHome .top5-panel, #viewHome .map-panel,
+      #viewHome .kpi-icon, #viewHome .kpi-card:first-child .kpi-sub,
+      #viewHome .site-table th:nth-child(2), #viewHome .site-table td:nth-child(2),
+      #viewHome .site-table th:nth-child(3), #viewHome .site-table td:nth-child(3) { display: none; }
+      #viewHome .dt-card { text-align: left; }
+      #viewHome .kpi-grid { margin: 10px 0; }
+      #viewHome .kpi-card { padding: 10px 12px; gap: 6px; }
+      #viewHome .kpi-value { font-size: 22px; }
+      #viewHome .kpi-sub { font-size: 11px; }
+      #viewHome .dash-row { margin-bottom: 10px; gap: 10px; }
+      #viewHome .dash-col { gap: 10px; order: -1; }
+      #viewHome .dash-panel { padding: 12px; }
+      #viewHome .area-chart { gap: 10px; }
+      #viewHome .alert-item { padding: 8px 10px; }
+      #viewHome .alert-n { font-size: 16px; }
+      #viewHome .site-table { font-size: 12px; }
+      #viewHome .site-table td { padding: 8px 6px; }
+      #viewHome .site-table td:first-child { white-space: normal; }
+    }
   </style>
 </head>
 <body>
@@ -874,7 +897,7 @@
             <div class="panel-title-row"><div class="panel-title">Perlu Perhatian</div><span class="panel-badge" id="alertBadge">0</span></div>
             <div id="alertList" class="alert-list"><div class="alert-empty">Memuat...</div></div>
           </div>
-          <div class="dash-panel">
+          <div class="dash-panel top5-panel">
             <div class="panel-title">Top 5 Area Progress</div>
             <div class="top5-note">Rata-rata persentase Permit, Instalasi, dan BA Closing per area</div>
             <div id="top5List" class="top5-list"></div>
@@ -892,7 +915,7 @@
               </table>
             </div>
           </div>
-          <div class="dash-panel">
+          <div class="dash-panel map-panel">
             <div class="panel-title-row">
             <div class="panel-title"><span class="panel-icon-badge panel-icon-blue"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.686-6-10a6 6 0 0 1 12 0c0 4.314-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg></span>BMI Area</div>
             <div class="map-link-wrap" id="mapLinkWrap">
