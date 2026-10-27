@@ -623,7 +623,15 @@
     #viewHome .area-filter { width: auto; max-width: 100%; font-family: inherit; font-size: 12px; border-color: var(--h-bd); border-radius: 8px; padding: 5px 10px; }
     #viewHome .area-legend { color: var(--h-mu); font-size: 11.5px; margin-bottom: 10px; }
     #viewHome .area-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 22px; align-items: start; }
-    #viewHome .area-body > .area-chart { max-width: none; }
+    #viewHome .area-body { align-items: stretch; }
+    #viewHome .area-left { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    #viewHome .area-sum { margin-top: auto; }
+    #viewHome .area-sum-table { width: 100%; border-collapse: collapse; font-size: 12px; background: #f7f7f5; border-radius: 8px; overflow: hidden; }
+    #viewHome .area-sum-table th, #viewHome .area-sum-table td { border: none; padding: 6px 8px; text-align: right; background: transparent; white-space: nowrap; }
+    #viewHome .area-sum-table th { font-size: 10.5px; font-weight: 700; color: var(--h-mu); text-transform: uppercase; letter-spacing: .04em; }
+    #viewHome .area-sum-table th:first-child, #viewHome .area-sum-table td:first-child { text-align: left; }
+    #viewHome .area-sum-table td { font-weight: 700; color: var(--h-tx); border-top: 1px solid #ecebe6; }
+    #viewHome .area-sum-table td:first-child { font-weight: 600; }
     #viewHome .area-chart { display: flex; flex-direction: column; align-items: stretch; gap: 14px; height: auto; overflow: visible; padding: 0; }
     #viewHome .area-group { display: block; }
     #viewHome .area-label { font-size: 13px; font-weight: 700; color: var(--h-tx); max-width: none; text-align: left; margin-bottom: 6px; }
@@ -676,7 +684,7 @@
       #viewHome .dash-row-2 { grid-template-columns: 1fr; }
       #viewHome .dash-head { align-items: baseline; gap: 2px 10px; }
       #viewHome .dash-hello { font-size: 18px; }
-      #viewHome .dash-sub, #viewHome .dt-date, #viewHome .area-legend, #viewHome .top5-panel, #viewHome .map-panel, #viewHome .scurve-box,
+      #viewHome .dash-sub, #viewHome .dt-date, #viewHome .area-legend, #viewHome .area-sum, #viewHome .top5-panel, #viewHome .map-panel, #viewHome .scurve-box,
       #viewHome .kpi-icon,
       #viewHome .site-table th:nth-child(2), #viewHome .site-table td:nth-child(2),
       #viewHome .site-table th:nth-child(3), #viewHome .site-table td:nth-child(3) { display: none; }
@@ -888,7 +896,7 @@
             </div>
             <div class="area-legend"><span><i class="dot dot-permit"></i>Permit</span><span><i class="dot dot-instalasi"></i>Instalasi</span><span><i class="dot dot-baclosing"></i>BA Closing</span></div>
             <div class="area-body">
-              <div class="area-chart" id="areaChart"></div>
+              <div class="area-left"><div class="area-chart" id="areaChart"></div><div class="area-sum" id="areaSum"></div></div>
               <div class="scurve-box" id="scurveBox"><div class="scurve-empty">Memuat Kurva S...</div></div>
             </div>
           </div>
@@ -3261,6 +3269,7 @@
         var g = map[k];
         return {
           region: g.region, total: g.total,
+          permitN: g.permit, instalasiN: g.instalasi, baClosingN: g.baClosing,
           permitPct: Math.round(g.permit / g.total * 100),
           instalasiPct: Math.round(g.instalasi / g.total * 100),
           baClosingPct: Math.round(g.baClosing / g.total * 100)
@@ -3354,6 +3363,11 @@
           '</div>' +
         '</div>';
       }).join('') || '<div class="alert-empty">Tidak ada data region.</div>';
+      // Ringkasan jumlah site per area, mengisi ruang di bawah grafik
+      $('areaSum').innerHTML = list.length ? '<table class="area-sum-table"><thead><tr><th>Jumlah site</th><th>Site</th><th>Permit</th><th>Inst.</th><th>BA</th></tr></thead><tbody>' +
+        list.map(function (a) {
+          return '<tr><td>' + esc(a.region) + '</td><td>' + a.total + '</td><td>' + a.permitN + '</td><td>' + a.instalasiN + '</td><td>' + a.baClosingN + '</td></tr>';
+        }).join('') + '</tbody></table>' : '';
     }
     function updateClock_() {
       var now = new Date();
