@@ -8,6 +8,8 @@ var CONFIG = {
   GATEWAY_URL: "https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec",
   // Spreadsheet Portal FTTH: daftar site (Name) dan SOW di portal Waspang diambil dari tab DATA BASE.
   FTTH_SPREADSHEET_ID: "1KblZFDIcG6Jbbo6gy2Mh0vpgEzsgfUhMcwg5A5qtSME",
+  // "BA Gudang BMI - Pengaturan dan Register" (Portal FTTH: Script Property BAG_SS_ID): REGISTER dipakai perintah bot hapusba.
+  BAG_SPREADSHEET_ID: "19Li5_8RSoaq8-l3wJj5fYmDfRTFShozJ-1pbiKWLaPY",
   // Spreadsheet "RPM BMI - BA Pekerjaan": kritik & saran dari Portal Waspang masuk ke tab KRITIK DAN SARAN,
   // tempat yang sama dengan masukan dari Portal FTTH.
   SARAN_SPREADSHEET_ID: "1S8c7A0hPZrJ4bHH6UuUfHY8mkBPvadubtlEV1VuZdHA",
@@ -644,6 +646,8 @@ function waCmd_(p) {
       out = botPanduan_(p, owner, arg); break;
     case 'stokwh':
       out = botStokWh_(p, arg, owner); break;
+    case 'hapusba':
+      out = botHapusBa_(p, owner, arg); break;
     case 'setuju':
       out = owner && p.chat !== 'group' ? botStokWhSetuju_(p.fromName || p.from) : ''; break;
     case 'batal':
@@ -675,6 +679,7 @@ function botHelp_(owner) {
     '• *' + g + 'potongan* _[kabel] [gudang]_ → haspel utuh + potongan kabel',
     '• *' + g + 'ba* _<site>_ → BA Ambil / Pengembalian + total bersih',
     '• *' + g + 'ok* _<site> [alasan]_ → jawab peringatan site tanpa laporan',
+    '• *' + g + 'hapusba* _<nomor BA> [alasan]_ → hapus BA salah input' + (owner ? '' : ' _(dikonfirmasi admin)_'),
     '• *' + g + 'panduan* → PDF panduan perintah',
     '• *' + g + 'bantu* → daftar ini',
     '• Kirim Excel stok WH dengan caption *' + g + 'stokwh* → dicocokkan dengan SALDO GUDANG',
@@ -710,6 +715,7 @@ function botHelp_(owner) {
     '• *menipis* → stok di bawah standar',
     '• *batas* _<material> <angka>_ → standar stok · _batas awal_',
     '• *setuju* · *batal* → usulan stok dari Excel WH',
+    '• *hapusba ya* · *hapusba batal* → konfirmasi hapus BA',
     '• *mangkrak* → site 3+ hari tanpa laporan',
     '• *boq* → item melebihi Plan BOQ',
     '• _<site>_ *ok* → site itu tidak dilaporkan lagi · _boq ok_',
@@ -1719,7 +1725,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-10-27-2';
+var BOT_PANDUAN_VERSI_ = '2026-10-27-3';
 // Baris ['#Judul'] = judul kelompok di tabel perintah.
 var BOT_PANDUAN_TIM_ = [
   ['#Cek data proyek'],
@@ -1731,6 +1737,7 @@ var BOT_PANDUAN_TIM_ = [
   ['!ok &lt;site&gt; [alasan]', 'Jawab peringatan "Site tanpa laporan" (mis. site berhenti menunggu izin / material). Site tidak diingatkan lagi, juga di daftar Senin, sampai ada Daily Report baru. !ok = daftar, !ok hapus &lt;site&gt; = batalkan. !tunda sama dengan !ok.', '!ok EMR-32739 menunggu izin | !ok | !ok hapus EMR-32739'],
   ['!potongan [kabel] [gudang]', 'Haspel utuh + panjang potongan kabel dari Excel WH terakhir.', '!potongan 24c | !potongan cable 48 batola'],
   ['#Gudang'],
+  ['!hapusba &lt;nomor BA&gt; [alasan]', 'Minta hapus BA yang salah input di Portal Warehouse. Bot menampilkan isi BA dan meneruskannya ke admin; BA baru dihapus setelah admin mengonfirmasi. Saldo gudang ikut terkoreksi, lalu input ulang BA yang benar di portal.', '!hapusba HST/2610/001 salah tanggal | !hapusba BA-261026-180847'],
   ['Excel + caption !stokwh', 'Kirim file Excel stok WH (.xlsx). Selisih dengan saldo portal dikirim ke admin untuk disetujui.', '!stokwh | !stokwh batola'],
   ['#Bantuan'],
   ['!bantu', 'Daftar perintah singkat langsung di WhatsApp.', '!bantu'],
@@ -1768,6 +1775,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['menipis', 'Stok di bawah standar sekarang.', 'menipis'],
   ['batas &lt;material&gt; &lt;angka&gt;', 'Standar stok menipis. batas awal = bawaan (kabel 3000, tiang 30, FAT 20).', 'batas cable 24c 3000 | batas | batas awal'],
   ['setuju / batal', 'Terima atau tolak usulan stok dari Excel WH. Hanya di chat pribadi, berlaku 12 jam.', 'setuju | batal'],
+  ['hapusba &lt;nomor&gt; / ya / batal', 'Hapus BA salah input. hapusba &lt;nomor&gt; = tampilkan isi BA, hapusba ya = hapus (baris BA TRANSAKSI disalin ke tab BA TERHAPUS, PDF ke tempat sampah Drive, REGISTER dikoreksi, grup diberi tahu), hapusba batal = batalkan. Permintaan dari tim juga dikonfirmasi di sini (berlaku 6 jam).', 'hapusba HST/2610/001 salah tanggal | hapusba ya | hapusba batal'],
   ['boq', 'Item yang realisasinya melebihi Plan BOQ, kecuali site yang sudah di-OK.', 'boq'],
   ['&lt;site&gt; ok', 'Site itu tidak dilaporkan lagi di BOQ melebihi Plan. boq ok = daftar.', 'penggalaman ok | boq ok hapus penggalaman'],
   ['mangkrak', 'Semua site aktif yang 3+ hari tanpa Daily Report, termasuk yang sudah di-!ok.', 'mangkrak'],
@@ -1874,6 +1882,121 @@ function botPanduan_(p, owner, arg) {
 }
 
 // "setuju": selisih dihitung ulang terhadap saldo saat ini, lalu satu baris per gudang ditulis ke BA TRANSAKSI.
+// ---- hapusba: BA salah input dihapus lewat bot ----
+// "hapusba <Nomor BA / ID BA> [alasan]": bot menampilkan isi BA. Dari admin (WA_OWNER) bot meminta konfirmasi "hapusba ya";
+// dari anggota grup lain permintaan diteruskan ke chat pribadi admin, dan admin yang mengonfirmasi. "hapusba batal" = batalkan.
+// Saat dikonfirmasi: baris BA TRANSAKSI disalin ke tab BA TERHAPUS lalu dihapus (SALDO GUDANG ikut), PDF ke tempat sampah Drive
+// (bisa dipulihkan 30 hari), baris REGISTER dihapus bila nomornya yang terakhir (nomor dipakai lagi) atau diberi Status DIHAPUS,
+// dan grup diberi tahu. Pesan BA lama di WhatsApp tidak bisa dihapus bot.
+var BOT_BA_ARSIP_ = 'BA TERHAPUS';
+
+function botBaCari_(kata) {
+  var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('BA TRANSAKSI'), last = sh.getLastRow();
+  var head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (x) { return String(x).trim(); });
+  var ix = function (n) { return head.indexOf(n); }, cId = ix('ID BA'), cNo = ix('Nomor BA');
+  if (last < 2 || cId < 0) return { sh: sh, head: head, hits: [] };
+  var vals = sh.getRange(2, 1, last - 1, head.length).getValues(), k = kata.toLowerCase(), exact = [], part = [];
+  vals.forEach(function (r, i) {
+    var id = String(r[cId] || '').trim(), no = cNo >= 0 ? String(r[cNo] || '').trim() : '';
+    if (!id && !no) return;
+    var hit = { row: i + 2, r: r, id: id, nomor: no };
+    if (id.toLowerCase() === k || no.toLowerCase() === k) exact.push(hit);
+    else if (id.toLowerCase().indexOf(k) >= 0 || no.toLowerCase().indexOf(k) >= 0) part.push(hit);
+  });
+  return { sh: sh, head: head, hits: exact.length ? exact : part };
+}
+
+function botBaRingkas_(head, r) {
+  var ix = function (n) { return head.indexOf(n); }, first = ix('FAT'), lastMat = ix('Galvanis'), items = [];
+  for (var c = first; c >= 0 && c <= lastMat; c++) { var v = cellNumber_(r[c]); if (v) items.push('- ' + head[c] + ': ' + botNum_(v)); }
+  var lain = String(r[ix('Material Lain')] || '').trim();
+  if (lain) items.push('- ' + lain);
+  var tv = r[ix('Tanggal BA')];
+  if (typeof tv === 'number' && tv > 30000) tv = new Date(Date.UTC(1899, 11, 30) + tv * 864e5 - 8 * 3600000);
+  var tgl = tv instanceof Date ? botWita_(tv.getTime(), 'dd/MM/yyyy') : String(tv || '');
+  var no = ix('Nomor BA') >= 0 ? String(r[ix('Nomor BA')] || '').trim() : '';
+  return ['*' + (no || r[ix('ID BA')]) + '*' + (no ? ' (' + r[ix('ID BA')] + ')' : ''),
+    String(r[ix('Jenis Transaksi')] || '-') + ' · ' + tgl + ' · ' + String(r[ix('Gudang')] || '-'),
+    'Site: ' + String(r[ix('Name')] || '-') + (r[ix('SOW')] ? ' (' + r[ix('SOW')] + ')' : '') + ' · Mandor: ' + String(r[ix('Mandor / Subcont')] || '-')]
+    .concat(items.length ? items : ['- (tanpa material)']).join('\n');
+}
+
+function botHapusBa_(p, owner, arg) {
+  var props = PropertiesService.getScriptProperties(), pend = null, who = String(p.fromName || p.from || '');
+  try { pend = JSON.parse(props.getProperty('BOT_HAPUSBA') || 'null'); } catch (e) {}
+  if (pend && Date.now() - pend.t > 6 * 3600000) { pend = null; props.deleteProperty('BOT_HAPUSBA'); }   // permintaan berlaku 6 jam
+  if (/^(ya|ok|setuju)$/i.test(arg)) {
+    if (!owner || p.chat === 'group') return owner ? 'Konfirmasi hapus BA hanya di chat pribadi bot.' : 'Hanya admin yang bisa mengonfirmasi penghapusan BA.';
+    if (!pend) return 'Tidak ada permintaan hapus BA yang menunggu.';
+    props.deleteProperty('BOT_HAPUSBA');
+    return botHapusBaJalan_(pend, who);
+  }
+  if (/^batal$/i.test(arg)) {
+    if (!pend) return 'Tidak ada permintaan hapus BA yang menunggu.';
+    props.deleteProperty('BOT_HAPUSBA');
+    return 'Permintaan hapus BA ' + pend.label + ' dibatalkan.';
+  }
+  if (!arg) return pend ? '*Menunggu konfirmasi hapus*\n' + pend.text + '\n\nAdmin: balas *hapusba ya* atau *hapusba batal*.'
+    : 'Contoh: *' + (owner ? '' : '!') + 'hapusba BA/OUT-CW/HST/2610/001 salah tanggal*. Boleh pakai sebagian nomor, mis. HST/2610/001.';
+  var w = arg.split(/\s+/), kata = w[0], alasan = w.slice(1).join(' ').slice(0, 200);
+  var f = botBaCari_(kata);
+  if (!f.hits.length) return 'BA "' + kata + '" tidak ditemukan di BA TRANSAKSI. Tulis Nomor BA atau ID BA, mis. HST/2610/001.';
+  if (f.hits.length > 1) return 'Ada ' + f.hits.length + ' BA yang cocok, tulis lebih lengkap:\n' + f.hits.slice(0, 8).map(function (h) { return '- ' + (h.nomor || h.id) + (h.nomor ? ' (' + h.id + ')' : ''); }).join('\n');
+  var h = f.hits[0], text = botBaRingkas_(f.head, h.r) + (alasan ? '\nAlasan: ' + alasan : '');
+  pend = { t: Date.now(), id: h.id, nomor: h.nomor, label: h.nomor || h.id, alasan: alasan, by: who, text: text };
+  props.setProperty('BOT_HAPUSBA', JSON.stringify(pend));
+  if (owner && p.chat !== 'group') return '🗑️ *Hapus BA ini?*\n' + text + '\n\nBalas *hapusba ya* untuk menghapus (PDF ke tempat sampah Drive, saldo gudang ikut berubah) atau *hapusba batal*.';
+  var to = botOwnerJid_(), t = Date.now();
+  if (to) props.setProperty(WAQ_PREFIX_ + t + '_hapusba', JSON.stringify({ t: t, n: 0, last: 0, to: to, mentions: [], files: [],
+    text: '🗑️ *Permintaan hapus BA* dari ' + who + '\n' + text + '\n\nBalas *hapusba ya* untuk menghapus atau *hapusba batal*.' }));
+  return 'Permintaan hapus BA ' + pend.label + ' diteruskan ke admin untuk dikonfirmasi.';
+}
+
+function botHapusBaJalan_(pend, who) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var f = botBaCari_(pend.id || pend.nomor), h = f.hits.filter(function (x) { return x.id === pend.id && x.nomor === pend.nomor; })[0];
+    if (!h) return 'BA ' + pend.label + ' sudah tidak ada di BA TRANSAKSI (mungkin sudah dihapus).';
+    var ss = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID), ar = ss.getSheetByName(BOT_BA_ARSIP_);
+    if (!ar) { ar = ss.insertSheet(BOT_BA_ARSIP_); ar.getRange(1, 1, 1, f.head.length + 3).setValues([['Dihapus Pada', 'Dihapus Oleh', 'Alasan'].concat(f.head)]).setFontWeight('bold'); ar.setFrozenRows(1); }
+    ar.appendRow([new Date(), (pend.by === who ? who : pend.by + ' (dikonfirmasi ' + who + ')'), pend.alasan || ''].concat(h.r));
+    f.sh.deleteRow(h.row);
+    // BOT_BA_LAST menghitung jumlah baris: baris di atasnya hilang satu, supaya BA baru berikutnya tetap diteruskan ke grup.
+    var props = PropertiesService.getScriptProperties(), seen = Number(props.getProperty('BOT_BA_LAST') || 0);
+    if (seen && h.row <= seen) props.setProperty('BOT_BA_LAST', String(seen - 1));
+    var hasil = ['✅ BA ' + pend.label + ' dihapus dari BA TRANSAKSI (salinan di tab ' + BOT_BA_ARSIP_ + ').'];
+    var fid = String(h.r[f.head.indexOf('File ID')] || '').trim();
+    if (fid) try { DriveApp.getFileById(fid).setTrashed(true); hasil.push('PDF dipindah ke tempat sampah Drive.'); } catch (e) { hasil.push('PDF tidak bisa dihapus: ' + e.message); }
+    hasil.push(botHapusBaRegister_(pend));
+    var t = Date.now();
+    props.setProperty(WAQ_PREFIX_ + t + '_hapusba', JSON.stringify({ t: t, n: 0, last: 0, files: [], mentions: [],
+      text: '🗑️ *BA dihapus*: ' + pend.label + (pend.alasan ? ' (' + pend.alasan + ')' : '') + '\nAbaikan pesan BA ini sebelumnya; saldo gudang sudah dikoreksi.' }));
+    hasil.push('Grup diberi tahu. Pesan BA lama di WhatsApp hapus manual bila perlu.');
+    return hasil.join('\n');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// REGISTER (data mulai baris 5; kolom 1 Nomor BA, 13 ID BA, 19 Status, 20 Catatan). Nomor terakhir di urutannya: baris dihapus
+// supaya nomor dipakai lagi oleh BA pengganti. Nomor di tengah: baris tetap ada dengan Status DIHAPUS (nomor tidak dipakai lagi).
+function botHapusBaRegister_(pend) {
+  try {
+    var reg = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('BAG_SS_ID') || CONFIG.BAG_SPREADSHEET_ID).getSheetByName('REGISTER');
+    var last = reg ? reg.getLastRow() : 0;
+    if (last < 5) return 'REGISTER: baris tidak ditemukan.';
+    var vals = reg.getRange(5, 1, last - 4, 20).getValues(), i = -1;
+    vals.forEach(function (r, j) { if ((pend.nomor && String(r[0]).trim() === pend.nomor) || (pend.id && String(r[12]).trim() === pend.id)) i = j; });
+    if (i < 0) return 'REGISTER: tidak ada baris untuk BA ini (BA dari form lama / BA Masuk).';
+    var no = String(vals[i][0]).trim(), m = no.match(/^(.*\/)(\d+)$/), terakhir = true;
+    if (m) vals.forEach(function (r) { var s = String(r[0]).trim(); if (s.indexOf(m[1]) === 0 && parseInt(s.slice(m[1].length), 10) > +m[2]) terakhir = false; });
+    if (terakhir) { reg.deleteRow(i + 5); return 'REGISTER: baris dihapus, nomor ' + no + ' akan dipakai lagi untuk BA berikutnya.'; }
+    reg.getRange(i + 5, 19, 1, 2).setValues([['DIHAPUS', ('Dihapus lewat bot ' + botWita_(Date.now(), 'dd/MM/yyyy HH:mm') + (pend.alasan ? ': ' + pend.alasan : '')).slice(0, 300)]]);
+    return 'REGISTER: status jadi DIHAPUS (sudah ada nomor sesudahnya, jadi nomor ini tidak dipakai lagi).';
+  } catch (e) { return 'REGISTER tidak bisa diubah: ' + e.message; }
+}
+
 function botStokWhSetuju_(who) {
   var props = PropertiesService.getScriptProperties(), lock = LockService.getScriptLock(), pend = null;
   try { pend = JSON.parse(props.getProperty('BOT_STOKWH') || 'null'); } catch (e) {}
