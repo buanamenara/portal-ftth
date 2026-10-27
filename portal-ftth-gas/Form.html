@@ -3339,7 +3339,7 @@
       var list = filterRegion ? areas.filter(function (a) { return a.region === filterRegion; }) : areas;
       $('areaChart').innerHTML = list.map(function (a) {
         function row(label, cls, v) {
-          return '<div class="area-row"><span class="area-row-label">' + label + '</span><div class="area-track"><div class="area-bar ' + cls + '" style="width:' + v + '%"></div></div></div>';
+          return '<div class="area-row"><span class="area-row-label">' + label + '</span><div class="area-track"><div class="area-bar ' + cls + '" style="width:' + v + '%"><span class="area-pct">' + v + '%</span></div></div></div>';
         }
         return '<div class="area-group">' +
           '<div class="area-label">' + esc(a.region) + '</div>' +
@@ -4583,9 +4583,10 @@
       var p = data.areaPct[name];
       if (!p || !p.total) return;
       g.querySelectorAll('.area-bar').forEach(function (b) {
-        if (b.querySelector('.area-pct')) return;
         var v = b.classList.contains('bar-green') ? p.permitPct : b.classList.contains('bar-amber') ? p.instPct : b.classList.contains('bar-purple') ? p.baPct : null;
         if (v === null || v === undefined) return;
+        var old = b.querySelector('.area-pct');
+        if (old) { if (old.textContent !== v + '%') old.textContent = v + '%'; return; }
         var s = document.createElement('span');
         s.className = 'area-pct';
         s.textContent = v + '%';
