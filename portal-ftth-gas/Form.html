@@ -638,19 +638,20 @@
     #viewHome .scurve-box { flex: none; margin: 0; min-height: 0; padding-top: 12px; border-top: 1px solid var(--h-bd); }
     /* Desktop: Beranda muat satu layar (1920x1080) tanpa scroll */
     @media (min-width: 701px) {
-      #viewHome .kpi-grid { margin: 12px 0 12px; }
+      body.on-home #mainContent { padding-bottom: 10px; }
+      #viewHome .kpi-grid { margin: 10px 0 10px; }
       #viewHome .kpi-card { padding: 10px 14px; gap: 6px; }
-      #viewHome .dash-row { margin-bottom: 12px; gap: 12px; }
+      #viewHome .dash-row { margin-bottom: 10px; gap: 12px; }
       #viewHome .dash-col { gap: 12px; }
       #viewHome .dash-panel { padding: 12px 16px; }
       #viewHome .panel-title-row { margin-bottom: 8px; }
       #viewHome .panel-title { margin-bottom: 8px; }
-      #viewHome .area-body { gap: 12px; }
+      #viewHome .area-body { gap: 10px; }
       #viewHome .area-legend { margin-bottom: 6px; }
       #viewHome .scurve-legend { margin-top: 4px; }
-      #viewHome .site-table th { padding: 6px 10px; }
-      #viewHome .site-table td { padding: 6px 10px; }
-      #viewHome .map-svg { height: 170px; }
+      #viewHome .site-table th { padding: 5px 10px; }
+      #viewHome .site-table td { padding: 5px 10px; }
+      #viewHome .map-svg { height: 150px; }
     }
     #viewHome .dash-col > .top5-panel { flex: 1; }
     #viewHome .scurve-title { font-size: 13px; color: var(--h-tx); }
@@ -4627,7 +4628,7 @@
     var n = pick ? 1 : data.regions.length;
     // Lebar gambar mengikuti lebar kotak supaya Kurva S memenuhi panel tanpa teks ikut melar
     var bw = box.clientWidth;
-    var W = bw > 400 ? Math.round(bw) : 680, H = bw > 400 ? 170 : 200, L = 48, R = 14, T = 10;
+    var W = bw > 400 ? Math.round(bw) : 680, H = bw > 400 ? 145 : 200, L = 48, R = 14, T = 10;
     var pw = W - L - R, ph = H - T - 24;
     var tgt = data.labels.map(function (_, k) { return data.targetPerRegion * n * (k + 1); });
     var lines = [];
