@@ -3222,10 +3222,9 @@
       var instalasi = pctOf('instalasi');
       var baClosing = pctOf('baClosing');
       $('kpiSite').textContent = total;
-      var sowCount = {};   // rincian Total Site per SOW, terbanyak dulu
-      cpData.forEach(function (s) { var k = String(s.sow || '').trim() || 'Lainnya'; sowCount[k] = (sowCount[k] || 0) + 1; });
-      var sowText = Object.keys(sowCount).sort(function (a, b) { return sowCount[b] - sowCount[a]; })
-        .map(function (k) { return k + ' ' + sowCount[k]; }).join(' · ');
+      var sowCount = {};   // jenis SOW di Total Site, yang terbanyak dulu
+      cpData.forEach(function (s) { var k = String(s.sow || '').trim(); if (k) sowCount[k] = (sowCount[k] || 0) + 1; });
+      var sowText = Object.keys(sowCount).sort(function (a, b) { return sowCount[b] - sowCount[a]; }).join(', ');
       $('kpiSiteSub').textContent = sowText || 'Site proyek FTTH';
       $('kpiPermit').textContent = permit.pct + '%';
       $('kpiPermitSub').textContent = permit.n + ' dari ' + total + ' site';
