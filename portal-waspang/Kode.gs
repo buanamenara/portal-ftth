@@ -602,6 +602,8 @@ function waCmd_(p) {
       out = botRekap_(arg); break;
     case 'site': case 'cari':
       out = botSite_(arg); break;
+    case 'tunda': case 'ok':
+      out = botTunda_(arg, p.fromName || p.from, cmd === 'ok'); break;
     case 'catat':
       out = owner ? botCatat_(arg, p.fromName || p.from) : ''; break;
     case 'catatan':
@@ -672,12 +674,13 @@ function botHelp_(owner) {
     '• *' + g + 'site* _<kata>_ → cari nama site',
     '• *' + g + 'potongan* _[kabel] [gudang]_ → haspel utuh + potongan kabel',
     '• *' + g + 'ba* _<site>_ → BA Ambil / Pengembalian + total bersih',
+    '• *' + g + 'ok* _<site> [alasan]_ → jawab peringatan site tanpa laporan',
     '• *' + g + 'panduan* → PDF panduan perintah',
     '• *' + g + 'bantu* → daftar ini',
     '• Kirim Excel stok WH dengan caption *' + g + 'stokwh* → dicocokkan dengan SALDO GUDANG',
     '', '⏰ *OTOMATIS KE GRUP*',
     '• *07:00* Today\'s Plan _(permit + implementasi)_',
-    '• *07:05* site 3 hari tanpa laporan _(tag PIC)_',
+    '• *07:05* site 3 hari tanpa laporan _(sekali; Senin diulang sampai di-!ok)_',
     '• *17:30* pengingat Daily Report _(tag yang belum lapor)_',
     '• *Senin 07:00* rekap mingguan · *tgl 1* rekap bulanan',
     '• *Senin 08:00* minta Excel stok WH · *tgl 28* persiapan opname',
@@ -927,7 +930,7 @@ var BOT_JADWAL_ = [
   { id: 'STOK', from: '07:00', until: '10:00', build: function (now) { return { text: botStokMenipis_(Number(botWita_(now, 'u')) === 1), to: botOwnerJid_() }; } },   // Senin: daftar lengkap
   { id: 'MINGGU', from: '07:00', until: '10:00', day: 1, build: function (now) { return { text: botMingguan_(now) }; } },
   { id: 'BULAN', from: '07:00', until: '10:00', date: 1, build: function (now) { return { text: botBulanan_(now) }; } },
-  { id: 'MANGKRAK', from: '07:05', until: '10:00', build: function (now) { return botMangkrak_(now, Number(botWita_(now, 'u')) === 1); } },
+  { id: 'MANGKRAK', from: '07:05', until: '10:00', build: function (now) { return botMangkrak_(now, Number(botWita_(now, 'u')) === 1 ? 'senin' : false); } },
   { id: 'BOQ', from: '07:05', until: '10:00', day: 1, build: function (now) { return { text: botBoqLewat_(now), to: botOwnerJid_() }; } },   // Senin saja
   { id: 'WH', from: '08:00', until: '11:00', build: function (now) { return botWhIngat_(now); } },   // Senin, tanggal 28 dan tanggal 1
   { id: 'WHBASI', from: '07:10', until: '10:00', build: function (now) { return { text: botWhBasi_(now), to: botOwnerJid_() }; } }
@@ -1716,7 +1719,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-10-26-10';
+var BOT_PANDUAN_VERSI_ = '2026-10-27-2';
 // Baris ['#Judul'] = judul kelompok di tabel perintah.
 var BOT_PANDUAN_TIM_ = [
   ['#Cek data proyek'],
@@ -1725,6 +1728,7 @@ var BOT_PANDUAN_TIM_ = [
   ['!rekap [kemarin | dd/mm]', 'Isi Daily Report hari itu. Tanpa kata = hari ini.', '!rekap | !rekap kemarin | !rekap 24/10'],
   ['!site &lt;kata&gt;', 'Cari nama site di DATA BASE. Pakai ini kalau !progres atau !ba tidak menemukan site.', '!site jati baru'],
   ['!ba &lt;site&gt; [sow]', 'BA Ambil dan Pengembalian satu site + total bersih per material.', '!ba penggalaman'],
+  ['!ok &lt;site&gt; [alasan]', 'Jawab peringatan "Site tanpa laporan" (mis. site berhenti menunggu izin / material). Site tidak diingatkan lagi, juga di daftar Senin, sampai ada Daily Report baru. !ok = daftar, !ok hapus &lt;site&gt; = batalkan. !tunda sama dengan !ok.', '!ok EMR-32739 menunggu izin | !ok | !ok hapus EMR-32739'],
   ['!potongan [kabel] [gudang]', 'Haspel utuh + panjang potongan kabel dari Excel WH terakhir.', '!potongan 24c | !potongan cable 48 batola'],
   ['#Gudang'],
   ['Excel + caption !stokwh', 'Kirim file Excel stok WH (.xlsx). Selisih dengan saldo portal dikirim ke admin untuk disetujui.', '!stokwh | !stokwh batola'],
@@ -1734,7 +1738,7 @@ var BOT_PANDUAN_TIM_ = [
 ];
 var BOT_PANDUAN_JADWAL_ = [
   ['07:00', 'Setiap hari', "Today's Plan (permit + implementasi)"],
-  ['07:05', 'Setiap hari', 'Site aktif 3 hari tanpa laporan, PIC di-tag (Senin: daftar lengkap)'],
+  ['07:05', 'Setiap hari', 'Site aktif 3 hari tanpa laporan, PIC di-tag sekali (Senin: diulang untuk yang belum di-!ok)'],
   ['17:30', 'Setiap hari', 'Pengingat Daily Report, yang belum lapor di-tag'],
   ['07:00', 'Senin', 'Rekap mingguan'],
   ['08:00', 'Senin', 'Tim WH diminta kirim Excel stok (!stokwh)'],
@@ -1766,7 +1770,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['setuju / batal', 'Terima atau tolak usulan stok dari Excel WH. Hanya di chat pribadi, berlaku 12 jam.', 'setuju | batal'],
   ['boq', 'Item yang realisasinya melebihi Plan BOQ, kecuali site yang sudah di-OK.', 'boq'],
   ['&lt;site&gt; ok', 'Site itu tidak dilaporkan lagi di BOQ melebihi Plan. boq ok = daftar.', 'penggalaman ok | boq ok hapus penggalaman'],
-  ['mangkrak', 'Site aktif yang 3+ hari tanpa Daily Report.', 'mangkrak'],
+  ['mangkrak', 'Semua site aktif yang 3+ hari tanpa Daily Report, termasuk yang sudah di-!ok.', 'mangkrak'],
   ['#Sistem'],
   ['status', 'Gateway, antrean pesan, jadwal hari ini, Excel WH, backup terakhir, kesehatan spreadsheet dan error hari ini.', 'status'],
   ['backup', 'Backup spreadsheet FTTH + Waspang ke Drive sekarang.', 'backup'],
@@ -1957,30 +1961,87 @@ function botSiteSelesai_() {
 }
 
 // 2. Site mangkrak: site yang laporan terakhirnya 3-30 hari lalu dan belum RFS / Drop di DATA BASE. Tag PIC terakhir.
-function botMangkrak_(now, semua) {
-  var props = PropertiesService.getScriptProperties(), today = botHari_(botWita_(now, 'yyyyMMdd'));
-  var last = {}, selesai = botSiteSelesai_(), tim = botTim_();
+// Jadwal 07:05 mengingatkan satu kali per masa diam (BOT_MANGKRAK); Senin ('senin') diulang untuk site yang belum
+// dikonfirmasi. Site yang dikonfirmasi (!ok / !tunda) tidak diingatkan sampai ada Daily Report baru.
+// Perintah admin "mangkrak" (semua = true) menampilkan semuanya, termasuk yang sudah dikonfirmasi.
+function botSiteTerakhir_() {
+  var last = {};
   botDailyRows_().forEach(function (r) {
     if (!r.day || !r.site) return;
     var k = r.site.toLowerCase(), d = botHari_(botDmyKey_(r.day));
     if (!last[k] || d >= last[k].d) last[k] = { d: d, day: r.day, site: r.site, pic: r.pic || (last[k] && last[k].pic) || '' };
   });
-  var lama = {}, list = [], mentions = [];
+  return last;
+}
+
+function botTundaList_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('BOT_TUNDA') || '{}'); } catch (e) { return {}; }
+}
+
+function botMangkrak_(now, semua) {
+  var props = PropertiesService.getScriptProperties(), today = botHari_(botWita_(now, 'yyyyMMdd'));
+  var last = botSiteTerakhir_(), selesai = botSiteSelesai_(), tim = botTim_(), tunda = botTundaList_();
+  var lama = {}, list = [], ditunda = [], mentions = [];
   try { lama = JSON.parse(props.getProperty('BOT_MANGKRAK') || '{}'); } catch (e) {}
   var baru = {};
   Object.keys(last).sort().forEach(function (k) {
     var x = last[k], idle = today - x.d;
     if (idle < 3 || idle > 30 || selesai[k]) return;
     baru[k] = x.day;
+    if (tunda[k] && tunda[k].day === x.day) {   // dikonfirmasi sejak laporan terakhir ini
+      if (semua === true) ditunda.push('- ' + x.site + ': ' + idle + ' hari (' + tunda[k].alasan + ')');
+      return;
+    }
     if (!semua && lama[k] === x.day) return;   // sudah pernah diingatkan untuk masa diam yang sama
     var no = botNoPic_(x.pic, tim);
     if (no && mentions.indexOf(no) < 0) mentions.push(no);
     list.push('- ' + x.site + ': ' + idle + ' hari tanpa laporan (terakhir ' + x.day + (x.pic ? ', ' + (no ? '@' + no : x.pic) : '') + ')');
   });
-  if (!semua || !props.getProperty('BOT_MANGKRAK')) props.setProperty('BOT_MANGKRAK', JSON.stringify(baru));
-  if (!list.length) return null;
-  return { text: ['🚧 *Site tanpa laporan* ' + botWita_(now, 'dd/MM/yyyy') + (semua ? ' (daftar lengkap)' : '')].concat(list)
-    .concat(['Kalau site memang berhenti (menunggu izin, material, dll.), mohon kabari di grup.']).join('\n'), mentions: mentions };
+  if (semua !== true || !props.getProperty('BOT_MANGKRAK')) props.setProperty('BOT_MANGKRAK', JSON.stringify(baru));
+  if (!list.length && !ditunda.length) return null;
+  var s = ['🚧 *Site tanpa laporan* ' + botWita_(now, 'dd/MM/yyyy') + (semua ? ' (daftar lengkap)' : '')].concat(list);
+  if (ditunda.length) s = s.concat(['', '✅ *Sudah dikonfirmasi*'], ditunda);
+  if (list.length) s.push('', 'Mohon konfirmasi: balas *!ok <nama site> [alasan]*, mis. !ok EMR-32739 menunggu izin. Yang belum dikonfirmasi diulang tiap Senin.');
+  return { text: s.join('\n'), mentions: semua === true ? [] : mentions };
+}
+
+// !ok <site> [alasan] / !tunda <site> <alasan> | !ok (daftar) | !ok hapus <site>
+// Site yang dikonfirmasi tidak diingatkan "tanpa laporan" (juga di daftar Senin) sampai ada Daily Report baru
+// (konfirmasi terikat ke tanggal laporan terakhir). !ok: alasan boleh kosong; !tunda: alasan wajib.
+function botTunda_(arg, who, ok) {
+  var c = ok ? 'ok' : 'tunda';
+  var props = PropertiesService.getScriptProperties(), tunda = botTundaList_(), last = botSiteTerakhir_(), m;
+  // bersihkan penundaan yang sudah tidak berlaku (sudah ada laporan baru)
+  Object.keys(tunda).forEach(function (k) { if (!last[k] || last[k].day !== tunda[k].day) delete tunda[k]; });
+  var cari = function (kata) {
+    kata = kata.toLowerCase();
+    return Object.keys(last).filter(function (k) { return k.indexOf(kata) >= 0; });
+  };
+  var simpan = function () { props.setProperty('BOT_TUNDA', JSON.stringify(tunda)); };
+  if (!arg) {
+    simpan();
+    var ks = Object.keys(tunda).sort();
+    return ks.length ? ['✅ *Site tanpa laporan yang sudah dikonfirmasi*'].concat(ks.map(function (k) { return '- ' + tunda[k].site + ': ' + tunda[k].alasan + ' _(' + tunda[k].by + ', ' + tunda[k].tgl + ')_'; })).join('\n')
+      : 'Belum ada site yang dikonfirmasi. Contoh: *!' + c + ' EMR-32739 menunggu izin*.';
+  }
+  if ((m = arg.match(/^(hapus|batal)\s+(.+)$/i))) {
+    var h = Object.keys(tunda).filter(function (k) { return k.indexOf(m[2].trim().toLowerCase()) >= 0; });
+    if (!h.length) return 'Tidak ada site terkonfirmasi yang memuat "' + m[2].trim() + '".';
+    h.forEach(function (k) { delete tunda[k]; });
+    simpan();
+    return 'Konfirmasi dibatalkan, site kembali diingatkan:\n' + h.map(function (k) { return '- ' + last[k].site; }).join('\n');
+  }
+  // Nama site = kata-kata awal sebanyak mungkin yang masih cocok dengan satu site; sisanya alasan.
+  var w = arg.split(/\s+/), kena = [], n;
+  for (n = w.length; n >= 1; n--) { kena = cari(w.slice(0, n).join(' ')); if (kena.length) break; }
+  if (!kena.length) return 'Site "' + w[0] + '" tidak ditemukan di Daily Report. Tulis sebagian nama site, mis. *!' + c + ' EMR-32739 menunggu izin*.';
+  if (kena.length > 1) return 'Ada ' + kena.length + ' site yang cocok, tulis lebih lengkap:\n' + kena.slice(0, 5).map(function (k) { return '- ' + last[k].site; }).join('\n');
+  var k = kena[0], alasan = w.slice(n).join(' ').trim();
+  if (!alasan && !ok) return 'Tulis alasannya juga, mis. *!tunda ' + w.slice(0, n).join(' ') + ' menunggu izin*.';
+  alasan = alasan || 'OK';
+  tunda[k] = { site: last[k].site, day: last[k].day, alasan: alasan.slice(0, 200), by: String(who || '').slice(0, 40), tgl: botWita_(Date.now(), 'dd/MM') };
+  simpan();
+  return '✅ ' + last[k].site + ' dikonfirmasi' + (tunda[k].alasan === 'OK' ? '' : ': ' + tunda[k].alasan) + '.\nTidak diingatkan lagi (juga di daftar Senin) sampai ada Daily Report baru.';
 }
 
 // 8. BOQ lewat 100%: Total Daily Report > Plan MASTER BOQ, per site + SOW + item. Ke chat pribadi pemilik tiap Senin 07:05.
