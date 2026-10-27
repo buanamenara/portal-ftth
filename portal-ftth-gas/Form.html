@@ -635,8 +635,24 @@
     #viewHome .bar-amber, #viewHome .dot-instalasi { background: var(--h-c2); }
     #viewHome .bar-purple, #viewHome .dot-baclosing { background: var(--h-c3); }
     #viewHome .area-pct { bottom: auto; top: 50%; left: auto; right: -40px; width: 34px; text-align: right; transform: translateY(-50%); margin: 0; font-size: 11.5px; font-weight: 700; color: var(--h-tx); }
-    #viewHome .scurve-box { margin: 0; min-height: 0; padding-top: 16px; border-top: 1px solid var(--h-bd); }
-    #viewHome .scurve-box svg { max-height: 190px; }
+    #viewHome .scurve-box { flex: none; margin: 0; min-height: 0; padding-top: 12px; border-top: 1px solid var(--h-bd); }
+    /* Desktop: Beranda muat satu layar (1920x1080) tanpa scroll */
+    @media (min-width: 701px) {
+      body.on-home #mainContent { padding-bottom: 10px; }
+      #viewHome .kpi-grid { margin: 10px 0 10px; }
+      #viewHome .kpi-card { padding: 10px 14px; gap: 6px; }
+      #viewHome .dash-row { margin-bottom: 10px; gap: 12px; }
+      #viewHome .dash-col { gap: 12px; }
+      #viewHome .dash-panel { padding: 12px 16px; }
+      #viewHome .panel-title-row { margin-bottom: 8px; }
+      #viewHome .panel-title { margin-bottom: 8px; }
+      #viewHome .area-body { gap: 10px; }
+      #viewHome .area-legend { margin-bottom: 6px; }
+      #viewHome .scurve-legend { margin-top: 4px; }
+      #viewHome .site-table th { padding: 5px 10px; }
+      #viewHome .site-table td { padding: 5px 10px; }
+      #viewHome .map-svg { height: 150px; }
+    }
     #viewHome .dash-col > .top5-panel { flex: 1; }
     #viewHome .scurve-title { font-size: 13px; color: var(--h-tx); }
     #viewHome .scurve-cap, #viewHome .scurve-legend { color: var(--h-mu); }
@@ -4610,7 +4626,9 @@
     if (!data.labels.length) { note('Belum ada data Cluster untuk Kurva S.'); return; }
     var pick = filter && filter.value ? filter.value : '';
     var n = pick ? 1 : data.regions.length;
-    var W = 680, H = 200, L = 48, R = 14, T = 10;
+    // Lebar gambar mengikuti lebar kotak supaya Kurva S memenuhi panel tanpa teks ikut melar
+    var bw = box.clientWidth;
+    var W = bw > 400 ? Math.round(bw) : 680, H = bw > 400 ? 145 : 200, L = 48, R = 14, T = 10;
     var pw = W - L - R, ph = H - T - 24;
     var tgt = data.labels.map(function (_, k) { return data.targetPerRegion * n * (k + 1); });
     var lines = [];
@@ -4734,6 +4752,11 @@
   var chartEl = document.getElementById('areaChart');
   if (chartEl) new MutationObserver(applyAreaPct).observe(chartEl, { childList: true, subtree: true });
   if (filter) filter.addEventListener('change', draw);
+  var lastW = 0, rsT = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(rsT);
+    rsT = setTimeout(function () { var w = box.clientWidth; if (data && w > 400 && Math.abs(w - lastW) > 20) { lastW = w; draw(); } }, 200);
+  });
   new MutationObserver(check).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
   check();
 })();
