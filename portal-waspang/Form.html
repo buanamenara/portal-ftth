@@ -6039,6 +6039,8 @@ ${todayActivity}`;
       let sendSuccess = false;
       let waSent = false;
       let driveSuccess = false;
+      let networkLost = false;
+      const uploadId = 'u' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
       let driveErrorMsg = "";
       let returnedFolderUrl = "";
 
@@ -6048,6 +6050,7 @@ ${todayActivity}`;
           btn.innerText = `⏳ Menyimpan ke Google Drive & Mengirim WhatsApp...`;
           const payload = {
             action: "UPLOAD_PHOTOS",
+            uploadId: uploadId,
             tzOff: -new Date().getTimezoneOffset(),
             session: wsSid(),
             siteName: site,
@@ -6098,11 +6101,34 @@ ${todayActivity}`;
         } catch (scriptErr) {
           driveErrorMsg = scriptErr.message || String(scriptErr);
           console.error("Apps Script upload failed:", scriptErr);
+          // Koneksi putus ("Load failed", "Failed to fetch", timeout) sementara server bisa saja tetap selesai menyimpan:
+          // tanyakan hasilnya ke server beberapa kali sebelum menyatakan gagal.
+          if (!/^Respon Apps Script/.test(driveErrorMsg)) {
+            networkLost = true;
+            for (let i = 0; i < 12 && !driveSuccess; i++) {
+              btn.innerText = `⏳ Koneksi terputus, mengecek apakah foto sudah masuk... (${i + 1}/12)`;
+              await new Promise(r => setTimeout(r, 5000));
+              try {
+                const st = await (await fetch(cfg.scriptUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                  body: JSON.stringify({ action: 'UPLOAD_STATUS', uploadId: uploadId }) })).json();
+                if (st && st.found && st.status === 'success') {
+                  driveSuccess = true; sendSuccess = true; waSent = st.waSent === true; returnedFolderUrl = st.folderUrl || "";
+                }
+              } catch (e2) { /* masih belum tersambung, coba lagi */ }
+            }
+          }
         }
       }
 
       // Notifikasi Transparan Jika Google Drive Gagal
-      if (!driveSuccess && cfg.scriptUrl && cfg.scriptUrl.trim().length > 0) {
+      if (!driveSuccess && networkLost) {
+        alert(
+          "⚠️ Koneksi internet terputus saat mengirim foto (" + driveErrorMsg + ").\n\n" +
+          "Foto BELUM tentu gagal: bisa jadi sudah tersimpan di Drive dan masuk antrean WhatsApp.\n" +
+          "Cek grup WhatsApp / folder Drive 1-2 menit lagi sebelum mengirim ulang, supaya foto tidak dobel.\n" +
+          "Kalau memang belum masuk, kirim ulang saat sinyal lebih bagus."
+        );
+      } else if (!driveSuccess && cfg.scriptUrl && cfg.scriptUrl.trim().length > 0) {
         alert(
           "⚠️ PERINGATAN GOOGLE DRIVE:\n" +
           "Foto TIDAK DAPAT tersimpan ke Google Drive karena Web App Google Apps Script mengembalikan error:\n" +
@@ -6157,7 +6183,7 @@ ${todayActivity}`;
           statusBox.style.color = '#991b1b';
           statusBox.innerHTML = `❌ <strong>Pengiriman foto belum berhasil:</strong> ${driveErrorMsg || 'Koneksi terputus atau server tidak merespon.'}`;
         }
-        alert("Pengiriman foto belum berhasil. Pastikan Google Apps Script Web App aktif.");
+        if (!networkLost) alert("Pengiriman foto belum berhasil. Pastikan Google Apps Script Web App aktif.");
       }
     }
 
