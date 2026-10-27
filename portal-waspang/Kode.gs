@@ -44,6 +44,9 @@ function doPost(e) {
       case 'UPLOAD_PHOTOS':
         result = uploadWaspangPhotos_(payload);
         break;
+      case 'UPLOAD_STATUS':
+        result = uploadStatus_(payload);
+        break;
       case 'CREATE_SITE_FOLDERS':
         result = createSiteFoldersInDrive_(payload);
         break;
@@ -296,7 +299,25 @@ function uploadWaspangPhotos_(payload) {
   var waOk = sendWaspangPhotosToWhatsApp_(blobs, saved, caption);
   logWaspangPhotoToSheet_(payload, targetFolder.getUrl(), saved, waOk);
 
-  return { status: 'success', folderUrl: targetFolder.getUrl(), waSent: waOk };
+  var res = { status: 'success', folderUrl: targetFolder.getUrl(), waSent: waOk };
+  uploadStatusSet_(payload.uploadId, res);
+  return res;
+}
+
+// HP bisa kehilangan koneksi ("Load failed" di iPhone) saat server masih menyimpan foto. Hasil upload disimpan 6 jam per
+// uploadId dari HP, lalu HP menanyakannya (UPLOAD_STATUS) supaya tidak menampilkan gagal / mengirim ulang foto yang sudah masuk.
+function uploadStatusSet_(id, res) {
+  id = String(id || '').replace(/[^\w-]/g, '').slice(0, 60);
+  if (id) try { CacheService.getScriptCache().put('upl_' + id, JSON.stringify(res), 21600); } catch (e) {}
+}
+
+function uploadStatus_(payload) {
+  var id = String(payload.uploadId || '').replace(/[^\w-]/g, '').slice(0, 60);
+  var raw = id ? CacheService.getScriptCache().get('upl_' + id) : null;
+  if (!raw) return { status: 'success', found: false };
+  var res = JSON.parse(raw);
+  res.found = true;
+  return res;
 }
 
 function buildWaspangPhotoCaption_(payload) {
