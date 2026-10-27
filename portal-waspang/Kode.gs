@@ -1746,7 +1746,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-10-27-3';
+var BOT_PANDUAN_VERSI_ = '2026-10-27-4';
 // Baris ['#Judul'] = judul kelompok di tabel perintah.
 var BOT_PANDUAN_TIM_ = [
   ['#Cek data proyek'],
@@ -1796,7 +1796,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['menipis', 'Stok di bawah standar sekarang.', 'menipis'],
   ['batas &lt;material&gt; &lt;angka&gt;', 'Standar stok menipis. batas awal = bawaan (kabel 3000, tiang 30, FAT 20).', 'batas cable 24c 3000 | batas | batas awal'],
   ['setuju / batal', 'Terima atau tolak usulan stok dari Excel WH. Hanya di chat pribadi, berlaku 12 jam.', 'setuju | batal'],
-  ['hapusba &lt;nomor&gt; / ya / batal', 'Hapus BA salah input. hapusba &lt;nomor&gt; = tampilkan isi BA, hapusba ya = hapus (baris BA TRANSAKSI disalin ke tab BA TERHAPUS, PDF ke tempat sampah Drive, REGISTER dikoreksi, grup diberi tahu), hapusba batal = batalkan. Permintaan dari tim juga dikonfirmasi di sini (berlaku 6 jam).', 'hapusba HST/2610/001 salah tanggal | hapusba ya | hapusba batal'],
+  ['hapusba &lt;nomor&gt; / ya / batal', 'Hapus BA salah input. hapusba &lt;nomor&gt; = tampilkan isi BA, hapusba ya = hapus (baris BA TRANSAKSI disalin ke tab BA TERHAPUS di spreadsheet LOG ARSIP, PDF ke tempat sampah Drive, REGISTER dikoreksi, grup diberi tahu), hapusba batal = batalkan. Permintaan dari tim juga dikonfirmasi di sini (berlaku 6 jam).', 'hapusba HST/2610/001 salah tanggal | hapusba ya | hapusba batal'],
   ['boq', 'Item yang realisasinya melebihi Plan BOQ, kecuali site yang sudah di-OK.', 'boq'],
   ['&lt;site&gt; ok', 'Site itu tidak dilaporkan lagi di BOQ melebihi Plan. boq ok = daftar.', 'penggalaman ok | boq ok hapus penggalaman'],
   ['mangkrak', 'Semua site aktif yang 3+ hari tanpa Daily Report, termasuk yang sudah di-!ok.', 'mangkrak'],
@@ -1979,14 +1979,15 @@ function botHapusBaJalan_(pend, who) {
   try {
     var f = botBaCari_(pend.id || pend.nomor), h = f.hits.filter(function (x) { return x.id === pend.id && x.nomor === pend.nomor; })[0];
     if (!h) return 'BA ' + pend.label + ' sudah tidak ada di BA TRANSAKSI (mungkin sudah dihapus).';
-    var ss = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID), ar = ss.getSheetByName(BOT_BA_ARSIP_);
+    // Arsip di spreadsheet terpisah "LOG ARSIP - Portal BMI", bukan di spreadsheet FTTH.
+    var ss = SpreadsheetApp.openById(LOG_ARSIP_SS_ID), ar = ss.getSheetByName(BOT_BA_ARSIP_);
     if (!ar) { ar = ss.insertSheet(BOT_BA_ARSIP_); ar.getRange(1, 1, 1, f.head.length + 3).setValues([['Dihapus Pada', 'Dihapus Oleh', 'Alasan'].concat(f.head)]).setFontWeight('bold'); ar.setFrozenRows(1); }
     ar.appendRow([new Date(), (pend.by === who ? who : pend.by + ' (dikonfirmasi ' + who + ')'), pend.alasan || ''].concat(h.r));
     f.sh.deleteRow(h.row);
     // BOT_BA_LAST menghitung jumlah baris: baris di atasnya hilang satu, supaya BA baru berikutnya tetap diteruskan ke grup.
     var props = PropertiesService.getScriptProperties(), seen = Number(props.getProperty('BOT_BA_LAST') || 0);
     if (seen && h.row <= seen) props.setProperty('BOT_BA_LAST', String(seen - 1));
-    var hasil = ['✅ BA ' + pend.label + ' dihapus dari BA TRANSAKSI (salinan di tab ' + BOT_BA_ARSIP_ + ').'];
+    var hasil = ['✅ BA ' + pend.label + ' dihapus dari BA TRANSAKSI (salinan di tab ' + BOT_BA_ARSIP_ + ', spreadsheet LOG ARSIP).'];
     var fid = String(h.r[f.head.indexOf('File ID')] || '').trim();
     if (fid) try { DriveApp.getFileById(fid).setTrashed(true); hasil.push('PDF dipindah ke tempat sampah Drive.'); } catch (e) { hasil.push('PDF tidak bisa dihapus: ' + e.message); }
     hasil.push(botHapusBaRegister_(pend));
