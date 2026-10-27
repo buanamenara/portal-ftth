@@ -6103,7 +6103,7 @@ ${todayActivity}`;
           console.error("Apps Script upload failed:", scriptErr);
           // Koneksi putus ("Load failed", "Failed to fetch", timeout) sementara server bisa saja tetap selesai menyimpan:
           // tanyakan hasilnya ke server beberapa kali sebelum menyatakan gagal.
-          if (!/^Respon Apps Script/.test(driveErrorMsg)) {
+          if (driveErrorMsg.indexOf('Respon Apps Script') !== 0) {
             networkLost = true;
             for (let i = 0; i < 12 && !driveSuccess; i++) {
               btn.innerText = `⏳ Koneksi terputus, mengecek apakah foto sudah masuk... (${i + 1}/12)`;
@@ -6158,7 +6158,7 @@ ${todayActivity}`;
               <strong>✅ FOTO BERHASIL DIUNGGAH &amp; TERKIRIM!</strong><br>
               Seluruh foto dokumentasi berhasil disimpan ke Google Drive${waSent ? ' dan dikirim ke grup WhatsApp' : ' (belum terkirim ke grup WhatsApp)'}.<br>
               <div style="margin-top: 6px;">
-                <a href="${returnedFolderUrl || 'https://drive.google.com/drive/folders/1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ'}" target="_blank" style="display: inline-block; background: #15803d; color: #fff; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.74rem;">Buka Folder Dokumentasi di Google Drive ↗</a>
+                <a href="${returnedFolderUrl || 'https:\/\/drive.google.com/drive/folders/1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ'}" target="_blank" style="display: inline-block; background: #15803d; color: #fff; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.74rem;">Buka Folder Dokumentasi di Google Drive ↗</a>
               </div>
             `;
           }
