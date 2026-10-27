@@ -864,7 +864,7 @@
 
         <div class="kpi-grid">
           <div class="kpi-card">
-            <div class="kpi-top"><div class="kpi-icon kpi-navy"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.686-6-10a6 6 0 0 1 12 0c0 4.314-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg></div><div><div class="kpi-label">Total Site</div><div class="kpi-value" id="kpiSite">...</div><div class="kpi-sub">Site proyek FTTH</div></div></div>
+            <div class="kpi-top"><div class="kpi-icon kpi-navy"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.686-6-10a6 6 0 0 1 12 0c0 4.314-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg></div><div><div class="kpi-label">Total Site</div><div class="kpi-value" id="kpiSite">...</div><div class="kpi-sub" id="kpiSiteSub">Site proyek FTTH</div></div></div>
           </div>
           <div class="kpi-card">
             <div class="kpi-top"><div class="kpi-icon kpi-green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 5-5"/></svg></div><div><div class="kpi-label">Permit</div><div class="kpi-value" id="kpiPermit">...</div><div class="kpi-sub" id="kpiPermitSub">...</div></div></div>
@@ -3222,6 +3222,11 @@
       var instalasi = pctOf('instalasi');
       var baClosing = pctOf('baClosing');
       $('kpiSite').textContent = total;
+      var sowCount = {};   // rincian Total Site per SOW, terbanyak dulu
+      cpData.forEach(function (s) { var k = String(s.sow || '').trim() || 'Lainnya'; sowCount[k] = (sowCount[k] || 0) + 1; });
+      var sowText = Object.keys(sowCount).sort(function (a, b) { return sowCount[b] - sowCount[a]; })
+        .map(function (k) { return k + ' ' + sowCount[k]; }).join(' · ');
+      $('kpiSiteSub').textContent = sowText || 'Site proyek FTTH';
       $('kpiPermit').textContent = permit.pct + '%';
       $('kpiPermitSub').textContent = permit.n + ' dari ' + total + ' site';
       $('kpiPermitBar').style.width = permit.pct + '%';
