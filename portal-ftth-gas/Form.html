@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800&display=swap" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'">
   <style>
     :root { --gold: #C9972C; --gold-dark: #A87A1B; --navy: #000000; --bg: #FBF7EE; }
     /* Masuk otomatis: portal langsung tampil, akses dicek di belakang (garis emas berjalan di atas) */
@@ -317,7 +317,7 @@
     .area-legend { display: flex; gap: 14px; font-size: 11px; color: #666; margin-bottom: 14px; }
     .area-legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
     .dot-permit { background: #3B6D11; }
-    .dot-instalasi { background: #378ADD; }
+    .dot-instalasi { background: #B8871F; }
     .dot-baclosing { background: #534AB7; }
     .area-chart { display: flex; align-items: flex-end; gap: 18px; height: 220px; overflow-x: auto; padding: 0 12px 4px; }
     .area-group { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
@@ -346,7 +346,7 @@
     .area-pct { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 2px; font-size: 9px; color: #444; white-space: nowrap; }
     @media (max-width: 720px) { .area-body { flex-direction: column; } .area-body > .area-chart { max-width: 100%; } }
     .bar-green { background: #3B6D11; }
-    .bar-blue { background: #378ADD; }
+    .bar-amber { background: #B8871F; }
     .bar-purple { background: #534AB7; }
     .area-label { font-size: 10px; color: #666; max-width: 70px; text-align: center; }
     .site-table-wrap { overflow-x: auto; }
@@ -588,6 +588,90 @@
       .q-row { padding: 10px 12px; font-size: 13px; }
       .q-name { min-width: 0; flex: 1 1 100%; white-space: normal; }
     }
+    /* ---------- Beranda: gaya Ringkas Netral (putih/abu, emas hanya aksen) ---------- */
+    body.on-home { background: #f7f7f5; }
+    #viewHome { --h-surf: #fff; --h-bd: #e7e6e1; --h-tx: #191917; --h-mu: #72716b; --h-acc: #B8871F;
+      --h-c1: #2F7D4F; --h-c2: #B8871F; --h-c3: #5B57B8;
+      font-family: 'Plus Jakarta Sans', Arial, sans-serif; color: var(--h-tx); font-variant-numeric: tabular-nums; }
+    #viewHome .dash-head { align-items: flex-end; }
+    #viewHome .dash-hello { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; color: var(--h-tx); }
+    #viewHome .dash-sub { color: var(--h-mu); margin-top: 3px; }
+    #viewHome .dt-card { background: transparent; border: none; padding: 0; text-align: right; }
+    #viewHome .dt-card svg { display: none; }
+    #viewHome .dt-date { font-size: 13px; color: var(--h-tx); }
+    #viewHome .dt-time { color: var(--h-mu); }
+    #viewHome .kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 18px 0 14px; background: var(--h-surf); border: 1px solid var(--h-bd); border-radius: 10px; }
+    #viewHome .kpi-card { background: transparent; border: none; border-radius: 0; border-right: 1px solid var(--h-bd); padding: 14px 16px; gap: 8px; min-width: 0; }
+    #viewHome .kpi-card:last-child { border-right: none; }
+    #viewHome .kpi-top { align-items: flex-start; }
+    #viewHome .kpi-icon { width: 28px; height: 28px; border-radius: 8px; }
+    #viewHome .kpi-icon svg { width: 15px; height: 15px; }
+    #viewHome .kpi-navy { background: var(--h-tx); }
+    #viewHome .kpi-green, #viewHome .fill-green { background: var(--h-c1); }
+    #viewHome .kpi-amber, #viewHome .fill-amber { background: var(--h-c2); }
+    #viewHome .kpi-purple, #viewHome .fill-purple { background: var(--h-c3); }
+    #viewHome .kpi-label { font-size: 12px; font-weight: 600; color: var(--h-mu); }
+    #viewHome .kpi-value { font-size: 26px; font-weight: 800; letter-spacing: -0.6px; line-height: 1.1; color: var(--h-tx); }
+    #viewHome .kpi-sub { font-size: 12px; color: var(--h-mu); }
+    #viewHome .kpi-bar { height: 6px; background: #efeee9; }
+    #viewHome .dash-row { gap: 14px; margin-bottom: 14px; }
+    #viewHome .dash-row-2 { grid-template-columns: 2fr 1fr; }
+    #viewHome .dash-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    #viewHome .dash-panel { border-color: var(--h-bd); border-radius: 10px; padding: 14px 16px; }
+    #viewHome .panel-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--h-mu); }
+    #viewHome .panel-badge { background: var(--h-acc); color: #191917; font-weight: 800; }
+    #viewHome .area-filter { width: auto; max-width: 100%; font-family: inherit; font-size: 12px; border-color: var(--h-bd); border-radius: 8px; padding: 5px 10px; }
+    #viewHome .area-legend { color: var(--h-mu); font-size: 11.5px; margin-bottom: 10px; }
+    #viewHome .area-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 22px; align-items: start; }
+    #viewHome .area-body > .area-chart { max-width: none; }
+    #viewHome .area-chart { display: flex; flex-direction: column; align-items: stretch; gap: 14px; height: auto; overflow: visible; padding: 0; }
+    #viewHome .area-group { display: block; }
+    #viewHome .area-label { font-size: 13px; font-weight: 700; color: var(--h-tx); max-width: none; text-align: left; margin-bottom: 6px; }
+    #viewHome .area-bars { display: flex; flex-direction: column; align-items: stretch; gap: 5px; height: auto; }
+    #viewHome .area-row { display: grid; grid-template-columns: 70px minmax(0, 1fr); align-items: center; gap: 8px; }
+    #viewHome .area-row-label { font-size: 11.5px; color: var(--h-mu); }
+    #viewHome .area-track { position: relative; height: 8px; margin-right: 40px; border-radius: 999px; background: #efeee9; }
+    #viewHome .area-bar { position: static; height: 100%; min-height: 0; border-radius: 999px; }
+    #viewHome .bar-green, #viewHome .dot-permit { background: var(--h-c1); }
+    #viewHome .bar-amber, #viewHome .dot-instalasi { background: var(--h-c2); }
+    #viewHome .bar-purple, #viewHome .dot-baclosing { background: var(--h-c3); }
+    #viewHome .area-pct { bottom: auto; top: 50%; left: auto; right: -40px; width: 34px; text-align: right; transform: translateY(-50%); margin: 0; font-size: 11.5px; font-weight: 700; color: var(--h-tx); }
+    #viewHome .scurve-box { margin: 0; min-height: 0; }
+    #viewHome .scurve-title { font-size: 13px; color: var(--h-tx); }
+    #viewHome .scurve-cap, #viewHome .scurve-legend { color: var(--h-mu); }
+    #viewHome .alert-item { align-items: center; gap: 10px; border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--h-tx); }
+    #viewHome .alert-item .dot { display: none; }
+    #viewHome .alert-n { font-size: 18px; font-weight: 800; min-width: 30px; }
+    #viewHome .alert-danger { background: #fdf1ec; }
+    #viewHome .alert-danger .alert-n { color: #B4541A; }
+    #viewHome .alert-warning { background: #f6f1e4; }
+    #viewHome .alert-warning .alert-n { color: #8a6a14; }
+    #viewHome .alert-success { background: #edf5ef; }
+    #viewHome .alert-success .alert-n { color: var(--h-c1); }
+    #viewHome .top5-note { font-size: 11.5px; color: var(--h-mu); margin: -4px 0 10px; }
+    #viewHome .top5-rank { background: transparent; color: var(--h-mu); width: 16px; }
+    #viewHome .top5-name { font-size: 13px; color: var(--h-tx); margin-bottom: 5px; }
+    #viewHome .top5-bar { height: 6px; background: #efeee9; }
+    #viewHome .top5-fill { background: var(--h-acc); }
+    #viewHome .top5-pct { font-size: 13px; color: var(--h-tx); }
+    #viewHome .site-table { font-size: 12.5px; }
+    #viewHome .site-table th { color: var(--h-mu); font-size: 11px; font-weight: 700; padding: 8px 10px; border-bottom-color: var(--h-bd); background: transparent; }
+    #viewHome .site-table td { padding: 10px; color: var(--h-tx); border-bottom-color: #f0efeb; }
+    #viewHome .site-table th, #viewHome .site-table td { border-top: none; border-left: none; border-right: none; }
+    #viewHome .site-table tr:last-child td { border-bottom: none; }
+    #viewHome .site-table td:first-child { font-weight: 600; }
+    #viewHome .site-progress { background: #efeee9; }
+    #viewHome .site-progress-fill { background: var(--h-acc); }
+    #viewHome .site-progress-pct { font-weight: 700; color: var(--h-tx); }
+    #viewHome .map-legend { color: var(--h-mu); }
+    #viewHome .panel-link { color: var(--h-acc); }
+    @media (max-width: 860px) {
+      #viewHome .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #viewHome .kpi-card:nth-child(2) { border-right: none; }
+      #viewHome .kpi-card:nth-child(-n+2) { border-bottom: 1px solid var(--h-bd); }
+      #viewHome .area-body { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 700px) { #viewHome .dash-row-2 { grid-template-columns: 1fr; } #viewHome .dt-card { text-align: left; } }
   </style>
 </head>
 <body>
@@ -785,13 +869,20 @@
               <div class="scurve-box" id="scurveBox"><div class="scurve-empty">Memuat Kurva S...</div></div>
             </div>
           </div>
+          <div class="dash-col">
           <div class="dash-panel">
             <div class="panel-title-row"><div class="panel-title">Perlu Perhatian</div><span class="panel-badge" id="alertBadge">0</span></div>
             <div id="alertList" class="alert-list"><div class="alert-empty">Memuat...</div></div>
           </div>
+          <div class="dash-panel">
+            <div class="panel-title">Top 5 Area Progress</div>
+            <div class="top5-note">Rata-rata persentase Permit, Instalasi, dan BA Closing per area</div>
+            <div id="top5List" class="top5-list"></div>
+          </div>
+          </div>
         </div>
 
-        <div class="dash-row dash-row-3">
+        <div class="dash-row dash-row-2">
           <div class="dash-panel">
             <div class="panel-title">Site Terbaru</div>
             <div class="site-table-wrap">
@@ -821,11 +912,6 @@
               <span><i class="dot dot-map-pending"></i>Pending</span>
               <span><i class="dot dot-map-nodata"></i>Belum ada data</span>
             </div>
-          </div>
-          <div class="dash-panel">
-            <div class="panel-title">Top 5 Area Progress</div>
-            <div class="top5-note">Rata-rata persentase Permit, Instalasi, dan BA Closing per area</div>
-            <div id="top5List" class="top5-list"></div>
           </div>
         </div>
 
@@ -1806,6 +1892,7 @@
       if (id === 'viewLogHistory' && ROLE !== 'rpm') id = 'viewHome';   // Log History hanya untuk RPM
       if (id === 'viewBoq' || id === 'viewBoqGen') boqTabsTo(id);
       VIEWS.forEach(function (v) { $(v).style.display = (v === id) ? 'block' : 'none'; });
+      document.body.classList.toggle('on-home', id === 'viewHome');
       window.scrollTo(0, 0);
       if ((id === 'viewBa' || id === 'viewBoq' || id === 'viewBoqGen') && !baLoaded) { baLoaded = true; loadSiteNames(); }
       if (id === 'viewBoqGen') { $('bqTplUp').style.display = (ROLE === 'rpm') ? '' : 'none'; if (!bq.init && !bq.loading) bqLoad(); loadBqHistory(); }
@@ -3113,25 +3200,25 @@
       var baClosing = pctOf('baClosing');
       $('kpiSite').textContent = total;
       $('kpiPermit').textContent = permit.pct + '%';
-      $('kpiPermitSub').textContent = '(' + permit.n + ' dari ' + total + ' site)';
+      $('kpiPermitSub').textContent = permit.n + ' dari ' + total + ' site';
       $('kpiPermitBar').style.width = permit.pct + '%';
       $('kpiInstalasi').textContent = instalasi.pct + '%';
-      $('kpiInstalasiSub').textContent = '(' + instalasi.n + ' dari ' + total + ' site)';
+      $('kpiInstalasiSub').textContent = instalasi.n + ' dari ' + total + ' site';
       $('kpiInstalasiBar').style.width = instalasi.pct + '%';
       $('kpiBaClosing').textContent = baClosing.pct + '%';
-      $('kpiBaClosingSub').textContent = '(' + baClosing.n + ' dari ' + total + ' site)';
+      $('kpiBaClosingSub').textContent = baClosing.n + ' dari ' + total + ' site';
       $('kpiBaClosingBar').style.width = baClosing.pct + '%';
 
       var permitPending = cpData.filter(function (s) { return s.stages.permit !== 'done'; }).length;
       var instalasiProgress = cpData.filter(function (s) { return s.stages.instalasi === 'progress'; }).length;
       var siapInstalasi = cpData.filter(function (s) { return s.stages.permit === 'done' && s.stages.drawing === 'done' && s.stages.instalasi === 'pending'; }).length;
       var alerts = [];
-      if (permitPending > 0) alerts.push({ text: permitPending + ' site permit belum Approved', level: 'danger' });
-      if (instalasiProgress > 0) alerts.push({ text: instalasiProgress + ' site masih proses instalasi', level: 'warning' });
-      if (siapInstalasi > 0) alerts.push({ text: siapInstalasi + ' site siap mulai instalasi', level: 'success' });
+      if (permitPending > 0) alerts.push({ n: permitPending, text: 'site permit belum Approved', level: 'danger' });
+      if (instalasiProgress > 0) alerts.push({ n: instalasiProgress, text: 'site masih proses instalasi', level: 'warning' });
+      if (siapInstalasi > 0) alerts.push({ n: siapInstalasi, text: 'site siap mulai instalasi', level: 'success' });
       $('alertBadge').textContent = alerts.length;
       $('alertList').innerHTML = alerts.length
-        ? alerts.map(function (a) { return '<div class="alert-item alert-' + a.level + '"><span class="dot dot-' + a.level + '"></span>' + esc(a.text) + '</div>'; }).join('')
+        ? alerts.map(function (a) { return '<div class="alert-item alert-' + a.level + '"><span class="dot dot-' + a.level + '"></span><b class="alert-n">' + a.n + '</b> <span>' + esc(a.text) + '</span></div>'; }).join('')
         : '<div class="alert-empty">Tidak ada yang perlu perhatian khusus.</div>';
 
       var map = {};
@@ -3228,13 +3315,16 @@
       var areas = window.__areaAgg || [];
       var list = filterRegion ? areas.filter(function (a) { return a.region === filterRegion; }) : areas;
       $('areaChart').innerHTML = list.map(function (a) {
+        function row(label, cls, v) {
+          return '<div class="area-row"><span class="area-row-label">' + label + '</span><div class="area-track"><div class="area-bar ' + cls + '" style="width:' + v + '%"></div></div></div>';
+        }
         return '<div class="area-group">' +
-          '<div class="area-bars">' +
-            '<div class="area-bar bar-green" style="height:' + a.permitPct + '%"></div>' +
-            '<div class="area-bar bar-blue" style="height:' + a.instalasiPct + '%"></div>' +
-            '<div class="area-bar bar-purple" style="height:' + a.baClosingPct + '%"></div>' +
-          '</div>' +
           '<div class="area-label">' + esc(a.region) + '</div>' +
+          '<div class="area-bars">' +
+            row('Permit', 'bar-green', a.permitPct) +
+            row('Instalasi', 'bar-amber', a.instalasiPct) +
+            row('BA Closing', 'bar-purple', a.baClosingPct) +
+          '</div>' +
         '</div>';
       }).join('') || '<div class="alert-empty">Tidak ada data region.</div>';
     }
@@ -4471,7 +4561,7 @@
       if (!p || !p.total) return;
       g.querySelectorAll('.area-bar').forEach(function (b) {
         if (b.querySelector('.area-pct')) return;
-        var v = b.classList.contains('bar-green') ? p.permitPct : b.classList.contains('bar-blue') ? p.instPct : b.classList.contains('bar-purple') ? p.baPct : null;
+        var v = b.classList.contains('bar-green') ? p.permitPct : b.classList.contains('bar-amber') ? p.instPct : b.classList.contains('bar-purple') ? p.baPct : null;
         if (v === null || v === undefined) return;
         var s = document.createElement('span');
         s.className = 'area-pct';
