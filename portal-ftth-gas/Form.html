@@ -583,7 +583,7 @@
       #bqItems td.line::before { content: "Line"; }
       #bqItems td.qty::before { content: "Volume"; }
       table.hist-bq td:nth-child(1)::before { content: "File"; } table.hist-bq td:nth-child(2)::before { content: "SOW"; } table.hist-bq td:nth-child(3)::before { content: "Status"; } table.hist-bq td:nth-child(4)::before { content: "Dibuat"; }
-      table.hist-bg td:nth-child(1)::before { content: "Nomor BA"; } table.hist-bg td:nth-child(2)::before { content: "Tanggal"; } table.hist-bg td:nth-child(3)::before { content: "Region"; } table.hist-bg td:nth-child(4)::before { content: "Site"; } table.hist-bg td:nth-child(5)::before { content: "Jenis"; } table.hist-bg td:nth-child(6)::before { content: "Item"; }
+      table.hist-bg td:nth-child(1)::before { content: "ID BA / Nomor BA"; } table.hist-bg td:nth-child(2)::before { content: "Tanggal"; } table.hist-bg td:nth-child(3)::before { content: "Region"; } table.hist-bg td:nth-child(4)::before { content: "Site"; } table.hist-bg td:nth-child(5)::before { content: "Jenis"; } table.hist-bg td:nth-child(6)::before { content: "Item"; }
       table.hist-rp td:nth-child(1)::before { content: "ID BA"; } table.hist-rp td:nth-child(2)::before { content: "Tanggal"; } table.hist-rp td:nth-child(3)::before { content: "Site"; } table.hist-rp td:nth-child(4)::before { content: "SOW"; } table.hist-rp td:nth-child(5)::before { content: "Jenis"; } table.hist-rp td:nth-child(6)::before { content: "Progres"; } table.hist-rp td:nth-child(7)::before { content: "Mandor"; }
       .q-row { padding: 10px 12px; font-size: 13px; }
       .q-name { min-width: 0; flex: 1 1 100%; white-space: normal; }
@@ -1236,10 +1236,10 @@
     <div class="card wide">
       <h2>BA yang Dibuat</h2>
       <p class="desc">Semua BA yang dibuat lewat menu ini, terbaru di atas. Klik Unduh PDF untuk mengambil ulang file-nya.</p>
-      <div class="row"><div><input type="text" id="bgQ" placeholder="Cari Nomor BA, Site, atau Mandor..." autocomplete="off"></div></div>
+      <div class="row"><div><input type="text" id="bgQ" placeholder="Cari Nomor BA, ID BA, Site, atau Mandor..." autocomplete="off"></div></div>
       <div id="bgCount" class="hint"></div>
       <table class="hist hist-bg">
-        <thead><tr><th>Nomor BA</th><th>Tanggal</th><th>Region</th><th>Name (Site)</th><th>Jenis</th><th>Item</th><th></th></tr></thead>
+        <thead><tr><th>ID BA / Nomor BA</th><th>Tanggal</th><th>Region</th><th>Name (Site)</th><th>Jenis</th><th>Item</th><th></th></tr></thead>
         <tbody id="bgHistory"><tr><td colspan="7">Memuat...</td></tr></tbody>
       </table>
       <div class="pager" id="bgPager" style="display:none">
@@ -3615,12 +3615,12 @@
 
     function renderBgHistory() {
       var q = $('bgQ').value.trim().toLowerCase();
-      var rows = bg.hist.filter(function (h) { return !q || (h.nomor + ' ' + h.site + ' ' + h.mandor).toLowerCase().indexOf(q) > -1; });
+      var rows = bg.hist.filter(function (h) { return !q || (h.nomor + ' ' + h.idBa + ' ' + h.site + ' ' + h.mandor).toLowerCase().indexOf(q) > -1; });
       rows = pgSlice('bg', rows, bg.hist, q, 'BA');
       var tb = $('bgHistory');
       if (!rows.length) { tb.innerHTML = '<tr><td colspan="7">' + (bg.hist.length ? 'Tidak ada BA yang cocok dengan pencarian.' : 'Belum ada BA yang dibuat lewat menu ini.') + '</td></tr>'; return; }
       tb.innerHTML = rows.map(function (h) {
-        return '<tr><td>' + esc(h.nomor) + '</td><td>' + esc(h.tanggal) + ' ' + esc(h.jam) + '</td><td>' + esc(h.region) + '</td><td class="site">' + esc(h.site) + (h.sow ? '<div class="hint" style="margin:2px 0 0">' + esc(h.sow) + '</div>' : '') + '</td><td>' + esc(h.jenis) + (h.kategori && h.kategori !== '-' ? ' ' + esc(h.kategori) : '') + '</td><td>' + esc(h.items) +
+        return '<tr><td>' + (h.idBa ? esc(h.idBa) + (h.nomor ? '<div class="hint" style="margin:2px 0 0">' + esc(h.nomor) + '</div>' : '') : esc(h.nomor)) + '</td><td>' + esc(h.tanggal) + ' ' + esc(h.jam) + '</td><td>' + esc(h.region) + '</td><td class="site">' + esc(h.site) + (h.sow ? '<div class="hint" style="margin:2px 0 0">' + esc(h.sow) + '</div>' : '') + '</td><td>' + esc(h.jenis) + (h.kategori && h.kategori !== '-' ? ' ' + esc(h.kategori) : '') + '</td><td>' + esc(h.items) +
           '</td><td><button type="button" class="small dl" data-id="' + esc(h.idBa) + '">Unduh PDF</button></td></tr>';
       }).join('');
       tb.querySelectorAll('.dl').forEach(function (b) { b.addEventListener('click', function () { downloadBa(b); }); });
