@@ -669,6 +669,8 @@ function waCmd_(p) {
       out = botStokWh_(p, arg, owner); break;
     case 'hapusba':
       out = botHapusBa_(p, owner, arg); break;
+    case 'revisi':
+      out = botRevisi_(p, owner, arg); break;
     case 'setuju':
       out = owner && p.chat !== 'group' ? botStokWhSetuju_(p.fromName || p.from) : ''; break;
     case 'batal':
@@ -700,6 +702,7 @@ function botHelp_(owner) {
     '• *' + g + 'potongan* _[kabel] [gudang]_ → haspel utuh + potongan kabel',
     '• *' + g + 'ba* _<site>_ → BA Ambil / Pengembalian + total bersih',
     '• *' + g + 'ok* _<site> [alasan]_ → jawab peringatan site tanpa laporan',
+    '• *' + g + 'revisi* _<site> [dd/mm]_ → perbaiki Daily Report yang sudah terkirim' + (owner ? '' : ' _(dikonfirmasi admin)_'),
     '• *' + g + 'hapusba* _<nomor BA> [alasan]_ → hapus BA salah input' + (owner ? '' : ' _(dikonfirmasi admin)_'),
     '• *' + g + 'panduan* → PDF panduan perintah',
     '• *' + g + 'bantu* → daftar ini',
@@ -737,6 +740,7 @@ function botHelp_(owner) {
     '• *batas* _<material> <angka>_ → standar stok · _batas awal_',
     '• *setuju* · *batal* → usulan stok dari Excel WH',
     '• *hapusba ya* · *hapusba batal* → konfirmasi hapus BA',
+    '• *revisi ya* · *revisi batal* → konfirmasi revisi Daily Report',
     '• *mangkrak* → site 3+ hari tanpa laporan',
     '• *boq* → item melebihi Plan BOQ',
     '• _<site>_ *ok* → site itu tidak dilaporkan lagi · _boq ok_',
@@ -1746,7 +1750,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-10-27-4';
+var BOT_PANDUAN_VERSI_ = '2026-11-01-1';
 // Baris ['#Judul'] = judul kelompok di tabel perintah.
 var BOT_PANDUAN_TIM_ = [
   ['#Cek data proyek'],
@@ -1757,6 +1761,11 @@ var BOT_PANDUAN_TIM_ = [
   ['!ba &lt;site&gt; [sow]', 'BA Ambil dan Pengembalian satu site + total bersih per material.', '!ba penggalaman'],
   ['!ok &lt;site&gt; [alasan]', 'Jawab peringatan "Site tanpa laporan" (mis. site berhenti menunggu izin / material). Site tidak diingatkan lagi, juga di daftar Senin, sampai ada Daily Report baru. !ok = daftar, !ok hapus &lt;site&gt; = batalkan. !tunda sama dengan !ok.', '!ok EMR-32739 menunggu izin | !ok | !ok hapus EMR-32739'],
   ['!potongan [kabel] [gudang]', 'Haspel utuh + panjang potongan kabel dari Excel WH terakhir.', '!potongan 24c | !potongan cable 48 batola'],
+  ['#Daily Report'],
+  ['!revisi &lt;site&gt; [dd/mm]', 'Perbaiki Daily Report yang sudah terkirim. Bot menampilkan laporan terakhir site itu (atau tanggal itu) dengan item bernomor, lalu balas:<br>' +
+    '<b>!revisi 1=150</b> = ganti angka Today (0 = buang item, beberapa sekaligus: !revisi 1=150 2=6)<br><b>!revisi pole 7/3=4</b> = tambah item<br>' +
+    '<b>!revisi tanggal 30/10</b> = ganti tanggal laporan<br><b>!revisi hapus [alasan]</b> = hapus laporan (mis. terkirim dobel)<br>' +
+    'Revisi dikonfirmasi admin, Total site ikut terkoreksi, dan grup diberi tahu. !revisi batal = batalkan permintaan sendiri.', '!revisi jati baru rt 04 | !revisi jati baru rt 04 31/10 | !revisi 1=150 2=0 | !revisi hapus dobel'],
   ['#Gudang'],
   ['!hapusba &lt;nomor BA&gt; [alasan]', 'Minta hapus BA yang salah input di Portal Warehouse. Bot menampilkan isi BA dan meneruskannya ke admin; BA baru dihapus setelah admin mengonfirmasi. Saldo gudang ikut terkoreksi, lalu input ulang BA yang benar di portal.', '!hapusba HST/2610/001 salah tanggal | !hapusba BA-261026-180847'],
   ['Excel + caption !stokwh', 'Kirim file Excel stok WH (.xlsx). Selisih dengan saldo portal dikirim ke admin untuk disetujui.', '!stokwh | !stokwh batola'],
@@ -1797,6 +1806,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['batas &lt;material&gt; &lt;angka&gt;', 'Standar stok menipis. batas awal = bawaan (kabel 3000, tiang 30, FAT 20).', 'batas cable 24c 3000 | batas | batas awal'],
   ['setuju / batal', 'Terima atau tolak usulan stok dari Excel WH. Hanya di chat pribadi, berlaku 12 jam.', 'setuju | batal'],
   ['hapusba &lt;nomor&gt; / ya / batal', 'Hapus BA salah input. hapusba &lt;nomor&gt; = tampilkan isi BA, hapusba ya = hapus (baris BA TRANSAKSI disalin ke tab BA TERHAPUS di spreadsheet LOG ARSIP, PDF ke tempat sampah Drive, REGISTER dikoreksi, grup diberi tahu), hapusba batal = batalkan. Permintaan dari tim juga dikonfirmasi di sini (berlaku 6 jam).', 'hapusba HST/2610/001 salah tanggal | hapusba ya | hapusba batal'],
+  ['revisi ya / batal [n]', 'Konfirmasi revisi Daily Report dari tim (berlaku 6 jam). revisi ya = semua yang menunggu, revisi ya 2 = nomor itu saja, revisi = lihat daftar. Admin juga bisa merevisi sendiri: revisi &lt;site&gt;, lalu revisi 1=150 dan revisi ya. Salinan sebelum diubah masuk tab DAILY REVISI (spreadsheet LOG ARSIP).', 'revisi ya | revisi ya 2 | revisi batal'],
   ['boq', 'Item yang realisasinya melebihi Plan BOQ, kecuali site yang sudah di-OK.', 'boq'],
   ['&lt;site&gt; ok', 'Site itu tidak dilaporkan lagi di BOQ melebihi Plan. boq ok = daftar.', 'penggalaman ok | boq ok hapus penggalaman'],
   ['mangkrak', 'Semua site aktif yang 3+ hari tanpa Daily Report, termasuk yang sudah di-!ok.', 'mangkrak'],
@@ -2017,6 +2027,273 @@ function botHapusBaRegister_(pend) {
     reg.getRange(i + 5, 19, 1, 2).setValues([['DIHAPUS', ('Dihapus lewat bot ' + botWita_(Date.now(), 'dd/MM/yyyy HH:mm') + (pend.alasan ? ': ' + pend.alasan : '')).slice(0, 300)]]);
     return 'REGISTER: status jadi DIHAPUS (sudah ada nomor sesudahnya, jadi nomor ini tidak dipakai lagi).';
   } catch (e) { return 'REGISTER tidak bisa diubah: ' + e.message; }
+}
+
+// ---- revisi: Daily Report yang sudah terkirim diperbaiki lewat bot ----
+// "revisi <site> [dd/mm]" menampilkan Daily Report terakhir site itu (atau tanggal itu) dengan item bernomor; pilihan itu diingat
+// per pengirim selama 6 jam. Lalu "revisi 1=150 2=0" / "revisi pole 7/3=4" (angka Today diganti, 0 = item dibuang, nama item = tambah),
+// "revisi tanggal 30/10" (tanggal laporan) atau "revisi hapus [alasan]" (seluruh laporan, mis. terkirim dobel).
+// Dari admin (WA_OWNER) di chat pribadi bot meminta "revisi ya"; dari grup usulan diteruskan ke chat pribadi admin, admin yang mengonfirmasi.
+// Saat dikonfirmasi baris DAILY REPORT EMR diubah di tempat (kolom material, Rincian Item, Ringkasan) atau dihapus, jadi Total site
+// ikut terkoreksi. Salinan baris sebelum diubah masuk tab DAILY REVISI di spreadsheet LOG ARSIP, lalu grup diberi tahu.
+// Pesan laporan lama di WhatsApp tidak berubah.
+var BOT_DAILY_ARSIP_ = 'DAILY REVISI';
+
+// Baris Daily Report asli (tanpa Saldo awal / Koreksi Total) beserta isinya, tanpa kolom Teks Laporan.
+function botRevisiBaris_(sh, h) {
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+  var width = h.idx['teks laporan'] === h.width - 1 && h.width > 1 ? h.width - 1 : h.width;
+  var c = { ts: h.idx['timestamp'], t: h.idx['tanggal'], n: h.idx['cluster name'], s: h.idx['sow'], p: h.idx['pic'], a: h.idx['today activity'] };
+  var out = [];
+  sh.getRange(2, 1, last - 1, width).getValues().forEach(function (r, i) {
+    if (c.a !== undefined && /^(saldo awal|koreksi total)/i.test(String(r[c.a] || ''))) return;
+    var site = siteName_(r[c.n]);
+    if (!site) return;
+    var ts = c.ts !== undefined && r[c.ts] instanceof Date ? r[c.ts].getTime() : 0;
+    out.push({ row: i + 2, r: r, site: site, sow: c.s === undefined ? '' : String(r[c.s] || '').trim(), ts: ts,
+      day: botDmy_(r[c.t]) || botDmy_(r[c.ts]), pic: c.p === undefined ? '' : String(r[c.p] || '').trim() });
+  });
+  return out;
+}
+
+// Item Today satu baris -> {rin: {key: angka}, names: {key: nama di HP}, list: [{key, label, n}]}.
+// Kolom material = patokan (sama dengan Total); Rincian Item memberi rincian per item / line.
+function botRevisiItems_(h, r) {
+  var cRin = h.idx['rincian item'], rin = {}, names = {};
+  String(cRin === undefined ? '' : r[cRin] || '').split(';').forEach(function (part) {
+    var m = part.match(/^\s*([^=]+?)\s*=\s*(-?\d+(?:\.\d+)?)\s*$/);
+    if (!m) return;
+    var k = rincianKeyOf_(m[1]), nm = m[1].match(/^(.*?)\s*\(([^()]+)\)$/);
+    if (nm && nm[1]) names[k] = nm[1].trim();
+    rin[k] = (rin[k] || 0) + Number(m[2]);
+  });
+  materialCols_(h).forEach(function (mc) {
+    var v = cellNumber_(r[mc.idx]), ks = Object.keys(rin).filter(function (k) { return materialColumn_(k) === mc.col; });
+    if (!ks.length) { if (v) rin[mc.baseKey] = v; return; }
+    var part = {};
+    ks.forEach(function (k) { part[k] = rin[k]; });
+    splitCell_(part, ks, v);
+    ks.forEach(function (k) { rin[k] = part[k]; });
+  });
+  var list = Object.keys(rin).filter(function (k) { return rin[k]; }).map(function (k) {
+    return { key: k, label: itemDisplayName_(k, names), n: rin[k] };
+  });
+  return { rin: rin, names: names, list: list };
+}
+
+// "1.244" -> 1244, "1,5" -> 1.5, selain angka -> NaN
+function botRevisiAngka_(s) {
+  s = String(s || '').trim();
+  if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  s = s.replace(',', '.');
+  return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
+}
+
+// "1=150 2=6" / "cable 24c line a = 150, pole 7/2,5=3" -> [{kiri, n}] ('' bila formatnya salah).
+// Nama item boleh berisi koma (Pole 7/2,5), jadi pemisah antarpasangan dicari dari angka sesudah "=".
+function botRevisiPasangan_(arg) {
+  var parts = String(arg).split('='), out = [], kiri = parts[0];
+  for (var i = 1; i < parts.length; i++) {
+    var seg = parts[i], m;
+    if (i < parts.length - 1) {
+      m = seg.match(/^\s*(\d+(?:[.,]\d+)*?)\s*(?:[,;]\s*|\s+)(\S[\s\S]*)$/);
+      if (!m) return '';
+      out.push({ kiri: kiri.replace(/^[\s,;]+|\s+$/g, ''), n: botRevisiAngka_(m[1]) });
+      kiri = m[2];
+    } else {
+      m = seg.match(/^\s*(\d+(?:[.,]\d+)*)\s*$/);
+      if (!m) return '';
+      out.push({ kiri: kiri.replace(/^[\s,;]+|\s+$/g, ''), n: botRevisiAngka_(m[1]) });
+    }
+  }
+  return out.every(function (x) { return x.kiri && x.n >= 0; }) ? out : '';
+}
+
+// "jati baru rt 04 31/10" -> laporan site itu tanggal itu (tanpa tanggal: yang terakhir dikirim) -> {sel, text} atau {err}
+function botRevisiCari_(arg, g) {
+  var now = Date.now(), day = '', m = arg.match(/\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?$/);
+  if (m) {
+    var y = m[3] ? (m[3].length === 2 ? '20' + m[3] : m[3]) : botWita_(now, 'yyyy');
+    day = botDmy_(m[1] + '/' + m[2] + '/' + y);
+    arg = arg.slice(0, m.index).trim();
+  }
+  var words = arg.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return { err: 'Tulis nama site, mis. *' + g + 'revisi jati baru rt 04* atau *' + g + 'revisi jati baru rt 04 31/10*.' };
+  var sh = dailySheet_(), h = sheetHeader_(sh), rows = botRevisiBaris_(sh, h).filter(function (x) {
+    var n = x.site.toLowerCase();
+    return words.every(function (w) { return n.indexOf(w) >= 0; });
+  });
+  if (!rows.length) return { err: 'Belum ada Daily Report untuk site "' + arg + '". Coba *' + g + 'site ' + words[0] + '* untuk cek nama site.' };
+  var sites = {};
+  rows.forEach(function (x) { sites[x.site + (x.sow ? ' (' + x.sow + ')' : '')] = true; });
+  var names = Object.keys(sites);
+  if (names.length > 1) return { err: 'Ada ' + names.length + ' site yang cocok, tulis lebih lengkap:\n' + names.slice(0, 10).map(function (s) { return '- ' + s; }).join('\n') };
+  var pilih = day ? rows.filter(function (x) { return x.day === day; }) : rows;
+  if (!pilih.length) return { err: 'Tidak ada Daily Report ' + rows[0].site + ' tanggal ' + day + '. Laporan terakhir: ' +
+    rows.map(function (x) { return x.day; }).filter(Boolean).slice(-3).join(', ') + '.' };
+  pilih.sort(function (a, b) { return (a.ts - b.ts) || (a.row - b.row); });
+  var x = pilih[pilih.length - 1], it = botRevisiItems_(h, x.r);
+  var sel = { t: now, row: x.row, ts: x.ts, site: x.site, sow: x.sow, day: x.day, pic: x.pic,
+    items: it.list.map(function (o) { return { key: o.key, label: o.label, n: o.n }; }) };
+  var text = ['📝 *Daily Report ' + x.site + '*' + (x.sow ? ' (' + x.sow + ')' : ''),
+    'Tanggal ' + (x.day || '-') + ' · PIC ' + (x.pic || '-') + (x.ts ? ' · dikirim ' + botWita_(x.ts, 'dd/MM HH:mm') : '')]
+    .concat(sel.items.length ? sel.items.map(function (o, i) { return (i + 1) + '. ' + o.label + ' = ' + botNum_(o.n); }) : ['(tanpa angka Today)'])
+    .concat(pilih.length > 1 ? ['_Ada ' + pilih.length + ' laporan' + (day ? ' tanggal ini' : '') + ', ini yang terakhir dikirim._'] : [])
+    .concat(['', 'Balas:',
+      '• *' + g + 'revisi 1=150* → ganti angka _(0 = buang item; beberapa sekaligus: ' + g + 'revisi 1=150 2=6)_',
+      '• *' + g + 'revisi pole 7/3=4* → tambah item',
+      '• *' + g + 'revisi tanggal 30/10* → ganti tanggal laporan',
+      '• *' + g + 'revisi hapus* _[alasan]_ → hapus laporan ini _(mis. terkirim dobel)_']);
+  return { sel: sel, text: text.join('\n') };
+}
+
+function botRevisiJudul_(s) {
+  return '*' + s.site + '*' + (s.sow ? ' (' + s.sow + ')' : '') + ' · ' + (s.day || '-') + ' · ' + (s.pic || '-');
+}
+
+function botRevisi_(p, owner, arg) {
+  var props = PropertiesService.getScriptProperties(), who = String(p.fromName || p.from || ''), g = owner && p.chat !== 'group' ? '' : '!';
+  var selKey = 'BOT_REVISI_SEL_' + String(p.from || '').replace(/\D/g, ''), list = [], sel = null;
+  try { list = JSON.parse(props.getProperty('BOT_REVISI') || '[]'); } catch (e) {}
+  try { sel = JSON.parse(props.getProperty(selKey) || 'null'); } catch (e) {}
+  var segar = list.filter(function (x) { return Date.now() - x.t <= 6 * 3600000; });   // usulan berlaku 6 jam
+  if (segar.length !== list.length) { list = segar; props.setProperty('BOT_REVISI', JSON.stringify(list)); }
+  if (sel && Date.now() - sel.t > 6 * 3600000) sel = null;
+  var simpan = function () { if (list.length) props.setProperty('BOT_REVISI', JSON.stringify(list)); else props.deleteProperty('BOT_REVISI'); };
+  var daftar = function () {
+    return list.map(function (x, i) { return (list.length > 1 ? (i + 1) + ') ' : '') + 'dari ' + x.by + '\n' + x.text; }).join('\n\n');
+  };
+
+  var m = arg.match(/^(ya|ok|setuju|batal)(?:\s+(\d+))?$/i);
+  if (m) {
+    var ya = !/^batal$/i.test(m[1]), no = m[2] ? +m[2] : 0;
+    if (ya && (!owner || p.chat === 'group')) return owner ? 'Konfirmasi revisi hanya di chat pribadi bot.' : 'Hanya admin yang bisa mengonfirmasi revisi Daily Report.';
+    var mine = owner ? list : list.filter(function (x) { return x.by === who; });
+    if (!mine.length) return 'Tidak ada revisi Daily Report yang menunggu.';
+    if (no && !list[no - 1]) return 'Nomor ' + no + ' tidak ada. Ada ' + list.length + ' revisi yang menunggu.';
+    var kena = no ? [list[no - 1]] : mine;
+    if (!owner && kena.some(function (x) { return x.by !== who; })) return 'Hanya admin atau yang meminta yang bisa membatalkan revisi itu.';
+    list = list.filter(function (x) { return kena.indexOf(x) < 0; });
+    simpan();
+    if (!ya) return kena.length + ' revisi Daily Report dibatalkan.';
+    return kena.map(function (x) { return botRevisiJalan_(x, who); }).join('\n\n');
+  }
+  if (!arg) {
+    if (owner && p.chat !== 'group' && list.length) return '*Revisi Daily Report menunggu konfirmasi*\n' + daftar() +
+      '\n\nBalas *revisi ya*' + (list.length > 1 ? ' (semua) atau *revisi ya 1*' : '') + ', atau *revisi batal*.';
+    return 'Ketik *' + g + 'revisi <site>* untuk melihat Daily Report terakhir site itu, mis. *' + g + 'revisi jati baru rt 04* atau *' + g + 'revisi jati baru rt 04 31/10*.';
+  }
+
+  var pend = null, perlu = 'Pilih laporannya dulu: *' + g + 'revisi <site>* (pilihan berlaku 6 jam).';
+  if ((m = arg.match(/^tanggal\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?$/i))) {
+    if (!sel) return perlu;
+    var y = m[3] ? (m[3].length === 2 ? '20' + m[3] : m[3]) : botWita_(Date.now(), 'yyyy'), baru = botDmy_(m[1] + '/' + m[2] + '/' + y);
+    if (!baru || +m[1] > 31 || +m[2] > 12) return 'Tanggal tidak valid. Contoh: *' + g + 'revisi tanggal 30/10*.';
+    if (botDmyKey_(baru) > botWita_(Date.now(), 'yyyyMMdd')) return 'Tanggal ' + baru + ' belum lewat.';
+    if (baru === sel.day) return 'Tanggalnya sudah ' + baru + '.';
+    pend = { jenis: 'tanggal', baru: baru, ubah: '- Tanggal: ' + (sel.day || '-') + ' → ' + baru };
+  } else if (/^tanggal\b/i.test(arg)) {
+    return 'Contoh: *' + g + 'revisi tanggal 30/10*.';
+  } else if ((m = arg.match(/^hapus\b\s*([\s\S]*)$/i))) {
+    if (!sel) return perlu;
+    pend = { jenis: 'hapus', alasan: m[1].trim().slice(0, 200), ubah: '- Hapus seluruh laporan' + (m[1].trim() ? ' (' + m[1].trim().slice(0, 200) + ')' : '') };
+  } else if (arg.indexOf('=') >= 0) {
+    if (!sel) return perlu;
+    var pairs = botRevisiPasangan_(arg);
+    if (!pairs) return 'Format: *' + g + 'revisi 1=150* atau *' + g + 'revisi 1=150 2=6* (nomor dari daftar, atau nama item, lalu = angka baru).';
+    var ubah = [], salah = [];
+    pairs.forEach(function (x) {
+      var k = x.kiri.toLowerCase().replace(/\s+/g, ' '), o = null;
+      if (/^\d+$/.test(k)) o = sel.items[+k - 1] || null;
+      if (!o) o = sel.items.filter(function (it) { return it.label.toLowerCase() === k; })[0] || null;
+      if (!o && itemByName_()[k]) {
+        var key = itemByName_()[k];
+        o = sel.items.filter(function (it) { return it.key === key; })[0] || { key: key, label: catalogItemName_(key), n: 0 };
+      }
+      if (!o) {
+        var w = k.split(' '), cocok = sel.items.filter(function (it) { return w.every(function (s) { return it.label.toLowerCase().indexOf(s) >= 0; }); });
+        if (cocok.length === 1) o = cocok[0];
+      }
+      if (!o) { salah.push(x.kiri); return; }
+      if (o.n !== x.n) ubah.push({ key: o.key, label: o.label, dari: o.n, ke: x.n });
+    });
+    if (salah.length) return 'Item tidak dikenal: ' + salah.join(', ') + '. Pakai nomor dari daftar, atau nama item katalog seperti *Cable 24C Line A* / *Pole 7/3*.';
+    if (!ubah.length) return 'Angkanya sama dengan laporan, tidak ada yang diubah.';
+    pend = { jenis: 'item', item: ubah, ubah: ubah.map(function (u) { return '- ' + u.label + ': ' + botNum_(u.dari) + ' → ' + botNum_(u.ke); }).join('\n') };
+  } else {
+    var c = botRevisiCari_(arg, g);
+    if (c.err) return c.err;
+    props.setProperty(selKey, JSON.stringify(c.sel));
+    return c.text;
+  }
+
+  pend.t = Date.now();
+  pend.by = who;
+  pend.sel = { row: sel.row, ts: sel.ts, site: sel.site, sow: sel.sow, day: sel.day, pic: sel.pic };
+  pend.text = botRevisiJudul_(sel) + '\n' + pend.ubah;
+  list = list.filter(function (x) { return !(x.by === who && x.sel.ts === sel.ts && x.sel.row === sel.row && x.jenis === pend.jenis); });   // usulan ulang menggantikan yang lama
+  list.push(pend);
+  simpan();
+  if (pend.jenis === 'hapus') props.deleteProperty(selKey);
+  var lagi = list.length > 1 ? '\n_(' + list.length + ' revisi menunggu: *revisi ya* = semua, *revisi ya ' + list.length + '* = yang ini saja)_' : '';
+  if (owner && p.chat !== 'group') return '✏️ *Revisi Daily Report ini?*\n' + pend.text + '\n\nBalas *revisi ya* untuk menyimpan (Total site ikut berubah) atau *revisi batal*.' + lagi;
+  var to = botOwnerJid_(), t = Date.now() + Math.floor(Math.random() * 1000);   // dua permintaan di milidetik yang sama tidak saling menimpa
+  if (to) props.setProperty(WAQ_PREFIX_ + t + '_revisi', JSON.stringify({ t: t, n: 0, last: 0, to: to, mentions: [], files: [],
+    text: '✏️ *Permintaan revisi Daily Report* dari ' + who + '\n' + pend.text + '\n\nBalas *revisi ya* atau *revisi batal*.' + lagi }));
+  return 'Permintaan revisi Daily Report ' + sel.site + ' (' + (sel.day || '-') + ') diteruskan ke admin untuk dikonfirmasi.';
+}
+
+function botRevisiJalan_(pend, who) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sh = dailySheet_(), h = sheetHeader_(sh), s = pend.sel;
+    var x = botRevisiBaris_(sh, h).filter(function (b) {
+      return b.site === s.site && (s.ts ? b.ts === s.ts : b.row === s.row);
+    })[0];
+    if (!x) return 'Daily Report ' + s.site + ' (' + (s.day || '-') + ') sudah tidak ada atau berubah. Revisi tidak disimpan.';
+    var full = sh.getRange(x.row, 1, 1, h.width).getValues()[0];
+    var head = sh.getRange(1, 1, 1, h.width).getValues()[0];
+    var oleh = pend.by === who ? who : pend.by + ' (dikonfirmasi ' + who + ')', jenis = { item: 'Revisi angka', tanggal: 'Revisi tanggal', hapus: 'Hapus laporan' }[pend.jenis];
+    var ss = SpreadsheetApp.openById(LOG_ARSIP_SS_ID), ar = ss.getSheetByName(BOT_DAILY_ARSIP_);
+    if (!ar) { ar = ss.insertSheet(BOT_DAILY_ARSIP_); ar.getRange(1, 1, 1, head.length + 4).setValues([['Waktu', 'Oleh', 'Jenis', 'Perubahan'].concat(head)]).setFontWeight('bold'); ar.setFrozenRows(1); }
+    ar.appendRow([new Date(), oleh, jenis, pend.ubah.replace(/^- /gm, '')].concat(full.map(function (v) {
+      return typeof v === 'string' && /^[=+\-@]/.test(v) ? "'" + v : v;
+    })));
+
+    var kapan = botWita_(Date.now(), 'dd/MM HH:mm'), grup;
+    if (pend.jenis === 'hapus') {
+      sh.deleteRow(x.row);
+      grup = '🗑️ *Daily Report dihapus*: ' + botRevisiJudul_(s) + (pend.alasan ? '\nAlasan: ' + pend.alasan : '') +
+        '\nTotal site ikut terkoreksi; abaikan laporan itu di grup.';
+    } else if (pend.jenis === 'tanggal') {
+      sh.getRange(x.row, h.idx['tanggal'] + 1).setValue(dmyText_(pend.baru));
+      grup = '✏️ *Daily Report direvisi*: ' + botRevisiJudul_(s) + '\n' + pend.ubah;
+    } else {
+      var it = botRevisiItems_(h, full), rin = it.rin;
+      pend.item.forEach(function (u) { if (u.ke) rin[u.key] = u.ke; else delete rin[u.key]; });
+      var byCol = sumByMaterial_(rin);
+      materialCols_(h).forEach(function (mc) {
+        var lama = cellNumber_(full[mc.idx]), baru = byCol[mc.col] || 0;
+        if (lama !== baru) sh.getRange(x.row, mc.idx + 1).setValue(baru || '');
+      });
+      var cell = function (k, v) { if (h.idx[k] !== undefined) sh.getRange(x.row, h.idx[k] + 1).setValue(v); };
+      cell('rincian item', rincianText_(rin, it.names));
+      cell('ringkasan pencapaian', todaySummary_(rin, it.names, []) + ' (direvisi ' + kapan + ')');
+      if (h.idx['teks laporan'] !== undefined) {
+        cell('teks laporan', (String(full[h.idx['teks laporan']] || '') + '\n\n[Direvisi ' + kapan + ' oleh ' + oleh + ': ' +
+          pend.item.map(function (u) { return u.label + ' ' + botNum_(u.dari) + ' → ' + botNum_(u.ke); }).join('; ') + ']').slice(0, 49000));
+      }
+      grup = '✏️ *Daily Report direvisi*: ' + botRevisiJudul_(s) + '\n' + pend.ubah + '\nTotal site ikut terkoreksi; abaikan angka itu di laporan lama.';
+    }
+    var props = PropertiesService.getScriptProperties(), t = Date.now() + Math.floor(Math.random() * 1000);
+    props.setProperty(WAQ_PREFIX_ + t + '_revisi', JSON.stringify({ t: t, n: 0, last: 0, files: [], mentions: [], text: grup }));
+    return '✅ ' + jenis + ' disimpan: ' + botRevisiJudul_(s) + '\n' + pend.ubah +
+      '\nSalinan sebelum diubah di tab ' + BOT_DAILY_ARSIP_ + ' (spreadsheet LOG ARSIP). Grup diberi tahu.';
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function botStokWhSetuju_(who) {
