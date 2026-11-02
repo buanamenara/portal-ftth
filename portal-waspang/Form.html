@@ -3962,6 +3962,8 @@ ${todayActivity}`;
     // MENU 2: SUBMIT & MASTER BOQ TABLE LOGIC
     // ==========================================
         let parsedBoqData = null;
+    // Peringatan cek silang per cluster hasil impor Excel: {nama cluster: ['...']} (lihat extractFromClusterSheet2).
+    let boqParseChecks = {};
     const STORAGE_CLUSTERS_LIST = 'waspang_clusters_list_v8';
 
     function toggleManualBoqCard() {
@@ -4115,6 +4117,7 @@ ${todayActivity}`;
       }
 
       parsedBoqData = {};
+      boqParseChecks = {};
       let pendingFiles = fileList.length;
       let totalFilesProcessed = 0;
 
@@ -4347,6 +4350,7 @@ ${todayActivity}`;
 
         const lineItems = [];
         const fatItems = []; // FAT per Line per FDT (hanya bila dua FDT atau lebih)
+        const checks = [];   // peringatan cek silang dengan baris total di file
         const fatCounts = { A: 0, B: 0, C: 0, D: 0 };
         let totalFat = 0;
         const hasLineColumns = Object.keys(lineCols).length > 0;
@@ -4504,6 +4508,31 @@ ${todayActivity}`;
               if (v > 0) lineItems.push({ key, name: cableName(key), cat: 'Pulling Cable', unit: 'meter', volume: v });
             });
           }
+
+          // Cek silang dengan baris total di file: FAT per Line harus sama dengan jumlah FAT, kabel per Line dengan
+          // "Total Panjang Cable". Selisih = ada baris yang tidak terbaca (seperti FAT Line B/C Sungai Kupang 2-11-2026)
+          // atau angka di file sendiri tidak cocok; pratinjau menampilkannya sebelum BOQ diterapkan.
+          // Jumlah FAT di file = baris "Label FAT" (satu label per FAT, ada di semua template); "FAT 1:8" hanya
+          // cadangan karena di template Standard ODN baris itu jumlah splitter, bukan FAT.
+          let fileFat = 0, fileFatSplit = 0, fileCable = 0;
+          for (let r_i = 1; r_i < rows.length; r_i++) {
+            const r = rows[r_i];
+            if (!r) continue;
+            const colA = String(r[0] || '').trim().toLowerCase();
+            const colB = String(r[1] || '').trim().toLowerCase();
+            if (!fileFat && colB.startsWith('label fat')) fileFat = getVolFdt(r_i);
+            if (!fileFatSplit && colB.startsWith('fat 1:8')) fileFatSplit = getVolFdt(r_i);
+            if (!fileCable && colA.startsWith('total panjang cable')) fileCable = getVolFdt(r_i);
+          }
+          if (!fileFat) fileFat = fileFatSplit;
+          const readFat = fatCounts.A + fatCounts.B + fatCounts.C + fatCounts.D;
+          const readCable = lineItems.reduce((acc, it) => acc + (it.volume || 0), 0);
+          if (fileFat > 0 && readFat > 0 && readFat !== fileFat) {
+            checks.push(`FAT per Line terbaca ${readFat} (A ${fatCounts.A}, B ${fatCounts.B}, C ${fatCounts.C}, D ${fatCounts.D}), total FAT di file ${fileFat}.`);
+          }
+          if (fileCable > 0 && readCable > 0 && Math.abs(readCable - fileCable) > Math.max(2, lineItems.length)) {
+            checks.push(`Kabel per Line terbaca ${readCable} m, baris "Total Panjang Cable" di file ${fileCable} m.`);
+          }
         }
 
         // Ekstraksi Strand Wire & FDT Mounted dari Sheet 2
@@ -4531,6 +4560,7 @@ ${todayActivity}`;
           hasLineColumns: hasLineColumns,
           lineItems,
           fatItems,
+          checks,
           fatCounts,
           totalFat,
           strandWire,
@@ -4545,6 +4575,9 @@ ${todayActivity}`;
       // Simpan konfigurasi FAT Line ke penyimpanan site jika terdeteksi
       if (sheet2Data && sheet2Data.fatCounts) {
         saveSiteFatCounts(cleanFname, sheet2Data.fatCounts);
+      }
+      if (sheet2Data && sheet2Data.checks && sheet2Data.checks.length) {
+        boqParseChecks[cleanFname] = sheet2Data.checks;
       }
 
       // 3. Scan lembar kerja utama untuk material tiang & aksesoris (abaikan BoM AE / BoM Cluster yang merupakan Sheet 2)
@@ -4792,6 +4825,12 @@ ${todayActivity}`;
             <td style="text-align: center; font-size: 0.72rem;">${fatStr}</td>
             <td style="text-align: center; color: #64748b;">${accCount} pcs (${accItems.length} tipe)</td>
           </tr>
+          ${(boqParseChecks[cl] || []).length ? `
+          <tr>
+            <td colspan="6" style="background: #fef2f2; color: #b91c1c; font-size: 0.74rem; padding: 8px 10px; border-left: 4px solid #dc2626;">
+              <strong>\u26a0\ufe0f Angka tidak cocok dengan total di file, cek dulu sebelum diterapkan:</strong><br>${boqParseChecks[cl].map(escOpt).join('<br>')}
+            </td>
+          </tr>` : ''}
         `;
       }).join('');
     }
@@ -4800,6 +4839,11 @@ ${todayActivity}`;
     async function applyParsedBoqToSystem() {
       if (!parsedBoqData || Object.keys(parsedBoqData).length === 0) {
         showToast('⚠️ Tidak ada data BOQ untuk diterapkan.');
+        return;
+      }
+
+      const warned = Object.keys(parsedBoqData).filter(cl => (boqParseChecks[cl] || []).length);
+      if (warned.length && !confirm('Angka BOQ ' + warned.join(', ') + ' tidak cocok dengan total di file (lihat kotak merah di pratinjau). Tetap terapkan?')) {
         return;
       }
 
