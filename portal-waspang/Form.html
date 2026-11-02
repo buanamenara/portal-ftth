@@ -2911,7 +2911,43 @@
       if (c === 'ELECTRICAL') return 'Electrical';
       return c;
     }
-    function isCableLineKey(k) { return /^cable_.*_line_[a-d]$/.test(String(k || '')); }
+    function isCableLineKey(k) { return /^cable_.*_line_[a-d](_fdt\d+)?$/.test(String(k || '')); }
+    // Nomor FDT item per FDT (key "..._line_a_fdt2" -> 2), 0 bila item tidak dipisah per FDT.
+    function itemFdtNo(it) {
+      const m = String((it && it.key) || '').match(/_line_[a-d]_fdt(\d+)$/);
+      return m ? parseInt(m[1], 10) : 0;
+    }
+    // Item katalog untuk key, termasuk item per FDT ("cable_48c_line_a_fdt2" -> "Cable 48C Line A FDT 2").
+    function catalogItemFor(key) {
+      const found = OFFICIAL_MATERIAL_CATALOG.find(m => m.key === key);
+      if (found) return found;
+      const m = String(key || '').match(/^(.*_line_[a-d])_fdt(\d+)$/);
+      const base = m && OFFICIAL_MATERIAL_CATALOG.find(c => c.key === m[1]);
+      return base ? { key: key, name: base.name + ' FDT ' + m[2], alias: base.alias, unit: base.unit, cat: base.cat, terms: [] } : null;
+    }
+    // Nama item di dalam kelompok FDT: tanpa akhiran " FDT n" karena judul kelompoknya sudah FDT n.
+    function itemNameInGroup(it) {
+      const n = itemFdtNo(it);
+      return n ? String(it.name || '').replace(new RegExp('\\s*FDT\\s*' + n + '$', 'i'), '') : it.name;
+    }
+    // Kelompok tampilan Laporan Harian: kategori biasa sesuai urutan; item per FDT dikumpulkan per FDT ("FDT 1":
+    // kabel lalu FAT per Line) dan diletakkan setelah Pulling Cable.
+    function dailyItemGroups(items, categoriesOrder) {
+      const groups = [];
+      const fdtNos = [...new Set(items.map(itemFdtNo).filter(n => n > 0))].sort((a, b) => a - b);
+      categoriesOrder.forEach(catName => {
+        const catItems = items.filter(it => !itemFdtNo(it) && itemCategory(it) === catName);
+        if (catItems.length > 0) groups.push({ title: catName, items: catItems });
+        if (catName === 'Pulling Cable') {
+          fdtNos.forEach(n => {
+            const fItems = items.filter(it => itemFdtNo(it) === n);
+            const cable = fItems.filter(it => itemCategory(it) === 'Pulling Cable');
+            groups.push({ title: 'FDT ' + n, items: cable.concat(fItems.filter(it => !cable.includes(it))) });
+          });
+        }
+      });
+      return groups;
+    }
 
     function getClusterItems(clusterName) {
       if (!clusterName) return [];
@@ -2931,7 +2967,7 @@
             let stoppingItem = null;
 
             parsed.forEach(item => {
-              const found = OFFICIAL_MATERIAL_CATALOG.find(m => m.key === item.key || m.name === item.name);
+              const found = catalogItemFor(item.key) || OFFICIAL_MATERIAL_CATALOG.find(m => m.name === item.name);
               if (found) {
                 item.key = found.key;
                 item.name = found.name;
@@ -3327,7 +3363,7 @@
       } else if (plan.found) {
         const local = getClusterItems(cluster);
         const items = (plan.items || []).map(it => {
-          const m = OFFICIAL_MATERIAL_CATALOG.find(c => c.key === it.key) || local.find(c => c.key === it.key) || {};
+          const m = catalogItemFor(it.key) || local.find(c => c.key === it.key) || {};
           return { key: it.key, name: it.name || m.name || it.key, cat: it.cat || m.cat || 'Lain-lain',
             unit: it.unit || m.unit || 'pcs', volume: Number(it.volume) || 0 };
         });
@@ -3361,7 +3397,7 @@
       }
     }
     function dailyItemName(cluster, key) {
-      const it = getClusterItems(cluster).find(m => m.key === key) || OFFICIAL_MATERIAL_CATALOG.find(m => m.key === key);
+      const it = getClusterItems(cluster).find(m => m.key === key) || catalogItemFor(key);
       return it ? it.name : key;
     }
     // {key: nama item} untuk Ringkasan Pencapaian dan Rincian Item di sheet.
@@ -3435,6 +3471,7 @@
 
       // Jika mode lihat semua item aktif, tampilkan seluruh katalog resmi
       if (!dailyFilterOnlyActive) {
+        const fdtItems = items.filter(it => itemFdtNo(it) > 0);
         items = OFFICIAL_MATERIAL_CATALOG.map(mat => {
           const existing = items.find(it => it.key === mat.key);
           return {
@@ -3444,7 +3481,7 @@
             unit: mat.unit,
             volume: existing ? existing.volume : 0
           };
-        });
+        }).concat(fdtItems);
       }
 
       if (countEl) {
@@ -3466,9 +3503,8 @@
       const categoriesOrder = ['Install Pole', 'Pulling Cable', 'Install Aksesories', 'Electrical', 'Pekerjaan Sipil', 'Lain-lain'];
       let htmlRows = '';
 
-      categoriesOrder.forEach(catName => {
-        const catItems = items.filter(it => itemCategory(it) === catName);
-        if (catItems.length > 0) {
+      dailyItemGroups(items, categoriesOrder).forEach(({ title: catName, items: catItems }) => {
+        {
           htmlRows += `<tr class="header-row" style="background: var(--bmi-dark) !important; color: #ffffff !important;"><td colspan="6" style="background: var(--bmi-dark) !important; color: #ffffff !important; padding: 9px 12px; font-weight: 800; border-left: 4px solid var(--bmi-gold); font-size: 0.8rem; letter-spacing: 0.4px;">${catName}</td></tr>`;
           catItems.forEach(item => {
             const planVal = item.volume || 0;
@@ -3488,7 +3524,7 @@
 
             htmlRows += `
               <tr>
-                <td>&nbsp;&nbsp;↳ <strong>${item.name}</strong></td>
+                <td>&nbsp;&nbsp;↳ <strong>${itemNameInGroup(item)}</strong></td>
                 <td style="text-align: center;">
                   <div class="daily-box daily-box-unit">${item.unit || '-'}</div>
                 </td>
@@ -3566,14 +3602,11 @@
       const categoriesOrder = ['Pekerjaan Sipil', 'Install Pole', 'Pulling Cable', 'Install Aksesories', 'Electrical', 'Lain-lain'];
       let achievLines = [];
 
-      categoriesOrder.forEach(catName => {
-        const catItems = items.filter(it => itemCategory(it) === catName);
-        if (catItems.length > 0) {
-          achievLines.push(`\n*${catName}* :`);
-          catItems.forEach(it => {
-            achievLines.push(`- ${esc(it.name)} : ${getRowStr(it.key, it.volume)}`);
-          });
-        }
+      dailyItemGroups(items, categoriesOrder).forEach(({ title: catName, items: catItems }) => {
+        achievLines.push(`\n*${catName}* :`);
+        catItems.forEach(it => {
+          achievLines.push(`- ${esc(itemNameInGroup(it))} : ${getRowStr(it.key, it.volume)}`);
+        });
       });
 
       return achievLines.join('\n').trim();
@@ -4270,12 +4303,17 @@ ${todayActivity}`;
           }
         }
 
-        // 2. Deteksi kolom FDT (FDT 1, FDT 2, dst.) jika kolom bukan nama Line
-        const fdtCols = [];
-        for (let c = 4; c < headerRow.length; c++) {
-          const hStr = String(headerRow[c] || '').toLowerCase();
-          if (hStr.includes('fdt')) fdtCols.push(c);
+        // 2. Deteksi kolom FDT (FDT 1, FDT 2, dst.) jika kolom bukan nama Line. Template Standard ODN menaruh FDT 1 di
+        // kolom C (tanpa kolom Qty), template lain di kolom E setelah Qty/Unit; kolom setelah blok FDT (Total, Unit,
+        // Remarks, tabel kedua di kanan) tidak ikut.
+        const fdtList = [];
+        for (let c = 2; c < headerRow.length; c++) {
+          const hStr = String(headerRow[c] || '').trim().toLowerCase();
+          const m = hStr.match(/^fdt\s*(\d+)/);
+          if (m) fdtList.push({ c, n: parseInt(m[1], 10) });
+          else if (fdtList.length && hStr) break;
         }
+        const fdtCols = fdtList.map(f => f.c);
         if (fdtCols.length === 0 && Object.keys(lineCols).length === 0) {
           fdtCols.push(4); // default kolom E
         }
@@ -4308,6 +4346,7 @@ ${todayActivity}`;
         }
 
         const lineItems = [];
+        const fatItems = []; // FAT per Line per FDT (hanya bila dua FDT atau lebih)
         const fatCounts = { A: 0, B: 0, C: 0, D: 0 };
         let totalFat = 0;
         const hasLineColumns = Object.keys(lineCols).length > 0;
@@ -4366,53 +4405,74 @@ ${todayActivity}`;
           // MODE 2: BARIS ADALAH LINE A - 24C, LINE B - 24C, DST.
           // (Contoh: BOQ Jati Baru RT 04 - Kolom adalah FDT 1, Remarks)
           // ========================================================
-          const LINE_SPECS = [
-            { key: 'cable_24c_line_a', name: 'Cable 24C Line A', match: 'line a', core: '24' },
-            { key: 'cable_24c_line_b', name: 'Cable 24C Line B', match: 'line b', core: '24' },
-            { key: 'cable_24c_line_c', name: 'Cable 24C Line C', match: 'line c', core: '24' },
-            { key: 'cable_24c_line_d', name: 'Cable 24C Line D', match: 'line d', core: '24' },
-
-            { key: 'cable_36c_line_a', name: 'Cable 36C Line A', match: 'line a', core: '36' },
-            { key: 'cable_36c_line_b', name: 'Cable 36C Line B', match: 'line b', core: '36' },
-            { key: 'cable_36c_line_c', name: 'Cable 36C Line C', match: 'line c', core: '36' },
-            { key: 'cable_36c_line_d', name: 'Cable 36C Line D', match: 'line d', core: '36' },
-
-            { key: 'cable_48c_line_a', name: 'Cable 48C Line A', match: 'line a', core: '48' },
-            { key: 'cable_48c_line_b', name: 'Cable 48C Line B', match: 'line b', core: '48' },
-            { key: 'cable_48c_line_c', name: 'Cable 48C Line C', match: 'line c', core: '48' },
-            { key: 'cable_48c_line_d', name: 'Cable 48C Line D', match: 'line d', core: '48' }
-          ];
-
-          LINE_SPECS.forEach(spec => {
-            for (let r_i = 14; r_i < Math.min(rows.length, 30); r_i++) {
-              const r = rows[r_i];
-              if (!r) continue;
-              const desc = (String(r[0] || '') + ' ' + String(r[1] || '')).toLowerCase();
-              if (desc.includes(spec.match) && desc.includes(spec.core)) {
-                const vol = getVolFdt(r_i);
-                if (vol > 0) {
-                  lineItems.push({
-                    key: spec.key,
-                    name: spec.name,
-                    cat: 'Pulling Cable',
-                    unit: 'meter',
-                    volume: vol
-                  });
-                }
-                break;
+          // Kolom A hanya diisi di baris pertama tiap bagian ("Total FAT" | Line A, lalu "" | Line B, "" | Line C ...),
+          // jadi bagian tiap baris = isi kolom A terakhir di atasnya. Baris yang namanya muncul dua kali (mis. Line A
+          // untuk FDT 1 lalu Line A lagi untuk FDT 2) dijumlahkan, bukan ditimpa.
+          const sectionOf = [];
+          let curSection = '';
+          for (let r_i = 0; r_i < rows.length; r_i++) {
+            const a = rows[r_i] ? String(rows[r_i][0] || '').trim().toLowerCase() : '';
+            if (a) curSection = a;
+            sectionOf.push(curSection);
+          }
+          // Angka per FDT: {nomor FDT: {key item: angka}}; total semua FDT: {key item: angka}.
+          const cableByFdt = {}, fatByFdt = {}, cableTotal = {};
+          function addFdt(store, r, key) {
+            fdtList.forEach(f => {
+              const v = getNum(r[f.c]);
+              if (v > 0) {
+                store[f.n] = store[f.n] || {};
+                store[f.n][key] = (store[f.n][key] || 0) + v;
               }
-            }
-          });
+            });
+          }
 
+          let cableSectionFound = false;
+          for (let r_i = 1; r_i < rows.length; r_i++) {
+            if (!sectionOf[r_i].includes('total panjang kabel')) continue;
+            cableSectionFound = true;
+            const r = rows[r_i];
+            if (!r) continue;
+            const m = String(r[1] || '').toLowerCase().match(/line\s*([a-d])\s*-\s*(24|36|48)\s*c/);
+            if (!m) continue;
+            const key = `cable_${m[2]}c_line_${m[1]}`;
+            const vol = getVolFdt(r_i);
+            if (vol > 0) cableTotal[key] = (cableTotal[key] || 0) + vol;
+            addFdt(cableByFdt, r, key);
+          }
+
+          if (!cableSectionFound) {
+            // Cadangan untuk file tanpa judul "Total Panjang Kabel": baris pertama yang cocok di baris 15-30.
+            ['24', '36', '48'].forEach(core => ['a', 'b', 'c', 'd'].forEach(letter => {
+              for (let r_i = 14; r_i < Math.min(rows.length, 30); r_i++) {
+                const r = rows[r_i];
+                if (!r) continue;
+                const desc = (String(r[0] || '') + ' ' + String(r[1] || '')).toLowerCase();
+                if (desc.includes('line ' + letter) && desc.includes(core)) {
+                  const vol = getVolFdt(r_i);
+                  if (vol > 0) cableTotal[`cable_${core}c_line_${letter}`] = vol;
+                  break;
+                }
+              }
+            }));
+          }
+
+          // Bagian "Total Slack di FAT" / "Label FAT" bukan jumlah FAT dan dilewati.
           for (let r_i = 25; r_i < rows.length; r_i++) {
             const r = rows[r_i];
             if (!r) continue;
-            const t = (String(r[0] || '') + ' ' + String(r[1] || '')).toLowerCase();
-            if (t.includes('fat') && t.includes('line a')) fatCounts.A = getVolFdt(r_i);
-            else if (t.includes('fat') && t.includes('line b')) fatCounts.B = getVolFdt(r_i);
-            else if (t.includes('fat') && t.includes('line c')) fatCounts.C = getVolFdt(r_i);
-            else if (t.includes('fat') && t.includes('line d')) fatCounts.D = getVolFdt(r_i);
-            else if (t.includes('fat 1:8') || t.includes('total fat')) {
+            const fatSection = sectionOf[r_i];
+            const colA = String(r[0] || '').trim().toLowerCase();
+            const colB = String(r[1] || '').trim().toLowerCase();
+            const t = (colA + ' ' + colB).trim();
+            const notFatQty = /slack|label/.test(t) || /slack|label/.test(fatSection);
+            const lineMatch = colB.match(/line\s*([a-d])\b/) || t.match(/line\s*([a-d])\b/);
+            const inFatRows = !notFatQty && (fatSection.includes('total fat') || t.includes('fat'));
+            if (lineMatch && inFatRows) {
+              const letter = lineMatch[1].toUpperCase();
+              fatCounts[letter] += getVolFdt(r_i);
+              addFdt(fatByFdt, r, `fat_line_${lineMatch[1]}`);
+            } else if (!notFatQty && (t.includes('fat 1:8') || t.includes('total fat'))) {
               const v = getVolFdt(r_i);
               if (v > 0) totalFat = v;
             }
@@ -4420,6 +4480,30 @@ ${todayActivity}`;
           const sumFat = fatCounts.A + fatCounts.B + fatCounts.C + fatCounts.D;
           if (sumFat > 0) totalFat = sumFat;
           else if (totalFat > 0) fatCounts.A = totalFat;
+
+          // Dua FDT atau lebih yang berisi kabel/FAT per Line: item dipisah per FDT (key ..._fdt1, nama "... FDT 1")
+          // supaya Laporan Harian bisa dikelompokkan per FDT. Satu FDT: key lama tanpa akhiran FDT.
+          const activeFdts = fdtList.map(f => f.n).filter((n, k, arr) => arr.indexOf(n) === k)
+            .filter(n => Object.values(cableByFdt[n] || {}).some(v => v > 0) || Object.values(fatByFdt[n] || {}).some(v => v > 0));
+          const cableName = key => { const m = key.match(/^cable_(\d+)c_line_([a-d])$/); return `Cable ${m[1]}C Line ${m[2].toUpperCase()}`; };
+          const CABLE_ORDER = ['24', '36', '48'].flatMap(core => ['a', 'b', 'c', 'd'].map(l => `cable_${core}c_line_${l}`));
+          if (activeFdts.length >= 2) {
+            activeFdts.forEach(n => {
+              CABLE_ORDER.forEach(key => {
+                const v = Math.round((cableByFdt[n] || {})[key] || 0);
+                if (v > 0) lineItems.push({ key: `${key}_fdt${n}`, name: `${cableName(key)} FDT ${n}`, cat: 'Pulling Cable', unit: 'meter', volume: v, fdt: n });
+              });
+              ['a', 'b', 'c', 'd'].forEach(l => {
+                const v = Math.round((fatByFdt[n] || {})[`fat_line_${l}`] || 0);
+                if (v > 0) fatItems.push({ key: `fat_line_${l}_fdt${n}`, name: `FAT Line ${l.toUpperCase()} FDT ${n}`, cat: 'Electrical', unit: 'Unit', volume: v, fdt: n });
+              });
+            });
+          } else {
+            CABLE_ORDER.forEach(key => {
+              const v = Math.round(cableTotal[key] || 0);
+              if (v > 0) lineItems.push({ key, name: cableName(key), cat: 'Pulling Cable', unit: 'meter', volume: v });
+            });
+          }
         }
 
         // Ekstraksi Strand Wire & FDT Mounted dari Sheet 2
@@ -4446,6 +4530,7 @@ ${todayActivity}`;
           sheetName: s2Name,
           hasLineColumns: hasLineColumns,
           lineItems,
+          fatItems,
           fatCounts,
           totalFat,
           strandWire,
@@ -4569,7 +4654,9 @@ ${todayActivity}`;
           }
 
           // Tambahkan FAT Line dari Sheet 2 jika cluster dan bervolume > 0
-          if (hasFatLines) {
+          if (hasFatLines && sheet2Data.fatItems && sheet2Data.fatItems.length > 0) {
+            sheet2Data.fatItems.forEach(fi => clusterItems.push(fi));
+          } else if (hasFatLines) {
             ['A', 'B', 'C', 'D'].forEach(letter => {
               const v = sheet2Data.fatCounts[letter] || 0;
               if (v > 0) {
@@ -5062,7 +5149,7 @@ ${todayActivity}`;
 
       // Filter katalog material yang tersedia: jika bukan cluster (Subfeeder, dsb), JANGAN tampilkan kategori Line
       const availableCatalog = isTargetCluster 
-        ? OFFICIAL_MATERIAL_CATALOG 
+        ? OFFICIAL_MATERIAL_CATALOG.concat(currentManualEditingRows.filter(r => itemFdtNo(r) > 0).map(r => catalogItemFor(r.key)).filter(Boolean))
         : OFFICIAL_MATERIAL_CATALOG.filter(m => !m.key.includes('_line_'));
 
       tbody.innerHTML = currentManualEditingRows.map((item, idx) => {
@@ -5134,7 +5221,7 @@ ${todayActivity}`;
         return;
       }
 
-      const found = OFFICIAL_MATERIAL_CATALOG.find(m => m.key === val);
+      const found = catalogItemFor(val);
       if (found) {
         currentManualEditingRows[idx].key = found.key;
         currentManualEditingRows[idx].name = found.name;

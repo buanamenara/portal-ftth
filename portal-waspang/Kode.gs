@@ -208,8 +208,15 @@ function rowByHeader_(h, values) {
   return row;
 }
 
+// Key item per line, boleh dengan nomor FDT (site dengan dua FDT atau lebih): "cable_48c_line_a_fdt2" ->
+// {base: 'cable_48c', line: 'a', fdt: '2'}; key lain -> {base: key, line: '', fdt: ''}.
+function splitItemKey_(key) {
+  var k = String(key || '').trim().toLowerCase(), m = k.match(/^(.*)_line_([a-d])(?:_fdt(\d+))?$/);
+  return m ? { base: m[1], line: m[2], fdt: m[3] || '' } : { base: k, line: '', fdt: '' };
+}
+
 function materialColumn_(key) {
-  return MATERIAL_COLUMNS_[String(key || '').trim().toLowerCase().replace(/_line_[a-d]$/, '')] || '';
+  return MATERIAL_COLUMNS_[splitItemKey_(key).base] || '';
 }
 
 // {key item: angka} -> {kolom material: jumlah}
@@ -3197,13 +3204,15 @@ function cellNumber_(v) {
   return isFinite(n) ? n : 0;
 }
 
-// Nama item katalog = judul kolom materialnya (+ " Line A" dst.), mis. "Cable 24C Line A"; '' untuk item di luar katalog.
+// Nama item katalog = judul kolom materialnya (+ " Line A" dst., + " FDT 2" bila per FDT), mis. "Cable 24C Line A",
+// "FAT Line B FDT 2"; '' untuk item di luar katalog.
 function catalogItemName_(key) {
-  var k = String(key || '').trim().toLowerCase(), m = k.match(/^(.*)_line_([a-d])$/), col = MATERIAL_COLUMNS_[m ? m[1] : k];
+  var p = splitItemKey_(key), col = MATERIAL_COLUMNS_[p.base];
   if (!col) return '';
   for (var i = 0; i < MATERIAL_HEADERS_.length; i++) {
     if (normHeader_(MATERIAL_HEADERS_[i]) === col) {
-      return MATERIAL_HEADERS_[i].replace(/\s*\(.*$/, '').trim() + (m ? ' Line ' + m[2].toUpperCase() : '');
+      return MATERIAL_HEADERS_[i].replace(/\s*\(.*$/, '').trim() + (p.line ? ' Line ' + p.line.toUpperCase() : '') +
+        (p.fdt ? ' FDT ' + p.fdt : '');
     }
   }
   return '';
@@ -3219,6 +3228,11 @@ function itemByName_() {
     ['', '_line_a', '_line_b', '_line_c', '_line_d'].forEach(function (s) {
       var n = catalogItemName_(b + s).toLowerCase();
       if (n && !(n in ITEM_BY_NAME_)) ITEM_BY_NAME_[n] = b + s;
+      // Item per FDT (FDT 1-10), mis. "cable 48c line a fdt 2".
+      for (var f = 1; s && f <= 10; f++) {
+        var nf = catalogItemName_(b + s + '_fdt' + f).toLowerCase();
+        if (nf && !(nf in ITEM_BY_NAME_)) ITEM_BY_NAME_[nf] = b + s + '_fdt' + f;
+      }
     });
   });
   return ITEM_BY_NAME_;
