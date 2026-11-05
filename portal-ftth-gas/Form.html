@@ -1009,8 +1009,9 @@
   @media (min-width: 1200px) {
     .ws-split { display: grid; gap: 18px; align-items: start; margin-top: 14px; }
     .ws-split > .card { margin: 0 !important; min-width: 0; }
-    #viewBoqGen .ws-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto 1fr; }
-    #viewBoqGen .ws-split > .ws-left { grid-row: 1 / span 3; }
+    #viewBoqGen .ws-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    #viewBoqGen .ws-split > .ws-left { grid-row: 1 / span 2; align-self: stretch; }
+    #viewBoqGen .ws-split > .card:last-child { grid-column: 1 / -1; }
     #viewBoqGen .ws-split > .ws-right #bqBtn { width: 100%; }
     #viewBaGen .ws-split.ws-a { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
     #viewBaGen .ws-split.ws-a > .ws-right { display: flex; flex-direction: column; }
@@ -1093,11 +1094,9 @@
   @media (min-width: 1200px) {
     .rp-split { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(380px, 1fr); gap: 18px; align-items: start; }
     .rp-split > .card { margin: 0 !important; min-width: 0; }
-    .rp-split > #rpCardBa { grid-row: 1 / span 3; display: flex; flex-direction: column; }
+    .rp-split > #rpCardBa { grid-row: 1 / span 2; display: flex; flex-direction: column; align-self: stretch; }
+    .rp-split > .rp-hist-card { grid-column: 1 / -1; }
     .rp-split > #rpCardBa > .rp-actions { margin-top: auto; padding-top: 16px; display: flex; flex-direction: column; align-items: flex-end; }
-    .rp-split .rp-hist-card .hist-rp th:nth-child(4), .rp-split .rp-hist-card .hist-rp td:nth-child(4),
-    .rp-split .rp-hist-card .hist-rp th:nth-child(5), .rp-split .rp-hist-card .hist-rp td:nth-child(5),
-    .rp-split .rp-hist-card .hist-rp th:nth-child(7), .rp-split .rp-hist-card .hist-rp td:nth-child(7) { display: none; }
     #rpThumbs .th { width: 64px; height: 64px; border-radius: 12px; }
     .atp-split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr); gap: 18px; align-items: stretch; }
     .atp-split > .card { margin: 0 !important; min-width: 0; }
