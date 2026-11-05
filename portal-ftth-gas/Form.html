@@ -1207,7 +1207,12 @@
     #viewBoq .boq-foot #boqAddRow { margin: 0 !important; align-self: flex-start; }
     #viewBoq .boq-foot #boqSendBtn { order: 1; } #viewBoq .boq-foot #boqCancelBtn { order: 2; }
     /* Warehouse: Tanggal & Jam berdampingan; Submit BA: Kamera + Pilih File */
-    .row:has(> div > #bgTanggal) > div, .row:has(> div > #baTanggal) > div:not(:first-child), .row:has(> div > #mkTanggal) > div:not(:first-child) { flex: 1 1 0 !important; min-width: 0 !important; }
+    .row:has(> div > #bgTanggal) > div { flex: 1 1 0 !important; min-width: 0 !important; }
+    .row:has(> div > #baTanggal), .row:has(> div > #mkTanggal) { flex-wrap: wrap !important; column-gap: 10px !important; }
+    .row:has(> div > #baTanggal) > div:first-child, .row:has(> div > #mkTanggal) > div:first-child { flex: 1 1 100% !important; }
+    .row:has(> div > #baTanggal) > div:not(:first-child), .row:has(> div > #mkTanggal) > div:not(:first-child) { flex: 1 1 40% !important; min-width: 0 !important; }
+    .row:has(> div > #bgTanggal) input, .row:has(> div > #baTanggal) input, .row:has(> div > #mkTanggal) input { min-width: 0 !important; width: 100% !important; max-width: 100%; }
+    input[type=date] { min-width: 0; }
     #baCamBtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; margin: 6px 0 8px; border: 0; border-radius: 999px; background: #000; color: #fff; font: inherit; font-weight: 650; font-size: 15px; }
     #baPreview > div:has(> #baSaveBtn) { flex-direction: column; }
     #baPreview > div:has(> #baSaveBtn) > button { width: 100%; min-height: 48px; }
