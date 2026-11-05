@@ -997,6 +997,44 @@
     #viewBoq #boqPreview[style*="block"] { display: flex !important; flex-direction: column; flex: 1; }
     #viewBoq .boq-foot { margin-top: auto; padding-top: 18px; }
   }
+  /* ---- Buat BOQ & Warehouse: kartu berdampingan (form kiri, tabel/hasil kanan) ---- */
+  .ws-right > .ws-head { margin: 0 0 12px; }
+  .ws-right > label.ws-moved-lab { display: none; }
+  .ws-right > label.ws-lab-head { display: block; margin: 0 0 12px; font-size: 20px; font-weight: 700; letter-spacing: -.02em; color: #191917; }
+  #mkSave { background: var(--gold); color: #111; border: 0; border-radius: 999px; padding: 12px 24px; font: inherit; font-weight: 650; cursor: pointer; }
+  #mkSave:hover { background: var(--gold-dark); }
+  #viewBa .ws-right { display: none; }
+  #viewBa .ws-right:has(#baPreview[style*="block"]) { display: block; }
+  .ws-empty { display: none; }
+  @media (min-width: 1200px) {
+    .ws-split { display: grid; gap: 18px; align-items: start; margin-top: 14px; }
+    .ws-split > .card { margin: 0 !important; min-width: 0; }
+    #viewBoqGen .ws-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; }
+    #viewBoqGen .ws-split > .ws-left { grid-row: 1 / span 2; }
+    #viewBoqGen .ws-split > .ws-right #bqBtn { width: 100%; }
+    #viewBaGen .ws-split.ws-a { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+    #viewBaGen .ws-split.ws-a > .ws-right { display: flex; flex-direction: column; }
+    #viewBaGen .ws-split.ws-a > .ws-right > div:has(> #bgBtn) { margin-top: auto; padding-top: 16px; }
+    #viewBaGen #bgBtn { width: 100%; }
+    #viewBaGen .ws-split.ws-b { grid-template-columns: minmax(0, 1.25fr) minmax(440px, 1fr); }
+    #masukCard table input, #masukCard table select { min-width: 72px; }
+    #masukCard .row > div { min-width: 0; }
+    .ws-right > #baPreview { margin-top: 0; }
+    .ws-right > #baPreview > h3.sub:first-of-type { margin-top: 0; }
+    .ws-split + .card { margin-top: 18px !important; }
+    #baPreview > div:has(> #baSaveBtn) { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
+    #baPreview > div:has(> #baSaveBtn) > button { margin: 0; }
+    #baSaveBtn { order: 3; } #baSkipBtn { order: 2; } #baCancelBtn { order: 1; }
+    #viewBaGen .ws-split.ws-b > .card { overflow-x: auto; }
+    #viewBa .ws-split { grid-template-columns: minmax(340px, 4fr) 7fr; align-items: stretch; }
+    #viewBa .ws-split > .ws-right { display: flex; flex-direction: column; }
+    #viewBa .ws-right:not(:has(#baPreview[style*="block"])) .ws-empty { display: flex; }
+    #viewBa #baReadBtn { width: 100%; }
+    .ws-empty { flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; color: #9a958a; font-size: 14px; border: 1.5px dashed #E6DECD; border-radius: 16px; min-height: 300px; padding: 24px; }
+    .ws-empty b { color: #3b3a35; font-size: 16px; font-weight: 650; }
+    .ws-empty svg { width: 34px; height: 34px; color: var(--gold); }
+  }
+  #baForm input[type=file], #viewBoqGen input[type=file] { border: 1.5px dashed #DCC796; background: #FFFBF1; border-radius: 16px; }
   /* ---- Kerangka (layar lebar): logo di sidebar mengambang, tanpa bar hitam atas; lonceng + user di kanan atas ---- */
   #bmiPageHead { display: none; }
   .sb-brand { display: none; }
@@ -2621,6 +2659,36 @@
   </div>
 
   <script async src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" onload="if (window.renderMap_ && window.__areaAgg) renderMap_();"></script>
+  <script>
+  /* BMI LAYOUT v1 - Buat BOQ & Warehouse berdampingan. Elemen ber-id hanya dipindah; logika tidak berubah. */
+  (function () {
+    function cards(v) { return Array.prototype.filter.call(v.children, function (c) { return c.classList.contains('card'); }); }
+    function split(v, list, cls) { var w = document.createElement('div'); w.className = 'ws-split' + (cls ? ' ' + cls : ''); v.insertBefore(w, list[0]); list.forEach(function (c) { w.appendChild(c); }); return w; }
+    function rightCard(title) { var c = document.createElement('div'); c.className = 'card wide ws-right'; if (title) c.innerHTML = '<h2 class="ws-head">' + title + '</h2>'; return c; }
+    function moveFrom(start, to) { var n = start; while (n) { var nx = n.nextSibling; to.appendChild(n); n = nx; } }
+    // Buat BOQ: form kiri; Volume + BOQ yang Dibuat kanan.
+    var g = document.getElementById('viewBoqGen'), lab = document.getElementById('bqVolLab');
+    if (g && lab) { var gc = cards(g); if (gc.length >= 2) {
+      var vr = rightCard(''); lab.classList.add('ws-lab-head'); moveFrom(lab, vr);
+      gc[0].classList.add('ws-left'); var w1 = split(g, [gc[0]]); w1.appendChild(vr); w1.appendChild(gc[1]);
+    } }
+    // BA Transaksi: form kiri, Material kanan; baris kedua BA yang Dibuat + Masuk Material.
+    var b = document.getElementById('viewBaGen'), items = document.getElementById('bgItems');
+    if (b && items) { var bc = cards(b), tb = items.closest('table'), ml = tb && tb.previousElementSibling;
+      if (bc.length >= 3 && ml && ml.tagName === 'LABEL') {
+        var mr = rightCard('Material'); ml.classList.add('ws-moved-lab'); moveFrom(ml, mr);
+        bc[0].classList.add('ws-left'); var w2 = split(b, [bc[0]], 'ws-a'); w2.appendChild(mr);
+        split(b, [bc[1], bc[2]], 'ws-b');
+      } }
+    // Submit BA: form + antrean kiri, hasil ekstraksi kanan.
+    var a = document.getElementById('viewBa'), prev = document.getElementById('baPreview');
+    if (a && prev) { var ac = cards(a); if (ac.length >= 1) {
+      var ar = rightCard(''); ar.innerHTML = '<div class="ws-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>' +
+        '<b>Hasil ekstraksi BA tampil di sini</b><span>Pilih file BA di kiri, lalu klik Baca BA.</span></div>';
+      ar.appendChild(prev); ac[0].classList.add('ws-left'); var w3 = split(a, [ac[0]]); w3.appendChild(ar);
+    } }
+  })();
+  </script>
   <script>
   /* BMI LAYOUT v1 - kerangka layar lebar: logo & judul portal pindah ke sidebar, judul halaman di atas konten.
      Elemen ber-id hanya dipindah (tidak dibuat ulang); di HP / sebelum masuk portal semuanya kembali ke bar atas. */
