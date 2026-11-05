@@ -959,6 +959,44 @@
     #viewCheckpoint .cp-filters select { min-width: 0; width: 100%; }
     #viewCheckpoint .cp-filters > div:last-child { flex: 1; }
   }
+  /* ---- Submit BOQ: dua kolom (form kiri, hasil baca kanan) ---- */
+  #viewBoq .boq-seg { display: none; }
+  #viewBoq .boq-right { display: none; }
+  #viewBoq .boq-right:has(#boqPreview[style*="block"]) { display: block; }
+  #viewBoq .boq-empty { display: none; }
+  #viewBoq .boq-pair { display: flex; gap: 14px; }
+  #viewBoq .boq-pair > * { flex: 1 1 0; min-width: 0; }
+  #viewBoq .boq-pair > #picRow[style*="none"] { display: none; }
+  #uploadForm input[type=file] { width: 100%; border: 1.5px dashed #DCC796; background: #FFFBF1; border-radius: 16px; padding: 14px; font-size: 14px; }
+  #uploadForm input[type=file]::file-selector-button { border: 1px solid #E6DECD; background: #fff; color: var(--gold-dark); border-radius: 999px; padding: 9px 18px; margin-right: 14px; font: inherit; font-weight: 650; cursor: pointer; }
+  #viewBoq .boq-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  #viewBoq .boq-foot #boqAddRow { margin: 0 auto 0 0 !important; background: none; border: 0; color: var(--gold-dark); font-weight: 650; padding: 8px 0; }
+  #viewBoq .boq-foot #boqCancelBtn { order: 1; }
+  #viewBoq .boq-foot #boqSendBtn { order: 2; }
+  #viewBoq .boq-right h3.sub { margin-top: 0; }
+  #boqPreview > label { color: var(--gold-dark); font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  #boqItems select { min-width: 140px; max-width: 100%; background-color: #FBF1D9; border-color: transparent; border-radius: 999px; font-weight: 600; color: #3b3a35; padding-top: 6px; padding-bottom: 6px; }
+  #boqItems input[type=number] { width: 84px; min-width: 76px; max-width: 96px; padding-left: 10px; padding-right: 6px; }
+  @media (min-width: 0px) {
+    #viewBoq .boq-seg { display: flex; gap: 4px; background: #F4EFE4; border-radius: 999px; padding: 4px; }
+    #viewBoq .boq-seg button { flex: 1; border: 0; background: transparent; color: #7A776E; border-radius: 999px; padding: 10px 8px; font: inherit; font-size: 13px; font-weight: 650; letter-spacing: .04em; cursor: pointer; }
+    #viewBoq .boq-seg button.on { background: #fff; color: #191917; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    #viewBoq .boq-seg + select#target { display: none; }
+  }
+  @media (min-width: 1200px) {
+    #viewBoq .boq-split { display: grid; grid-template-columns: minmax(340px, 4fr) 7fr; gap: 18px; align-items: stretch; margin-top: 14px; }
+    #viewBoq .boq-split > .card { margin: 0; min-width: 0; display: flex; flex-direction: column; }
+    #viewBoq .boq-left #uploadForm { display: flex; flex-direction: column; flex: 1; }
+    #viewBoq .boq-left #submitBtn { margin-top: auto; width: 100%; }
+    #viewBoq .boq-left #fileInput { margin-bottom: 22px; }
+    #viewBoq .boq-right { display: flex; }
+    #viewBoq .boq-right:not(:has(#boqPreview[style*="block"])) .boq-empty { display: flex; }
+    #viewBoq .boq-empty { flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; color: #9a958a; font-size: 14px; border: 1.5px dashed #E6DECD; border-radius: 16px; min-height: 320px; padding: 24px; }
+    #viewBoq .boq-empty b { color: #3b3a35; font-size: 16px; font-weight: 650; }
+    #viewBoq .boq-empty svg { width: 34px; height: 34px; color: var(--gold); }
+    #viewBoq #boqPreview[style*="block"] { display: flex !important; flex-direction: column; flex: 1; }
+    #viewBoq .boq-foot { margin-top: auto; padding-top: 18px; }
+  }
 </style>
 <!-- ===================== akhir BMI LAYOUT ===================== -->
 </head>
@@ -1986,6 +2024,39 @@
     </div>
   </div>
 
+  <script>
+  /* BMI LAYOUT v1 - Submit BOQ dua kolom. Hanya memindah elemen (id tetap), logika form tidak berubah. */
+  (function () {
+    var v = document.getElementById('viewBoq'); if (!v) return;
+    var card = v.querySelector(':scope > .card.wide'), prev = document.getElementById('boqPreview');
+    var tgt = document.getElementById('target'), form = document.getElementById('uploadForm');
+    if (!card || !prev || !tgt || !form) return;
+    // 1) Dua kartu: form di kiri, hasil baca di kanan.
+    var split = document.createElement('div'); split.className = 'boq-split';
+    card.parentNode.insertBefore(split, card); split.appendChild(card); card.classList.add('boq-left');
+    var right = document.createElement('div'); right.className = 'card wide boq-right';
+    right.innerHTML = '<div class="boq-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>' +
+      '<b>Hasil baca BOQ tampil di sini</b><span>Isi form di kiri, pilih file, lalu klik Baca BOQ.</span></div>';
+    split.appendChild(right); right.appendChild(prev);
+    // 2) Tombol bawah: + Tambah baris di kiri, Batal & Kirim di kanan.
+    var send = document.getElementById('boqSendBtn'), add = document.getElementById('boqAddRow');
+    if (send && add && send.parentNode) { send.parentNode.classList.add('boq-foot'); send.parentNode.insertBefore(add, send.parentNode.firstChild); }
+    // 3) SOW dan PIC berdampingan.
+    var ket = document.getElementById('keterangan'), lk = form.querySelector('label[for="keterangan"]'), pr = document.getElementById('picRow');
+    if (ket && lk && pr) { var pair = document.createElement('div'); pair.className = 'boq-pair'; var w = document.createElement('div');
+      lk.parentNode.insertBefore(pair, lk); w.appendChild(lk); w.appendChild(ket); pair.appendChild(w); pair.appendChild(pr); }
+    // 4) Tujuan Sheet jadi tombol segmen; select asli tetap dipakai (disembunyikan di layar lebar).
+    var seg = document.createElement('div'); seg.className = 'boq-seg'; seg.setAttribute('role', 'tablist');
+    Array.prototype.forEach.call(tgt.options, function (o) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = o.text; b.setAttribute('data-v', o.value);
+      b.addEventListener('click', function () { if (tgt.value !== o.value) { tgt.value = o.value; tgt.dispatchEvent(new Event('change')); } sync(); });
+      seg.appendChild(b);
+    });
+    tgt.parentNode.insertBefore(seg, tgt);
+    function sync() { Array.prototype.forEach.call(seg.children, function (b) { var on = b.getAttribute('data-v') === tgt.value; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }); }
+    tgt.addEventListener('change', sync); form.addEventListener('reset', function () { setTimeout(sync, 0); }); sync();
+  })();
+  </script>
   <!-- ===== SUBMIT BOQ - BUAT BOQ (volume -> file BOQ .xlsx) ===== -->
   <div id="viewBoqGen" style="display:none">
     <div class="card wide">
