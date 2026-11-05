@@ -1233,6 +1233,54 @@
     background: #FBEDE8 !important; border-color: #F0CFC4 !important; color: #A2442F !important; border-radius: 14px !important; }
 </style>
 <!-- ===================== akhir BMI POLISH ===================== -->
+<!-- ===================== BMI LAYOUT v1 (tahap 3: tata letak seperti mockup W1-W6) =====================
+  Layar lebar: header mengambang, tab kapsul ringkas, kartu berdampingan (Laporan Harian 3 kolom, BOQ Plan 2 kolom,
+  Dokumentasi 3 kolom). HP / tablet: tetap satu kolom seperti sebelumnya. Elemen ber-id hanya dipindah.
+  Hapus seluruh blok ini dan skrip 'BMI LAYOUT v1' di akhir halaman untuk kembali ke tata letak lama. -->
+<style>
+  @media (min-width: 900px) {
+    header { margin: 14px 16px 0; border-radius: 22px; border-bottom: 0; top: 12px; padding: 12px 20px; }
+    .header-container { max-width: none; }
+    .container { max-width: 1680px; padding: 0 16px; margin-top: 16px; }
+    .nav-tabs { display: inline-flex; width: auto; max-width: 100%; top: calc(var(--hdr-h, 76px) + 20px) !important; }
+    .nav-tab { flex: 0 0 auto; padding: 10px 20px; }
+  }
+  @media (min-width: 1280px) {
+    .wl-grid { display: grid; gap: 18px; align-items: start; }
+    .wl-grid > .card { margin: 0 !important; min-width: 0; }
+    /* Laporan Harian: data kiri, volume tengah, pratinjau WA kanan */
+    #dailyVolumeForm.wl-grid { grid-template-columns: minmax(300px, 350px) minmax(0, 1fr) minmax(300px, 350px); }
+    .wd-data { grid-column: 1; grid-row: 1; }
+    .wd-act { grid-column: 1; grid-row: 2; }
+    .wd-vol { grid-column: 2; grid-row: 1 / span 2; }
+    .wd-prev { grid-column: 3; grid-row: 1 / span 2; position: sticky; top: calc(var(--hdr-h, 76px) + 84px); }
+    .wd-data .input-row { gap: 10px; align-items: end; }
+    .wd-data .input-row label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wp-site .form-grid-2 { display: grid; grid-template-columns: 1fr; gap: 0; }
+    .wd-prev .btn-action-row button { font-size: 13px; padding: 12px 10px; white-space: nowrap; }
+    .wd-prev.card { background: #000; border-color: #000; color: #fff; }
+    .wd-prev .section-title { color: #fff; border-bottom-color: rgba(255,255,255,.12); }
+    .wd-prev .report-preview-card { background: #141412; border-color: #24231f; max-height: calc(100vh - var(--hdr-h, 76px) - 260px); min-height: 280px; }
+    .wd-prev .btn-action-row { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .wd-prev .btn-secondary { background: transparent; color: var(--gold); border-color: #6b5a33; }
+    /* BOQ Plan: unggah & penyesuaian kiri, ringkasan kanan */
+    #viewBoq.wl-grid { grid-template-columns: minmax(0, 1.8fr) minmax(340px, 1fr); }
+    #viewBoq.wl-grid[style*="block"] { display: grid !important; }
+    .wb-up { grid-column: 1; grid-row: 1; }
+    .wb-man { grid-column: 1; grid-row: 2; }
+    .wb-sum { grid-column: 2; grid-row: 1 / span 2; position: sticky; top: calc(var(--hdr-h, 76px) + 84px); }
+    /* Dokumentasi: info site kiri, progress tengah, unggah foto kanan */
+    #waspangPhotoForm.wl-grid { grid-template-columns: minmax(300px, 1fr) minmax(0, 1.6fr) minmax(320px, 1fr); }
+    .wp-site { grid-column: 1; } .wp-prog { grid-column: 2; } .wp-up { grid-column: 3; }
+    .wp-up #btnSubmitPhoto { width: 100%; margin-top: 14px; }
+    .wl-drive { background: #000 !important; border: 0 !important; border-radius: 20px !important; padding: 14px 20px !important; margin-bottom: 18px !important; }
+    .wl-drive strong { color: #fff !important; }
+    .wl-drive span { color: #a9a395 !important; }
+    .wl-drive a { background: var(--gold) !important; color: #111 !important; border-radius: 999px !important; font-weight: 650 !important; }
+    #viewPhoto > .card { margin-top: 18px !important; }
+  }
+</style>
+<!-- ===================== akhir BMI LAYOUT ===================== -->
 </head>
 <body>
 <script>window.BMI_TITLE = 'PORTAL WASPANG';</script>
@@ -7185,5 +7233,23 @@ ${todayActivity}`;
       window.addEventListener('load', setHdr);
     })();
   </script>
+<script>
+/* BMI LAYOUT v1 - menandai kartu untuk tata letak berdampingan (CSS di blok BMI LAYOUT). Tidak mengubah logika. */
+(function () {
+  function cards(el) { return el ? Array.prototype.filter.call(el.children, function (c) { return c.classList.contains('card'); }) : []; }
+  var d = document.getElementById('dailyVolumeForm'), dc = cards(d);
+  if (d && dc.length >= 4) { d.classList.add('wl-grid'); ['wd-data', 'wd-vol', 'wd-act', 'wd-prev'].forEach(function (k, i) { dc[i].classList.add(k); }); }
+  var b = document.getElementById('viewBoq'), bc = cards(b);
+  if (b && bc.length >= 3) { b.classList.add('wl-grid'); ['wb-up', 'wb-sum', 'wb-man'].forEach(function (k, i) { bc[i].classList.add(k); }); }
+  var f = document.getElementById('waspangPhotoForm'), fc = cards(f);
+  if (f && fc.length >= 3) {
+    f.classList.add('wl-grid'); ['wp-site', 'wp-prog', 'wp-up'].forEach(function (k, i) { fc[i].classList.add(k); });
+    var btn = document.getElementById('btnSubmitPhoto'), st = document.getElementById('photoSubmitStatus');
+    if (btn && btn.parentNode === f) fc[2].appendChild(btn);
+    if (st && st.parentNode === f) fc[2].appendChild(st);
+    var drive = f.previousElementSibling; if (drive && drive.querySelector('a[href*="drive.google.com"]')) drive.classList.add('wl-drive');
+  }
+})();
+</script>
 </body>
 </html>
