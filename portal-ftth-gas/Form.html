@@ -1014,6 +1014,23 @@
     body.bmi-shell .user-block { background: #000; border-radius: 999px; padding: 6px 14px 6px 6px; gap: 10px; color: #fff; }
     body.bmi-shell .user-block .user-avatar { width: 36px; height: 36px; font-size: 14px; }
     body.bmi-shell .user-block .chevron { color: #8b877c; }
+    /* Menu user: latar hitam chip membesar ke bawah menjadi panel menu. */
+    body.bmi-shell .user-block > :not(.user-dropdown) { position: relative; z-index: 2; }
+    body.bmi-shell .user-block .chevron { transition: transform .3s ease; }
+    body.bmi-shell .user-block:has(.user-dropdown.open) .chevron { transform: rotate(180deg); }
+    body.bmi-shell .user-dropdown { display: block; z-index: 1; top: 0; left: 0; right: 0; margin: 0; min-width: 0;
+      background: #000; border: 0; border-radius: 24px; box-shadow: 0 18px 40px rgba(0,0,0,.28);
+      padding: 56px 8px 8px; visibility: hidden; clip-path: inset(0 0 calc(100% - 48px) 0 round 24px);
+      transition: clip-path .38s cubic-bezier(.2,.8,.2,1), visibility 0s linear .38s; }
+    body.bmi-shell .user-dropdown.open { visibility: visible; clip-path: inset(0 0 0 0 round 24px); transition: clip-path .42s cubic-bezier(.2,.8,.2,1), visibility 0s; }
+    body.bmi-shell .user-dropdown::before { content: ""; display: block; height: 1px; background: rgba(255,255,255,.12); margin: 0 6px 6px; }
+    body.bmi-shell .user-dropdown a { color: #d9d3c4; font-size: 13px; padding: 10px 12px; border-radius: 14px; opacity: 0; transform: translateY(-6px); transition: opacity .2s ease, transform .2s ease, background-color .15s; }
+    body.bmi-shell .user-dropdown.open a { opacity: 1; transform: none; transition: opacity .25s ease .12s, transform .3s ease .12s, background-color .15s; }
+    body.bmi-shell .user-dropdown.open a:nth-of-type(2) { transition-delay: .17s, .17s, 0s; }
+    body.bmi-shell .user-dropdown.open a:nth-of-type(3) { transition-delay: .22s, .22s, 0s; }
+    body.bmi-shell .user-dropdown a:hover { background: rgba(255,255,255,.09); color: #fff; }
+    body.bmi-shell .user-dropdown a#logoutLink { color: var(--gold); }
+    @media (prefers-reduced-motion: reduce) { body.bmi-shell .user-dropdown, body.bmi-shell .user-dropdown a { transition: none !important; } }
     body.bmi-shell #sidebar { position: sticky; top: 16px; margin: 16px 0 16px 16px; height: calc(100vh - 32px); border-radius: 24px; width: 248px; padding-top: 0; }
     body.bmi-shell.sidebar-collapsed #sidebar { width: 76px; }
     body.bmi-shell #sidebar { scrollbar-width: none; }
