@@ -1285,6 +1285,18 @@
   Logo emas di header, ikon garis, tombol segmen Topology, chip status, modal kroscek, kartu unggah hitam,
   panel item kustom, Master SOW. Hapus blok ini + skrip 'BMI MOCKUP v2' di akhir halaman untuk kembali. -->
 <style>
+  /* ---- Bantuan & Masukan (mockup HP14): di atas menu bawah, tab kapsul hitam, chip info, pegangan ---- */
+  #guideOverlay { z-index: 900 !important; }
+  #guideSheet .meta span { background: #F4EFE4; color: #3b3a35; border-radius: 999px; padding: 4px 11px; font-weight: 650; }
+  #guideNav { border-top: 0 !important; background: #000; border-radius: 999px; margin: 8px 16px 14px; padding: 4px; gap: 4px; }
+  #guideNav button { border-radius: 999px !important; color: #E9E3D4 !important; flex-direction: row !important; justify-content: center; gap: 6px; padding: 11px 8px !important; font-weight: 650 !important; font-size: 13.5px !important; }
+  #guideNav button svg { display: none; }
+  #guideNav button.active { background: var(--gold) !important; color: #111 !important; }
+  #guideDl, #saranSubmit { width: 100%; border-radius: 999px !important; }
+  @media (max-width: 639px) {
+    #guideSheet { border-radius: 24px 24px 0 0 !important; }
+    #guideSheet::before { content: ""; display: block; flex: none; width: 44px; height: 4px; border-radius: 2px; background: #E6DECD; margin: 10px auto 2px; }
+  }
   .header-logo-img.wl-hide { display: none !important; }
   .wl-logo { display: flex; align-items: center; gap: 2px; height: 46px; }
   .wl-logo img { display: block; height: 46px; width: auto; border: 0 !important; box-shadow: none !important; }
