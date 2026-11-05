@@ -856,6 +856,20 @@
   #viewHome .scurve-panel .sc-dot[style*="#378ADD"] { background: #F4EFE4 !important; }
   #viewHome .scurve-panel .sc-dot[style*="#534AB7"] { background: #BDB4A0 !important; }
 
+  /* Kurva S seperti mockup: angka Realisasi / Target / Pencapaian di kiri, grafik berarsir emas di kanan */
+  #viewHome .scurve-panel .sc-body { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+  #viewHome .scurve-panel .sc-body.side { flex-direction: row; gap: 24px; align-items: stretch; }
+  #viewHome .scurve-panel .sc-stats { display: flex; gap: 18px; }
+  #viewHome .scurve-panel .sc-body.side .sc-stats { width: 170px; flex: none; flex-direction: column; gap: 0; }
+  #viewHome .scurve-panel .sc-stat { min-width: 0; }
+  #viewHome .scurve-panel .sc-body.side .sc-stat { padding: 12px 0; border-top: 1px solid #262522; }
+  #viewHome .scurve-panel .sc-body.side .sc-stat:first-child { border-top: 0; padding-top: 4px; }
+  #viewHome .scurve-panel .sc-stat span { display: block; font-size: 12.5px; color: #a9a395; }
+  #viewHome .scurve-panel .sc-stat b { display: block; font-size: 24px; font-weight: 650; color: #fff; letter-spacing: -.025em; line-height: 1.15; margin-top: 2px; }
+  #viewHome .scurve-panel .sc-stat b.sc-big { font-size: 42px; color: var(--gold); letter-spacing: -.035em; line-height: 1.05; }
+  #viewHome .scurve-panel .sc-stat small { display: block; font-size: 12px; color: #a9a395; margin-top: 2px; }
+  #viewHome .scurve-panel .sc-chart { flex: 1; min-width: 0; }
+  #viewHome .scurve-panel .scurve-cap { margin-top: 2px; }
   /* Baris 2: Progress per Area (batang tegak) · Site Terbaru · BMI Area */
   #viewHome .dash-row-b { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr); }
   #viewHome .area-panel .area-chart { display: flex; flex-wrap: wrap; justify-content: space-around; align-items: flex-end; gap: 18px 24px; padding: 18px 4px 0; max-width: none; height: auto; }
@@ -5410,7 +5424,9 @@
     var n = pick ? 1 : data.regions.length;
     // Lebar gambar mengikuti lebar kotak supaya Kurva S memenuhi panel tanpa teks ikut melar
     var bw = box.clientWidth;
-    var W = bw > 400 ? Math.round(bw) : 680, H = bw > 400 ? Math.max(145, Math.min(240, Math.round(bw * 0.3))) : 200, L = 48, R = 14, T = 10;   // panel Kurva S besar (tata letak v4)
+    // Tata letak v4: kolom angka (Realisasi / Target / Pencapaian) di kiri grafik bila panel cukup lebar
+    var side = bw > 640 && data.current >= 0, cw = side ? bw - 194 : bw;
+    var W = cw > 400 ? Math.round(cw) : 680, H = cw > 400 ? (side ? Math.max(215, Math.min(260, Math.round(cw * 0.42))) : Math.max(170, Math.min(250, Math.round(cw * 0.36)))) : 200, L = 48, R = 14, T = 10;
     var pw = W - L - R, ph = H - T - 24;
     var tgt = data.labels.map(function (_, k) { return data.targetPerRegion * n * (k + 1); });
     var lines = [];
@@ -5427,7 +5443,8 @@
     function X(k) { return L + k * pw / 11; }
     function Y(v) { return T + ph * (1 - v / top); }
 
-    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Kurva S">';
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Kurva S">' +
+      '<defs><linearGradient id="scArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C9972C" stop-opacity=".55"/><stop offset="1" stop-color="#C9972C" stop-opacity="0"/></linearGradient></defs>';
     for (var g = 0; g <= 4; g++) {
       var gv = top * g / 4;
       s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(gv).toFixed(1) + '" y2="' + Y(gv).toFixed(1) + '" stroke="#e7e3d8"/>';
@@ -5442,26 +5459,34 @@
     }
     s += '<polyline fill="none" stroke="#888780" stroke-width="1.6" stroke-dasharray="5 4" points="' +
       tgt.map(function (v, k) { return X(k).toFixed(1) + ',' + Y(v).toFixed(1); }).join(' ') + '"/>';
-    lines.forEach(function (ln) {
+    lines.forEach(function (ln, li) {
       var pts = [];
       ln.cum.forEach(function (v, k) { if (v !== null) pts.push([X(k), Y(v)]); });
+      if (li === 0 && pts.length > 1) {   // arsiran emas di bawah garis pertama (seperti mockup)
+        s += '<polygon fill="url(#scArea)" stroke="none" points="' + pts[0][0].toFixed(1) + ',' + Y(0).toFixed(1) + ' ' +
+          pts.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ') + ' ' + pts[pts.length - 1][0].toFixed(1) + ',' + Y(0).toFixed(1) + '"/>';
+      }
       if (pts.length > 1) {
-        s += '<polyline fill="none" stroke="' + ln.color + '" stroke-width="2" points="' +
+        s += '<polyline fill="none" stroke="' + ln.color + '" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" points="' +
           pts.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ') + '"/>';
       }
       pts.forEach(function (p) {
-        s += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="2.5" fill="' + ln.color + '"/>';
+        s += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="3" fill="' + ln.color + '"/>';
       });
     });
     s += '</svg>';
 
-    var cap = 'Belum ada bulan berjalan dalam rentang data.';
+    var cap = 'Belum ada bulan berjalan dalam rentang data.', stats = '';
     if (data.current >= 0) {
       var tNow = tgt[data.current];
       var rNow = 0;
       lines.forEach(function (ln) { rNow += ln.cum[data.current] || 0; });
       var pct = tNow > 0 ? rNow / tNow * 100 : 0;
       cap = 'Bulan berjalan: target kumulatif ' + num(tNow) + ' HP, realisasi ' + num(rNow) + ' HP (' + pct.toFixed(1).replace('.', ',') + '%)';
+      stats = '<div class="sc-stats">' +
+        '<div class="sc-stat"><span>Realisasi</span><b class="sc-big">' + num(rNow) + '</b><small>HP</small></div>' +
+        '<div class="sc-stat"><span>Target kumulatif</span><b>' + num(tNow) + '</b></div>' +
+        '<div class="sc-stat"><span>Pencapaian</span><b>' + pct.toFixed(1).replace('.', ',') + '%</b></div></div>';
     }
     var leg = '<span><i class="sc-dash"></i>Target' + (pick ? '' : ' total') + ' (' + num(data.targetPerRegion) + ' HP/bulan/region)</span>';
     lines.forEach(function (ln) {
@@ -5471,8 +5496,8 @@
     box.innerHTML =
       '<div class="scurve-title">Kurva S Cluster (HP RFS kumulatif)</div>' +
       '<div class="scurve-cap">' + esc(cap) + ' · data ' + esc(data.updatedMs ? localStamp_(data.updatedMs) : data.updated) + '</div>' +
-      s +
-      '<div class="scurve-legend">' + leg + '</div>';
+      '<div class="sc-body' + (side ? ' side' : '') + '">' + (stats || '') +
+      '<div class="sc-chart">' + s + '<div class="scurve-legend">' + leg + '</div></div></div>';
   }
 
   var alertBox = document.getElementById('alertList');
