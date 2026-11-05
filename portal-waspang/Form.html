@@ -1248,6 +1248,10 @@
   @media (min-width: 1280px) {
     .wl-grid { display: grid; gap: 18px; align-items: start; }
     .wl-grid > .card { margin: 0 !important; min-width: 0; }
+    .wl-grid { align-items: stretch !important; }
+    .wd-prev, .wb-sum { align-self: start; }
+    .wl-grid > .card { display: flex; flex-direction: column; }
+    .wp-up #btnSubmitPhoto { margin-top: auto !important; }
     /* Laporan Harian: data kiri, volume tengah, pratinjau WA kanan */
     #dailyVolumeForm.wl-grid { grid-template-columns: minmax(300px, 350px) minmax(0, 1fr) minmax(300px, 350px); }
     .wd-data { grid-column: 1; grid-row: 1; }

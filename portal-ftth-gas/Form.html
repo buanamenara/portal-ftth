@@ -1224,6 +1224,21 @@
   .bq-tpl-card #bqTplFile { background: #141412 !important; border-color: #34322c !important; color: #E9E3D4; }
   .bq-tpl-card #bqTplBtn { background: var(--gold) !important; color: #111 !important; border: 0 !important; border-radius: 999px !important; padding: 10px 20px !important; font-weight: 650; margin-top: 10px; }
   .bq-tpl-card:has(#bqTplUp[style*="display: none"]), .bq-tpl-card:has(#bqTplUp[style*="display:none"]) { display: none !important; }
+  /* ---- Kerapian: kartu berdampingan sama tinggi, halaman bulat seperti mockup ---- */
+  @media (min-width: 1200px) {
+    .ws-split, .adm-split, .rp-split, .boq-split, .atp-split { align-items: stretch !important; }
+    .ws-split > .card, .rp-split > .card, .adm-split > .card { display: flex; flex-direction: column; }
+    .ws-split > .card > .pager, .rp-split > .card > .pager { margin-top: auto; padding-top: 12px; }
+    #masukCard > div:has(> #mkSave) { margin-top: auto !important; padding-top: 14px; }
+    .adm-col { position: static; }
+  }
+  .pager { align-items: center !important; }
+  .pager .rows { gap: 8px; font-weight: 600 !important; color: #7A776E !important; }
+  .pager .rows select { margin-left: 0 !important; border-radius: 999px !important; padding: 6px 28px 6px 12px !important; min-height: 34px; background-color: #F4EFE4 !important; border-color: #ECE4D3 !important; }
+  .pager .pages { gap: 4px; align-items: center; }
+  .pager .pages button { min-width: 34px !important; height: 34px; padding: 0 10px !important; margin: 0 !important; border: 0 !important; border-radius: 999px !important; background: #F4EFE4 !important; color: #3b3a35 !important; font-weight: 600; }
+  .pager .pages button.on { background: #000 !important; color: var(--gold) !important; }
+  .pager .pages button:hover:not(:disabled) { background: #ECE4D3 !important; }
   /* ---- Kerangka (layar lebar): logo di sidebar mengambang, tanpa bar hitam atas; lonceng + user di kanan atas ---- */
   #bmiPageHead { display: none; }
   .sb-brand { display: none; }
