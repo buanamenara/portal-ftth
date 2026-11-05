@@ -48,6 +48,473 @@
   </style>
 </head>
 <body>
+<!-- =====================================================================
+  BMI FEEDBACK KIT — animasi loading & umpan balik untuk Portal FTTH, Portal Waspang, Gateway
+  Tempel SELURUH isi file ini tepat setelah tag <body> di Form.html.
+  (Ketiga portal memakai createHtmlOutputFromFile, jadi cara include() TIDAK berlaku tanpa mengubah doGet.)
+  Tidak butuh library. Aman untuk HP. Menghormati "kurangi animasi" (prefers-reduced-motion).
+  Panggil lewat objek global BMI — lihat PANDUAN_ANIMASI.md.
+====================================================================== -->
+<style>
+  :root{--bmi-gold:#C9972C;--bmi-gold-d:#A87A1B;--bmi-ink:#191917;--bmi-mut:#7A776E;--bmi-line:#ECE4D3;
+    --bmi-skel:#EFE8DA;--bmi-skel-hi:#F9F6EF;--bmi-ok:#2F7D4F;--bmi-err:#A2442F;--bmi-font:'Plus Jakarta Sans',Arial,sans-serif}
+  @keyframes bmiSpin{to{transform:rotate(360deg)}}
+  @keyframes bmiShimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}
+  @keyframes bmiSlide{from{left:-40%}to{left:100%}}
+  @keyframes bmiDraw{to{stroke-dashoffset:0}}
+  @keyframes bmiPop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+  @keyframes bmiEnter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes bmiToastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @keyframes bmiToastOut{to{opacity:0;transform:translateY(8px)}}
+  @keyframes bmiWave{0%{opacity:0;transform:scale(.6)}40%{opacity:1}100%{opacity:0;transform:scale(1.25)}}
+
+  /* 1. Splash saat portal pertama dibuka */
+  #bmiSplash{position:fixed;inset:0;z-index:100002;background:#000;display:flex;align-items:center;justify-content:center;transition:opacity .45s ease,visibility .45s}
+  #bmiSplash.bmi-hide{opacity:0;visibility:hidden}
+  .bmi-sp{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;padding:0 24px}
+  .bmi-sp-logo{position:relative;width:96px;height:96px;display:flex;align-items:center;justify-content:center}
+  .bmi-sp-logo img{width:60px;height:60px;border-radius:16px;position:relative;z-index:1}
+  .bmi-sp-ring{position:absolute;inset:0;border-radius:50%;border:2px solid rgba(201,151,44,.16);border-top-color:var(--bmi-gold);animation:bmiSpin 1.1s linear infinite}
+  .bmi-sp-wave{position:absolute;inset:-14px;border-radius:50%;border:1px solid rgba(201,151,44,.35);animation:bmiWave 2.2s ease-out infinite}
+  .bmi-sp-wave.w2{animation-delay:1.1s}
+  .bmi-sp-t{font:700 15px/1.25 var(--bmi-font);color:#fff;letter-spacing:.12em}
+  .bmi-sp-s{font:600 10.5px var(--bmi-font);letter-spacing:.24em;color:var(--bmi-gold);margin-top:-8px}
+  .bmi-sp-msg{font:500 12.5px var(--bmi-font);color:#8f8b80;min-height:16px}
+
+  /* 2. Garis emas berjalan di atas layar (pindah halaman / ambil data) */
+  #bmiTop{position:fixed;top:0;left:0;height:3px;width:0;z-index:100003;background:var(--bmi-gold);box-shadow:0 0 10px rgba(201,151,44,.55);opacity:0;transition:width .35s ease,opacity .35s ease;pointer-events:none}
+  #bmiTop.on{opacity:1}
+
+  /* 3. Spinner & tombol sibuk / berhasil */
+  .bmi-spin{display:inline-block;width:16px;height:16px;flex:none;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:bmiSpin .7s linear infinite;vertical-align:-3px}
+  .bmi-busy{pointer-events:none;cursor:progress;opacity:.92}
+  .bmi-busy .bmi-spin,.bmi-ok-ic{margin-right:8px}
+  .bmi-ok-ic{display:inline-block;vertical-align:-3px}
+  .bmi-ok-ic path{stroke-dasharray:24;stroke-dashoffset:24;animation:bmiDraw .4s .05s ease forwards}
+  .bmi-btn-ok{background:var(--bmi-ok)!important;border-color:var(--bmi-ok)!important;color:#fff!important}
+
+  /* 4. Skeleton (pengganti tulisan "Memuat...") */
+  .bmi-skel{display:block;height:12px;border-radius:7px;background:linear-gradient(90deg,var(--bmi-skel) 25%,var(--bmi-skel-hi) 37%,var(--bmi-skel) 63%);background-size:400% 100%;animation:bmiShimmer 1.4s ease infinite}
+  tr.bmi-skel-row td{padding:13px 10px!important;border-color:#F3EEE3!important;background:transparent!important}
+  .bmi-skel-card{border:1px solid var(--bmi-line);border-radius:16px;padding:16px;background:#fff;display:flex;flex-direction:column;gap:10px}
+  .bmi-skel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+
+  /* 5. Panel proses lama (baca BOQ / OCR / kirim WhatsApp) */
+  #bmiProc{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s}
+  #bmiProc.on{opacity:1;visibility:visible}
+  .bmi-pc{width:100%;max-width:420px;background:#fff;border-radius:20px;border-top:4px solid var(--bmi-gold);padding:22px 22px 18px;font-family:var(--bmi-font);color:var(--bmi-ink);box-shadow:0 24px 60px rgba(0,0,0,.3);transform:translateY(8px);transition:transform .25s}
+  #bmiProc.on .bmi-pc{transform:none}
+  .bmi-pc-h{display:flex;align-items:center;gap:12px}
+  .bmi-pc-ic{width:42px;height:42px;border-radius:13px;background:#F6F1E6;color:var(--bmi-gold-d);display:flex;align-items:center;justify-content:center;flex:none}
+  .bmi-pc-ic .bmi-spin{width:20px;height:20px}
+  .bmi-pc-t{font-weight:700;font-size:16px;line-height:1.3}
+  .bmi-pc-m{color:var(--bmi-mut);font-size:13px;margin-top:2px;line-height:1.45}
+  .bmi-pc-bar{position:relative;height:6px;border-radius:99px;background:#F1ECE1;overflow:hidden;margin:16px 0 6px}
+  .bmi-pc-bar i{position:absolute;top:0;bottom:0;width:40%;border-radius:99px;background:var(--bmi-gold);animation:bmiSlide 1.2s ease-in-out infinite}
+  .bmi-pc-bar.det i{position:static;display:block;height:100%;animation:none;transition:width .3s}
+  .bmi-pc-time{display:flex;justify-content:space-between;font-size:11.5px;color:#9a968c;font-variant-numeric:tabular-nums}
+  .bmi-steps{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:9px}
+  .bmi-steps li{display:flex;gap:10px;align-items:center;font-size:13.5px;color:#a9a59a}
+  .bmi-steps li i{width:20px;height:20px;border-radius:50%;border:1.5px solid #DCD4C3;display:flex;align-items:center;justify-content:center;flex:none;font-style:normal;font-size:11px}
+  .bmi-steps li.doing{color:var(--bmi-ink);font-weight:600}
+  .bmi-steps li.doing i{border-color:var(--bmi-gold);border-right-color:transparent;animation:bmiSpin .8s linear infinite}
+  .bmi-steps li.done{color:var(--bmi-ink)}
+  .bmi-steps li.done i{background:var(--bmi-ink);border-color:var(--bmi-ink);color:var(--bmi-gold)}
+  .bmi-pc.ok .bmi-pc-ic{background:#E9F3EC;color:var(--bmi-ok);animation:bmiPop .4s ease}
+  .bmi-pc.err .bmi-pc-ic{background:#FBEAE6;color:var(--bmi-err)}
+  .bmi-pc.ok .bmi-pc-bar i{width:100%!important;animation:none;left:0;background:var(--bmi-ok)}
+  .bmi-pc.err .bmi-pc-bar i{width:100%!important;animation:none;left:0;background:var(--bmi-err)}
+  .bmi-pc-act{display:flex;justify-content:flex-end;margin-top:14px}
+  .bmi-pc-act[hidden]{display:none}
+  .bmi-pc-act button{font:700 13.5px var(--bmi-font);border:0;border-radius:999px;padding:10px 18px;background:var(--bmi-ink);color:#fff;cursor:pointer}
+
+  /* 6. Progress berangka (memuat foto 3 dari 6, upload) */
+  .bmi-prog-l{display:flex;justify-content:space-between;font:500 12.5px var(--bmi-font);color:var(--bmi-mut);margin-bottom:6px;font-variant-numeric:tabular-nums}
+  .bmi-prog-l b{color:var(--bmi-ink)}
+  .bmi-prog{height:8px;border-radius:99px;background:#F1ECE1;overflow:hidden}
+  .bmi-prog i{display:block;height:100%;width:0;border-radius:99px;background:var(--bmi-gold);transition:width .35s ease}
+  .bmi-prog.full i{background:var(--bmi-ok)}
+
+  /* 7. Toast (notifikasi singkat) */
+  #bmiToasts{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:100001;display:flex;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:calc(100vw - 24px);pointer-events:none}
+  .bmi-toast{display:flex;align-items:center;gap:10px;background:#111;color:#fff;border-radius:14px;padding:12px 16px;font:600 13.5px/1.4 var(--bmi-font);box-shadow:0 14px 30px rgba(0,0,0,.25);border-left:3px solid var(--bmi-gold);animation:bmiToastIn .28s ease both;pointer-events:auto}
+  .bmi-toast.ok{border-left-color:#5FB37D}.bmi-toast.err{border-left-color:#E0735B}
+  .bmi-toast .bmi-ti{flex:none;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;background:rgba(255,255,255,.1)}
+  .bmi-toast.out{animation:bmiToastOut .25s ease forwards}
+  @media (max-width:680px){#bmiToasts{bottom:96px}}
+
+  /* 8. Keadaan kosong & gagal */
+  .bmi-state{text-align:center;padding:26px 16px;color:var(--bmi-mut);font:400 13.5px/1.5 var(--bmi-font);animation:bmiEnter .3s ease both}
+  .bmi-state .bmi-st-ic{width:46px;height:46px;border-radius:15px;background:#F6F1E6;color:var(--bmi-gold-d);display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+  .bmi-state.err .bmi-st-ic{background:#FBEAE6;color:var(--bmi-err)}
+  .bmi-state b{display:block;color:var(--bmi-ink);font-size:14.5px;margin-bottom:2px}
+  .bmi-state button{margin-top:12px;font:700 13px var(--bmi-font);border:1px solid #DCCBA3;background:#fff;color:var(--bmi-gold-d);border-radius:999px;padding:9px 16px;cursor:pointer}
+
+  /* 9b. Otomatis: spinner kecil di tombol/teks yang sedang memuat, bar tunggu di kotak status */
+  .bmi-spin.bmi-auto{width:1em;height:1em;border-width:.14em;margin-right:.45em;vertical-align:-.15em;opacity:.9}
+  button .bmi-spin.bmi-auto{margin-right:.5em}
+  .bmi-wait{display:flex;align-items:center;gap:10px;margin-top:9px}
+  .bmi-wait .bmi-pc-bar{flex:1;margin:0;height:4px;background:rgba(0,0,0,.07)}
+  .bmi-wait-t{font:600 11px var(--bmi-font);color:#8a867c;font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
+  .bmi-toast .bmi-ti .bmi-spin{width:11px;height:11px;border-width:2px;vertical-align:0}
+
+  /* 9. Transisi masuk halaman/kartu */
+  .bmi-enter{animation:bmiEnter .32s ease both}
+
+  @media (prefers-reduced-motion:reduce){
+    #bmiSplash *,#bmiTop,.bmi-spin,.bmi-wait *,.bmi-skel,.bmi-pc *,.bmi-toast,.bmi-state,.bmi-enter,.bmi-steps li i{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+    .bmi-pc-bar i{left:0!important;width:100%!important;opacity:.5}
+  }
+</style>
+
+<div id="bmiSplash" role="status" aria-live="polite">
+  <div class="bmi-sp">
+    <div class="bmi-sp-logo"><span class="bmi-sp-wave"></span><span class="bmi-sp-wave w2"></span><span class="bmi-sp-ring"></span>
+      <img src="https://buanamenara.github.io/portal-ftth/icon-192.png" alt="BMI" onerror="this.style.display='none'"></div>
+    <div class="bmi-sp-t" id="bmiSplashT">FTTH PROJECT CONTROL PORTAL</div>
+    <div class="bmi-sp-s">PT BUANA MENARA INDONESIA</div>
+    <div class="bmi-sp-msg" id="bmiSplashMsg">Menyiapkan portal...</div>
+  </div>
+</div>
+<div id="bmiTop"></div>
+
+<script>
+(function () {
+  if (window.BMI) return;
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var CHECK = '<svg class="bmi-ok-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  var ICON = {
+    ok: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    err: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 7v6M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>',
+    empty: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l2.5-7h13L21 13v6H3z"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/></svg>'
+  };
+  var BMI = {};
+
+  /* ---------- 1. Splash ---------- */
+  // Judul splash per portal: isi window.BMI_TITLE (mis. 'PORTAL WASPANG') di tag script tersendiri SEBELUM paket ini.
+  if (window.BMI_TITLE && $('bmiSplashT')) $('bmiSplashT').textContent = window.BMI_TITLE;
+  var splashStart = Date.now(), splashHold = false;
+  BMI.splash = {
+    msg: function (t) { var m = $('bmiSplashMsg'); if (m) m.textContent = t; },
+    show: function (t) { var s = $('bmiSplash'); if (!s) return; if (t) this.msg(t); s.classList.remove('bmi-hide'); splashStart = Date.now(); },
+    hide: function () { var s = $('bmiSplash'); if (!s) return; var wait = Math.max(0, 400 - (Date.now() - splashStart)); setTimeout(function () { s.classList.add('bmi-hide'); }, wait); },
+    hold: function () { splashHold = true; }   // panggil sebelum load bila splash ingin ditutup manual (BMI.splash.hide())
+  };
+  window.addEventListener('load', function () { if (!splashHold) BMI.splash.hide(); });
+  // Pengaman: splash TIDAK PERNAH menutupi portal lebih dari 8 detik, walau hide() tidak terpanggil (mis. ada error).
+  setTimeout(function () { var s = $('bmiSplash'); if (s) s.classList.add('bmi-hide'); }, 8000);
+  // Matikan splash: isi window.BMI_NO_SPLASH = true di tag script tersendiri SEBELUM paket ini.
+  if (window.BMI_NO_SPLASH) { var s0 = $('bmiSplash'); if (s0) s0.classList.add('bmi-hide'); }
+
+  /* ---------- 2. Garis emas atas ---------- */
+  var topTimer = null, topVal = 0, topCount = 0, topGuard = null;
+  BMI.top = {
+    start: function () {
+      var b = $('bmiTop'); if (!b) return; topCount++;
+      if (topCount > 1) return;
+      topVal = 8; b.style.transition = 'none'; b.style.width = '0'; b.offsetWidth; b.style.transition = '';
+      b.classList.add('on'); b.style.width = topVal + '%';
+      clearInterval(topTimer);
+      topTimer = setInterval(function () { topVal += (90 - topVal) * 0.08; b.style.width = topVal + '%'; }, 250);
+      // Pengaman: garis tidak pernah menggantung lebih dari 2 menit walau ada panggilan yang tidak pernah kembali.
+      clearTimeout(topGuard); topGuard = setTimeout(function () { topCount = 1; BMI.top.done(); }, 120000);
+    },
+    done: function () {
+      var b = $('bmiTop'); if (!b) return; topCount = Math.max(0, topCount - 1);
+      if (topCount > 0) return;
+      clearInterval(topTimer); clearTimeout(topGuard); b.style.width = '100%';
+      setTimeout(function () { b.classList.remove('on'); }, 300);
+      setTimeout(function () { if (!topCount) b.style.width = '0'; }, 700);
+    }
+  };
+
+  /* ---------- 3. Tombol sibuk / berhasil ---------- */
+  BMI.busy = function (btn, text) {
+    if (!btn || btn.dataset.bmiBusy) return;
+    btn.dataset.bmiBusy = '1'; btn.dataset.bmiHtml = btn.innerHTML; btn.dataset.bmiDis = btn.disabled ? '1' : '';
+    btn.disabled = true; btn.classList.add('bmi-busy'); btn.setAttribute('aria-busy', 'true');
+    btn.innerHTML = '<span class="bmi-spin"></span>' + esc(text || 'Memproses...');
+  };
+  BMI.reset = function (btn) {
+    if (!btn || !btn.dataset.bmiBusy) return;
+    btn.innerHTML = btn.dataset.bmiHtml; btn.disabled = !!btn.dataset.bmiDis;
+    btn.classList.remove('bmi-busy', 'bmi-btn-ok'); btn.removeAttribute('aria-busy');
+    delete btn.dataset.bmiBusy; delete btn.dataset.bmiHtml; delete btn.dataset.bmiDis;
+  };
+  BMI.done = function (btn, text, ms) {
+    if (!btn) return;
+    if (!btn.dataset.bmiBusy) BMI.busy(btn);
+    btn.classList.remove('bmi-busy'); btn.classList.add('bmi-btn-ok');
+    btn.innerHTML = CHECK + esc(text || 'Berhasil');
+    setTimeout(function () { BMI.reset(btn); }, ms || 1600);
+  };
+
+  /* ---------- 4. Skeleton ---------- */
+  function widths(i) { var w = [72, 55, 88, 40, 64, 80, 48]; return w[i % w.length]; }
+  BMI.skelRows = function (tbody, cols, rows) {
+    if (!tbody) return; cols = cols || 4; rows = rows || 5; var h = '';
+    for (var r = 0; r < rows; r++) {
+      h += '<tr class="bmi-skel-row">';
+      for (var c = 0; c < cols; c++) h += '<td><span class="bmi-skel" style="width:' + widths(r + c) + '%;animation-delay:' + (r * 0.08) + 's"></span></td>';
+      h += '</tr>';
+    }
+    tbody.innerHTML = h;
+  };
+  BMI.skelCards = function (box, n) {
+    if (!box) return; n = n || 4; var h = '<div class="bmi-skel-grid">';
+    for (var i = 0; i < n; i++) h += '<div class="bmi-skel-card"><span class="bmi-skel" style="width:45%"></span><span class="bmi-skel" style="height:26px;width:60%;border-radius:9px"></span><span class="bmi-skel" style="width:75%;height:10px"></span></div>';
+    box.innerHTML = h + '</div>';
+  };
+  BMI.skelLines = function (box, n) {
+    if (!box) return; n = n || 3; var h = '<div style="display:flex;flex-direction:column;gap:10px;padding:6px 0">';
+    for (var i = 0; i < n; i++) h += '<span class="bmi-skel" style="width:' + widths(i * 2) + '%"></span>';
+    box.innerHTML = h + '</div>';
+  };
+
+  /* ---------- 5. Panel proses lama ---------- */
+  var proc = null, procTimer = null, procT0 = 0;
+  function procEl() {
+    if (proc) return proc;
+    proc = el('div'); proc.id = 'bmiProc'; proc.setAttribute('role', 'dialog'); proc.setAttribute('aria-live', 'polite');
+    proc.innerHTML = '<div class="bmi-pc"><div class="bmi-pc-h"><div class="bmi-pc-ic"><span class="bmi-spin"></span></div><div><div class="bmi-pc-t"></div><div class="bmi-pc-m"></div></div></div>' +
+      '<div class="bmi-pc-bar"><i></i></div><div class="bmi-pc-time"><span class="bmi-pc-note"></span><span class="bmi-pc-sec">0:00</span></div><ul class="bmi-steps"></ul><div class="bmi-pc-act" hidden><button type="button">Tutup</button></div></div>';
+    document.body.appendChild(proc);
+    proc.querySelector('.bmi-pc-act button').onclick = function () { BMI.process.close(); };
+    return proc;
+  }
+  function q(s) { return procEl().querySelector(s); }
+  BMI.process = {
+    open: function (o) {
+      o = o || {}; var p = procEl(), card = q('.bmi-pc');
+      card.classList.remove('ok', 'err'); q('.bmi-pc-ic').innerHTML = '<span class="bmi-spin"></span>';
+      q('.bmi-pc-t').textContent = o.title || 'Memproses...';
+      q('.bmi-pc-m').textContent = o.msg || '';
+      q('.bmi-pc-note').textContent = o.note || '';
+      var bar = q('.bmi-pc-bar'); bar.classList.toggle('det', o.percent != null); bar.querySelector('i').style.width = o.percent != null ? o.percent + '%' : '';
+      q('.bmi-steps').innerHTML = (o.steps || []).map(function (s, i) { return '<li class="' + (i === 0 ? 'doing' : '') + '"><i></i>' + esc(s) + '</li>'; }).join('');
+      q('.bmi-pc-act').hidden = true;
+      procT0 = Date.now(); clearInterval(procTimer);
+      procTimer = setInterval(function () { var s = Math.floor((Date.now() - procT0) / 1000); q('.bmi-pc-sec').textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }, 500);
+      p.classList.add('on');
+    },
+    step: function (i) {
+      Array.prototype.forEach.call(q('.bmi-steps').children, function (li, k) { li.className = k < i ? 'done' : (k === i ? 'doing' : ''); li.querySelector('i').textContent = k < i ? '✓' : ''; });
+    },
+    msg: function (t) { q('.bmi-pc-m').textContent = t; },
+    percent: function (v) { var bar = q('.bmi-pc-bar'); bar.classList.add('det'); bar.querySelector('i').style.width = Math.max(0, Math.min(100, v)) + '%'; },
+    done: function (title, msg, autoClose) {
+      clearInterval(procTimer); var card = q('.bmi-pc'); card.classList.add('ok');
+      q('.bmi-pc-ic').innerHTML = ICON.ok; q('.bmi-pc-t').textContent = title || 'Selesai'; if (msg != null) q('.bmi-pc-m').textContent = msg;
+      this.step(99);
+      if (autoClose === false) q('.bmi-pc-act').hidden = false; else setTimeout(function () { BMI.process.close(); }, autoClose || 1400);
+    },
+    fail: function (title, msg) {
+      clearInterval(procTimer); q('.bmi-pc').classList.add('err');
+      q('.bmi-pc-ic').innerHTML = ICON.err; q('.bmi-pc-t').textContent = title || 'Gagal'; if (msg != null) q('.bmi-pc-m').textContent = msg;
+      q('.bmi-pc-act').hidden = false;
+    },
+    close: function () { clearInterval(procTimer); if (proc) proc.classList.remove('on'); }
+  };
+
+  /* ---------- 6. Progress berangka ---------- */
+  BMI.progress = function (box, value, max, label) {
+    if (!box) return; max = max || 100;
+    var pct = Math.round(Math.max(0, Math.min(1, value / max)) * 100);
+    if (!box.querySelector('.bmi-prog')) box.innerHTML = '<div class="bmi-prog-l"><span class="bmi-prog-t"></span><b class="bmi-prog-n"></b></div><div class="bmi-prog"><i></i></div>';
+    box.querySelector('.bmi-prog-t').textContent = label || '';
+    box.querySelector('.bmi-prog-n').textContent = max === 100 ? pct + '%' : value + ' / ' + max;
+    box.querySelector('.bmi-prog i').style.width = pct + '%';
+    box.querySelector('.bmi-prog').classList.toggle('full', pct >= 100);
+  };
+
+  /* ---------- 7. Toast ---------- */
+  BMI.toast = function (msg, type, ms) {
+    var wrap = $('bmiToasts'); if (!wrap) { wrap = el('div'); wrap.id = 'bmiToasts'; wrap.setAttribute('aria-live', 'polite'); document.body.appendChild(wrap); }
+    type = type || 'info';
+    var t = el('div', 'bmi-toast ' + type, '<span class="bmi-ti">' + (type === 'ok' ? '✓' : type === 'err' ? '!' : type === 'wait' ? '<span class="bmi-spin"></span>' : 'i') + '</span><span>' + esc(msg) + '</span>');
+    wrap.appendChild(t);
+    while (wrap.children.length > 3) wrap.removeChild(wrap.firstChild);
+    setTimeout(function () { t.classList.add('out'); setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 260); }, ms || 3200);
+  };
+
+  /* ---------- 8. Keadaan kosong & gagal ---------- */
+  function stateBox(target, html) {
+    if (!target) return;
+    if (target.tagName === 'TBODY') {
+      var cols = 1, head = target.parentNode && target.parentNode.querySelector('thead tr');
+      if (head) cols = head.children.length; else if (target.rows[0]) cols = target.rows[0].cells.length || 1;
+      target.innerHTML = '<tr><td colspan="' + cols + '" style="border:0;background:transparent">' + html + '</td></tr>';
+    } else target.innerHTML = html;
+  }
+  BMI.empty = function (target, title, text) {
+    stateBox(target, '<div class="bmi-state"><div class="bmi-st-ic">' + ICON.empty + '</div><b>' + esc(title || 'Belum ada data') + '</b>' + esc(text || '') + '</div>');
+  };
+  BMI.error = function (target, text, retry) {
+    var id = 'bmiRetry' + Math.random().toString(36).slice(2, 8);
+    stateBox(target, '<div class="bmi-state err"><div class="bmi-st-ic">' + ICON.err + '</div><b>Gagal memuat</b>' + esc(text || 'Periksa koneksi lalu coba lagi.') + (retry ? '<br><button type="button" id="' + id + '">Coba lagi</button>' : '') + '</div>');
+    if (retry) { var b = $(id); if (b) b.onclick = retry; }
+  };
+
+  /* ---------- 9. Transisi ---------- */
+  BMI.enter = function (box) { if (!box || reduce) return; box.classList.remove('bmi-enter'); box.offsetWidth; box.classList.add('bmi-enter'); };
+
+  /* ---------- 10. Pembungkus google.script.run (garis atas otomatis) ---------- */
+  BMI.run = function () {
+    var ok = null, fail = null, r = google.script.run;
+    var api = {
+      withSuccessHandler: function (f) { ok = f; return api; },
+      withFailureHandler: function (f) { fail = f; return api; }
+    };
+    return new Proxy(api, { get: function (t, name) {
+      if (name in t) return t[name];
+      return function () {
+        var args = arguments; BMI.top.start();
+        r.withSuccessHandler(function (v) { BMI.top.done(); if (ok) ok(v); })
+         .withFailureHandler(function (e) { BMI.top.done(); if (fail) fail(e); else BMI.toast(e && e.message || 'Terjadi kesalahan', 'err'); })[name].apply(null, args);
+      };
+    } });
+  };
+
+
+  /* ---------- 11. Otomatis (tanpa mengubah kode portal) ----------
+     Mengamati halaman dan menambahkan animasi pada pola yang sudah ada:
+     a. tabel berisi satu baris "Memuat..."            -> skeleton bergaris
+     b. teks/kotak "Memuat..." (bukan tabel)           -> skeleton
+     c. tombol yang dinonaktifkan dengan teks "...", "…" atau diawali ⏳ -> spinner di tombol
+     d. teks pendek "Memuat/Membaca/Membuat/... ..." atau diawali ⏳   -> spinner kecil
+     e. kotak .status.info "mohon tunggu / ... detik"  -> bar tunggu + penghitung waktu
+     Semua tambahan hilang sendiri saat portal menulis ulang isi elemen tersebut.
+     Matikan: isi window.BMI_NO_AUTO = true di tag script tersendiri SEBELUM paket ini. */
+  var LOADING_ONLY = /^Memuat\s*(\.\.\.|…)?$/;
+  var BUSY_END = /(\.\.\.|…)\s*(\([^)]*\))?\s*$/;
+  var HOURGLASS = /^\s*⏳️?\s*/;
+  var LOAD_TXT = /^(⏳️?\s*)?(Memuat|Membaca|Membuat|Menyiapkan|Mengirim|Menyimpan|Mengunduh|Menghapus|Memproses|Mengecek|Memeriksa|Menguji|Menyelaraskan|Sedang)\b|sedang dimuat/i;
+  var WAIT_TXT = /mohon tunggu|\bdetik\b|sampai 1 menit/i;
+  var LEAF = { DIV: 1, SPAN: 1, P: 1, SMALL: 1, TD: 1, LI: 1, LABEL: 1, B: 1, STRONG: 1, EM: 1 };
+  function skip(n) { return !n || !n.closest || !!n.closest('#bmiSplash,#bmiProc,#bmiToasts,#toastMessage,script,style,select,textarea,[contenteditable],[data-bmi-off]'); }
+  function addSpin(n) {
+    var f = n.firstElementChild;
+    if (f && f.classList.contains('bmi-auto')) return;
+    var s = document.createElement('span'); s.className = 'bmi-spin bmi-auto'; s.setAttribute('aria-hidden', 'true');
+    n.insertBefore(s, n.firstChild);
+  }
+  function dropSpin(n) { var f = n.firstElementChild; if (f && f.classList.contains('bmi-auto')) n.removeChild(f); }
+  // ⏳ di awal teks diganti spinner (hanya simbolnya; kalimatnya tetap).
+  function hourglass(n) {
+    for (var c = n.firstChild; c; c = c.nextSibling) {
+      if (c.nodeType === 1 && c.classList.contains('bmi-auto')) continue;
+      if (c.nodeType === 3 && !c.nodeValue.trim()) continue;
+      if (c.nodeType === 3 && HOURGLASS.test(c.nodeValue)) { c.nodeValue = c.nodeValue.replace(HOURGLASS, ''); addSpin(n); return true; }
+      return false;
+    }
+    return false;
+  }
+  function checkTbody(tb) {
+    if (tb.rows.length !== 1 || tb.rows[0].cells.length !== 1) return;
+    var td = tb.rows[0].cells[0];
+    if (!LOADING_ONLY.test((td.textContent || '').trim())) return;
+    var cols = td.colSpan > 1 ? td.colSpan : 0;
+    if (!cols) { var h = tb.parentNode && tb.parentNode.querySelector('thead tr'); cols = h ? h.children.length : 3; }
+    BMI.skelRows(tb, Math.min(cols, 10), 5);
+  }
+  function checkBtn(b) {
+    if (b.dataset.bmiBusy) return;
+    var t = (b.textContent || '').trim();
+    if (b.disabled && (BUSY_END.test(t) || HOURGLASS.test(t))) { hourglass(b); addSpin(b); }
+    else dropSpin(b);
+  }
+  function checkStatus(n) {
+    var w = n.querySelector(':scope > .bmi-wait');
+    var on = n.classList.contains('info') && WAIT_TXT.test(n.textContent || '');
+    if (on && !w) {
+      w = document.createElement('div'); w.className = 'bmi-wait'; w.setAttribute('aria-hidden', 'true');
+      w.dataset.t0 = Date.now(); w.innerHTML = '<div class="bmi-pc-bar"><i></i></div><span class="bmi-wait-t">0:00</span>';
+      n.appendChild(w); waitTick();
+    } else if (!on && w) n.removeChild(w);
+  }
+  var waitTimer = null;
+  function waitTick() {
+    if (waitTimer) return;
+    waitTimer = setInterval(function () {
+      var list = document.querySelectorAll('.bmi-wait');
+      if (!list.length) { clearInterval(waitTimer); waitTimer = null; return; }
+      Array.prototype.forEach.call(list, function (w) {
+        var s = Math.floor((Date.now() - (+w.dataset.t0 || Date.now())) / 1000), t = w.querySelector('.bmi-wait-t');
+        if (t) t.textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2);
+      });
+    }, 1000);
+  }
+  function checkLeaf(n) {
+    if (!LEAF[n.tagName]) return;
+    var k = n.children;
+    if (k.length > 1 || (k.length === 1 && !k[0].classList.contains('bmi-auto'))) { hourglass(n); return; }
+    var t = (n.textContent || '').trim();
+    if (!t || t.length > 200) return;
+    if (LOADING_ONLY.test(t)) {
+      if (n.tagName === 'TD') { var tb = n.closest('tbody'); if (tb) checkTbody(tb); }
+      else BMI.skelLines(n, 3);
+      return;
+    }
+    if (HOURGLASS.test(t)) { hourglass(n); return; }
+    if (LOAD_TXT.test(t) && /(\.\.\.|…)/.test(t) && !(n.classList.contains('status') && !n.classList.contains('info'))) addSpin(n);
+  }
+  function visit(n) {
+    if (!n || n.nodeType !== 1 || skip(n)) return;
+    if (n.tagName === 'BUTTON') { checkBtn(n); return; }
+    var b = n.closest('button'); if (b) { checkBtn(b); return; }
+    if (n.tagName === 'TBODY') { checkTbody(n); return; }
+    if (n.classList.contains('status')) checkStatus(n);
+    checkLeaf(n);
+  }
+  function deep(n) {
+    if (n.nodeType !== 1 || skip(n)) return;
+    if (n.tagName === 'TBODY') checkTbody(n);
+    if (n.tagName === 'BUTTON') checkBtn(n);
+    if ((n.textContent || '').indexOf('⏳') < 0) return;
+    var w = document.createTreeWalker(n, NodeFilter.SHOW_TEXT, null, false), list = [], c;
+    while ((c = w.nextNode())) if (HOURGLASS.test(c.nodeValue) && c.parentNode) list.push(c.parentNode);
+    list.forEach(function (p) { var b = p.closest('button'); if (b) checkBtn(b); else if (!skip(p)) hourglass(p); });
+  }
+  BMI.auto = {
+    scan: function (root) {
+      root = root || document.body; if (!root) return;
+      Array.prototype.forEach.call(root.querySelectorAll('tbody'), function (tb) { if (!skip(tb)) checkTbody(tb); });
+      Array.prototype.forEach.call(root.querySelectorAll('button'), function (b) { if (!skip(b)) checkBtn(b); });
+      Array.prototype.forEach.call(root.querySelectorAll('.status'), function (n) { if (!skip(n)) checkStatus(n); });
+      Array.prototype.forEach.call(root.querySelectorAll('div,span,p,small,td,li,label,b,strong,em'), function (n) { if (n.childElementCount === 0 && !skip(n)) checkLeaf(n); });
+    }
+  };
+  function startAuto() {
+    try {
+      BMI.auto.scan();
+      new MutationObserver(function (recs) {
+        try {
+          for (var i = 0; i < recs.length; i++) {
+            var r = recs[i];
+            if (r.type === 'attributes') {
+              var t = r.target;
+              if (t.tagName === 'BUTTON') { if (!skip(t)) checkBtn(t); }
+              else if (r.attributeName === 'class' && t.classList && t.classList.contains('status') && !skip(t)) checkStatus(t);
+              continue;
+            }
+            visit(r.target);
+            for (var j = 0; j < r.addedNodes.length; j++) deep(r.addedNodes[j]);
+          }
+        } catch (e) { /* animasi tidak boleh mengganggu portal */ }
+      }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'class'] });
+    } catch (e) { /* abaikan */ }
+  }
+  if (!window.BMI_NO_AUTO) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startAuto); else startAuto();
+  }
+
+  window.BMI = BMI;
+})();
+</script>
+<!-- ===================== akhir BMI FEEDBACK KIT ===================== -->
   <div class="topbar">
     <img src="https://buanamenara.github.io/portal-ftth/icon-192.png" alt="BMI">
     <div>
@@ -165,11 +632,13 @@
   function tryLogin() {
     var u = $('loginUsername').value.trim(), p = $('loginPassword').value;
     if (!u || !p) { $('loginNote').textContent = 'Isi username dan password.'; return; }
+    if (window.BMI) BMI.busy($('btnLogin'), 'Memeriksa...');   // sebelum disabled, supaya reset() mengaktifkan tombol lagi
     $('btnLogin').disabled = true;
     $('loginNote').textContent = '';
     google.script.run
       .withSuccessHandler(function (res) {
         $('btnLogin').disabled = false;
+        if (window.BMI) BMI.reset($('btnLogin'));
         $('loginPassword').value = '';
         res.exp = Date.now() + TTL;
         saveSession(res);
@@ -177,6 +646,7 @@
       })
       .withFailureHandler(function (err) {
         $('btnLogin').disabled = false;
+        if (window.BMI) BMI.reset($('btnLogin'));
         $('loginNote').textContent = (err && err.message) || 'Gagal masuk. Coba lagi.';
       })
       .loginUser(u, p);
