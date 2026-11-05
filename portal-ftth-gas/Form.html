@@ -1255,6 +1255,10 @@
     body.bmi-shell .topbar.with-dash { position: fixed; top: 14px; right: 22px; left: auto; z-index: 160; background: transparent; border: 0; padding: 0; }
     body.bmi-shell .topbar.with-dash .topbar-divider { display: none; }
     body.bmi-shell .topbar-right { gap: 10px; }
+    /* Saat digulir: pita krem di belakang lonceng & chip user supaya teks konten tidak bertumpuk di belakangnya */
+    body.bmi-shell.bmi-scrolled::after { content: ""; position: fixed; z-index: 150; top: 0; right: 0; left: 272px; height: 74px;
+      background: #FBF7EE; box-shadow: 0 6px 14px -10px rgba(0,0,0,.25); pointer-events: none; }
+    body.bmi-shell.bmi-scrolled.sidebar-collapsed::after { left: 100px; }
     body.bmi-shell .topbar-right .bell-btn, body.bmi-shell .topbar-right .sidebar-collapse-btn2 { width: 44px; height: 44px; justify-content: center; border-radius: 50%; background: #fff; border: 1px solid #ECE4D3; color: #3b3a35; padding: 0; }
     body.bmi-shell .topbar-right .bell-btn:hover, body.bmi-shell .topbar-right .sidebar-collapse-btn2:hover { border-color: var(--gold); }
     body.bmi-shell.sidebar-collapsed .sidebar-collapse-btn2 svg rect { fill: rgba(201,151,44,.18); }
@@ -2152,7 +2156,7 @@
   <div id="viewCheckpoint" style="display:none">
     <div class="card wide cp-page">
       <h2>Project Dashboard</h2>
-      <p class="desc">Ringkasan status tiap site dari DATA BASE. Klik baris untuk rincian tahap.</p>
+      <p class="desc">Klik baris untuk rincian tahap.</p>
       <div class="kpi-grid cp-kpis" id="cpKpiGrid">
         <div class="kpi-card cp-k k-total">
           <div class="kpi-label"><i class="cp-dot"></i>Total Site</div><div class="kpi-value" id="cpKpiTotal">...</div><div class="kpi-sub">Site proyek FTTH</div>
@@ -2265,7 +2269,7 @@
     </div>
     <div class="card wide">
       <h2 id="title">Submit BOQ ke Sheet DRAWING</h2>
-      <p class="desc">Upload Excel BOQ: volume Designator dibaca otomatis, periksa, lalu kirim ke sheet. Item dengan 2 kolom (mis. Dead End / Dead End 144) dipilih di sini.</p>
+      <p class="desc">Upload BOQ Excel, periksa hasil baca, lalu kirim ke sheet.</p>
 
       <form id="uploadForm">
         <label for="target">Tujuan Sheet</label>
@@ -2277,7 +2281,6 @@
 
         <label for="siteName">Nama Site</label>
         <input type="text" id="siteName" required list="siteList" autocomplete="off" placeholder="Contoh: KELURAHAN TATAH BANGKAL BANJARMASIN">
-        <div class="hint">Pilih dari DATA BASE. Site + SOW yang sudah ada diperbarui, yang baru ditambahkan.</div>
 
         <label for="keterangan">SOW / Keterangan</label>
         <select id="keterangan" required>
@@ -2293,7 +2296,6 @@
           <label for="picSel">PIC (opsional)</label>
           <select id="picSel"></select>
           <input type="text" id="pic" placeholder="Nama PIC opname" style="display:none">
-          <div class="hint">Masuk ke kolom PIC di sheet OPNAME. Pilih "(tidak diubah)" bila tidak diganti.</div>
         </div>
 
         <label for="fileInput">File BOQ (.xlsx) atau Opname (.pdf)</label>
@@ -2367,7 +2369,7 @@
   <div id="viewBoqGen" style="display:none">
     <div class="card wide">
       <h2>Buat BOQ</h2>
-      <p class="desc">Isi volume desain di sheet BoM, portal membuat BOQ .xlsx dari template SOW. Kabel (+slack &amp; toleransi 5%), label, splicing, dll. dihitung otomatis. File tersimpan di BOQ yang Dibuat.</p>
+      <p class="desc">Isi volume, portal membuat BOQ .xlsx dari template SOW.</p>
       <div class="row">
         <div><label for="bqSow">SOW</label>
           <select id="bqSow"><option value="Cluster">Cluster</option><option value="Subfeeder">Subfeeder</option><option value="Mainfeeder">Mainfeeder</option><option value="Hubfeeder">Hubfeeder</option><option value="Uplink">Uplink</option><option value="FWA">FWA</option></select></div>
@@ -2383,7 +2385,7 @@
         <div id="bqTplMsg" class="hint"></div>
       </details>
 
-      <label for="bqSite">Site <span class="opt">(ketik lalu pilih dari daftar DATA BASE)</span></label>
+      <label for="bqSite">Site</label>
       <input type="text" id="bqSite" list="siteList" autocomplete="off" placeholder="Contoh: JATI BARU RT 04 BANJARMASIN">
       <div class="row">
         <div><label for="bqOlt">OLT Name</label><input type="text" id="bqOlt" autocomplete="off"></div>
@@ -2392,9 +2394,9 @@
       </div>
       <div id="bqAbd" style="display:none">
         <div id="bqAbdTpl" class="hint"></div>
-        <label for="bqAbdPlan">BOQ As Plan <span class="opt">(volume As Plan di sheet PO diambil dari sini)</span></label>
+        <label for="bqAbdPlan">BOQ As Plan</label>
         <select id="bqAbdPlan"><option value="">- pilih BOQ plan yang dibuat di menu ini -</option></select>
-        <div class="hint">Atau unggah BOQ plan .xlsx yang dibuat di luar portal: <input type="file" id="bqAbdFile" accept=".xlsx"></div>
+        <div class="hint">Atau unggah BOQ plan .xlsx: <input type="file" id="bqAbdFile" accept=".xlsx"></div>
         <button type="button" class="small" id="bqAbdLoad">Ambil isian dari BOQ plan</button>
         <div id="bqAbdMsg" class="hint"></div>
         <details id="bqAbdList" style="display:none"><summary></summary><table class="items"><thead><tr><th>Item BoQ (As Plan)</th><th>Material</th><th>Jasa</th></tr></thead><tbody></tbody></table></details>
@@ -2414,8 +2416,8 @@
         <tbody id="bqItems"></tbody>
       </table>
       <button type="button" class="small" id="bqAddRow" style="margin-top:8px">+ Tambah baris</button>
-      <div class="hint">Satu baris satu item BoM. Kabel/strand wire = panjang rute (m); slack &amp; toleransi 5% otomatis. Item kosong = 0.</div>
-      <div class="hint" id="bqAbdVolHint" style="display:none">ABD: isi volume As Built. Klik Ambil isian dari BOQ plan, lalu ubah yang berbeda; deviasi dihitung otomatis.</div>
+      <div class="hint">Kabel/strand wire: isi panjang rute (m); slack &amp; toleransi 5% otomatis.</div>
+      <div class="hint" id="bqAbdVolHint" style="display:none">ABD: isi volume As Built; deviasi dihitung otomatis.</div>
 
       <div id="bqMsg" class="status"></div>
       <div><button type="button" class="primary" id="bqBtn">Buat BOQ (.xlsx)</button></div>
@@ -2424,7 +2426,6 @@
 
     <div class="card wide">
       <h2>BOQ yang Dibuat</h2>
-      <p class="desc">100 BOQ terbaru. Klik Unduh untuk mengambil ulang.</p>
       <div class="row"><div><input type="text" id="bqQ" placeholder="Cari site atau nama file..." autocomplete="off"></div></div>
       <div id="bqCount" class="hint"></div>
       <table class="hist hist-bq">
@@ -2443,15 +2444,14 @@
     <div class="card wide">
       <button type="button" class="back" id="backHomeBa">&larr; Kembali ke Warehouse</button>
       <h2>Warehouse &ndash; Submit BA Transaksi</h2>
-      <p class="desc">Upload PDF atau foto BA, isinya dibaca otomatis (OCR). Periksa, lalu simpan. Bisa banyak berkas untuk 1 site.</p>
+      <p class="desc">Upload PDF/foto BA, periksa hasil baca, lalu simpan.</p>
 
       <form id="baForm">
         <label for="baFile">File BA (.pdf atau foto) &ndash; boleh pilih beberapa sekaligus</label>
         <input type="file" id="baFile" accept="application/pdf,.pdf,image/*" multiple required>
-        <div class="hint">Maks. 15 berkas untuk 1 site. Di ponsel pilih Kamera: satu foto = satu BA.</div>
+        <div class="hint">Maks. 15 berkas per site.</div>
         <label for="baSiteAll">Site untuk semua BA <span class="opt">(opsional)</span></label>
         <input type="text" id="baSiteAll" list="siteList" autocomplete="off" placeholder="Kosongkan = otomatis dari BA pertama yang terbaca">
-        <div class="hint">Terisi dari BA pertama; berlaku untuk semua BA di antrean.</div>
         <button type="submit" class="primary" id="baReadBtn">Baca BA</button>
       </form>
 
@@ -2531,7 +2531,6 @@
 
     <div class="card wide">
       <h2>BA Tersimpan</h2>
-      <p class="desc">100 BA terbaru. Klik Unduh untuk PDF aslinya. Rekap material bersih per site: sheet <strong>REKAP BA</strong>.</p>
       <div class="row">
         <div><input type="text" id="hfQ" placeholder="Cari Site atau ID BA..." autocomplete="off"></div>
         <div>
@@ -2573,7 +2572,7 @@
     <div class="card wide">
       <button type="button" class="back" id="backWhGen">&larr; Kembali ke Warehouse</button>
       <h2>Warehouse &ndash; BA Transaksi</h2>
-      <p class="desc">Buat BA Pengambilan / Pengembalian otomatis: nomor BA dari sistem, PDF siap ditandatangani, data masuk ke BA TRANSAKSI &amp; REKAP BA.</p>
+      <p class="desc">Nomor BA otomatis, PDF siap ditandatangani.</p>
       <div id="bgNote"></div>
 
       <div class="row">
@@ -2588,7 +2587,7 @@
         <div><label for="bgJam">Jam</label><input type="text" id="bgJam" placeholder="15:43" maxlength="5" autocomplete="off"></div>
       </div>
 
-      <label for="bgSite">Site <span class="opt">(ketik lalu pilih dari daftar DATA BASE)</span></label>
+      <label for="bgSite">Site</label>
       <input type="text" id="bgSite" list="bgSiteList" autocomplete="off" placeholder="Contoh: JATI BARU RT 04 BANJARMASIN">
       <datalist id="bgSiteList"></datalist>
       <div id="bgSiteHint" class="hint"></div>
@@ -2607,7 +2606,7 @@
         <tbody id="bgItems"></tbody>
       </table>
       <button type="button" class="small" id="bgAddRow" style="margin-top:8px">+ Tambah baris</button>
-      <div class="hint">Satu baris satu material; satuan di Keterangan. Maks. <span id="bgMax">34</span> baris (17 per halaman PDF).</div>
+      <div class="hint">Maks. <span id="bgMax">34</span> material; satuan di Keterangan.</div>
 
       <div id="bgStatus" class="status"></div>
       <div id="bgResult"></div>
@@ -2617,7 +2616,6 @@
 
     <div class="card wide">
       <h2>BA yang Dibuat</h2>
-      <p class="desc">Terbaru di atas. Klik Unduh PDF untuk mengambil ulang.</p>
       <div class="row"><div><input type="text" id="bgQ" placeholder="Cari Nomor BA, ID BA, Site, atau Mandor..." autocomplete="off"></div></div>
       <div id="bgCount" class="hint"></div>
       <table class="hist hist-bg">
@@ -2631,7 +2629,7 @@
     </div>
   <div class="card wide" id="masukCard">
     <h2>Masuk Material</h2>
-    <p class="desc">Material masuk dari pembelian atau transfer gudang. Tanpa PDF; dihitung di SALDO GUDANG.</p>
+    <p class="desc">Dari pembelian atau transfer gudang; masuk ke SALDO GUDANG.</p>
     <div class="row">
       <div><label for="mkJenis">Jenis</label>
         <select id="mkJenis"><option value="Masuk - Pembelian">Masuk - Pembelian</option><option value="Masuk - Transfer">Masuk - Transfer</option></select></div>
@@ -2664,12 +2662,12 @@
   </div>
   <div class="card wide" id="rpCardAtp" style="display:none">
     <h2>FORM ATP</h2>
-    <p class="desc">Lihat PDF = pratinjau. Terbitkan = simpan ke Drive &amp; catat di sheet FORM ATP.</p>
+    <p class="desc">Terbitkan = simpan ke Drive &amp; sheet FORM ATP.</p>
     <div class="row">
       <div><label for="atpTglAju">Tanggal pengajuan</label><input type="date" id="atpTglAju"></div>
       <div><label for="atpTglAtp">Tanggal ATP</label><input type="date" id="atpTglAtp"></div>
     </div>
-    <label for="atpCluster">Cluster / Site <span class="opt">(ketik lalu pilih dari daftar DATA BASE)</span></label>
+    <label for="atpCluster">Cluster / Site</label>
     <input type="text" id="atpCluster" list="rpSiteList" autocomplete="off">
     <div class="row">
       <div><label for="atpRegionRpm">Region (untuk paragraf)</label><input type="text" id="atpRegionRpm" value="KALIMANTAN" autocomplete="off"></div>
@@ -2698,7 +2696,7 @@
   </div>
   <div class="card wide" id="rpCardBa">
       <h2>BA Pekerjaan</h2>
-      <p class="desc">Terbitkan BA Penyelesaian Pekerjaan untuk Mandor: PDF otomatis (kop &amp; foto), tersimpan di Drive.</p>
+      <p class="desc">PDF otomatis (kop &amp; foto), tersimpan di Drive.</p>
 
       <div class="row">
         <div><label for="rpTanggal">Tanggal BA</label><input type="date" id="rpTanggal"></div>
@@ -2713,7 +2711,7 @@
         </div>
       </div>
 
-      <label for="rpSite">Nama Site <span class="opt">(ketik lalu pilih dari daftar DATA BASE)</span></label>
+      <label for="rpSite">Nama Site</label>
       <input type="text" id="rpSite" list="rpSiteList" autocomplete="off" placeholder="Contoh: LINGKUNGAN 2 ULU MELAYU MARTAPURA TIMUR BANJARMASIN">
       <datalist id="rpSiteList"></datalist>
       <div id="rpSiteHint" class="hint"></div>
@@ -2723,7 +2721,7 @@
         <div><label for="rpMandor">Pelaksana Pekerjaan (Mandor)</label><input type="text" id="rpMandor" list="rpMandorList" autocomplete="off" placeholder="Nama mandor"><datalist id="rpMandorList"></datalist></div>
       </div>
 
-      <label for="rpJudul">Judul pekerjaan <span class="opt">(terisi otomatis dari SOW + site, boleh diubah)</span></label>
+      <label for="rpJudul">Judul pekerjaan <span class="opt">(otomatis, boleh diubah)</span></label>
       <input type="text" id="rpJudul" autocomplete="off">
 
       <div class="row">
@@ -2731,19 +2729,18 @@
         <div><label for="rpPm">Project Manager Implementasi</label><input type="text" id="rpPm" autocomplete="off"></div>
       </div>
 
-      <label for="rpFotos">Foto pekerjaan <span class="opt">(opsional, maksimal 12; otomatis diperkecil)</span></label>
+      <label for="rpFotos">Foto pekerjaan <span class="opt">(opsional, maks. 12)</span></label>
       <input type="file" id="rpFotos" accept="image/*" multiple>
       <div class="thumbs" id="rpThumbs"></div>
 
       <details>
         <summary>Tanda tangan (opsional)</summary>
-        <div class="hint">Dipangkas &amp; diseragamkan otomatis. Tinta gelap di latar putih paling jelas.</div>
-        <label for="rpSignRpmFile">Tanda tangan RPM <span class="opt">(sekali unggah, dipakai otomatis di semua PDF)</span></label>
+        <label for="rpSignRpmFile">Tanda tangan RPM</label>
         <div id="rpSignInfo" class="hint"></div>
         <input type="file" id="rpSignRpmFile" accept="image/*">
         <img id="rpSignRpmPrev" class="signprev" alt="Tanda tangan RPM">
         <div style="margin-top:6px"><button type="button" class="small" id="rpSignRpmSave">Simpan tanda tangan RPM</button> <button type="button" class="small" id="rpSignRpmDel">Hapus tanda tangan RPM</button></div>
-        <label for="rpSignMFile">Tanda tangan Mandor <span class="opt">(simpan sekali per nama Mandor, atau khusus BA ini)</span></label>
+        <label for="rpSignMFile">Tanda tangan Mandor</label>
         <div id="rpSignMInfo" class="hint"></div>
         <input type="file" id="rpSignMFile" accept="image/*">
         <img id="rpSignMPrev" class="signprev" alt="Tanda tangan Mandor">
@@ -2757,7 +2754,6 @@
 
     <div class="card wide">
       <h2>BA Pekerjaan Terbit</h2>
-      <p class="desc">100 BA terbaru. Rekap progres: sheet REKAP PROGRES.</p>
       <div class="row"><div><input type="text" id="rpQ" placeholder="Cari Site, Mandor, atau ID BA..." autocomplete="off"></div></div>
       <div id="rpCount" class="hint"></div>
       <table class="hist hist-rp">
@@ -2779,10 +2775,9 @@
 
       <div id="adminPwCard" style="max-width:420px">
         <h3 class="sub" style="margin-top:0">Ubah Password Saya</h3>
-        <p class="desc">Ganti password akun Anda sendiri. Wajib tahu password lama.</p>
         <label for="adminPwOld">Password lama</label>
         <input type="password" id="adminPwOld" autocomplete="current-password">
-        <label for="adminPwNew">Password baru <span class="opt">(minimal 4 karakter)</span></label>
+        <label for="adminPwNew">Password baru <span class="opt">(min. 4 karakter)</span></label>
         <input type="password" id="adminPwNew" autocomplete="new-password">
         <label for="adminPwNew2">Ulangi password baru</label>
         <input type="password" id="adminPwNew2" autocomplete="new-password">
@@ -2808,7 +2803,7 @@
             <div><label for="adminRole">Role</label>
               <select id="adminRole"><option value="admin">Admin</option><option value="waspang">Waspang</option><option value="rpm">RPM</option></select>
             </div>
-            <div><label for="adminArea">Area <span class="opt">(opsional, kosong = semua area)</span></label><input type="text" id="adminArea" autocomplete="off" placeholder="Contoh: Banjarmasin"></div>
+            <div><label for="adminArea">Area <span class="opt">(kosong = semua area)</span></label><input type="text" id="adminArea" autocomplete="off" placeholder="Contoh: Banjarmasin"></div>
           </div>
           <div class="row" id="adminPasswordRow">
             <div><label for="adminPassword">Password</label><input type="password" id="adminPassword" autocomplete="new-password"></div>
@@ -2838,7 +2833,7 @@
   <div id="viewLogHistory" style="display:none">
     <div class="card wide">
       <h2>Log History</h2>
-      <p class="desc">Riwayat login Gateway, aksi portal, dan edit spreadsheet. Khusus RPM.</p>
+      <p class="desc">Login Gateway, aksi portal, dan edit spreadsheet.</p>
       <div class="row">
         <div><input type="text" id="logQ" placeholder="Cari user, aksi, atau detail..." autocomplete="off"></div>
         <div>
@@ -2909,7 +2904,7 @@
     if (ba && hist) {
       var sp = document.createElement('div'); sp.className = 'rp-split split-hide-ba';
       ba.parentNode.insertBefore(sp, ba); sp.appendChild(ba);
-      var foto = card('rp-foto-card', 'Foto pekerjaan', '<span class="opt">(opsional, maksimal 12; otomatis diperkecil)</span>');
+      var foto = card('rp-foto-card', 'Foto pekerjaan', '<span class="opt">(opsional, maks. 12)</span>');
       var fl = ba.querySelector('label[for="rpFotos"]'); if (fl) fl.style.display = 'none';
       [fl, $('rpFotos'), $('rpThumbs')].forEach(function (n) { if (n) foto.appendChild(n); });
       var det = ba.querySelector('details');
@@ -3057,6 +3052,8 @@
     if (right) new MutationObserver(later).observe(right, { subtree: true, childList: true, characterData: true });
     if (mq.addEventListener) mq.addEventListener('change', apply); else if (mq.addListener) mq.addListener(apply);
     window.addEventListener('resize', later);
+    var sc = function () { document.body.classList.toggle('bmi-scrolled', window.scrollY > 8); };
+    window.addEventListener('scroll', sc, { passive: true }); sc();
     apply();
   })();
   </script>

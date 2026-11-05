@@ -1239,10 +1239,10 @@
   Hapus seluruh blok ini dan skrip 'BMI LAYOUT v1' di akhir halaman untuk kembali ke tata letak lama. -->
 <style>
   @media (min-width: 900px) {
-    header { margin: 14px 16px 0; border-radius: 22px; border-bottom: 0; top: 12px; padding: 12px 20px; }
+    header { margin: 14px 16px 0; border-radius: 22px; border-bottom: 0; top: 12px; padding: 12px 20px; box-shadow: 0 -16px 0 16px var(--bg, #FBF7EE) !important; }
     .header-container { max-width: none; }
     .container { max-width: 1680px; padding: 0 16px; margin-top: 16px; }
-    .nav-tabs { display: inline-flex; width: auto; max-width: 100%; top: calc(var(--hdr-h, 76px) + 20px) !important; }
+    .nav-tabs { display: inline-flex; width: auto; max-width: 100%; position: static !important; box-shadow: none !important; }
     .nav-tab { flex: 0 0 auto; padding: 10px 20px; }
   }
   @media (min-width: 1280px) {
@@ -1257,7 +1257,7 @@
     .wd-data { grid-column: 1; grid-row: 1; }
     .wd-act { grid-column: 1; grid-row: 2; }
     .wd-vol { grid-column: 2; grid-row: 1 / span 2; }
-    .wd-prev { grid-column: 3; grid-row: 1 / span 2; position: sticky; top: calc(var(--hdr-h, 76px) + 84px); }
+    .wd-prev { grid-column: 3; grid-row: 1 / span 2; position: sticky; top: calc(var(--hdr-h, 76px) + 30px); }
     .wd-data .input-row { gap: 10px; align-items: end; }
     .wd-data .input-row label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .wp-site .form-grid-2 { display: grid; grid-template-columns: 1fr; gap: 0; }
@@ -1272,7 +1272,7 @@
     #viewBoq.wl-grid[style*="block"] { display: grid !important; }
     .wb-up { grid-column: 1; grid-row: 1; }
     .wb-man { grid-column: 1; grid-row: 2; }
-    .wb-sum { grid-column: 2; grid-row: 1 / span 2; position: sticky; top: calc(var(--hdr-h, 76px) + 84px); }
+    .wb-sum { grid-column: 2; grid-row: 1 / span 2; position: sticky; top: calc(var(--hdr-h, 76px) + 30px); }
     /* Dokumentasi: info site kiri, progress tengah, unggah foto kanan */
     #waspangPhotoForm.wl-grid { grid-template-columns: minmax(300px, 1fr) minmax(0, 1.6fr) minmax(320px, 1fr); }
     .wp-site { grid-column: 1; } .wp-prog { grid-column: 2; } .wp-up { grid-column: 3; }
@@ -2221,7 +2221,7 @@
           <span>📊</span> Update &amp; Submit Tabel BOQ Plan via Excel (.xlsx)
         </div>
         <p style="font-size: 0.8rem; color: #475569; margin-bottom: 16px; line-height: 1.5;">
-          Unggah BOQ Excel (.xlsx) untuk memperbarui BOQ Plan semua cluster. Angka ini jadi acuan Today / Total / BOQ Plan di Daily Report.
+          Perbarui BOQ Plan semua cluster dari file Excel.
         </p>
 
         <!-- Drop & Click Zone -->
@@ -2300,9 +2300,6 @@
         <div class="section-title">
           <span>📑</span> Ringkasan BOQ Plan Terdaftar (Aktif di Sistem)
         </div>
-        <p style="font-size: 0.76rem; color: #475569; margin-bottom: 8px;">
-          Cluster dan target yang aktif sebagai acuan progres harian.
-        </p>
         <div id="boqSummaryContainer" style="overflow-x: auto;"></div>
       </div>
 
@@ -2313,8 +2310,7 @@
         </div>
         <div id="manualBoqContent" style="display: block;">
           <p style="font-size: 0.76rem; color: #475569; margin-bottom: 12px; line-height: 1.5;">
-            Pilih material dari katalog dan atur volume BOQ Plan. Item di luar daftar tidak muncul di form &amp; pesan laporan. 
-            <br><em>Material dari file BOQ yang diunggah otomatis masuk ke sini.</em>
+            Item di luar daftar tidak muncul di laporan.
           </p>
 
           <div class="form-group">
@@ -2370,9 +2366,6 @@
           <strong style="color: #1e3a8a; font-size: 0.84rem; display: flex; align-items: center; gap: 6px;">
             <span>📂</span> Folder Google Drive: DOKUMENTASI FTTH
           </strong>
-          <span style="display: block; font-size: 0.72rem; color: #3b82f6; margin-top: 2px;">
-            Semua foto dokumentasi tersusun otomatis di folder ini.
-          </span>
         </div>
         <a href="https://drive.google.com/drive/folders/1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ" target="_blank" style="background: var(--bmi-dark); color: #fff; padding: 7px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
           Buka di Google Drive ↗
@@ -2528,9 +2521,6 @@
 
           <!-- Tombol Pembuatan Struktur Folder di Google Drive -->
           <div style="margin-top: 10px; padding: 10px 12px; background: #f8fafc; border: 1.5px dashed var(--border); border-radius: 8px;">
-            <div style="font-size: 0.76rem; color: #475569; margin-bottom: 6px;">
-              📁 <strong>Siapkan Folder Google Drive</strong>: buat semua folder site (Elektrik, FAT Line A–D, Pole view, Implementasi, Opname) sekaligus.
-            </div>
             <button type="button" class="btn-primary" onclick="createSiteFoldersInDrive()" id="btnCreateDriveFolders" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #fff; padding: 10px 14px; font-size: 0.82rem;">
               📁 Buat Folder Site di Google Drive
             </button>
@@ -2552,7 +2542,6 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <p><strong>Klik untuk Pilih Foto (Bisa Banyak Sekaligus)</strong></p>
-            <span style="font-size: 0.75rem; color: #64748b;">Mendukung batch foto kamera & galeri</span>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
@@ -2590,7 +2579,7 @@
         </div>
         <div id="sowTableContent" style="display: block;">
           <p style="font-size: 0.74rem; color: #475569; margin-bottom: 8px; line-height: 1.4;">
-            Site Name &amp; SOW dari DATA BASE. Klik baris untuk mengisi otomatis di semua menu.
+            Klik baris untuk memilih site di semua menu.
           </p>
           <div style="margin-bottom: 8px;">
             <input type="text" id="sowTableSearchInp" placeholder="🔍 Cari Site Name atau SOW (contoh: Jati Baru, Astambul, Cluster, Subfeeder)..." oninput="filterSowTable()" style="padding: 8px 12px; font-size: 0.8rem;">
@@ -2619,9 +2608,6 @@
   <div class="modal-overlay" id="customItemModal">
     <div class="modal-content" style="max-width: 420px;">
       <h2 style="font-size: 0.95rem; color: var(--bmi-dark); margin-bottom: 10px;">➕ Tambah Item Pekerjaan Kustom</h2>
-      <p style="font-size: 0.75rem; color: #64748b; margin-bottom: 12px;">
-        Tambah item khusus pada BOQ cluster ini (mis. kabel/tiang tipe lain).
-      </p>
       <form onsubmit="handleAddCustomItemSubmit(event)">
         <div class="form-group">
           <label>Nama Item Pekerjaan *</label>
@@ -2674,7 +2660,7 @@
         <div style="margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px;">
           <label style="color: #dc2626; font-size: 0.8rem;">Hapus Semua Data & Mulai dari Nol</label>
           <p style="font-size: 0.72rem; color: #64748b; margin-bottom: 8px;">
-            Menghapus seluruh cache BOQ cluster yang tersimpan di browser agar Anda dapat memulai upload dan pengetesan baru. (Pengaturan tetap aman).
+            Hapus cache BOQ di browser (pengaturan tetap aman).
           </p>
           <button type="button" class="btn-secondary" onclick="resetAllAppData()" style="border-color: #fca5a5; color: #dc2626; font-weight: 700;">
             🗑️ Kosongkan Seluruh Data Lokal (Reset Total)
