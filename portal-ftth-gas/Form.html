@@ -1009,8 +1009,8 @@
   @media (min-width: 1200px) {
     .ws-split { display: grid; gap: 18px; align-items: start; margin-top: 14px; }
     .ws-split > .card { margin: 0 !important; min-width: 0; }
-    #viewBoqGen .ws-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; }
-    #viewBoqGen .ws-split > .ws-left { grid-row: 1 / span 2; }
+    #viewBoqGen .ws-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto 1fr; }
+    #viewBoqGen .ws-split > .ws-left { grid-row: 1 / span 3; }
     #viewBoqGen .ws-split > .ws-right #bqBtn { width: 100%; }
     #viewBaGen .ws-split.ws-a { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
     #viewBaGen .ws-split.ws-a > .ws-right { display: flex; flex-direction: column; }
@@ -1038,6 +1038,8 @@
   /* ---- RPM, Administration, Log History (mockup 10-13 + HP09-12) ---- */
   .rp-ico svg, .lg-ico svg { width: 15px; height: 15px; vertical-align: -2px; margin-right: 6px; }
   #viewRpm .chips button[data-p].on { background: #000; color: var(--gold); border-color: #000; }
+  #viewRpm .chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
+  #viewRpm .chips button { margin: 0 !important; padding: 7px 0 !important; min-width: 0; text-align: center; }
   .rp-card-head, .adm-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
   .rp-card-head h2, .adm-head h2 { margin: 0; }
   .rp-card-head .opt { font-size: 12px; }
@@ -1211,6 +1213,18 @@
     #baPreview > div:has(> #baSaveBtn) { flex-direction: column; }
     #baPreview > div:has(> #baSaveBtn) > button { width: 100%; min-height: 48px; }
   }
+  /* ---- Dashboard: kartu tanggal; Buat BOQ: kartu hitam ganti file contoh (mockup 03, 06) ---- */
+  @media (min-width: 701px) {
+    #viewHome .dt-card { background: #fff !important; border: 1px solid #ECE4D3 !important; border-radius: 16px !important; padding: 10px 16px !important; text-align: left !important; }
+    #viewHome .dt-card svg { display: block !important; stroke: var(--gold-dark); }
+  }
+  .bq-tpl-card.card { background: #000; border-color: #000; color: #fff; }
+  .bq-tpl-card h2 { color: #fff; font-size: 17px; margin: 0 0 6px; }
+  .bq-tpl-card #bqTplUp > summary { display: none; }
+  .bq-tpl-card #bqTplUp .hint { color: #a9a395 !important; }
+  .bq-tpl-card #bqTplFile { background: #141412 !important; border-color: #34322c !important; color: #E9E3D4; }
+  .bq-tpl-card #bqTplBtn { background: var(--gold) !important; color: #111 !important; border: 0 !important; border-radius: 999px !important; padding: 10px 20px !important; font-weight: 650; margin-top: 10px; }
+  .bq-tpl-card:has(#bqTplUp[style*="display: none"]), .bq-tpl-card:has(#bqTplUp[style*="display:none"]) { display: none !important; }
   /* ---- Kerangka (layar lebar): logo di sidebar mengambang, tanpa bar hitam atas; lonceng + user di kanan atas ---- */
   #bmiPageHead { display: none; }
   .sb-brand { display: none; }
@@ -2953,6 +2967,11 @@
   })();
   </script>
   <script>
+  /* BMI LAYOUT v1 - Buat BOQ: ganti file contoh (khusus RPM) jadi kartu hitam di kolom kanan */
+  (function () { var d = document.getElementById('bqTplUp'), h = document.getElementById('bqHistory'); if (!d || !h) return;
+    var hc = h.closest('.card'); var c = document.createElement('div'); c.className = 'card wide bq-tpl-card';
+    c.innerHTML = '<h2>Ganti file contoh BOQ untuk SOW ini (khusus RPM)</h2>'; hc.parentNode.insertBefore(c, hc); c.appendChild(d); d.open = true;
+    var sm = d.querySelector('summary'); if (sm) sm.setAttribute('aria-hidden', 'true'); })();
   /* BMI HP v1 - kepala menu berlogo, kepala menu akun, keterangan ikon, tombol Kamera BA. Logika tidak berubah. */
   (function () {
     var $ = function (id) { return document.getElementById(id); };

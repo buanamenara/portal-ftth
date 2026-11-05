@@ -1315,6 +1315,14 @@
   #dailyConfirmModal > div > div:nth-child(2) { padding: 10px 22px 16px !important; }
   #dailyConfirmModal > div > div:last-child { background: #fff !important; padding: 4px 22px 22px !important; }
   #btnConfirmSendDaily { background: var(--gold) !important; color: #111 !important; border-radius: 999px !important; padding: 11px 22px !important; }
+  .wl-legend { display: none !important; }
+  [id^="badge_status_"] > span { background: none !important; padding: 0 !important; color: #3b3a35 !important; font-size: 12px !important; font-weight: 650 !important; gap: 6px !important; }
+  [id^="badge_status_"] > span::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #BDB4A0; display: inline-block; margin-right: 2px; }
+  [id^="badge_status_"].st-prog > span::before { background: var(--gold); }
+  [id^="badge_status_"].st-done > span::before { background: #111; }
+  [id^="badge_status_"].st-todo > span { color: #9a958a !important; }
+  .btn-done-toggle { background: transparent !important; border: 0 !important; color: #7A776E !important; font-size: 11.5px !important; font-weight: 600 !important; padding: 2px 4px !important; }
+  .btn-done-toggle.is-done { color: #111 !important; }
   .input-row.wl-row1 { grid-template-columns: 1fr; }
   .wl-drive { background: #000 !important; border: 0 !important; border-radius: 20px !important; padding: 14px 20px !important; margin-bottom: 18px !important; }
   .wl-drive strong { color: #fff !important; }
@@ -2061,7 +2069,7 @@
         <!-- Tabel Khusus Memasukkan Volume Hari Ini (Today) -->
         <div class="card">
           <div class="section-title">
-            <span>📈</span> Input Volume Harian (*ACHIEVMENT TODAY/TOTAL/BOQ PLAN*)
+            <span>📈</span> Input Volume Harian (Today / Total / BOQ Plan)
           </div>
           <p style="font-size: 0.75rem; color: #475569; margin-bottom: 8px;">
             Isi kolom <b>Today</b>; <b>Total</b> terakumulasi otomatis terhadap <b>BOQ Plan</b>.
@@ -2103,7 +2111,7 @@
           </table></div>
 
           <!-- LEGENDA STATUS 3-TIER (SESUAI GAMBAR USER) -->
-          <div style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 10px; padding: 9px 12px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; flex-wrap: wrap;">
+          <div class="wl-legend" style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 10px; padding: 9px 12px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; flex-wrap: wrap;">
             <div style="display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #64748b;">
               <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAIaUlEQVR4nMVZ+U9TSxT+Zu5aCRoii0TSgIKgAokk4sYSoyb+u/qrCUo0BBvaQoAImrhvQU0V2tu7z/vBd8bh9t4u4Ms7SRNa7p053znfnG2YEELgL0i7yzDGWq7R7Jmk6G0/mSJhGEIIgTiO5UcIkQqGcw7OOTRNg67r4Jw3PNOJ4iQdA1CV9TxPKpz8ZCnHOYeu69A0DYZhQNO0IysPAKwTCoVhiCAIEIYhwjBsUI4kCwB5izEGxhgMw4BhGNIz9PtfAyCEAGMMvu9La8dxjCiKEMcxdP1YDJTAOOcwTROWZYExhjiOUymWJk01EEJIq6v8PoqlWu1BQHRd/3uHOIoiuK6LKIoaFv2bAIA/AUHTNNi2Lc9GK2kAoC7o+75cOOnSdl3crpAnoiiCpmkQQrRF0dQzQJxXD2qSOkdJH3SQk78lgTDG5Jlo5YlDZhRCwPO8Q5anTcjiFIGOQqEgCMA5l+tlrRFFEYIgaDBimuiEmF50HKfB2hT6CAxjDJqmIYqitj2hGiMIAui6fmhdVTjniOMYruv+VrIJlbhKCTVGJzePoggAoGkaOOeHPNQugFwuJw+qaZot6UEhNY7jbAD0RxzHCIIgVSlN06BpmqTPUfhvGAbCMITneWCMwXEc+XeWkOGy9AKUKBTHcVO+qYdL1/WOzwIpQtkX+G2YIAiarhFFEXzflzVUUqQHiEJZSCn1a5oGx3Hw6dOn1PCaJUIIGVn29vbw5cuXtsCr4TVNOKGs1+upCUtVkv734sULPHjwAI8ePUKlUoFpmtLdZADakMoCiut7e3t4/PgxHj58iPX1dblHWnimaCWEkJExKTptknVQKGpEUQRd11GtVvH161d8/PgRe3t7AICZmRmcPXsWcRxLd2uaJtcUQsC2bbx79w7lchnb29tgjMF1XXDOJXAVSFKHLB0PAUijgxBCcrZer+PkyZOYmppCpVLB7u4uNjc3EUURDMPAwMAAGGMIwxC6riOKIllpVioVlEolbGxsAAAmJyeRz+c7KtzSAHAALZMF0YhK3nw+jzt37uDChQuo1WooFosoFArY39+HbduSBvT8r1+/8OTJE5TLZQDA9PQ05ufnMTQ01DaArF5DV8tjsnSSh2EYSlrs7+/DNE309PRgbm4OmqZha2sL5XIZnHNcvXoVp0+flu98+/YNy8vL2N3dRRiGmJ2dxbVr19DT0yOfURUkzqcBoCCj0kxSqFlEIEsGQSDDmed5GB0dhWVZME0TxWIRq6ur8H0fc3Nz6O/vx+fPn1EoFLC1tQXGGGZmZjA7O4vBwUH4vg/f92EYRtu9cBownZCrlkh7UX3G931wzlGr1XDmzBncunULruvi5cuXKBQK0DQNV65cQalUwvPnz2FZFiYmJjA/P4/e3l64rttw0FsVieSBBgBNIWeIWjvFcYzBwUFcv34djDFsb29jc3MTb9++RaVSgW3bOHfuHG7fvo2+vj4ZqimytJsIs3rtI/eEjDHouo5arYZcLofz58+jq6sLjDHs7OygXq+Dc47p6Wncv38flmXJcHycXqLhEB9nIcuyZONDnRR9VHcT9ahZocAAdN7ZJZ8/Vlvlui5s20Yul8P379+xvLyMYrGIOI5hmibq9To2NjawtLQkS2PGmKRRJ0OBrB6C00QgK9OpOSBZ+1CJXK1W8fTpU6yvryMMQwwPD+Pu3bsYGxuDEAJra2tYWlqC4zgy6rTb8yqKwjCMBgA6IcviJR02cj/9RsXd+/fvUSgUsL6+Dt/3MT4+joWFBQwPD+PEiRMAgDdv3qBcLsO2bczMzKCvrw+u6yIIAliW1VZ5njUJ0YE/cb5ZCKMEo7aFBwcHKJVKWFtbQxiGmJqawvz8PPL5PIIgwPj4ODRNg+d5eP36NYrFIgBgdnYW3d3dcu1WorIgKRxAUw+oFgB+t3emacJ1XTx79gzlchlBEGBychILCwsYGRmB67qo1WqI4xj5fB737t3DxMQEfv78iUKhIMsO6tDakSwddVKOqsJmAKgX3t/fx8rKCjY2NlCr1XDx4kUsLi5iYGAAjuMAALq6uhBFEaIowsjICBhj8DwPHz58QLFYBOccN27cgGVZTVtG4I+X0gAc8kCycVfR0++O46BUKmFlZQXVahWXLl3C3NwchoaGAPwuSyjD0jqu62J0dBSLi4vI5/M4ODjA6uoqtre3ZcOSHA6rmVnXdVmnZXrAMAxEUSQXU7Ml9cNEnziO0d3djd7eXty8eRMjIyOyv6X/q1YTQqBWq+Hy5cvyrP348UPupzYuKqXou2maME0znRk02KID6jhOQ32iTpYty0K1WsWrV6/Q39+P/v5+ST8KtWm8JgN0dXVhZ2cHjuNgbGxM5gP1PTIchdtcLtcaALmfDp+6AFmJGv9Tp05J63HOZXFHhkjjai6Xw8HBAQzDgGVZ8h0qqamuUr3BGINlWbAsKzvMJwHQ9IAm0pQ5aZZTr9elR4ifRDMqEdL6as/z0N3dDdd1ZexXywnVYLQvZflm5QYnapDydGAIMTU6jDHUajUAOHRNpI4cm/W0pDTd7Pi+nzrtU6Mh7ZtVSjd4QPWE67oIw1BaQ12E3Nwq/B2y1L/PE0iV78npIDVJWbxXJbWa4pzDtu1DVFKte5QLjrTAoEY6lf80PFMly7uZ5SAtRKUAuZUsd5TxYhYw6hFo8JUV89OkrUs+ui9oNWg9qtAZsW278/6gHQDAn+EvdVWdAlF5r45dDMOQCfIo0tYtpfqdlBdCwHXdQwkoWbMkywP1spsu9EzTTLV6u5OKpi1R8uW0LoqUU0MxDauSyY3CL110d7J35nPtUqiVEKUoW1NxSJ9mV0rHkb8G4P+S41+1Z0iS+/+F9YFjTiWaCUWd/1J5APgHk4dSGIuB02gAAAAASUVORK5CYII=" style="width: 18px; height: 18px; vertical-align: middle; border-radius: 50%;">
               <span><strong>Belum Progress</strong> (0)</span>
@@ -2122,7 +2130,7 @@
         <!-- Today Activity -->
         <div class="card">
           <div class="section-title">
-            <span>📝</span> Aktivitas Hari Ini (*TODAY ACTIVITY*)
+            <span>📝</span> Aktivitas Hari Ini
           </div>
           <div class="form-group">
             <label for="dailyTodayActivity">Poin Pekerjaan Hari Ini (Gunakan baris baru)</label>
@@ -7388,7 +7396,7 @@ ${todayActivity}`;
   if (tb && wrap) { var ch = document.createElement('div'); ch.className = 'wl-chips'; wrap.parentNode.insertBefore(ch, wrap);
     var KEYS = [['TODO', 'Belum Progress'], ['PROG', 'Progress (0 s/d < Plan)'], ['DONE', 'Selesai (≥ Plan)']], cur = '';
     ch.innerHTML = KEYS.map(function (k) { return '<button type="button" data-k="' + k[0] + '"></button>'; }).join('');
-    var stOf = function (tr) { var b = tr.querySelector('[id^="badge_status_"]'); if (!b) return null; var t = b.textContent; return /Selesai/.test(t) ? 'DONE' : (/Progress/.test(t) ? 'PROG' : 'TODO'); };
+    var stOf = function (tr) { var b = tr.querySelector('[id^="badge_status_"]'); if (!b) return null; var t = b.textContent; return /Belum/.test(t) ? 'TODO' : (/Selesai/.test(t) ? 'DONE' : (/Progress/.test(t) ? 'PROG' : 'TODO')); };
     var busy = false;
     var apply = function () { if (busy) return; busy = true; var n = { TODO: 0, PROG: 0, DONE: 0 }, hdr = null, hdrShown = false;
       Array.prototype.forEach.call(tb.rows, function (tr) { if (tr.classList.contains('header-row')) { if (hdr) hdr.style.display = hdrShown ? '' : 'none'; hdr = tr; hdrShown = false; return; }
@@ -7398,6 +7406,17 @@ ${todayActivity}`;
       busy = false; };
     ch.addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; var k = b.getAttribute('data-k'); cur = cur === k ? '' : k; apply(); });
     new MutationObserver(function () { setTimeout(apply, 0); }).observe(tb, { childList: true, subtree: true, characterData: true }); apply(); }
+  // Status: titik + teks; tombol & lencana tanpa emoji (seperti mockup)
+  function deemoji(root) { Array.prototype.forEach.call(root.querySelectorAll('button, .btn-primary, .btn-secondary, .btn-header, [id^="badge_status_"] > span, #dailyFilterStatusBadge, label, strong'), function (el) {
+      if (el.closest('.wl-chips, .wl-seg, .wl-cat, #dailyPreviewBox, .report-preview-card, #modalSummaryItemsList, textarea')) return; var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), t;
+      while ((t = w.nextNode())) { var v = t.nodeValue.replace(/[\u2600-\u27BF\uFE0F\u200D\u2B50\u2B06\u2B07\u21A9\u21AA]|[\uD83C-\uDBFF][\uDC00-\uDFFF]/g, ''); if (v !== t.nodeValue) t.nodeValue = v.replace(/^\s+/, ''); } }); }
+  function stat(root) { Array.prototype.forEach.call(root.querySelectorAll('[id^="badge_status_"]'), function (b) { var t = b.textContent;
+      var todo = /Belum/.test(t) || !/Selesai|Progress/.test(t); b.classList.toggle('st-todo', todo); b.classList.toggle('st-done', !todo && /Selesai/.test(t)); b.classList.toggle('st-prog', !todo && !/Selesai/.test(t) && /Progress/.test(t));
+      var sp = b.firstElementChild; if (sp && /^\s*0\s*$/.test(sp.textContent)) sp.textContent = 'Belum Progress'; });
+    Array.prototype.forEach.call(root.querySelectorAll('.btn-done-toggle'), function (x) { var d = /^\s*✅/.test(x.textContent) || /dcfce7/.test(x.getAttribute('style') || ''); x.classList.toggle('is-done', d); }); }
+  ['viewDaily', 'viewBoq', 'viewPhoto'].forEach(function (id) { var v = document.getElementById(id); if (!v) return; deemoji(v);
+    var busy = false; new MutationObserver(function () { if (busy) return; busy = true; setTimeout(function () { stat(v); deemoji(v); busy = false; }, 0); }).observe(v, { childList: true, subtree: true, characterData: true }); stat(v); });
+  deemoji(document.querySelector('header') || document.body);
   // BOQ Plan: preview hasil Excel di kartu putih tersendiri
   var pv = document.getElementById('boqParsedPreviewBox'), wbUp = document.querySelector('.wb-up');
   if (pv && wbUp) { var c = document.createElement('div'); c.className = 'card wb-prev'; wbUp.parentNode.insertBefore(c, wbUp.nextSibling); c.appendChild(pv); }
