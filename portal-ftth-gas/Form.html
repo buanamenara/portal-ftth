@@ -868,7 +868,10 @@
   #viewHome .area-panel .area-bar { position: relative; width: 100% !important; height: var(--v, 0%); min-height: 3px; border-radius: 8px 8px 3px 3px; }
   #viewHome .area-panel .area-pct { top: auto; bottom: 100%; left: 50%; right: auto; width: auto; transform: translateX(-50%); margin: 0 0 4px; font-size: 11px; }
 
-  @media (max-width: 1200px) {
+  /* Site Terbaru: hanya nama site yang boleh turun baris (nama panjang tanpa spasi tidak melebarkan tabel) */
+  #viewHome .site-panel .site-table td:first-child { overflow-wrap: anywhere; }
+  #viewHome .site-panel .site-table td:not(:first-child) { white-space: nowrap; }
+  @media (max-width: 1499px) {
     #viewHome .dash-row-b { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     #viewHome .dash-row-b .site-panel { grid-column: 1 / -1; order: -1; }
   }
