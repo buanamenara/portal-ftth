@@ -1171,6 +1171,68 @@
       if (typeof wsInit !== 'function') showPageError('Kode utama halaman tidak termuat', '');
     }, 1500));
   </script>
+<!-- ===================== BMI POLISH v4 (gaya mockup Canva v4: classy, simple, modern) =====================
+  Hanya tampilan: huruf, warna, garis, sudut, tombol, tabel. Tata letak & logika tidak berubah.
+  Hapus seluruh blok ini (sampai 'akhir BMI POLISH') untuk kembali ke tampilan lama. -->
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" media="print" onload="this.media='all'">
+<style>
+  :root { --bmi-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; }
+  * { font-family: var(--bmi-font); }
+  .report-preview-card, .report-preview-card * { font-family: 'Consolas', 'Courier New', monospace; }
+  body { font-optical-sizing: auto; letter-spacing: -.003em; color: #191917; -webkit-font-smoothing: antialiased; }
+  header { border-bottom-width: 3px; }
+  .header-title h1 { font-weight: 600; }
+  header .btn-header { border-radius: 999px; }
+
+  /* Tab menu (layar lebar): kapsul hitam, aktif emas. Di HP tetap menu bawah. */
+  @media (min-width: 681px) {
+    .nav-tabs { border-radius: 999px; padding: 4px; }
+    .nav-tab { border-radius: 999px; font-weight: 600; }
+    .nav-tab.active { color: #111; }
+  }
+
+  /* Kartu */
+  .card { border: 1px solid #ECE4D3; border-top: 1px solid #ECE4D3; border-radius: 20px; box-shadow: none; }
+  .card:hover { box-shadow: none; }
+  .section-title { font-weight: 650; letter-spacing: -.015em; border-bottom-color: #F1EBDF; }
+  .modal-content { border-radius: 20px; border-top-width: 3px; }
+  #guideSheet { border-radius: 20px; border-top-width: 3px; }
+
+  /* Isian */
+  .form-group label { font-weight: 600; color: #4a4842; }
+  .form-group input, .form-group select, .form-group textarea { background-color: #FBF9F4; border: 1px solid #E6DECD; border-radius: 12px; }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,151,44,.18); background-color: #fff; outline: none; }
+  .daily-box, .daily-box-unit, .daily-box-input, .daily-box-total, .daily-box-plan { border-radius: 10px; }
+
+  /* Tombol */
+  .btn-primary { border-radius: 999px; color: #111; font-weight: 650; letter-spacing: .005em; }
+  .btn-primary:disabled { background: #DDD5C5; color: #8a857a; }
+  .btn-secondary { border-radius: 999px; border-color: #DCCBA3; font-weight: 600; }
+  .chip-btn, .pill-btn { border-radius: 999px; border-color: #DCCBA3; font-weight: 600; }
+  .chip-btn.active, .pill-btn.active { background: #161512; border-color: #161512; color: var(--gold); }
+
+  /* Tabel */
+  .achieve-table { border: 1px solid #ECE4D3; border-radius: 14px; overflow: hidden; }
+  .achieve-table th { background: transparent; color: #8E8A80; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; border-bottom: 1px solid #ECE4D3; }
+  .achieve-table td { border-top: 0; border-bottom: 1px solid #F1EBDF; }
+  .achieve-table th[style*="background"] { color: #111; }
+
+  /* Area unggah */
+  .boq-drop-zone, .upload-zone { border-radius: 16px; background: #FFFDF8; }
+  .boq-drop-icon { background: #F6F1E6; }
+
+  /* Kotak status yang warnanya diatur dari kode (biru / hijau / kuning / merah) -> palet krem portal */
+  [style*="background: rgb(239, 246, 255)"], [style*="background: #eff6ff"], [style*="background:#eff6ff"] {
+    background: #F4EFE4 !important; border-color: #E6DECD !important; color: #191917 !important; border-radius: 14px !important; }
+  [style*="background: rgb(220, 252, 231)"], [style*="background: #dcfce7"], [style*="background:#dcfce7"], [style*="background: #f0fdf4"] {
+    background: #EEF4EE !important; border-color: #D5E5D7 !important; color: #1E5631 !important; border-radius: 14px !important; }
+  [style*="background: rgb(254, 243, 199)"], [style*="background: rgb(254, 252, 232)"], [style*="background: #fef3c7"], [style*="background: #fffbeb"] {
+    background: #FBF3DF !important; border-color: #EBD9A8 !important; color: #7A5A00 !important; border-radius: 14px !important; }
+  [style*="background: rgb(254, 242, 242)"], [style*="background: #fef2f2"], [style*="background:#fef2f2"] {
+    background: #FBEDE8 !important; border-color: #F0CFC4 !important; color: #A2442F !important; border-radius: 14px !important; }
+</style>
+<!-- ===================== akhir BMI POLISH ===================== -->
 </head>
 <body>
 <script>window.BMI_TITLE = 'PORTAL WASPANG';</script>

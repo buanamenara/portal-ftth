@@ -713,6 +713,106 @@
       #viewHome .site-table td:first-child { white-space: normal; }
     }
   </style>
+<!-- ===================== BMI POLISH v4 (gaya mockup Canva v4: classy, simple, modern) =====================
+  Hanya tampilan: huruf, warna, garis, sudut, tombol, tabel. Tata letak & logika tidak berubah.
+  Hapus seluruh blok ini (sampai 'akhir BMI POLISH') untuk kembali ke tampilan lama. -->
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" media="print" onload="this.media='all'">
+<style>
+  /* Huruf & warna dasar */
+  :root { --bmi-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; --pl-ink: #191917; --pl-mut: #7A776E;
+    --pl-line: #ECE4D3; --pl-line2: #F1EBDF; --pl-in: #FBF9F4; --pl-in-line: #E6DECD; }
+  body { font-family: var(--bmi-font); font-optical-sizing: auto; letter-spacing: -.003em; color: var(--pl-ink); -webkit-font-smoothing: antialiased; }
+  button, input, select, textarea { font-family: inherit; }
+  h1, h2, h3, .hero h1 { font-family: var(--bmi-font); font-weight: 650; letter-spacing: -.025em; }
+  h2 { font-size: 21px; }
+  .desc, .hero p, .dash-sub { color: var(--pl-mut); }
+  .tt-main { font-weight: 600; }
+  .topbar { border-bottom-width: 3px; }
+
+  /* Menu samping: aktif = hitam + garis emas */
+  .nav-title { font-weight: 550; }
+  .nav-item.active { background: #1A1916; box-shadow: inset 3px 0 0 var(--gold); }
+  .nav-item.active svg { stroke: var(--gold); }
+  .nav-item.active .nav-title { color: #fff; }
+  .nav-item.active .nav-sub { color: #8b877c; }
+  .mtab-item.active { color: var(--pl-ink); }
+  .mtab-item.active svg { stroke: var(--gold-dark); }
+
+  /* Kartu: garis tipis, sudut lembut, tanpa bayangan */
+  .card { border: 1px solid var(--pl-line); border-top: 1px solid var(--pl-line); border-radius: 20px; box-shadow: none; }
+  .dash-panel, .kpi-card, .dt-card { border-color: var(--pl-line); box-shadow: none; }
+  .dash-panel { border-radius: 16px; }
+  .menu-card { border: 1px solid var(--pl-line); border-radius: 18px; box-shadow: none; }
+  .menu-card:hover { box-shadow: none; border-color: #DCCBA3; }
+  #guideSheet { border-radius: 20px; border-top-width: 3px; }
+
+  /* Isian */
+  label { font-size: 13px; font-weight: 600; color: #4a4842; }
+  input[type=text], input[type=password], input[type=date], input[type=number], input[type=search], input[type=email], input[type=tel], input[type=time], select, textarea {
+    background-color: var(--pl-in); border: 1px solid var(--pl-in-line); border-radius: 12px; }
+  input[type=file] { background-color: var(--pl-in); border-color: var(--pl-in-line); border-radius: 12px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,151,44,.18); background-color: #fff; }
+
+  /* Tombol: kapsul emas, teks gelap */
+  button.primary, a.primary, #saranSubmit { border-radius: 999px; color: #111; font-weight: 650; letter-spacing: .005em; }
+  button.primary:disabled { background: #DDD5C5; color: #8a857a; }
+  button.ghost { border-radius: 999px; border-color: #DCCBA3; font-weight: 600; }
+  button.small { border-radius: 999px; border-color: #DCCBA3; padding-left: 12px; padding-right: 12px; }
+  .chips button { border-color: #DCCBA3; font-weight: 600; }
+  .chips button:hover { background: #161512; border-color: #161512; color: var(--gold); }
+  .pager .pages button.on { color: #111; }
+
+  /* Tab segmen (Submit/Buat BOQ, BA Transaksi, BA Pekerjaan/FORM ATP): hitam, aktif emas */
+  .rpTabs { background: #000; padding: 4px; }
+  .rpTab { color: #E9E3D4; }
+  .rpTab:hover { background: rgba(255,255,255,.08); }
+  .rpTab.is-active { background: var(--gold); color: #111; box-shadow: none; }
+
+  /* Tabel: baris bergaris tipis, tanpa kotak */
+  td, th { border: 0; border-bottom: 1px solid var(--pl-line2); padding: 9px 10px; }
+  th { background: transparent; color: #8E8A80; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; border-bottom: 1px solid var(--pl-line); }
+  tbody tr:last-child td { border-bottom: 0; }
+
+  /* Status: titik + teks (layar lebar; di HP tabel Project Dashboard tetap ikon bulat) */
+  @media (min-width: 641px) {
+    .badge { background: transparent !important; padding: 0; border-radius: 0; font-weight: 600; color: #2b2a26; display: inline-flex; align-items: center; gap: 6px; }
+    .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #C9C2B2; flex: none; }
+    .badge.done, .badge.progress { color: #2b2a26; }
+    .badge.done::before { background: #191917; }
+    .badge.progress::before { background: var(--gold); }
+    .badge.pending { color: #8E8A80; }
+    .badge.drop { color: #A2442F; }
+    .badge.drop::before { background: #A2442F; }
+  }
+
+  /* Kotak pesan */
+  .status { border-radius: 14px; padding: 13px 15px; }
+  .status.info { background: #F4EFE4; color: var(--pl-ink); }
+  .status.success { background: #EEF4EE; color: #1E5631; }
+  .status.error { background: #FBEDE8; color: #A2442F; }
+  .warn { border-radius: 14px; background: #FBF3DF; }
+
+  /* Grafik & KPI monokrom: hitam · emas · abu hangat */
+  .kpi-green, .fill-green, .bar-green, .dot-permit { background: #191917; }
+  .kpi-amber, .fill-amber, .bar-amber, .dot-instalasi { background: var(--gold); }
+  .kpi-purple, .fill-purple, .bar-purple, .dot-baclosing { background: #BDB4A0; }
+  .kpi-value { letter-spacing: -.03em; }
+
+  /* Dashboard */
+  body.on-home { background: var(--bg); }
+  #viewHome { --h-c1: #191917; --h-c2: #C9972C; --h-c3: #BDB4A0; --h-acc: #C9972C; --h-bd: #ECE4D3; }
+  #viewHome .kpi-grid { border-radius: 16px; }
+  #viewHome .dash-panel { border-radius: 16px; }
+  #viewHome .dash-hello { font-weight: 650; letter-spacing: -.03em; }
+  #viewHome .kpi-value { font-weight: 650; letter-spacing: -.035em; }
+  #viewHome .kpi-label { font-weight: 500; }
+  #viewHome .alert-n { font-weight: 650; }
+  #viewHome .alert-item { border-radius: 12px; }
+  #viewHome .alert-danger { background: #FAF3EE; }
+  #viewHome .alert-warning { background: #F7F2E6; }
+</style>
+<!-- ===================== akhir BMI POLISH ===================== -->
 </head>
 <body>
 <!-- =====================================================================
