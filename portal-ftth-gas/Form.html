@@ -1021,8 +1021,9 @@
     body.bmi-shell .sb-brand .tt-main { color: #fff; font-size: 13.5px; font-weight: 650; }
     body.bmi-shell .sb-brand .tt-sub { color: #8b877c; font-size: 11px; line-height: 1.4; margin-top: 3px; }
     body.bmi-shell.sidebar-collapsed .sb-brand { padding: 18px 0 12px; margin: 0 10px 10px; text-align: center; }
-    body.bmi-shell.sidebar-collapsed .sb-brand #logo { height: 30px; object-fit: cover; object-position: left center; width: 34px; }
-    body.bmi-shell.sidebar-collapsed .sb-brand #logoFallback { font-size: 12px; }
+    .sb-brand .sb-mini { display: none; }
+    body.bmi-shell.sidebar-collapsed .sb-brand #logo, body.bmi-shell.sidebar-collapsed .sb-brand #logoFallback { display: none !important; }
+    body.bmi-shell.sidebar-collapsed .sb-brand .sb-mini { display: block; width: 52px; height: 52px; margin: 0 auto; cursor: pointer; }
     body.bmi-shell.sidebar-collapsed .sb-brand .topbar-title { display: none; }
     body.bmi-shell #mainContent { padding: 18px 24px 28px 22px; }
     body.bmi-shell #bmiPageHead { display: block; min-height: 58px; padding: 2px calc(var(--bmi-tr, 340px) + 8px) 0 2px; margin-bottom: 18px; }
@@ -2609,6 +2610,9 @@
         div = bar.querySelector('.topbar-divider'), right = bar.querySelector('.topbar-right');
     var mq = window.matchMedia('(min-width: 861px)');
     var brand = document.createElement('div'); brand.className = 'sb-brand'; sb.insertBefore(brand, sb.firstChild);
+    // Sidebar diperkecil: tampil ikon menara saja (klik = sama seperti klik logo).
+    var mini = document.createElement('img'); mini.className = 'sb-mini'; mini.alt = 'BMI'; mini.src = 'https://buanamenara.github.io/portal-ftth/icon-192.png';
+    mini.addEventListener('click', function () { if (logo) logo.click(); }); brand.appendChild(mini);
     var head = document.createElement('div'); head.id = 'bmiPageHead'; head.innerHTML = '<h1></h1><p></p>'; main.insertBefore(head, main.firstChild);
     var SUB = { viewWh: 'Buat BA baru atau simpan BA yang sudah ditandatangani.', viewBa: 'Buat BA baru atau simpan BA yang sudah ditandatangani.',
       viewBaGen: 'Buat BA baru atau simpan BA yang sudah ditandatangani.', viewAdministration: 'Kelola user, password, dan hak akses portal.' };
