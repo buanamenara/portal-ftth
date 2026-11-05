@@ -997,6 +997,41 @@
     #viewBoq #boqPreview[style*="block"] { display: flex !important; flex-direction: column; flex: 1; }
     #viewBoq .boq-foot { margin-top: auto; padding-top: 18px; }
   }
+  /* ---- Kerangka (layar lebar): logo di sidebar mengambang, tanpa bar hitam atas; lonceng + user di kanan atas ---- */
+  #bmiPageHead { display: none; }
+  .sb-brand { display: none; }
+  @media (min-width: 861px) {
+    body.bmi-shell .topbar.with-dash { position: fixed; top: 14px; right: 22px; left: auto; z-index: 160; background: transparent; border: 0; padding: 0; }
+    body.bmi-shell .topbar.with-dash .topbar-divider { display: none; }
+    body.bmi-shell .topbar-right { gap: 10px; }
+    body.bmi-shell .topbar-right .bell-btn, body.bmi-shell .topbar-right .sidebar-collapse-btn2 { width: 44px; height: 44px; justify-content: center; border-radius: 50%; background: #fff; border: 1px solid #ECE4D3; color: #3b3a35; padding: 0; }
+    body.bmi-shell .topbar-right .bell-btn:hover, body.bmi-shell .topbar-right .sidebar-collapse-btn2:hover { border-color: var(--gold); }
+    body.bmi-shell.sidebar-collapsed .sidebar-collapse-btn2 svg rect { fill: rgba(201,151,44,.18); }
+    body.bmi-shell .user-block { background: #000; border-radius: 999px; padding: 6px 14px 6px 6px; gap: 10px; color: #fff; }
+    body.bmi-shell .user-block .user-avatar { width: 36px; height: 36px; font-size: 14px; }
+    body.bmi-shell .user-block .chevron { color: #8b877c; }
+    body.bmi-shell #sidebar { position: sticky; top: 16px; margin: 16px 0 16px 16px; height: calc(100vh - 32px); border-radius: 24px; width: 248px; padding-top: 0; }
+    body.bmi-shell.sidebar-collapsed #sidebar { width: 76px; }
+    body.bmi-shell .sb-brand { display: block; padding: 26px 22px 16px; margin: 0 12px 10px; border-bottom: 1px solid rgba(255,255,255,.12); }
+    body.bmi-shell .sb-brand #logo { height: 62px; max-width: 100%; cursor: pointer; }
+    body.bmi-shell .sb-brand #logoFallback { color: var(--gold); font-weight: 750; font-size: 20px; line-height: 1.15; cursor: pointer; }
+    body.bmi-shell .sb-brand .topbar-title { display: block; margin-top: 14px; }
+    body.bmi-shell .sb-brand .tt-main { color: #fff; font-size: 13.5px; font-weight: 650; }
+    body.bmi-shell .sb-brand .tt-sub { color: #8b877c; font-size: 11px; line-height: 1.4; margin-top: 3px; }
+    body.bmi-shell.sidebar-collapsed .sb-brand { padding: 18px 0 12px; margin: 0 10px 10px; text-align: center; }
+    body.bmi-shell.sidebar-collapsed .sb-brand #logo { height: 30px; object-fit: cover; object-position: left center; width: 34px; }
+    body.bmi-shell.sidebar-collapsed .sb-brand #logoFallback { font-size: 12px; }
+    body.bmi-shell.sidebar-collapsed .sb-brand .topbar-title { display: none; }
+    body.bmi-shell #mainContent { padding: 18px 24px 28px 22px; }
+    body.bmi-shell #bmiPageHead { display: block; min-height: 58px; padding: 2px calc(var(--bmi-tr, 340px) + 8px) 0 2px; margin-bottom: 18px; }
+    body.bmi-shell #bmiPageHead.off { display: none; }
+    #bmiPageHead h1 { margin: 0; font-size: 34px; line-height: 1.12; font-weight: 750; letter-spacing: -.035em; color: #191917; }
+    #bmiPageHead p { margin: 4px 0 0; font-size: 14px; color: #7A776E; }
+    body.bmi-shell #viewHome .dash-head { padding-right: calc(var(--bmi-tr, 340px) + 8px); min-height: 58px; }
+    body.bmi-shell #viewHome .dash-hello { font-size: 32px; font-weight: 750; letter-spacing: -.035em; line-height: 1.12; }
+    body.bmi-shell #viewCheckpoint .cp-page > h2, body.bmi-shell #viewCheckpoint .cp-page > h2 + .desc { display: none; }
+    body.bmi-shell #mainContent > [id^="view"] { margin-top: 0; }
+  }
 </style>
 <!-- ===================== akhir BMI LAYOUT ===================== -->
 </head>
@@ -2562,6 +2597,46 @@
   </div>
 
   <script async src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" onload="if (window.renderMap_ && window.__areaAgg) renderMap_();"></script>
+  <script>
+  /* BMI LAYOUT v1 - kerangka layar lebar: logo & judul portal pindah ke sidebar, judul halaman di atas konten.
+     Elemen ber-id hanya dipindah (tidak dibuat ulang); di HP / sebelum masuk portal semuanya kembali ke bar atas. */
+  (function () {
+    var bar = document.querySelector('.topbar'), sb = document.getElementById('sidebar'), main = document.getElementById('mainContent');
+    if (!bar || !sb || !main || !window.matchMedia) return;
+    var logo = document.getElementById('logo'), fb = document.getElementById('logoFallback'), title = bar.querySelector('.topbar-title'),
+        div = bar.querySelector('.topbar-divider'), right = bar.querySelector('.topbar-right');
+    var mq = window.matchMedia('(min-width: 861px)');
+    var brand = document.createElement('div'); brand.className = 'sb-brand'; sb.insertBefore(brand, sb.firstChild);
+    var head = document.createElement('div'); head.id = 'bmiPageHead'; head.innerHTML = '<h1></h1><p></p>'; main.insertBefore(head, main.firstChild);
+    var SUB = { viewWh: 'Buat BA baru atau simpan BA yang sudah ditandatangani.', viewBa: 'Buat BA baru atau simpan BA yang sudah ditandatangani.',
+      viewBaGen: 'Buat BA baru atau simpan BA yang sudah ditandatangani.', viewAdministration: 'Kelola user, password, dan hak akses portal.' };
+    function apply() {
+      var on = mq.matches && bar.classList.contains('with-dash');
+      document.body.classList.toggle('bmi-shell', on);
+      if (on && logo.parentNode !== brand) { brand.appendChild(logo); brand.appendChild(fb); brand.appendChild(title); }
+      if (!on && logo.parentNode === brand) { bar.insertBefore(logo, div); bar.insertBefore(fb, div); bar.insertBefore(title, right); }
+      measure(); page();
+    }
+    function measure() { if (right) document.documentElement.style.setProperty('--bmi-tr', (right.offsetWidth || 320) + 'px'); }
+    function page() {
+      var v = null; Array.prototype.forEach.call(main.children, function (c) { if (/^view/.test(c.id) && c.style.display !== 'none') v = c.id; });
+      var nav = sb.querySelector('.nav-item.active'), cp = document.querySelector('#viewCheckpoint .cp-page > .desc');
+      var t = nav ? (nav.querySelector('.nav-title') || {}).textContent : '', sub = nav ? (nav.querySelector('.nav-sub') || {}).textContent : '';
+      if (v === 'viewCheckpoint' && cp) sub = cp.textContent;
+      if (SUB[v]) sub = SUB[v];
+      head.classList.toggle('off', !v || v === 'viewHome' || !t);
+      head.firstChild.textContent = t || ''; head.lastChild.textContent = sub || '';
+    }
+    var raf = 0; function later() { if (!raf) raf = requestAnimationFrame(function () { raf = 0; page(); measure(); }); }
+    new MutationObserver(apply).observe(bar, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(later).observe(sb, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(later).observe(main, { subtree: true, attributes: true, attributeFilter: ['style'] });
+    if (right) new MutationObserver(later).observe(right, { subtree: true, childList: true, characterData: true });
+    if (mq.addEventListener) mq.addEventListener('change', apply); else if (mq.addListener) mq.addListener(apply);
+    window.addEventListener('resize', later);
+    apply();
+  })();
+  </script>
     <nav id="mobileTabbar" class="mobile-tabbar">
     <button type="button" class="mtab-item" data-view="viewHome"><svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9h12v-9"/></svg><span>Home</span></button>
     <button type="button" class="mtab-item" data-view="viewBoq"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6"/><path d="M9.5 13.5 12 11l2.5 2.5"/></svg><span>BOQ</span></button>
