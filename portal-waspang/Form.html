@@ -1246,6 +1246,8 @@
   .bmi-steps li.doing i{border-color:var(--bmi-gold);border-right-color:transparent;animation:bmiSpin .8s linear infinite}
   .bmi-steps li.done{color:var(--bmi-ink)}
   .bmi-steps li.done i{background:var(--bmi-ink);border-color:var(--bmi-ink);color:var(--bmi-gold)}
+  .bmi-steps li.fail{color:var(--bmi-err);font-weight:600}
+  .bmi-steps li.fail i{border-color:var(--bmi-err);background:var(--bmi-err);color:#fff;animation:none}
   .bmi-pc.ok .bmi-pc-ic{background:#E9F3EC;color:var(--bmi-ok);animation:bmiPop .4s ease}
   .bmi-pc.err .bmi-pc-ic{background:#FBEAE6;color:var(--bmi-err)}
   .bmi-pc.ok .bmi-pc-bar i{width:100%!important;animation:none;left:0;background:var(--bmi-ok)}
@@ -1282,6 +1284,8 @@
   .bmi-wait{display:flex;align-items:center;gap:10px;margin-top:9px}
   .bmi-wait .bmi-pc-bar{flex:1;margin:0;height:4px;background:rgba(0,0,0,.07)}
   .bmi-wait-t{font:600 11px var(--bmi-font);color:#8a867c;font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
+  .bmi-skel.bmi-inl{display:inline-block;vertical-align:middle;width:3.2em;height:.72em;border-radius:6px}
+  td.bmi-st-td{border:0!important;background:transparent!important}
   .bmi-toast .bmi-ti .bmi-spin{width:11px;height:11px;border-width:2px;vertical-align:0}
 
   /* 9. Transisi masuk halaman/kartu */
@@ -1432,14 +1436,18 @@
     msg: function (t) { q('.bmi-pc-m').textContent = t; },
     percent: function (v) { var bar = q('.bmi-pc-bar'); bar.classList.add('det'); bar.querySelector('i').style.width = Math.max(0, Math.min(100, v)) + '%'; },
     done: function (title, msg, autoClose) {
+      if (BMI._okBtn) BMI._okBtn();
       clearInterval(procTimer); var card = q('.bmi-pc'); card.classList.add('ok');
       q('.bmi-pc-ic').innerHTML = ICON.ok; q('.bmi-pc-t').textContent = title || 'Selesai'; if (msg != null) q('.bmi-pc-m').textContent = msg;
+      q('.bmi-pc-note').textContent = '';
       this.step(99);
       if (autoClose === false) q('.bmi-pc-act').hidden = false; else setTimeout(function () { BMI.process.close(); }, autoClose || 1400);
     },
     fail: function (title, msg) {
       clearInterval(procTimer); q('.bmi-pc').classList.add('err');
       q('.bmi-pc-ic').innerHTML = ICON.err; q('.bmi-pc-t').textContent = title || 'Gagal'; if (msg != null) q('.bmi-pc-m').textContent = msg;
+      q('.bmi-pc-note').textContent = '';
+      Array.prototype.forEach.call(q('.bmi-steps').children, function (li) { if (li.className === 'doing') { li.className = 'fail'; li.querySelector('i').textContent = '✕'; } });
       q('.bmi-pc-act').hidden = false;
     },
     close: function () { clearInterval(procTimer); if (proc) proc.classList.remove('on'); }
@@ -1458,6 +1466,7 @@
 
   /* ---------- 7. Toast ---------- */
   BMI.toast = function (msg, type, ms) {
+    if (type === 'ok' && BMI._okBtn) BMI._okBtn();
     var wrap = $('bmiToasts'); if (!wrap) { wrap = el('div'); wrap.id = 'bmiToasts'; wrap.setAttribute('aria-live', 'polite'); document.body.appendChild(wrap); }
     type = type || 'info';
     var t = el('div', 'bmi-toast ' + type, '<span class="bmi-ti">' + (type === 'ok' ? '✓' : type === 'err' ? '!' : type === 'wait' ? '<span class="bmi-spin"></span>' : 'i') + '</span><span>' + esc(msg) + '</span>');
@@ -1512,6 +1521,12 @@
      c. tombol yang dinonaktifkan dengan teks "...", "…" atau diawali ⏳ -> spinner di tombol
      d. teks pendek "Memuat/Membaca/Membuat/... ..." atau diawali ⏳   -> spinner kecil
      e. kotak .status.info "mohon tunggu / ... detik"  -> bar tunggu + penghitung waktu
+     g. tabel "Belum ada / Tidak ada ..." -> tampilan kosong ber-ikon; "Gagal memuat: ..." -> tampilan gagal
+     h. angka yang masih "..." (KPI dashboard) -> kilau skeleton kecil
+     i. kotak status berubah jadi berhasil -> toast hijau; tombol yang baru selesai bekerja -> centang hijau sebentar
+     f. proses lama (baca BOQ / PDF Opname / OCR BA, buat BA, buat BOQ / ABD, terbitkan BA Pekerjaan)
+        -> panel proses dengan langkah + timer; berubah jadi berhasil / gagal mengikuti kotak status yang sama
+        (matikan hanya panel ini: window.BMI_NO_PROC = true)
      Semua tambahan hilang sendiri saat portal menulis ulang isi elemen tersebut.
      Matikan: isi window.BMI_NO_AUTO = true di tag script tersendiri SEBELUM paket ini. */
   var LOADING_ONLY = /^Memuat\s*(\.\.\.|…)?$/;
@@ -1520,7 +1535,7 @@
   var LOAD_TXT = /^(⏳️?\s*)?(Memuat|Membaca|Membuat|Menyiapkan|Mengirim|Menyimpan|Mengunduh|Menghapus|Memproses|Mengecek|Memeriksa|Menguji|Menyelaraskan|Sedang)\b|sedang dimuat/i;
   var WAIT_TXT = /mohon tunggu|\bdetik\b|sampai 1 menit/i;
   var LEAF = { DIV: 1, SPAN: 1, P: 1, SMALL: 1, TD: 1, LI: 1, LABEL: 1, B: 1, STRONG: 1, EM: 1 };
-  function skip(n) { return !n || !n.closest || !!n.closest('#bmiSplash,#bmiProc,#bmiToasts,#toastMessage,script,style,select,textarea,[contenteditable],[data-bmi-off]'); }
+  function skip(n) { return !n || !n.closest || !!n.closest('#bmiSplash,#bmiProc,#bmiToasts,#toastMessage,.bmi-prog-l,script,style,select,textarea,[contenteditable],[data-bmi-off]'); }
   function addSpin(n) {
     var f = n.firstElementChild;
     if (f && f.classList.contains('bmi-auto')) return;
@@ -1540,21 +1555,109 @@
   }
   function checkTbody(tb) {
     if (tb.rows.length !== 1 || tb.rows[0].cells.length !== 1) return;
-    var td = tb.rows[0].cells[0];
-    if (!LOADING_ONLY.test((td.textContent || '').trim())) return;
+    var td = tb.rows[0].cells[0], tt = (td.textContent || '').replace(/\s+/g, ' ').trim();
+    if (td.querySelector('.bmi-state')) return;
+    if (/^(Belum ada|Tidak ada)\b/i.test(tt) && td.children.length === 0) {
+      td.classList.add('bmi-st-td');
+      td.innerHTML = '<div class="bmi-state"><div class="bmi-st-ic">' + ICON.empty + '</div><b>' + esc(tt.replace(/\.$/, '')) + '</b></div>';
+      return;
+    }
+    if (/^Gagal memuat/i.test(tt) && td.children.length === 0) {
+      td.classList.add('bmi-st-td');
+      td.innerHTML = '<div class="bmi-state err"><div class="bmi-st-ic">' + ICON.err + '</div><b>Gagal memuat</b>' +
+        esc(tt.replace(/^Gagal memuat:?\s*/i, '') || 'Periksa koneksi lalu coba lagi.') + '</div>';
+      return;
+    }
+    if (!LOADING_ONLY.test(tt)) return;
     var cols = td.colSpan > 1 ? td.colSpan : 0;
     if (!cols) { var h = tb.parentNode && tb.parentNode.querySelector('thead tr'); cols = h ? h.children.length : 3; }
     BMI.skelRows(tb, Math.min(cols, 10), 5);
   }
+  var released = null;   // tombol yang baru selesai bekerja: { b, t, word }
+  function okWord(t) {
+    t = t.replace(HOURGLASS, '');
+    if (/Mengirim/i.test(t)) return 'Terkirim';
+    if (/^Menyimpan/i.test(t)) return 'Tersimpan';
+    if (/^Mengunduh/i.test(t)) return 'Terunduh';
+    if (/^Membaca/i.test(t)) return 'Terbaca';
+    if (/^Menghapus/i.test(t)) return 'Terhapus';
+    return 'Berhasil';
+  }
+  BMI._okBtn = function () { setTimeout(okBtnNow, 40); };   // tunggu sebentar: portal sering memulihkan tombol tepat setelah pesan berhasil
+  function okBtnNow() {
+    var r = released; released = null;
+    if (!r || Date.now() - r.t > 2500 || !r.b.isConnected || r.b.disabled || !r.b.offsetParent || r.b.dataset.bmiBusy) return;
+    BMI.done(r.b, r.word, 1800);
+  }
   function checkBtn(b) {
     if (b.dataset.bmiBusy) return;
     var t = (b.textContent || '').trim();
-    if (b.disabled && (BUSY_END.test(t) || HOURGLASS.test(t))) { hourglass(b); addSpin(b); }
-    else dropSpin(b);
+    if (b.disabled && (BUSY_END.test(t) || HOURGLASS.test(t))) { if (!b.dataset.bmiWas) b.dataset.bmiWas = t.slice(0, 60); hourglass(b); addSpin(b); }
+    else {
+      dropSpin(b);
+      if (b.dataset.bmiWas && !b.disabled) { released = { b: b, t: Date.now(), word: okWord(b.dataset.bmiWas) }; delete b.dataset.bmiWas; }
+    }
+  }
+  /* f. Panel proses lama: dibuka dari kotak status "mohon tunggu", ditutup mengikuti hasil di kotak yang sama */
+  var LONG = [
+    [/latar belakang/i, null],   // banyak berkas BA: dibaca di latar belakang, BA pertama bisa langsung dicek -> tanpa panel
+    [/PDF Opname/i, 'Membaca PDF Opname', ['Menyiapkan halaman PDF', 'Mengunggah ke server', 'Membaca volume (OCR)', 'Menyiapkan hasil']],
+    [/Membaca BOQ/i, 'Membaca BOQ', ['Mengunggah file BOQ', 'Membaca volume Designator', 'Mencocokkan kolom sheet', 'Menyiapkan hasil']],
+    [/OCR/i, 'Membaca BA (OCR)', ['Mengunggah berkas BA', 'Membaca teks (OCR)', 'Mencocokkan site & material']],
+    [/nomor BA dan PDF/i, 'Membuat BA', ['Memeriksa isian & BA ganda', 'Memberi nomor BA', 'Membuat PDF BA', 'Menyimpan ke Drive & BA TRANSAKSI']],
+    [/file ABD/i, 'Membuat BOQ ABD', ['Membaca BOQ plan', 'Menghitung As Built', 'Mengisi PO & Form Opname', 'Menyiapkan file .xlsx']],
+    [/file BOQ/i, 'Membuat BOQ', ['Membuka template BOQ', 'Mengisi BoM & BoQ', 'Menyiapkan file .xlsx']],
+    [/Membuat PDF/i, 'Menerbitkan BA Pekerjaan', ['Menyiapkan data & foto', 'Menyusun dokumen BA', 'Membuat PDF', 'Menyimpan ke Drive']]
+  ];
+  var pw = null;   // proses yang sedang diikuti: { el, key, timers }
+  function stText(n) {   // teks kotak status tanpa penghitung waktu bar tunggu
+    var t = n.textContent || '', w = n.querySelector(':scope > .bmi-wait');
+    return w ? t.replace(w.textContent, '') : t;
+  }
+  function pwClear() { if (!pw) return; pw.timers.forEach(clearTimeout); pw = null; }
+  function headOf(n) {
+    // Judul = teks <strong> pertama (mis. "Gagal membaca BOQ:"), sisanya jadi pesan. Tanpa <strong>: kalimat pertama.
+    var t = stText(n).replace(/\s+/g, ' ').trim(), f = n.querySelector('strong'), h = '', m = t;
+    if (f && t.indexOf(f.textContent.trim()) === 0) { h = f.textContent.trim(); m = t.slice(h.length).trim(); }
+    else { var k = t.search(/[.:!]\s/); if (k > 0 && k < 70) { h = t.slice(0, k); m = t.slice(k + 1).trim(); } else h = t; }
+    h = h.replace(/[.:!\s]+$/, ''); if (m.length > 220) m = m.slice(0, 217) + '...';
+    return [h, m];
+  }
+  function procOpen(n, txt) {
+    if (window.BMI_NO_PROC) return;
+    var hit = null;
+    for (var i = 0; i < LONG.length; i++) if (LONG[i][0].test(txt)) { hit = LONG[i]; break; }
+    if (!hit || !hit[1]) return;
+    if (pw && pw.el === n && pw.key === txt) return;
+    pwClear();
+    pw = { el: n, key: txt, timers: [] };
+    var steps = hit[2], r = /(\d+)\s*(?:-|sampai)\s*(\d+)\s*detik/i.exec(txt), lo = r ? +r[1] : 12;
+    BMI.process.open({ title: hit[1], msg: txt.replace(/\s+/g, ' ').trim(), note: 'Jangan tutup halaman ini', steps: steps });
+    for (var s = 1; s < steps.length; s++) (function (s) {
+      pw.timers.push(setTimeout(function () { if (pw && pw.el === n) BMI.process.step(s); }, Math.round(lo * 1000 * s / (steps.length - 1))));
+    })(s);
+    pw.timers.push(setTimeout(function () { if (pw && pw.el === n) { pwClear(); BMI.process.close(); } }, 7 * 60000));   // pengaman 7 menit
+  }
+  function procFollow(n) {
+    if (!pw || pw.el !== n) return;
+    var txt = stText(n);
+    if (!n.isConnected || n.style.display === 'none' || !txt.trim()) { pwClear(); BMI.process.close(); return; }
+    if (n.classList.contains('info') && WAIT_TXT.test(txt)) { if (pw.key !== txt) procOpen(n, txt); return; }
+    var hm = headOf(n);
+    pwClear();
+    if (n.classList.contains('error')) BMI.process.fail(hm[0] || 'Gagal', hm[1]);
+    else BMI.process.done(hm[0] || 'Selesai', hm[1], 1800);
   }
   function checkStatus(n) {
     var w = n.querySelector(':scope > .bmi-wait');
-    var on = n.classList.contains('info') && WAIT_TXT.test(n.textContent || '');
+    var on = n.classList.contains('info') && WAIT_TXT.test(stText(n));
+    var following = pw && pw.el === n;
+    if (on && !following) procOpen(n, stText(n));
+    procFollow(n);
+    if (n.classList.contains('success') && n.style.display !== 'none') {
+      var key = stText(n).trim();
+      if (key && n.dataset.bmiOk !== key) { n.dataset.bmiOk = key; if (!following) BMI.toast(headOf(n)[0] || 'Berhasil', 'ok'); }
+    } else if (n.dataset.bmiOk) delete n.dataset.bmiOk;
     if (on && !w) {
       w = document.createElement('div'); w.className = 'bmi-wait'; w.setAttribute('aria-hidden', 'true');
       w.dataset.t0 = Date.now(); w.innerHTML = '<div class="bmi-pc-bar"><i></i></div><span class="bmi-wait-t">0:00</span>';
@@ -1579,6 +1682,7 @@
     if (k.length > 1 || (k.length === 1 && !k[0].classList.contains('bmi-auto'))) { hourglass(n); return; }
     var t = (n.textContent || '').trim();
     if (!t || t.length > 200) return;
+    if (/^(\.\.\.|…)$/.test(t) && n.tagName !== 'TD') { n.innerHTML = '<span class="bmi-skel bmi-inl"></span>'; return; }
     if (LOADING_ONLY.test(t)) {
       if (n.tagName === 'TD') { var tb = n.closest('tbody'); if (tb) checkTbody(tb); }
       else BMI.skelLines(n, 3);
@@ -1622,6 +1726,8 @@
             var r = recs[i];
             if (r.type === 'attributes') {
               var t = r.target;
+              if (pw && t === pw.el) { procFollow(t); continue; }
+              if (r.attributeName === 'style') continue;
               if (t.tagName === 'BUTTON') { if (!skip(t)) checkBtn(t); }
               else if (r.attributeName === 'class' && t.classList && t.classList.contains('status') && !skip(t)) checkStatus(t);
               continue;
@@ -1630,7 +1736,7 @@
             for (var j = 0; j < r.addedNodes.length; j++) deep(r.addedNodes[j]);
           }
         } catch (e) { /* animasi tidak boleh mengganggu portal */ }
-      }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'class'] });
+      }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'class', 'style'] });
     } catch (e) { /* abaikan */ }
   }
   if (!window.BMI_NO_AUTO) {
@@ -6469,7 +6575,15 @@ ${todayActivity}`;
       showToast(`Memuat ${count} foto...`);
 
       const grid = document.getElementById('photosGrid');
-      if (grid && photoItems.length === 0) {
+      // Progress berangka "Memuat foto 3 dari 6" (animasi loading BMI), tepat di atas galeri foto.
+      let bmiProg = null;
+      if (window.BMI && grid && grid.parentNode) {
+        bmiProg = document.getElementById('bmiPhotoProg');
+        if (!bmiProg) { bmiProg = document.createElement('div'); bmiProg.id = 'bmiPhotoProg'; bmiProg.style.margin = '10px 0 12px'; grid.parentNode.insertBefore(bmiProg, grid); }
+        bmiProg.style.display = '';
+        BMI.progress(bmiProg, 0, count, `Memuat foto 1 dari ${count}...`);
+      }
+      if (grid && photoItems.length === 0 && !bmiProg) {
         grid.innerHTML = `
           <div style="grid-column: 1 / -1; padding: 22px 14px; text-align: center; background: #eff6ff; border: 1.5px dashed #3b82f6; border-radius: 8px;">
             <div style="font-size: 1.6rem; margin-bottom: 6px;">⏳</div>
@@ -6485,6 +6599,7 @@ ${todayActivity}`;
 
         const countText = document.getElementById('photoProcessCountText');
         if (countText) countText.innerText = `Memuat foto ${i + 1} dari ${count}...`;
+        if (bmiProg) BMI.progress(bmiProg, i, count, `Memuat foto ${i + 1} dari ${count}...`);
 
         try {
           if (isPdfFile(file)) {
@@ -6530,6 +6645,10 @@ ${todayActivity}`;
       }
 
       renderPhotoGallery();
+      if (bmiProg) {
+        BMI.progress(bmiProg, count, count, `${count} foto siap dikirim`);
+        setTimeout(() => { if (bmiProg) bmiProg.style.display = 'none'; }, 1600);
+      }
       showToast(`✅ ${count} foto berhasil dimuat & siap dikirim!`);
     }
 
@@ -6627,6 +6746,24 @@ ${todayActivity}`;
       const notes = document.getElementById('photoNotes') ? document.getElementById('photoNotes').value.trim() : '';
       const { path } = getPhotoTargetInfo(0);
       const progText = getManualPhotoProgress();
+      // Progress berangka (animasi loading BMI) di kotak status: "Mengunggah foto 2 dari 4..." + persen.
+      // Semua foto terkirim dalam satu permintaan, jadi persennya perkiraan dari ukuran foto dan berhenti di 90% sampai server menjawab.
+      let bmiSendT = 0, bmiSendBox = null, bmiSendLabel = '';
+      const bmiSendN = photoItems.length;
+      if (window.BMI && statusBox) {
+        const bytes = photoItems.reduce((a, p) => a + (p.raw ? p.raw.length : 0), 0);
+        const est = Math.max(6, bytes / (150 * 1024));
+        const t0 = Date.now();
+        statusBox.innerHTML = '<div id="bmiSendProg"></div><div style="font-size:0.74rem; margin-top:8px;">Foto dikirim ke Google Drive &amp; grup WhatsApp. Mohon jangan menutup halaman ini.</div>';
+        bmiSendBox = document.getElementById('bmiSendProg');
+        const tick = () => {
+          const f = 1 - Math.exp(-((Date.now() - t0) / 1000) / est);
+          const k = Math.min(bmiSendN, Math.floor(f * bmiSendN) + 1);
+          BMI.progress(bmiSendBox, Math.round(f * 90), 100, bmiSendLabel || `Mengunggah foto ${k} dari ${bmiSendN}...`);
+        };
+        tick();
+        bmiSendT = setInterval(tick, 400);
+      }
 
       const caption = 
 `📌 *LAPORAN WASPANG - PT. BUANA MENARA INDONESIA*
@@ -6707,6 +6844,7 @@ ${todayActivity}`;
             networkLost = true;
             for (let i = 0; i < 12 && !driveSuccess; i++) {
               btn.innerText = `⏳ Koneksi terputus, mengecek apakah foto sudah masuk... (${i + 1}/12)`;
+              bmiSendLabel = `Koneksi terputus, mengecek apakah foto sudah masuk... (${i + 1}/12)`;
               await new Promise(r => setTimeout(r, 5000));
               try {
                 const st = await (await fetch(cfg.scriptUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -6718,6 +6856,11 @@ ${todayActivity}`;
             }
           }
         }
+      }
+
+      if (bmiSendT) {
+        clearInterval(bmiSendT);
+        if (driveSuccess && bmiSendBox) BMI.progress(bmiSendBox, 100, 100, `${bmiSendN} foto terkirim`);
       }
 
       // Notifikasi Transparan Jika Google Drive Gagal
