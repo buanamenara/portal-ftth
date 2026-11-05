@@ -1035,6 +1035,136 @@
     .ws-empty svg { width: 34px; height: 34px; color: var(--gold); }
   }
   #baForm input[type=file], #viewBoqGen input[type=file] { border: 1.5px dashed #DCC796; background: #FFFBF1; border-radius: 16px; }
+  /* ---- RPM, Administration, Log History (mockup 10-13 + HP09-12) ---- */
+  .rp-ico svg, .lg-ico svg { width: 15px; height: 15px; vertical-align: -2px; margin-right: 6px; }
+  #viewRpm .chips button[data-p].on { background: #000; color: var(--gold); border-color: #000; }
+  .rp-card-head, .adm-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .rp-card-head h2, .adm-head h2 { margin: 0; }
+  .rp-card-head .opt { font-size: 12px; }
+  .rp-sign-card details > summary { display: none; }
+  .atp-prev .atp-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 280px; color: #9a958a; font-size: 14px; text-align: center; border: 1.5px dashed #E6DECD; border-radius: 16px; padding: 20px; }
+  .atp-prev .atp-empty b { color: #3b3a35; font-size: 16px; }
+  .atp-prev:not(:has(#atpFrame[style*="display: none"])):not(:has(#atpFrame[style*="display:none"])) .atp-empty { display: none; }
+  .atp-prev #atpFrame { border: 0 !important; border-radius: 14px; margin-top: 0 !important; background: #fff; min-height: 560px; }
+  #atpPreview, #atpSave { border: 1.5px solid #DCC796 !important; background: #fff !important; color: var(--gold-dark) !important; border-radius: 999px !important; padding: 11px 20px !important; font-weight: 650 !important; }
+  .split-hide-ba:has(> #rpCardBa[style*="display: none"]), .split-hide-ba:has(> #rpCardBa[style*="display:none"]),
+  .split-hide-atp:has(> #rpCardAtp[style*="display: none"]), .split-hide-atp:has(> #rpCardAtp[style*="display:none"]) { display: none !important; }
+  #adminFormCard { margin-top: 0 !important; padding-top: 0 !important; border-top: 0 !important; }
+  #adminFormCard .row:has(#adminSaveBtn) { display: flex; justify-content: flex-end; gap: 10px; }
+  #adminFormCard .row:has(#adminSaveBtn) > div { flex: 0 0 auto; min-width: 0; }
+  #adminFormCard .row:has(#adminSaveBtn) > div:has(#adminCancelBtn) { order: -1; }
+  #adminCancelBtn { border: 1.5px solid #DCC796 !important; border-radius: 999px !important; padding: 11px 22px !important; margin: 0 !important; color: var(--gold-dark) !important; background: #fff !important; }
+  #adminSaveBtn { margin-top: 0 !important; }
+  .adm-av { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--gold); color: #111; font-weight: 700; font-size: 12px; margin-right: 10px; vertical-align: middle; }
+  .adm-role { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 650; background: #F1EBDF; color: #3b3a35; }
+  .adm-role.r-rpm { background: #000; color: var(--gold); }
+  #adminTable td:first-child { font-weight: 650; }
+  #adminTable button.small { border: 0; background: transparent; color: var(--gold-dark); padding: 4px 6px; font-weight: 600; }
+  #adminTable button.small:hover { text-decoration: underline; }
+  .adm-pw-card { background: #000 !important; border-color: #000 !important; color: #fff; }
+  .adm-pw-card h3, .adm-pw-card label { color: #fff !important; }
+  .adm-pw-card .desc { color: #a9a395 !important; }
+  .adm-pw-card input { background: #141412 !important; border-color: #34322c !important; color: #fff !important; }
+  .adm-pw-card #adminPwBtn { width: 100%; }
+  .adm-form-card { border: 1.5px solid #DCC796 !important; }
+  .adm-form-card .panel-title { font-size: 18px; font-weight: 700; color: #191917; }
+  .adm-seg { display: flex; gap: 4px; background: #F4EFE4; border-radius: 999px; padding: 4px; }
+  .adm-seg button { flex: 1; border: 0; background: transparent; color: #7A776E; border-radius: 999px; padding: 9px 6px; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+  .adm-seg button.on { background: #fff; color: #191917; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .adm-seg + select#adminRole { display: none; }
+  .log-src { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 650; background: #F1EBDF; color: #3b3a35; white-space: nowrap; }
+  .log-src.s-portal { background: #000; color: var(--gold); }
+  .log-src.s-waspang { background: #F6E7C1; color: #7A5A00; }
+  .log-src.s-sheet { background: #ECE6F6; color: #4B3A86; }
+  #logTable td:first-child, #logTable td:nth-child(5) { font-weight: 650; color: #191917; }
+  #logRefreshBtn { border: 1.5px solid #DCC796 !important; background: #fff !important; color: var(--gold-dark) !important; border-radius: 999px !important; padding: 10px 20px !important; font-weight: 650 !important; }
+  @media (min-width: 861px) {
+    body.bmi-shell #viewLogHistory .card > h2, body.bmi-shell #viewLogHistory .card > h2 + .desc,
+    body.bmi-shell #viewAdministration .adm-left > h2, body.bmi-shell #viewAdministration .adm-left > h2 + .desc { display: none; }
+    #viewLogHistory .lg-bar { display: flex; gap: 12px; align-items: center; }
+    #viewLogHistory .lg-bar > div { flex: 0 0 auto; min-width: 0; }
+    #viewLogHistory .lg-bar > div:first-child { flex: 0 1 320px; }
+    #viewLogHistory .lg-bar > div:nth-child(2) { flex: 0 0 180px; }
+    #viewLogHistory .lg-bar > div:last-child { margin-left: auto; }
+    #viewLogHistory .lg-bar #logRefreshBtn { margin-top: 0 !important; }
+  }
+  @media (min-width: 1200px) {
+    .rp-split { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(380px, 1fr); gap: 18px; align-items: start; }
+    .rp-split > .card { margin: 0 !important; min-width: 0; }
+    .rp-split > #rpCardBa { grid-row: 1 / span 3; display: flex; flex-direction: column; }
+    .rp-split > #rpCardBa > .rp-actions { margin-top: auto; padding-top: 16px; display: flex; flex-direction: column; align-items: flex-end; }
+    .rp-split .rp-hist-card .hist-rp th:nth-child(4), .rp-split .rp-hist-card .hist-rp td:nth-child(4),
+    .rp-split .rp-hist-card .hist-rp th:nth-child(5), .rp-split .rp-hist-card .hist-rp td:nth-child(5),
+    .rp-split .rp-hist-card .hist-rp th:nth-child(7), .rp-split .rp-hist-card .hist-rp td:nth-child(7) { display: none; }
+    #rpThumbs .th { width: 64px; height: 64px; border-radius: 12px; }
+    .atp-split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr); gap: 18px; align-items: stretch; }
+    .atp-split > .card { margin: 0 !important; min-width: 0; }
+    .atp-prev.card { background: #F3ECDD; border-color: #ECE4D3; display: flex; flex-direction: column; }
+    .atp-prev .atp-empty { flex: 1; }
+    .adm-split { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(340px, 1fr); gap: 18px; align-items: start; }
+    .adm-split > .card, .adm-split > .adm-col > .card { margin: 0 !important; min-width: 0; }
+    .adm-col { display: flex; flex-direction: column; gap: 18px; position: sticky; top: 90px; }
+    .adm-split:has(#adminFullPanel[style*="display: none"]), .adm-split:has(#adminFullPanel[style*="display:none"]) { grid-template-columns: minmax(0, 420px); }
+    .adm-split:has(#adminFullPanel[style*="display: none"]) > .adm-left, .adm-split:has(#adminFullPanel[style*="display:none"]) > .adm-left { display: none; }
+    #adminFullPanel { margin-top: 0 !important; padding-top: 0 !important; border-top: 0 !important; }
+    #adminFullPanel .adm-head { justify-content: space-between; }
+    #adminFullPanel .adm-head .panel-title { font-size: 20px; font-weight: 700; color: #191917; margin: 0 !important; }
+    #adminFullPanel .adm-head .adm-tools { display: flex; gap: 10px; align-items: center; }
+    #adminFullPanel .adm-head #adminQ { width: 240px; border-radius: 999px; }
+    #adminFullPanel .adm-head #adminAddBtn { margin: 0 !important; }
+    #adminPwCard { max-width: none !important; }
+  }
+  @media (max-width: 1199px) {
+    .rp-split > .card, .atp-split > .card, .adm-split .card { margin-left: 0; margin-right: 0; }
+  }
+  @media (max-width: 640px) {
+    #viewRpm .rpTabs, #viewBoq .rpTabs, #viewBoqGen .rpTabs, #whTabs { display: flex; width: 100%; }
+    #viewRpm .rpTabs .rpTab, #viewBoq .rpTabs .rpTab, #viewBoqGen .rpTabs .rpTab, #whTabs .rpTab { flex: 1; padding-left: 6px; padding-right: 6px; }
+    #viewRpm .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    #viewRpm .chips button { margin: 0 !important; min-height: 44px; }
+    #rpThumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    #rpThumbs .th { width: 100%; height: auto; aspect-ratio: 1; }
+    #atpPreview, #atpSave { display: block; width: 100%; min-height: 48px; }
+    .atp-prev #atpFrame { min-height: 70vh; }
+    .atp-prev .atp-empty { min-height: 120px; }
+    /* Administration: daftar user */
+    #adminFullPanel table thead { display: none; }
+    #adminTable, #adminTable tr, #adminTable td { display: block; }
+    #adminTable tr { position: relative; padding: 12px 0 12px 44px; border-bottom: 1px solid #F1EBDF; }
+    #adminTable td { border: 0 !important; padding: 0 !important; font-size: 13px; }
+    #adminTable td[colspan] { padding: 10px 0 !important; }
+    #adminTable td:first-child { font-size: 12px; color: #8E8A80; font-weight: 500; }
+    #adminTable td:first-child::before { content: "@"; }
+    #adminTable td:nth-child(2) { order: -1; font-size: 15px; font-weight: 650; color: #191917; }
+    #adminTable tr { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 2px; }
+    #adminTable td:nth-child(2) { flex: 1 1 60%; }
+    #adminTable td:nth-child(3) { flex: 0 0 auto; }
+    #adminTable td:first-child { flex: 1 1 100%; order: 0; }
+    #adminTable td:nth-child(4), #adminTable td:nth-child(5) { flex: 0 0 auto; color: #7A776E; }
+    #adminTable td:nth-child(4)::after { content: " ·"; }
+    #adminTable td:last-child { flex: 1 1 100%; margin-top: 6px; }
+    #adminTable .adm-av { position: absolute; left: 0; top: 14px; margin: 0; width: 34px; height: 34px; }
+    .adm-seg button { min-height: 44px; }
+    .adm-form-card #adminSaveBtn, .adm-form-card #adminCancelBtn { width: 100%; min-height: 48px; }
+    #adminFormCard .row:has(#adminSaveBtn) { flex-direction: column; }
+    #adminFormCard .row:has(#adminSaveBtn) > div { width: 100%; }
+    #adminFormCard .row:has(#adminSaveBtn) > div:has(#adminCancelBtn) { order: 1; }
+    /* Log History: kartu */
+    #viewLogHistory .lg-bar { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+    #viewLogHistory .lg-bar > div:first-child { grid-column: 1 / -1; }
+    #viewLogHistory .lg-bar #logRefreshBtn { margin-top: 0 !important; min-height: 46px; }
+    #viewLogHistory table thead { display: none; }
+    #logTable, #logTable tr, #logTable td { display: block; }
+    #logTable tr { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 12px 14px; margin: 10px 0; border: 1px solid #ECE4D3; border-radius: 16px; background: #fff; }
+    #logTable td { border: 0 !important; padding: 0 !important; font-size: 13px; }
+    #logTable td:first-child { font-size: 12.5px; }
+    #logTable td:nth-child(2) { margin-left: auto; }
+    #logTable td:nth-child(5) { order: 3; flex: 1 1 100%; font-size: 15px; }
+    #logTable td:nth-child(3) { order: 4; color: #3b3a35; }
+    #logTable td:nth-child(4) { order: 5; color: #8E8A80; }
+    #logTable td:nth-child(4)::before { content: "("; } #logTable td:nth-child(4)::after { content: ")"; }
+    #logTable td:nth-child(6) { order: 6; flex: 1 1 100%; color: #7A776E; }
+  }
   /* ---- Kerangka (layar lebar): logo di sidebar mengambang, tanpa bar hitam atas; lonceng + user di kanan atas ---- */
   #bmiPageHead { display: none; }
   .sb-brand { display: none; }
@@ -2687,6 +2817,93 @@
         '<b>Hasil ekstraksi BA tampil di sini</b><span>Pilih file BA di kiri, lalu klik Baca BA.</span></div>';
       ar.appendChild(prev); ac[0].classList.add('ws-left'); var w3 = split(a, [ac[0]]); w3.appendChild(ar);
     } }
+  })();
+  </script>
+  <script>
+  /* BMI LAYOUT v1 - RPM, Administration, Log History. Elemen ber-id hanya dipindah / diberi class; logika tidak berubah. */
+  (function () {
+    var $ = function (id) { return document.getElementById(id); };
+    function card(cls, title, extra) { var c = document.createElement('div'); c.className = 'card wide ' + cls; if (title) c.innerHTML = '<div class="rp-card-head"><h2>' + title + '</h2>' + (extra || '') + '</div>'; return c; }
+    var wide = window.matchMedia('(min-width: 1200px)');
+    // ---- RPM: BA Pekerjaan ----
+    var ba = $('rpCardBa'), hist = $('rpHistory') && $('rpHistory').closest('.card');
+    if (ba && hist) {
+      var sp = document.createElement('div'); sp.className = 'rp-split split-hide-ba';
+      ba.parentNode.insertBefore(sp, ba); sp.appendChild(ba);
+      var foto = card('rp-foto-card', 'Foto pekerjaan', '<span class="opt">(opsional, maksimal 12; otomatis diperkecil)</span>');
+      var fl = ba.querySelector('label[for="rpFotos"]'); if (fl) fl.style.display = 'none';
+      [fl, $('rpFotos'), $('rpThumbs')].forEach(function (n) { if (n) foto.appendChild(n); });
+      var det = ba.querySelector('details');
+      var sign = card('rp-sign-card', 'Tanda tangan (opsional)');
+      if (det) sign.appendChild(det);
+      hist.classList.add('rp-hist-card');
+      sp.appendChild(foto); sp.appendChild(sign); sp.appendChild(hist);
+      // Tombol terbitkan: di layar lebar di dasar kartu form; di HP setelah foto & tanda tangan.
+      var act = document.createElement('div'); act.className = 'rp-actions';
+      [$('rpStatus'), $('rpBtn') && $('rpBtn').parentNode, $('rpHint')].forEach(function (n) { if (n) act.appendChild(n); });
+      if (det) det.open = true;
+      function placeAct() { if (wide.matches) { ba.appendChild(act); } else { sp.insertBefore(act, hist); } }
+      placeAct(); if (wide.addEventListener) wide.addEventListener('change', placeAct);
+      // Chip progres aktif = nilai #rpProg
+      var prog = $('rpProg');
+      function chips() { Array.prototype.forEach.call(ba.querySelectorAll('.chips button[data-p]'), function (b) { b.classList.toggle('on', String(b.getAttribute('data-p')) === String(prog.value)); }); }
+      if (prog) { prog.addEventListener('input', chips); ba.addEventListener('click', function (e) { if (e.target.closest('.chips button')) setTimeout(chips, 0); }); chips(); }
+    }
+    // ---- RPM: FORM ATP ----
+    var atp = $('rpCardAtp'), fr = $('atpFrame');
+    if (atp && fr) {
+      var as = document.createElement('div'); as.className = 'atp-split split-hide-atp';
+      atp.parentNode.insertBefore(as, atp); as.appendChild(atp);
+      var pv = card('atp-prev', '');
+      pv.innerHTML = '<div class="atp-empty"><b>Pratinjau FORM ATP</b><span>Klik Lihat PDF untuk melihat pratinjau di sini.</span></div>';
+      pv.appendChild(fr); as.appendChild(pv);
+      var eye = '<span class="rp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span>';
+      var dl = '<span class="rp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></span>';
+      if ($('atpPreview')) $('atpPreview').insertAdjacentHTML('afterbegin', eye);
+      if ($('atpSave')) $('atpSave').insertAdjacentHTML('afterbegin', dl);
+    }
+    // ---- Administration ----
+    var full = $('adminFullPanel'), pw = $('adminPwCard'), form = $('adminFormCard');
+    if (full && pw && form) {
+      var left = full.closest('.card'); left.classList.add('adm-left');
+      var asp = document.createElement('div'); asp.className = 'adm-split';
+      left.parentNode.insertBefore(asp, left); asp.appendChild(left);
+      var col = document.createElement('div'); col.className = 'adm-col';
+      var fc = card('adm-form-card split-hide-form', ''); fc.appendChild(form);
+      var pc = card('adm-pw-card', ''); pc.appendChild(pw);
+      col.appendChild(fc); col.appendChild(pc); asp.appendChild(col);
+      // kartu form ikut tersembunyi bila #adminFormCard disembunyikan
+      var st = document.createElement('style'); st.textContent = '.split-hide-form:has(> #adminFormCard[style*="display: none"]),.split-hide-form:has(> #adminFormCard[style*="display:none"]){display:none !important}'; document.head.appendChild(st);
+      // kepala Kelola User: judul kiri, cari + tambah kanan
+      var title = full.querySelector('.panel-title'), q = $('adminQ'), add = $('adminAddBtn');
+      if (title && q && add) { var hd = document.createElement('div'); hd.className = 'adm-head'; var tools = document.createElement('div'); tools.className = 'adm-tools';
+        var qrow = q.closest('.row'); full.insertBefore(hd, full.firstChild); hd.appendChild(title); tools.appendChild(q); tools.appendChild(add); hd.appendChild(tools); if (qrow && !qrow.querySelector('input,select,button')) qrow.style.display = 'none'; }
+      // Role jadi tombol segmen (select tetap dipakai)
+      var role = $('adminRole');
+      if (role) { var seg = document.createElement('div'); seg.className = 'adm-seg';
+        Array.prototype.forEach.call(role.options, function (o) { var b = document.createElement('button'); b.type = 'button'; b.textContent = o.text; b.setAttribute('data-v', o.value);
+          b.addEventListener('click', function () { role.value = o.value; role.dispatchEvent(new Event('change')); sync(); }); seg.appendChild(b); });
+        role.parentNode.insertBefore(seg, role);
+        var sync = function () { Array.prototype.forEach.call(seg.children, function (b) { b.classList.toggle('on', b.getAttribute('data-v') === role.value); }); };
+        role.addEventListener('change', sync); new MutationObserver(sync).observe(form, { attributes: true, attributeFilter: ['style'] }); sync(); }
+      // Baris user: inisial + badge role
+      var at = $('adminTable');
+      var deco = function () { Array.prototype.forEach.call(at.rows, function (tr) { if (tr.cells.length < 6 || tr.getAttribute('data-deco')) return; tr.setAttribute('data-deco', '1');
+          var n = tr.cells[1], r = tr.cells[2], t = (n.textContent || '?').trim();
+          var av = document.createElement('span'); av.className = 'adm-av'; av.setAttribute('aria-hidden', 'true'); av.textContent = t.charAt(0).toUpperCase(); n.insertBefore(av, n.firstChild);
+          var rv = (r.textContent || '').trim(), rb = document.createElement('span'); rb.className = 'adm-role' + (rv === 'RPM' ? ' r-rpm' : ''); rb.textContent = rv; r.textContent = ''; r.appendChild(rb); }); };
+      if (at) { new MutationObserver(deco).observe(at, { childList: true }); deco(); }
+    }
+    // ---- Log History ----
+    var lq = $('logQ'), lt = $('logTable');
+    if (lq && lt) {
+      var bar = lq.closest('.row'); if (bar) bar.classList.add('lg-bar');
+      var rf = $('logRefreshBtn'); if (rf) rf.insertAdjacentHTML('afterbegin', '<span class="lg-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></span>');
+      var lg = function () { Array.prototype.forEach.call(lt.rows, function (tr) { if (tr.cells.length < 6 || tr.getAttribute('data-deco')) return; tr.setAttribute('data-deco', '1');
+          var c = tr.cells[1], v = (c.textContent || '').trim(), k = /waspang/i.test(v) ? 's-waspang' : (/spread|sheet/i.test(v) ? 's-sheet' : (/gateway/i.test(v) ? 's-gateway' : (/portal/i.test(v) ? 's-portal' : '')));
+          var sb = document.createElement('span'); sb.className = 'log-src ' + k; sb.textContent = v; c.textContent = ''; c.appendChild(sb); }); };
+      new MutationObserver(lg).observe(lt, { childList: true }); lg();
+    }
   })();
   </script>
   <script>
