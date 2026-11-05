@@ -1927,7 +1927,7 @@
             <span>📈</span> Input Volume Harian (*ACHIEVMENT TODAY/TOTAL/BOQ PLAN*)
           </div>
           <p style="font-size: 0.75rem; color: #475569; margin-bottom: 8px;">
-            Masukkan angka pada kolom <strong>Today</strong>. Kolom <strong>Total</strong> terakumulasi otomatis terhadap <strong>BOQ Plan</strong> yang sudah disubmit.
+            Isi kolom <b>Today</b>; <b>Total</b> terakumulasi otomatis terhadap <b>BOQ Plan</b>.
           </p>
 
                     <!-- Filter Item Pekerjaan Aktif -->
@@ -1936,7 +1936,7 @@
               <span id="dailyFilterStatusBadge" style="background: #dcfce7; color: #166534; font-weight: bold; padding: 2px 7px; border-radius: 10px; font-size: 0.7rem;">
                 🎯 Item Aktif BOQ Saja
               </span>
-              <span>Menampilkan <strong id="dailyVisibleCount">0</strong> item pekerjaan (item yang tidak digunakan disembunyikan otomatis).</span>
+              <span>Menampilkan <strong id="dailyVisibleCount">0</strong> item aktif.</span>
             </div>
             <div style="display: flex; gap: 6px; flex-wrap: wrap;">
               <!-- Hanya tampil untuk akun RPM yang membuka Waspang dari Gateway -->
@@ -2042,7 +2042,7 @@
             <span style="font-size: 1.1rem; line-height: 1;">💡</span>
             <div>
               <strong>Apakah Anda sudah yakin data di atas sudah benar?</strong><br>
-              Laporan akan langsung dikirim ke grup WhatsApp <strong>REPORT BMI</strong> dan total kumulatif akan disimpan.
+              Laporan dikirim ke grup WhatsApp <strong style="font-size:inherit">REPORT BMI</strong> dan total disimpan.
             </div>
           </div>
         </div>
@@ -2072,7 +2072,7 @@
           <span>📊</span> Update &amp; Submit Tabel BOQ Plan via Excel (.xlsx)
         </div>
         <p style="font-size: 0.8rem; color: #475569; margin-bottom: 16px; line-height: 1.5;">
-          Unggah file BOQ Excel (<strong>.xlsx</strong>) untuk memperbarui target rencana <strong>BOQ Plan</strong> seluruh cluster secara otomatis. Angka BOQ Plan yang diimpor langsung menjadi acuan <code>[Today / Total / BOQ Plan]</code> di form Daily Report EMR.
+          Unggah BOQ Excel (.xlsx) untuk memperbarui BOQ Plan semua cluster. Angka ini jadi acuan Today / Total / BOQ Plan di Daily Report.
         </p>
 
         <!-- Drop & Click Zone -->
@@ -2089,7 +2089,7 @@
             Tarik &amp; Lepas File BOQ Excel (.xlsx) ke Sini atau Klik untuk Memilih
           </div>
           <div class="boq-drop-sub">
-            Mendukung format Rekap Master BOQ Plan, BoM AE, BoQ NRO Cluster/Feeder, atau Arsip .zip
+            Rekap Master BOQ Plan, BoM AE, BoQ NRO, atau .zip
           </div>
         </div>
 
@@ -2152,7 +2152,7 @@
           <span>📑</span> Ringkasan BOQ Plan Terdaftar (Aktif di Sistem)
         </div>
         <p style="font-size: 0.76rem; color: #475569; margin-bottom: 8px;">
-          Daftar seluruh cluster dan target rencana yang saat ini aktif digunakan sebagai acuan progress harian.
+          Cluster dan target yang aktif sebagai acuan progres harian.
         </p>
         <div id="boqSummaryContainer" style="overflow-x: auto;"></div>
       </div>
@@ -2164,9 +2164,8 @@
         </div>
         <div id="manualBoqContent" style="display: block;">
           <p style="font-size: 0.76rem; color: #475569; margin-bottom: 12px; line-height: 1.5;">
-            Pilih cluster di bawah ini. Anda dapat <strong>memilih material apa saja yang digunakan</strong> dari katalog resmi (menggunakan dropdown pilihan material) dan mengatur target volume BOQ Plan. 
-            Item yang tidak ada di daftar ini <strong>tidak akan muncul di form laporan Waspang maupun pesan laporan</strong>. 
-            <br><em>*Catatan: Saat file Excel BOQ diunggah, seluruh material yang terdeteksi dalam file otomatis tersusun di sini.</em>
+            Pilih material dari katalog dan atur volume BOQ Plan. Item di luar daftar tidak muncul di form &amp; pesan laporan. 
+            <br><em>Material dari file BOQ yang diunggah otomatis masuk ke sini.</em>
           </p>
 
           <div class="form-group">
@@ -2223,7 +2222,7 @@
             <span>📂</span> Folder Google Drive: DOKUMENTASI FTTH
           </strong>
           <span style="display: block; font-size: 0.72rem; color: #3b82f6; margin-top: 2px;">
-            Seluruh foto dokumentasi lapangan otomatis tersusun rapi di folder induk ini.
+            Semua foto dokumentasi tersusun otomatis di folder ini.
           </span>
         </div>
         <a href="https://drive.google.com/drive/folders/1xY7LSgaZDiD4YvCGd2FW164IFVdtYGqZ" target="_blank" style="background: var(--bmi-dark); color: #fff; padding: 7px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
@@ -2381,10 +2380,10 @@
           <!-- Tombol Pembuatan Struktur Folder di Google Drive -->
           <div style="margin-top: 10px; padding: 10px 12px; background: #f8fafc; border: 1.5px dashed var(--border); border-radius: 8px;">
             <div style="font-size: 0.76rem; color: #475569; margin-bottom: 6px;">
-              📁 <strong>Siapkan Folder Google Drive</strong>: Klik tombol di bawah untuk membuat seluruh folder site, Elektrik (FAT Line A, B, C, D), Pole view, Implementasi dan Opname Lapangan di Google Drive sekaligus.
+              📁 <strong>Siapkan Folder Google Drive</strong>: buat semua folder site (Elektrik, FAT Line A–D, Pole view, Implementasi, Opname) sekaligus.
             </div>
             <button type="button" class="btn-primary" onclick="createSiteFoldersInDrive()" id="btnCreateDriveFolders" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #fff; padding: 10px 14px; font-size: 0.82rem;">
-              📁 Buat Struktur Folder Site di Google Drive (Elektrik &amp; FAT Line A, B, C, D)
+              📁 Buat Folder Site di Google Drive
             </button>
             <div id="createDriveFolderStatus" style="display: none; margin-top: 8px; padding: 10px; border-radius: 6px; font-size: 0.78rem;"></div>
           </div>
@@ -2442,7 +2441,7 @@
         </div>
         <div id="sowTableContent" style="display: block;">
           <p style="font-size: 0.74rem; color: #475569; margin-bottom: 8px; line-height: 1.4;">
-            Daftar lengkap Site Name &amp; SOW dari tab <strong>DATA BASE</strong> (spreadsheet Portal FTTH); site baru di DATA BASE ikut muncul di sini. <strong>Klik pada baris mana saja</strong> untuk langsung menyinkronkan Site Name &amp; SOW ke Menu Dokumentasi Foto, Menu Daily Report, dan Menu BOQ sekaligus.
+            Site Name &amp; SOW dari DATA BASE. Klik baris untuk mengisi otomatis di semua menu.
           </p>
           <div style="margin-bottom: 8px;">
             <input type="text" id="sowTableSearchInp" placeholder="🔍 Cari Site Name atau SOW (contoh: Jati Baru, Astambul, Cluster, Subfeeder)..." oninput="filterSowTable()" style="padding: 8px 12px; font-size: 0.8rem;">
@@ -2472,7 +2471,7 @@
     <div class="modal-content" style="max-width: 420px;">
       <h2 style="font-size: 0.95rem; color: var(--bmi-dark); margin-bottom: 10px;">➕ Tambah Item Pekerjaan Kustom</h2>
       <p style="font-size: 0.75rem; color: #64748b; margin-bottom: 12px;">
-        Tambahkan item pekerjaan khusus yang ada pada BOQ cluster ini (misal: tipe kabel spesifik, tiang ukuran lain, dll).
+        Tambah item khusus pada BOQ cluster ini (mis. kabel/tiang tipe lain).
       </p>
       <form onsubmit="handleAddCustomItemSubmit(event)">
         <div class="form-group">
@@ -7060,7 +7059,7 @@ ${todayActivity}`;
       }
 
       btn.disabled = false;
-      btn.innerText = "📁 Buat Struktur Folder Site di Google Drive (Elektrik & FAT Line A, B, C, D)";
+      btn.innerText = "📁 Buat Folder Site di Google Drive";
     }
 
     function updateDriveConnectionBanner() {

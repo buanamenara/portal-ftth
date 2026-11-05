@@ -1432,14 +1432,14 @@
         <div id="guideSheetBody">
           <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
           <h2>Panduan FTTH Project Control Portal</h2>
-          <p class="desc">Cara memakai Portal FTTH, Portal Waspang dan spreadsheet, langkah demi langkah dengan gambar.</p>
+          <p class="desc">Cara memakai portal dan spreadsheet, dengan gambar.</p>
           <div class="meta"><span>32 halaman</span><span>~5 MB</span><span>PDF</span></div>
           <a href="https://buanamenara.github.io/portal-ftth/Panduan_Portal_FTTH.pdf" target="_blank" rel="noopener" id="guideDl">Unduh PDF Panduan</a>
-          <p class="hint">Terbuka di tab baru peramban &mdash; ketuk lama pratinjaunya lalu pilih &ldquo;Simpan ke File&rdquo; bila tidak langsung tersimpan.</p>
+          <p class="hint">Terbuka di tab baru; bila tidak tersimpan, tekan lama lalu “Simpan ke File”.</p>
           <ul class="glist">
-            <li>Masuk sekali lewat FTTH Project Control Portal, lalu Submit BOQ, BA Transaksi dan Submit BA di Portal FTTH.</li>
-            <li>Portal Waspang: Daily Report EMR, BOQ Plan dan foto dokumentasi.</li>
-            <li>Cara pakai spreadsheet per sheet, dan cara mengatasi masalah umum.</li>
+            <li>Masuk lewat Gateway, lalu Submit BOQ &amp; BA di Portal FTTH.</li>
+            <li>Portal Waspang: Daily Report, BOQ Plan, foto.</li>
+            <li>Cara pakai spreadsheet &amp; atasi masalah umum.</li>
           </ul>
         </div>
         <button type="button" id="guideTop" aria-label="Kembali ke atas">
@@ -1451,7 +1451,7 @@
         <div id="saranBody">
           <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
           <h2>Kritik &amp; Saran</h2>
-          <p class="desc">Sampaikan masukan Anda untuk pengembangan spreadsheet dan portal. Hanya RPM/pemilik yang membaca ini.</p>
+          <p class="desc">Masukan untuk pengembangan portal. Hanya RPM/pemilik yang membaca.</p>
           <label class="glabel" for="saranNama">Nama (opsional)</label>
           <input type="text" id="saranNama" maxlength="80" placeholder="Nama Anda">
           <label class="glabel" for="saranPesan">Pesan</label>
@@ -1633,7 +1633,7 @@
   <div id="viewCheckpoint" style="display:none">
     <div class="card wide">
       <h2>Project Dashboard</h2>
-      <p class="desc">Ringkasan status tiap site dari data yang sudah ada di DATA BASE (tidak ada input baru). Klik satu baris untuk lihat rincian tahapnya.</p>
+      <p class="desc">Ringkasan status tiap site dari DATA BASE. Klik baris untuk rincian tahap.</p>
       <div class="kpi-grid" id="cpKpiGrid">
         <div class="kpi-card">
           <div class="kpi-top"><div class="kpi-icon kpi-navy"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.686-6-10a6 6 0 0 1 12 0c0 4.314-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg></div><div><div class="kpi-label">Total Site</div><div class="kpi-value" id="cpKpiTotal">...</div></div></div>
@@ -1715,7 +1715,7 @@
     </div>
     <div class="card wide">
       <h2 id="title">Submit BOQ ke Sheet DRAWING</h2>
-      <p class="desc">Upload file Excel BOQ (format sama seperti template BoQ NRO Cluster / BoQ NRO Mainfeeder). Volume Designator dibaca otomatis, lalu ditampilkan untuk Anda periksa <strong>sebelum</strong> dikirim ke spreadsheet. Bila satu item BOQ punya 2 kolom di sheet (mis. Dead End / Dead End 144), Anda memilih kolomnya di sini.</p>
+      <p class="desc">Upload Excel BOQ: volume Designator dibaca otomatis, periksa, lalu kirim ke sheet. Item dengan 2 kolom (mis. Dead End / Dead End 144) dipilih di sini.</p>
 
       <form id="uploadForm">
         <label for="target">Tujuan Sheet</label>
@@ -1727,7 +1727,7 @@
 
         <label for="siteName">Nama Site</label>
         <input type="text" id="siteName" required list="siteList" autocomplete="off" placeholder="Contoh: KELURAHAN TATAH BANGKAL BANJARMASIN">
-        <div class="hint">Ketik untuk memilih dari daftar DATA BASE. Nama + SOW yang sudah ada di sheet akan diperbarui, yang belum ada dibuat sebagai baris baru.</div>
+        <div class="hint">Pilih dari DATA BASE. Site + SOW yang sudah ada diperbarui, yang baru ditambahkan.</div>
 
         <label for="keterangan">SOW / Keterangan</label>
         <select id="keterangan" required>
@@ -1743,7 +1743,7 @@
           <label for="picSel">PIC (opsional)</label>
           <select id="picSel"></select>
           <input type="text" id="pic" placeholder="Nama PIC opname" style="display:none">
-          <div class="hint">Diisi ke kolom PIC di sheet OPNAME (hanya nama yang ada di daftar sheet yang diterima). Pilih &quot;(tidak diubah)&quot; jika tidak ingin mengubah.</div>
+          <div class="hint">Masuk ke kolom PIC di sheet OPNAME. Pilih "(tidak diubah)" bila tidak diganti.</div>
         </div>
 
         <label for="fileInput">File BOQ (.xlsx) atau Opname (.pdf)</label>
@@ -1784,7 +1784,7 @@
   <div id="viewBoqGen" style="display:none">
     <div class="card wide">
       <h2>Buat BOQ</h2>
-      <p class="desc">Kebalikan dari Submit BOQ: isi volume desain ke <strong>sheet BoM</strong> (rute kabel per Line, jumlah FAT, tiang, strand wire, FDT, dan seterusnya), lalu portal membuat file <strong>BOQ .xlsx</strong> dari template BOQ plan SOW yang dipilih. Sheet BoQ mengikuti rumus BoM, jadi kabel (plus slack dan toleransi 5%), label, splicing, Testcomm, Survey &amp; Design, dan Project Management terhitung otomatis. Semua sheet tetap ada di file. File langsung terunduh dan tersimpan di daftar <strong>BOQ yang Dibuat</strong> di bawah.</p>
+      <p class="desc">Isi volume desain di sheet BoM, portal membuat BOQ .xlsx dari template SOW. Kabel (+slack &amp; toleransi 5%), label, splicing, dll. dihitung otomatis. File tersimpan di BOQ yang Dibuat.</p>
       <div class="row">
         <div><label for="bqSow">SOW</label>
           <select id="bqSow"><option value="Cluster">Cluster</option><option value="Subfeeder">Subfeeder</option><option value="Mainfeeder">Mainfeeder</option><option value="Hubfeeder">Hubfeeder</option><option value="Uplink">Uplink</option><option value="FWA">FWA</option></select></div>
@@ -1794,7 +1794,7 @@
       <div id="bqTpl" class="hint"></div>
       <details id="bqTplUp" style="display:none">
         <summary>Ganti file contoh BOQ untuk SOW ini (khusus RPM)</summary>
-        <div class="hint" id="bqTplUpHint">Dipakai bila format BOQ dari klien berubah: unggah satu file BOQ plan .xlsx SOW ini (punya sheet BoQ dan sheet BoM). Rumus BoM disamakan otomatis dan angka site asalnya dikosongkan. BOQ berikutnya untuk SOW ini memakai file itu.</div>
+        <div class="hint" id="bqTplUpHint">Bila format BOQ klien berubah: unggah BOQ plan .xlsx baru (sheet BoQ + BoM) untuk SOW ini.</div>
         <input type="file" id="bqTplFile" accept=".xlsx">
         <button type="button" class="small" id="bqTplBtn">Unggah</button>
         <div id="bqTplMsg" class="hint"></div>
@@ -1831,8 +1831,8 @@
         <tbody id="bqItems"></tbody>
       </table>
       <button type="button" class="small" id="bqAddRow" style="margin-top:8px">+ Tambah baris</button>
-      <div class="hint">Satu baris satu item BoM. Kabel dan strand wire diisi <strong>panjang rute</strong> (meter); BOQ menambah slack 20 m per FAT/FDT dan toleransi 5% sesuai rumus BoM. Pilih Line bila template memakai kolom Line A/B/C. Item yang tidak diisi bernilai 0.</div>
-      <div class="hint" id="bqAbdVolHint" style="display:none">Untuk ABD, isi volume <strong>As Built</strong> (hasil lapangan). Klik <em>Ambil isian dari BOQ plan</em> supaya isian plan muncul di sini, lalu ubah yang berbeda. Hasilnya masuk ke Form Project Opname kolom As Built; deviasi, ABD BoQ, BoQ Roll Out, Summary Cost dan Reconsile terhitung otomatis.</div>
+      <div class="hint">Satu baris satu item BoM. Kabel/strand wire = panjang rute (m); slack &amp; toleransi 5% otomatis. Item kosong = 0.</div>
+      <div class="hint" id="bqAbdVolHint" style="display:none">ABD: isi volume As Built. Klik Ambil isian dari BOQ plan, lalu ubah yang berbeda; deviasi dihitung otomatis.</div>
 
       <div id="bqMsg" class="status"></div>
       <div><button type="button" class="primary" id="bqBtn">Buat BOQ (.xlsx)</button></div>
@@ -1841,7 +1841,7 @@
 
     <div class="card wide">
       <h2>BOQ yang Dibuat</h2>
-      <p class="desc">100 BOQ terbaru yang dibuat lewat menu ini. Klik Unduh untuk mengambil ulang file .xlsx-nya.</p>
+      <p class="desc">100 BOQ terbaru. Klik Unduh untuk mengambil ulang.</p>
       <div class="row"><div><input type="text" id="bqQ" placeholder="Cari site atau nama file..." autocomplete="off"></div></div>
       <div id="bqCount" class="hint"></div>
       <table class="hist hist-bq">
@@ -1860,15 +1860,15 @@
     <div class="card wide">
       <button type="button" class="back" id="backHomeBa">&larr; Kembali ke Warehouse</button>
       <h2>Warehouse &ndash; Submit BA Transaksi</h2>
-      <p class="desc">Upload PDF atau <strong>foto</strong> BA (Form Pengambilan / Pengembalian Material). Isi form dibaca otomatis lewat OCR (PDF yang teksnya diketik lewat editor PDF dibaca langsung): Site (dipakai sebagai Name), Jenis Pekerjaan (SOW), Nama Material, dan Qty. Periksa hasilnya, lalu simpan. PDF asli (atau PDF hasil konversi foto) tersimpan utuh di Drive dan bisa diunduh ulang. Bisa upload <strong>banyak berkas sekaligus untuk 1 site yang sama</strong>.</p>
+      <p class="desc">Upload PDF atau foto BA, isinya dibaca otomatis (OCR). Periksa, lalu simpan. Bisa banyak berkas untuk 1 site.</p>
 
       <form id="baForm">
         <label for="baFile">File BA (.pdf atau foto) &ndash; boleh pilih beberapa sekaligus</label>
         <input type="file" id="baFile" accept="application/pdf,.pdf,image/*" multiple required>
-        <div class="hint">Tahan Ctrl atau Shift saat memilih untuk mengambil banyak berkas (maks. 15). Semua BA yang diupload bersamaan dianggap milik 1 site yang sama. Di ponsel, pilih <strong>Kamera</strong> untuk memotret BA langsung: satu foto = satu BA; foto tegak lurus, terang, dan seluruh halaman terlihat.</div>
+        <div class="hint">Maks. 15 berkas untuk 1 site. Di ponsel pilih Kamera: satu foto = satu BA.</div>
         <label for="baSiteAll">Site untuk semua BA <span class="opt">(opsional)</span></label>
         <input type="text" id="baSiteAll" list="siteList" autocomplete="off" placeholder="Kosongkan = otomatis dari BA pertama yang terbaca">
-        <div class="hint">Diisi otomatis dari BA pertama yang terbaca. Ubah bila perlu; berlaku untuk semua BA di antrean. BA yang site-nya di PDF berbeda akan diberi peringatan.</div>
+        <div class="hint">Terisi dari BA pertama; berlaku untuk semua BA di antrean.</div>
         <button type="submit" class="primary" id="baReadBtn">Baca BA</button>
       </form>
 
@@ -1948,7 +1948,7 @@
 
     <div class="card wide">
       <h2>BA Tersimpan</h2>
-      <p class="desc">100 BA terbaru. Cari atau saring, lalu klik Unduh untuk mengambil PDF aslinya. Rekap material bersih per Site (Ambil dikurangi Pengembalian) ada di sheet <strong>REKAP BA</strong>.</p>
+      <p class="desc">100 BA terbaru. Klik Unduh untuk PDF aslinya. Rekap material bersih per site: sheet <strong>REKAP BA</strong>.</p>
       <div class="row">
         <div><input type="text" id="hfQ" placeholder="Cari Site atau ID BA..." autocomplete="off"></div>
         <div>
@@ -1976,7 +1976,7 @@
   <div id="viewWh" style="display:none">
     <div class="hero">
       <h1>Warehouse</h1>
-      <p>Pilih tugas gudang: membuat BA baru, atau menyimpan BA yang sudah ditandatangani.</p>
+      <p>Buat BA baru atau simpan BA yang sudah ditandatangani.</p>
     </div>
     <div class="rpTabs" id="whTabs" role="tablist">
       <button type="button" class="rpTab" id="goBaGen" role="tab">BA Transaksi</button>
@@ -1990,7 +1990,7 @@
     <div class="card wide">
       <button type="button" class="back" id="backWhGen">&larr; Kembali ke Warehouse</button>
       <h2>Warehouse &ndash; BA Transaksi</h2>
-      <p class="desc">Buat <strong>BA Pengambilan / Pengembalian Material</strong> otomatis. Nomor BA standar dibuat sistem, PDF mengikuti template (kotak tanda tangan dikosongkan untuk ditandatangani), dan datanya langsung masuk ke sheet BA TRANSAKSI dan REKAP BA.</p>
+      <p class="desc">Buat BA Pengambilan / Pengembalian otomatis: nomor BA dari sistem, PDF siap ditandatangani, data masuk ke BA TRANSAKSI &amp; REKAP BA.</p>
       <div id="bgNote"></div>
 
       <div class="row">
@@ -2024,7 +2024,7 @@
         <tbody id="bgItems"></tbody>
       </table>
       <button type="button" class="small" id="bgAddRow" style="margin-top:8px">+ Tambah baris</button>
-      <div class="hint">Satu baris satu material. Satuan (meter, pcs, roll) cukup ditulis di Keterangan. Maksimal <span id="bgMax">34</span> baris; PDF memuat 17 baris per halaman.</div>
+      <div class="hint">Satu baris satu material; satuan di Keterangan. Maks. <span id="bgMax">34</span> baris (17 per halaman PDF).</div>
 
       <div id="bgStatus" class="status"></div>
       <div id="bgResult"></div>
@@ -2034,7 +2034,7 @@
 
     <div class="card wide">
       <h2>BA yang Dibuat</h2>
-      <p class="desc">Semua BA yang dibuat lewat menu ini, terbaru di atas. Klik Unduh PDF untuk mengambil ulang file-nya.</p>
+      <p class="desc">Terbaru di atas. Klik Unduh PDF untuk mengambil ulang.</p>
       <div class="row"><div><input type="text" id="bgQ" placeholder="Cari Nomor BA, ID BA, Site, atau Mandor..." autocomplete="off"></div></div>
       <div id="bgCount" class="hint"></div>
       <table class="hist hist-bg">
@@ -2048,7 +2048,7 @@
     </div>
   <div class="card wide" id="masukCard">
     <h2>Masuk Material</h2>
-    <p class="desc">Catat material yang masuk ke gudang dari pembelian atau transfer antar gudang. Tidak ada PDF. Data langsung masuk ke sheet BA TRANSAKSI dan dihitung di SALDO GUDANG.</p>
+    <p class="desc">Material masuk dari pembelian atau transfer gudang. Tanpa PDF; dihitung di SALDO GUDANG.</p>
     <div class="row">
       <div><label for="mkJenis">Jenis</label>
         <select id="mkJenis"><option value="Masuk - Pembelian">Masuk - Pembelian</option><option value="Masuk - Transfer">Masuk - Transfer</option></select></div>
@@ -2081,7 +2081,7 @@
   </div>
   <div class="card wide" id="rpCardAtp" style="display:none">
     <h2>FORM ATP</h2>
-    <p class="desc">Isi tanggal, cluster / site, dan nominal entertain. <strong>Lihat PDF</strong> membuat pratinjau tanpa menyimpan. <strong>Terbitkan FORM ATP</strong> menyimpan PDF ke Drive dan mencatat di sheet <strong>FORM ATP</strong> pada spreadsheet RPM.</p>
+    <p class="desc">Lihat PDF = pratinjau. Terbitkan = simpan ke Drive &amp; catat di sheet FORM ATP.</p>
     <div class="row">
       <div><label for="atpTglAju">Tanggal pengajuan</label><input type="date" id="atpTglAju"></div>
       <div><label for="atpTglAtp">Tanggal ATP</label><input type="date" id="atpTglAtp"></div>
@@ -2115,7 +2115,7 @@
   </div>
   <div class="card wide" id="rpCardBa">
       <h2>BA Pekerjaan</h2>
-      <p class="desc">Terbitkan <strong>Berita Acara Penyelesaian Pekerjaan</strong> untuk Mandor. PDF dibuat otomatis (lengkap dengan kop surat dan foto), tersimpan di Drive, dan tercatat di spreadsheet khusus RPM.</p>
+      <p class="desc">Terbitkan BA Penyelesaian Pekerjaan untuk Mandor: PDF otomatis (kop &amp; foto), tersimpan di Drive.</p>
 
       <div class="row">
         <div><label for="rpTanggal">Tanggal BA</label><input type="date" id="rpTanggal"></div>
@@ -2154,7 +2154,7 @@
 
       <details>
         <summary>Tanda tangan (opsional)</summary>
-        <div class="hint">Gambar tanda tangan dipangkas otomatis dan diseragamkan ukurannya, jadi foto/scan dengan banyak ruang kosong pun tampil sama besar di PDF. Tinta gelap di latar putih paling jelas.</div>
+        <div class="hint">Dipangkas &amp; diseragamkan otomatis. Tinta gelap di latar putih paling jelas.</div>
         <label for="rpSignRpmFile">Tanda tangan RPM <span class="opt">(sekali unggah, dipakai otomatis di semua PDF)</span></label>
         <div id="rpSignInfo" class="hint"></div>
         <input type="file" id="rpSignRpmFile" accept="image/*">
@@ -2174,7 +2174,7 @@
 
     <div class="card wide">
       <h2>BA Pekerjaan Terbit</h2>
-      <p class="desc">100 BA terbaru. Cari lalu klik Unduh untuk mengambil PDF-nya. Rekap progres per Site ada di spreadsheet RPM, sheet <strong>REKAP PROGRES</strong>.</p>
+      <p class="desc">100 BA terbaru. Rekap progres: sheet REKAP PROGRES.</p>
       <div class="row"><div><input type="text" id="rpQ" placeholder="Cari Site, Mandor, atau ID BA..." autocomplete="off"></div></div>
       <div id="rpCount" class="hint"></div>
       <table class="hist hist-rp">
@@ -2255,7 +2255,7 @@
   <div id="viewLogHistory" style="display:none">
     <div class="card wide">
       <h2>Log History</h2>
-      <p class="desc">Riwayat semua aktivitas: login di Gateway, aksi di Portal FTTH dan Portal Waspang, dan edit manual di semua tab spreadsheet FTTH, Waspang, RPM BMI dan Gudang BMI. Hanya RPM yang bisa membuka halaman ini.</p>
+      <p class="desc">Riwayat login Gateway, aksi portal, dan edit spreadsheet. Khusus RPM.</p>
       <div class="row">
         <div><input type="text" id="logQ" placeholder="Cari user, aksi, atau detail..." autocomplete="off"></div>
         <div>
@@ -4597,7 +4597,7 @@
       $('bqBtn').textContent = on ? 'Buat BOQ ABD (.xlsx)' : 'Buat BOQ (.xlsx)';
       $('bqTplUpHint').textContent = on
         ? 'Dipakai bila format ABD dari klien berubah: unggah satu file ABD BoQ .xlsx format MyRepublic (sheet PO, Form Project Opname, ABD BoQ RO ODN). Nama vendor dan PIC site asal diganti, volume dikosongkan, rumus antar sheet disamakan.'
-        : 'Dipakai bila format BOQ dari klien berubah: unggah satu file BOQ plan .xlsx SOW ini (punya sheet BoQ dan sheet BoM). Rumus BoM disamakan otomatis dan angka site asalnya dikosongkan. BOQ berikutnya untuk SOW ini memakai file itu.';
+        : 'Bila format BOQ klien berubah: unggah BOQ plan .xlsx baru (sheet BoQ + BoM) untuk SOW ini.';
       if (on) { bqAbdPlans(); bqAbdLoadTpl(); }
       bqHint();
     }
