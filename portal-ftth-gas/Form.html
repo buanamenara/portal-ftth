@@ -720,7 +720,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" media="print" onload="this.media='all'">
 <style>
   /* Huruf & warna dasar */
-  :root { --bmi-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; --pl-ink: #191917; --pl-mut: #7A776E;
+  :root { --bmi-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif !important;  /* !important: paket animasi di bawah juga mengisi variabel ini */ --pl-ink: #191917; --pl-mut: #7A776E;
     --pl-line: #ECE4D3; --pl-line2: #F1EBDF; --pl-in: #FBF9F4; --pl-in-line: #E6DECD; }
   body { font-family: var(--bmi-font); font-optical-sizing: auto; letter-spacing: -.003em; color: var(--pl-ink); -webkit-font-smoothing: antialiased; }
   button, input, select, textarea { font-family: inherit; }

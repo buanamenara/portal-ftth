@@ -1177,7 +1177,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" media="print" onload="this.media='all'">
 <style>
-  :root { --bmi-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; }
+  :root { --bmi-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif !important;  /* !important: paket animasi di bawah juga mengisi variabel ini */ }
   * { font-family: var(--bmi-font); }
   .report-preview-card, .report-preview-card * { font-family: 'Consolas', 'Courier New', monospace; }
   body { font-optical-sizing: auto; letter-spacing: -.003em; color: #191917; -webkit-font-smoothing: antialiased; }
