@@ -1134,14 +1134,14 @@
     #adminTable td { border: 0 !important; padding: 0 !important; font-size: 13px; }
     #adminTable td[colspan] { padding: 10px 0 !important; }
     #adminTable td:first-child { font-size: 12px; color: #8E8A80; font-weight: 500; }
-    #adminTable td:first-child::before { content: "@"; }
+    #adminTable tr[data-deco] td:first-child::before { content: "@"; }
     #adminTable td:nth-child(2) { order: -1; font-size: 15px; font-weight: 650; color: #191917; }
     #adminTable tr { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 2px; }
     #adminTable td:nth-child(2) { flex: 1 1 60%; }
     #adminTable td:nth-child(3) { flex: 0 0 auto; }
     #adminTable td:first-child { flex: 1 1 100%; order: 0; }
     #adminTable td:nth-child(4), #adminTable td:nth-child(5) { flex: 0 0 auto; color: #7A776E; }
-    #adminTable td:nth-child(4)::after { content: " ·"; }
+    #adminTable tr[data-deco] td:nth-child(4)::after { content: " ·"; }
     #adminTable td:last-child { flex: 1 1 100%; margin-top: 6px; }
     #adminTable .adm-av { position: absolute; left: 0; top: 14px; margin: 0; width: 34px; height: 34px; }
     .adm-seg button { min-height: 44px; }
@@ -1162,8 +1162,54 @@
     #logTable td:nth-child(5) { order: 3; flex: 1 1 100%; font-size: 15px; }
     #logTable td:nth-child(3) { order: 4; color: #3b3a35; }
     #logTable td:nth-child(4) { order: 5; color: #8E8A80; }
-    #logTable td:nth-child(4)::before { content: "("; } #logTable td:nth-child(4)::after { content: ")"; }
+    #logTable tr[data-deco] td:nth-child(4)::before { content: "("; } #logTable tr[data-deco] td:nth-child(4)::after { content: ")"; }
     #logTable td:nth-child(6) { order: 6; flex: 1 1 100%; color: #7A776E; }
+  }
+  /* ---- HP (mockup HP02-HP14): menu berlogo, bar bawah, menu akun, area mendatar, kamera BA ---- */
+  .sb-mbrand, .ud-head, .cp-legend, #baCamBtn { display: none; }
+  @media (max-width: 860px) {
+    .sb-mbrand { display: block; padding: 26px 22px 16px; margin: 0 12px 10px; border-bottom: 1px solid rgba(255,255,255,.12); }
+    .sb-mbrand img { height: 56px; max-width: 100%; display: block; }
+    .sb-mbrand .mb-fb { color: var(--gold); font-weight: 750; font-size: 20px; }
+    .sb-mbrand b { display: block; color: #fff; font-size: 13.5px; font-weight: 650; margin-top: 12px; }
+    .sb-mbrand small { display: block; color: #8b877c; font-size: 11px; margin-top: 2px; }
+    #sidebar .nav-item.active { background: var(--gold) !important; box-shadow: none !important; }
+    #sidebar .nav-item.active svg { stroke: #111 !important; }
+    #sidebar .nav-item.active .nav-title { color: #111 !important; }
+  }
+  @media (max-width: 640px) {
+    .mtab-item svg { padding: 4px 14px; box-sizing: content-box; border-radius: 999px; transition: background .2s; }
+    .mtab-item.active svg { background: #FBF1D9; }
+    .ud-head { display: block; padding: 10px 12px 10px; border-bottom: 1px solid #F1EBDF; margin-bottom: 4px; }
+    .ud-head b { display: block; font-size: 14px; color: #191917; }
+    .ud-head small { display: block; font-size: 12px; color: #8E8A80; }
+    .user-dropdown { border-radius: 16px !important; min-width: 220px !important; box-shadow: 0 16px 40px rgba(0,0,0,.18) !important; padding: 6px !important; }
+    .user-dropdown a { font-size: 14px !important; padding: 11px 12px !important; color: #191917 !important; border-radius: 12px !important; }
+    .user-dropdown a#logoutLink { color: #B4432F !important; }
+    /* Dashboard: Progress per Area jadi batang mendatar per area */
+    #viewHome .area-panel .area-chart { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 4px 0 0; }
+    #viewHome .area-panel .area-group { display: block; background: #FBF8F1; border-radius: 14px; padding: 12px 14px; }
+    #viewHome .area-panel .area-label { text-align: left; margin: 0 0 8px; font-size: 14px; font-weight: 700; }
+    #viewHome .area-panel .area-bars { flex-direction: column; align-items: stretch; gap: 7px; height: auto; }
+    #viewHome .area-panel .area-row { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; gap: 8px; height: auto; width: auto; }
+    #viewHome .area-panel .area-row-label { display: block; font-size: 12px; color: #7A776E; }
+    #viewHome .area-panel .area-track { display: block; position: relative; height: 8px; width: auto; margin-right: 42px; background: #ECE6D8; border-radius: 999px; }
+    #viewHome .area-panel .area-bar { position: relative; height: 100%; width: var(--v, 0%) !important; border-radius: 999px; }
+    #viewHome .area-panel .area-pct { position: absolute; top: 50%; bottom: auto; left: auto; right: -42px; width: 36px; text-align: right; transform: translateY(-50%); margin: 0; font-size: 12px; font-weight: 700; }
+    /* Project Dashboard: keterangan ikon */
+    .cp-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: #7A776E; margin: 4px 0 8px; }
+    .cp-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .cp-legend i { font-style: normal; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; font-size: 10px; }
+    /* Submit BOQ: tombol ditumpuk */
+    #viewBoq .boq-foot { flex-direction: column; align-items: stretch; }
+    #viewBoq .boq-foot > button { width: 100%; margin: 0 !important; min-height: 48px; }
+    #viewBoq .boq-foot #boqAddRow { margin: 0 !important; align-self: flex-start; }
+    #viewBoq .boq-foot #boqSendBtn { order: 1; } #viewBoq .boq-foot #boqCancelBtn { order: 2; }
+    /* Warehouse: Tanggal & Jam berdampingan; Submit BA: Kamera + Pilih File */
+    .row:has(> div > #bgTanggal) > div, .row:has(> div > #baTanggal) > div:not(:first-child), .row:has(> div > #mkTanggal) > div:not(:first-child) { flex: 1 1 0 !important; min-width: 0 !important; }
+    #baCamBtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; margin: 6px 0 8px; border: 0; border-radius: 999px; background: #000; color: #fff; font: inherit; font-weight: 650; font-size: 15px; }
+    #baPreview > div:has(> #baSaveBtn) { flex-direction: column; }
+    #baPreview > div:has(> #baSaveBtn) > button { width: 100%; min-height: 48px; }
   }
   /* ---- Kerangka (layar lebar): logo di sidebar mengambang, tanpa bar hitam atas; lonceng + user di kanan atas ---- */
   #bmiPageHead { display: none; }
@@ -2888,7 +2934,7 @@
         role.addEventListener('change', sync); new MutationObserver(sync).observe(form, { attributes: true, attributeFilter: ['style'] }); sync(); }
       // Baris user: inisial + badge role
       var at = $('adminTable');
-      var deco = function () { Array.prototype.forEach.call(at.rows, function (tr) { if (tr.cells.length < 6 || tr.getAttribute('data-deco')) return; tr.setAttribute('data-deco', '1');
+      var deco = function () { Array.prototype.forEach.call(at.rows, function (tr) { if (tr.cells.length < 6 || tr.getAttribute('data-deco') || tr.querySelector('.bmi-skel')) return; tr.setAttribute('data-deco', '1');
           var n = tr.cells[1], r = tr.cells[2], t = (n.textContent || '?').trim();
           var av = document.createElement('span'); av.className = 'adm-av'; av.setAttribute('aria-hidden', 'true'); av.textContent = t.charAt(0).toUpperCase(); n.insertBefore(av, n.firstChild);
           var rv = (r.textContent || '').trim(), rb = document.createElement('span'); rb.className = 'adm-role' + (rv === 'RPM' ? ' r-rpm' : ''); rb.textContent = rv; r.textContent = ''; r.appendChild(rb); }); };
@@ -2899,11 +2945,38 @@
     if (lq && lt) {
       var bar = lq.closest('.row'); if (bar) bar.classList.add('lg-bar');
       var rf = $('logRefreshBtn'); if (rf) rf.insertAdjacentHTML('afterbegin', '<span class="lg-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></span>');
-      var lg = function () { Array.prototype.forEach.call(lt.rows, function (tr) { if (tr.cells.length < 6 || tr.getAttribute('data-deco')) return; tr.setAttribute('data-deco', '1');
+      var lg = function () { Array.prototype.forEach.call(lt.rows, function (tr) { if (tr.cells.length < 6 || tr.getAttribute('data-deco') || tr.querySelector('.bmi-skel')) return; tr.setAttribute('data-deco', '1');
           var c = tr.cells[1], v = (c.textContent || '').trim(), k = /waspang/i.test(v) ? 's-waspang' : (/spread|sheet/i.test(v) ? 's-sheet' : (/gateway/i.test(v) ? 's-gateway' : (/portal/i.test(v) ? 's-portal' : '')));
           var sb = document.createElement('span'); sb.className = 'log-src ' + k; sb.textContent = v; c.textContent = ''; c.appendChild(sb); }); };
       new MutationObserver(lg).observe(lt, { childList: true }); lg();
     }
+  })();
+  </script>
+  <script>
+  /* BMI HP v1 - kepala menu berlogo, kepala menu akun, keterangan ikon, tombol Kamera BA. Logika tidak berubah. */
+  (function () {
+    var $ = function (id) { return document.getElementById(id); };
+    var sb = $('sidebar'), logo = $('logo');
+    if (sb && logo) { var mb = document.createElement('div'); mb.className = 'sb-mbrand';
+      mb.innerHTML = '<span class="mb-fb">BUANA MENARA INDONESIA</span><b>FTTH Project Management Portal</b><small>Monitoring Project FTTH &amp; Material Reconciliation</small>';
+      sb.insertBefore(mb, sb.firstChild);
+      var syncLogo = function () { var src = logo.getAttribute('src'); if (src && logo.style.display !== 'none') { var im = mb.querySelector('img') || document.createElement('img'); im.alt = 'Buana Menara Indonesia'; im.src = src; var fb = mb.querySelector('.mb-fb'); if (fb) fb.replaceWith(im); } };
+      new MutationObserver(syncLogo).observe(logo, { attributes: true, attributeFilter: ['src', 'style'] }); syncLogo(); }
+    var dd = $('userDropdown'), un = $('userName'), us = $('userSub');
+    if (dd && un) { var h = document.createElement('div'); h.className = 'ud-head'; h.innerHTML = '<b></b><small></small>'; dd.insertBefore(h, dd.firstChild);
+      var syncU = function () { h.firstChild.textContent = un.textContent; h.lastChild.textContent = us ? us.textContent : ''; };
+      new MutationObserver(syncU).observe(un, { childList: true, characterData: true, subtree: true }); if (us) new MutationObserver(syncU).observe(us, { childList: true, characterData: true, subtree: true }); syncU(); }
+    var ct = document.querySelector('#viewCheckpoint .cp-table');
+    if (ct) { var lg = document.createElement('div'); lg.className = 'cp-legend';
+      lg.innerHTML = '<span><i style="background:#E6F2E8;color:#1E7A3C">✓</i>Selesai</span><span><i style="border:1.5px dashed #C9972C;color:#A87A1B">●</i>Proses</span><span><i style="background:#F4EFE4;color:#7A776E">✕</i>Belum</span><span><i style="background:#FBEDE8;color:#A2442F">△</i>Drop</span>';
+      var tw = ct.parentNode; tw.parentNode.insertBefore(lg, tw); }
+    var bf = $('baFile');
+    if (bf && window.DataTransfer) { var cam = document.createElement('input'); cam.type = 'file'; cam.accept = 'image/*'; cam.setAttribute('capture', 'environment'); cam.id = 'baCamInput'; cam.style.display = 'none';
+      var btn = document.createElement('button'); btn.type = 'button'; btn.id = 'baCamBtn';
+      btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Kamera (satu foto = satu BA)';
+      bf.parentNode.insertBefore(cam, bf); bf.parentNode.insertBefore(btn, bf);
+      btn.addEventListener('click', function () { cam.click(); });
+      cam.addEventListener('change', function () { try { var dt = new DataTransfer(); Array.prototype.forEach.call(bf.files || [], function (f) { dt.items.add(f); }); Array.prototype.forEach.call(cam.files || [], function (f) { dt.items.add(f); }); bf.files = dt.files; bf.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {} cam.value = ''; }); }
   })();
   </script>
   <script>
