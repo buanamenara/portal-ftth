@@ -494,7 +494,8 @@
   function checkBtn(b) {
     if (b.dataset.bmiBusy) return;
     var t = (b.textContent || '').trim();
-    if (b.disabled && (BUSY_END.test(t) || HOURGLASS.test(t))) { if (!b.dataset.bmiWas) b.dataset.bmiWas = t.slice(0, 60); hourglass(b); addSpin(b); }
+    // tombol '…' tanpa kata (mis. nomor halaman) bukan tanda sibuk
+    if (b.disabled && ((BUSY_END.test(t) && /[A-Za-z]/.test(t)) || HOURGLASS.test(t))) { if (!b.dataset.bmiWas) b.dataset.bmiWas = t.slice(0, 60); hourglass(b); addSpin(b); }
     else {
       dropSpin(b);
       if (b.dataset.bmiWas && !b.disabled) { released = { b: b, t: Date.now(), word: okWord(b.dataset.bmiWas) }; delete b.dataset.bmiWas; }

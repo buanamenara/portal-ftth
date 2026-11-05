@@ -904,6 +904,61 @@
     .kpi-ring b { font-size: 10px; }
     #viewHome .area-panel .area-bars { height: 130px; }
   }
+
+  /* ===== Project Dashboard (viewCheckpoint) seperti mockup v4 ===== */
+  #viewCheckpoint .cp-page { background: transparent; border: 0; box-shadow: none; padding: 0; margin-top: 0; }
+  #viewCheckpoint .cp-page > h2 { font-size: 34px; letter-spacing: -.035em; margin-bottom: 4px; }
+  #viewCheckpoint .cp-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, 1.55fr); gap: 12px; margin: 16px 0 14px; }
+  #viewCheckpoint .cp-k { background: #fff; border: 1px solid #ECE4D3; border-radius: 18px; padding: 16px 18px; gap: 0; }
+  #viewCheckpoint .cp-k .kpi-label { display: flex; align-items: center; gap: 7px; font-size: 13px; color: #4a4842; font-weight: 500; }
+  #viewCheckpoint .cp-dot { width: 8px; height: 8px; border-radius: 50%; background: #191917; flex: none; }
+  #viewCheckpoint .cp-k .kpi-value { font-size: 34px; font-weight: 650; letter-spacing: -.035em; line-height: 1.1; margin: 6px 0 2px; }
+  #viewCheckpoint .cp-k .kpi-sub { font-size: 12px; color: #7A776E; min-height: 15px; }
+  #viewCheckpoint .cp-k-bar { height: 6px; border-radius: 99px; background: #EFE8DA; overflow: hidden; margin-top: 14px; }
+  #viewCheckpoint .cp-k-bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: #191917; transition: width .4s ease; }
+  #viewCheckpoint .k-progress .cp-dot, #viewCheckpoint .k-progress .cp-k-bar i { background: #C9972C; }
+  #viewCheckpoint .k-pending .cp-dot, #viewCheckpoint .k-pending .cp-k-bar i { background: #BDB4A0; }
+  #viewCheckpoint .k-drop .cp-dot, #viewCheckpoint .k-drop .cp-k-bar i { background: #A2442F; }
+  #viewCheckpoint .cp-area-card { background: #000; border: 1px solid #000; border-radius: 18px; padding: 16px 18px; color: #fff; }
+  #viewCheckpoint .cp-area-card .panel-title { color: #fff; font-size: 14px; font-weight: 650; text-transform: none; letter-spacing: -.01em; margin-bottom: 10px; }
+  #viewCheckpoint .cp-area-card .funnel-row { color: #E9E3D4; font-size: 13px; margin-bottom: 5px; }
+  #viewCheckpoint .cp-area-card .funnel-row span:last-child { color: #C9972C; font-weight: 650; }
+  #viewCheckpoint .cp-area-card .funnel-bar { background: #2b2a27; height: 6px; margin-bottom: 12px; }
+  #viewCheckpoint .cp-area-card .funnel-fill { background: #C9972C; }
+  #viewCheckpoint .cp-area-card .hint, #viewCheckpoint .cp-area-card .alert-empty { color: #a9a395; }
+  #viewCheckpoint .cp-detail { background: #fff; border: 1px solid #ECE4D3; border-radius: 20px; padding: 18px 20px 16px; }
+  #viewCheckpoint .cp-detail-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 6px; position: relative; }
+  #viewCheckpoint .cp-detail-head > .panel-title { font-size: 17px; font-weight: 650; color: #191917; text-transform: none; letter-spacing: -.015em; margin: 0 auto 0 0; }
+  #viewCheckpoint .cp-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  #viewCheckpoint .cp-chip { font: inherit; font-size: 12.5px; font-weight: 600; border: 0; border-radius: 999px; padding: 7px 13px; background: #F4EFE4; color: #3b3a35; cursor: pointer; }
+  #viewCheckpoint .cp-chip:hover { background: #EBE3D2; }
+  #viewCheckpoint .cp-chip.on { background: #000; color: #C9972C; }
+  #viewCheckpoint .cp-filters { flex-wrap: nowrap; gap: 8px; align-items: center; margin: 0; }
+  #viewCheckpoint .cp-filters > div { flex: 0 0 auto; min-width: 0; }
+  #viewCheckpoint .cp-filters .cp-sow-sel { display: none; }
+  #viewCheckpoint .cp-filters select { margin: 0; width: auto; min-width: 150px; }
+  #viewCheckpoint .site-search-toggle { border-radius: 50%; border-color: #E6DECD; background: #FBF9F4; }
+  #viewCheckpoint .cp-table td:first-child { font-weight: 600; }
+  #viewCheckpoint .pager .pages button { border: 0; border-radius: 999px !important; margin-left: 4px; min-width: 34px; background: #F4EFE4; color: #3b3a35; }
+  #viewCheckpoint .pager .pages button.on { background: #000; color: #C9972C; }
+  #viewCheckpoint .pager .rows select { border-radius: 999px; }
+  @media (max-width: 1300px) {
+    #viewCheckpoint .cp-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width: 700px) {
+    #viewCheckpoint .cp-page > h2 { font-size: 26px; }
+    #viewCheckpoint .cp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    #viewCheckpoint .cp-area-card { grid-column: 1 / -1; }
+    #viewCheckpoint .k-total { grid-column: 1 / -1; }
+    #viewCheckpoint .cp-k { padding: 12px 14px; }
+    #viewCheckpoint .cp-k .kpi-value { font-size: 26px; }
+    #viewCheckpoint .cp-detail { padding: 14px; }
+    #viewCheckpoint .cp-chips { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: 2px; }
+    #viewCheckpoint .cp-chip { flex: none; }
+    #viewCheckpoint .cp-filters { width: 100%; }
+    #viewCheckpoint .cp-filters select { min-width: 0; width: 100%; }
+    #viewCheckpoint .cp-filters > div:last-child { flex: 1; }
+  }
 </style>
 <!-- ===================== akhir BMI LAYOUT ===================== -->
 </head>
@@ -1326,7 +1381,8 @@
   function checkBtn(b) {
     if (b.dataset.bmiBusy) return;
     var t = (b.textContent || '').trim();
-    if (b.disabled && (BUSY_END.test(t) || HOURGLASS.test(t))) { if (!b.dataset.bmiWas) b.dataset.bmiWas = t.slice(0, 60); hourglass(b); addSpin(b); }
+    // tombol '…' tanpa kata (mis. nomor halaman) bukan tanda sibuk
+    if (b.disabled && ((BUSY_END.test(t) && /[A-Za-z]/.test(t)) || HOURGLASS.test(t))) { if (!b.dataset.bmiWas) b.dataset.bmiWas = t.slice(0, 60); hourglass(b); addSpin(b); }
     else {
       dropSpin(b);
       if (b.dataset.bmiWas && !b.disabled) { released = { b: b, t: Date.now(), word: okWord(b.dataset.bmiWas) }; delete b.dataset.bmiWas; }
@@ -1750,48 +1806,52 @@
               </div>
 <!-- ===== CHECKPOINT PROYEK ===== -->
   <div id="viewCheckpoint" style="display:none">
-    <div class="card wide">
+    <div class="card wide cp-page">
       <h2>Project Dashboard</h2>
       <p class="desc">Ringkasan status tiap site dari DATA BASE. Klik baris untuk rincian tahap.</p>
-      <div class="kpi-grid" id="cpKpiGrid">
-        <div class="kpi-card">
-          <div class="kpi-top"><div class="kpi-icon kpi-navy"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.686-6-10a6 6 0 0 1 12 0c0 4.314-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg></div><div><div class="kpi-label">Total Site</div><div class="kpi-value" id="cpKpiTotal">...</div></div></div>
+      <div class="kpi-grid cp-kpis" id="cpKpiGrid">
+        <div class="kpi-card cp-k k-total">
+          <div class="kpi-label"><i class="cp-dot"></i>Total Site</div><div class="kpi-value" id="cpKpiTotal">...</div><div class="kpi-sub">Site proyek FTTH</div>
+          <div class="cp-k-bar"><i></i></div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-top"><div class="kpi-icon kpi-green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 5-5"/></svg></div><div><div class="kpi-label">Completed</div><div class="kpi-value" id="cpKpiDone">...</div></div></div>
-          <div class="kpi-sub" id="cpKpiDoneSub">...</div>
+        <div class="kpi-card cp-k k-done">
+          <div class="kpi-label"><i class="cp-dot"></i>Completed</div><div class="kpi-value" id="cpKpiDone">...</div><div class="kpi-sub" id="cpKpiDoneSub">...</div>
+          <div class="cp-k-bar"><i></i></div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-top"><div class="kpi-icon kpi-amber"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div><div><div class="kpi-label">In Progress</div><div class="kpi-value" id="cpKpiProgress">...</div></div></div>
-          <div class="kpi-sub" id="cpKpiProgressSub">...</div>
+        <div class="kpi-card cp-k k-progress">
+          <div class="kpi-label"><i class="cp-dot"></i>In Progress</div><div class="kpi-value" id="cpKpiProgress">...</div><div class="kpi-sub" id="cpKpiProgressSub">...</div>
+          <div class="cp-k-bar"><i></i></div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-top"><div class="kpi-icon kpi-purple"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg></div><div><div class="kpi-label">Pending</div><div class="kpi-value" id="cpKpiPending">...</div></div></div>
-          <div class="kpi-sub" id="cpKpiPendingSub">...</div>
+        <div class="kpi-card cp-k k-pending">
+          <div class="kpi-label"><i class="cp-dot"></i>Pending</div><div class="kpi-value" id="cpKpiPending">...</div><div class="kpi-sub" id="cpKpiPendingSub">...</div>
+          <div class="cp-k-bar"><i></i></div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-top"><div class="kpi-icon" style="background:#B3261E"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg></div><div><div class="kpi-label">Drop</div><div class="kpi-value" id="cpKpiDrop">...</div></div></div>
-          <div class="kpi-sub" id="cpKpiDropSub">...</div>
+        <div class="kpi-card cp-k k-drop">
+          <div class="kpi-label"><i class="cp-dot"></i>Drop</div><div class="kpi-value" id="cpKpiDrop">...</div><div class="kpi-sub" id="cpKpiDropSub">...</div>
+          <div class="cp-k-bar"><i></i></div>
         </div>
-      </div>
-      <div class="dash-row" style="margin-bottom:18px">
-        <div class="dash-panel">
+        <div class="kpi-card cp-area-card">
           <div class="panel-title">Progress per Area</div>
           <div id="cpAreaBars"><div class="hint">Memuat...</div></div>
         </div>
+      </div>
+      <div class="dash-row cp-donut-row" style="display:none">
         <div class="dash-panel">
           <div class="panel-title">Status Project</div>
           <div class="cp-donut-wrap"><div class="cp-donut" id="cpDonut"></div><div class="cp-donut-center"><span id="cpDonutTotal">...</span><small>Site</small></div></div>
           <div class="cp-donut-legend" id="cpDonutLegend"></div>
         </div>
       </div>
+      <div class="cp-detail">
+      <div class="cp-detail-head">
       <div class="panel-title">Detail per Site</div>
-      <div class="row">
+      <div class="cp-chips" id="cpSowChips" role="tablist" aria-label="Filter SOW"></div>
+      <div class="row cp-filters">
         <div class="site-search-wrap" id="siteSearchWrap">
           <button type="button" class="site-search-toggle" id="cpQToggle" aria-label="Cari nama site"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg></button>
           <input type="text" id="cpQ" placeholder="Cari nama site..." autocomplete="off">
         </div>
-        <div>
+        <div class="cp-sow-sel">
           <select id="cpSow">
             <option value="">Semua SOW</option>
             <option>Cluster</option>
@@ -1812,6 +1872,7 @@
           </select>
         </div>
       </div>
+      </div>
       <div id="cpCount" class="hint"></div>
       <div style="overflow-x:auto">
       <table class="cp-table">
@@ -1823,6 +1884,32 @@
         <div class="pages" id="cpPages"></div>
       </div>
       </div>
+      </div>
+      <script>
+      /* Project Dashboard (tata letak v4): chip SOW mengatur select #cpSow; bar tiap KPI dari angka / total. */
+      (function () {
+        var sel = document.getElementById('cpSow'), box = document.getElementById('cpSowChips');
+        if (sel && box) {
+          Array.prototype.forEach.call(sel.options, function (o) {
+            var b = document.createElement('button'); b.type = 'button'; b.className = 'cp-chip'; b.textContent = o.text; b.dataset.v = o.value;
+            b.addEventListener('click', function () { if (sel.value === o.value) return; sel.value = o.value; sel.dispatchEvent(new Event('change')); mark(); });
+            box.appendChild(b);
+          });
+          function mark() { Array.prototype.forEach.call(box.children, function (b) { b.classList.toggle('on', b.dataset.v === sel.value); b.setAttribute('aria-pressed', b.dataset.v === sel.value); }); }
+          sel.addEventListener('change', mark); mark();
+        }
+        var grid = document.getElementById('cpKpiGrid');
+        function bars() {
+          var tot = parseFloat((document.getElementById('cpKpiTotal') || {}).textContent) || 0;
+          [['total', 'cpKpiTotal'], ['done', 'cpKpiDone'], ['progress', 'cpKpiProgress'], ['pending', 'cpKpiPending'], ['drop', 'cpKpiDrop']].forEach(function (p) {
+            var el = document.getElementById(p[1]), bar = grid && grid.querySelector('.k-' + p[0] + ' .cp-k-bar i'); if (!el || !bar) return;
+            var v = parseFloat(el.textContent), w = (tot && !isNaN(v)) ? Math.max(0, Math.min(100, v / tot * 100)) : 0;
+            var ws = w.toFixed(1) + '%'; if (bar.style.width !== ws) bar.style.width = ws;
+          });
+        }
+        try { if (grid) { new MutationObserver(bars).observe(grid, { childList: true, characterData: true, subtree: true }); bars(); } } catch (e) {}
+      })();
+      </script>
     </div>
   </div>
 
