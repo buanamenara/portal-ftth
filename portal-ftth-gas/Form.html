@@ -1010,7 +1010,9 @@
     .ws-split { display: grid; gap: 18px; align-items: start; margin-top: 14px; }
     .ws-split > .card { margin: 0 !important; min-width: 0; }
     #viewBoqGen .ws-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    #viewBoqGen .ws-split > .ws-left { grid-row: 1 / span 2; align-self: stretch; }
+    #viewBoqGen .ws-split > .ws-left { grid-column: 1; grid-row: 1; }
+    #viewBoqGen .ws-split > .bq-tpl-card { grid-column: 1; grid-row: 2; margin: 0 !important; }
+    #viewBoqGen .ws-split > .ws-right { grid-column: 2; grid-row: 1 / span 2; }
     #viewBoqGen .ws-split > .card:last-child { grid-column: 1 / -1; }
     #viewBoqGen .ws-split > .ws-right #bqBtn { width: 100%; }
     #viewBaGen .ws-split.ws-a { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
