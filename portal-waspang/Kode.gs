@@ -409,6 +409,9 @@ function waText_(text) {
     .replace(/\\([_*`\[\]])/g, '$1');
 }
 
+// `teks` = kotak kode di WhatsApp (huruf seragam, mudah disalin). Ditulis \` karena waText_ membuang ` biasa.
+function waKode_(t) { return '\\`' + String(t) + '\\`'; }
+
 // Satu kiriman ke Fonnte (teks, atau satu file dengan teks sebagai keterangan). -> true bila diterima.
 function waSend_(wa, message, blob) {
   try {
@@ -694,67 +697,67 @@ function waCmd_(p) {
   return { status: 'success', reply: out ? waText_((/^(pagi|sore|mingguan|bulanan)$/.test(cmd) ? '' : '🤖 ') + out).slice(0, 3500) : '' };   // contoh pesan jadwal tampil persis seperti di grup
 }
 
-// Format WhatsApp: *tebal* = perintah, _miring_ = isian / contoh, • = satu perintah per baris.
+// Format WhatsApp: `kode` = perintah (siap disalin), "- " = daftar, "> " = kutipan, *tebal* = judul, _miring_ = keterangan.
 function botHelp_(owner) {
-  var g = owner ? '' : '!';
+  var g = owner ? '' : '!', K = function (c) { return waKode_(g + c); }, A = waKode_;
   var s = ['📖 *AdminSuper · Daftar Perintah*',
-    owner ? '_Ketik perintahnya langsung di chat ini._' : '_Di grup, awali perintah dengan tanda *!*_',
+    owner ? '> Ketik perintahnya langsung di chat ini.' : '> Di grup, awali perintah dengan tanda *!*',
     '', '📦 *CEK DATA*',
-    '• *' + g + 'stok* _[material] [gudang]_ → saldo gudang',
-    '   _contoh: ' + g + 'stok kabel batola_',
-    '• *' + g + 'progres* _<site>_ → Total vs Plan material',
-    '   _contoh: ' + g + 'progres jati baru rt 04_',
-    '• *' + g + 'rekap* _[kemarin | dd/mm]_ → Daily Report hari itu',
-    '• *' + g + 'site* _<kata>_ → cari nama site',
-    '• *' + g + 'potongan* _[kabel] [gudang]_ → haspel utuh + potongan kabel',
-    '• *' + g + 'ba* _<site>_ → BA Ambil / Pengembalian + total bersih',
-    '• *' + g + 'ok* _<site> [alasan]_ → jawab peringatan site tanpa laporan',
-    '• *' + g + 'revisi* _<site> [dd/mm]_ → perbaiki Daily Report yang sudah terkirim' + (owner ? '' : ' _(dikonfirmasi admin)_'),
-    '• *' + g + 'hapusba* _<nomor BA> [alasan]_ → hapus BA salah input' + (owner ? '' : ' _(dikonfirmasi admin)_'),
-    '• *' + g + 'panduan* → PDF panduan perintah',
-    '• *' + g + 'bantu* → daftar ini',
-    '• Kirim Excel stok WH dengan caption *' + g + 'stokwh* → dicocokkan dengan SALDO GUDANG',
+    '- ' + K('stok [material] [gudang]') + ' saldo gudang',
+    '   _contoh:_ ' + K('stok kabel batola'),
+    '- ' + K('progres <site>') + ' Total vs Plan material',
+    '   _contoh:_ ' + K('progres jati baru rt 04'),
+    '- ' + K('rekap [kemarin | dd/mm]') + ' Daily Report hari itu',
+    '- ' + K('site <kata>') + ' cari nama site',
+    '- ' + K('potongan [kabel] [gudang]') + ' haspel utuh + potongan kabel',
+    '- ' + K('ba <site>') + ' BA Ambil / Pengembalian + total bersih',
+    '- ' + K('ok <site> [alasan]') + ' jawab peringatan site tanpa laporan',
+    '- ' + K('revisi <site> [dd/mm]') + ' perbaiki Daily Report yang sudah terkirim' + (owner ? '' : ' _(dikonfirmasi admin)_'),
+    '- ' + K('hapusba <nomor BA> [alasan]') + ' hapus BA salah input' + (owner ? '' : ' _(dikonfirmasi admin)_'),
+    '- ' + K('panduan') + ' PDF panduan perintah',
+    '- ' + K('bantu') + ' daftar ini',
+    '- Kirim Excel stok WH dengan caption ' + K('stokwh') + ', dicocokkan dengan SALDO GUDANG',
     '', '⏰ *OTOMATIS KE GRUP*',
-    '• *07:00* Today\'s Plan _(permit + implementasi)_',
-    '• *07:05* site 3 hari tanpa laporan _(sekali; Senin diulang sampai di-!ok)_',
-    '• *17:30* pengingat Daily Report _(tag yang belum lapor)_',
-    '• *Senin 07:00* rekap mingguan · *tgl 1* rekap bulanan',
-    '• *Senin 08:00* minta Excel stok WH · *tgl 28* persiapan opname',
-    '• Daily Report dicek _(tanggal, Total > Plan)_, BA baru diteruskan'];
+    '- *07:00* Today\'s Plan _(permit + implementasi)_',
+    '- *07:05* site 3 hari tanpa laporan _(sekali; Senin diulang sampai di-!ok)_',
+    '- *17:30* pengingat Daily Report _(tag yang belum lapor)_',
+    '- *Senin 07:00* rekap mingguan · *tgl 1* rekap bulanan',
+    '- *Senin 08:00* minta Excel stok WH · *tgl 28* persiapan opname',
+    '- Daily Report dicek _(tanggal, Total > Plan)_, BA baru diteruskan'];
   if (owner) s = s.concat(['', '🔔 *OTOMATIS KE ADMIN*',
-    '• *07:00* stok di bawah standar _(+ perkiraan habis)_',
-    '• *Senin 07:05* item melebihi Plan BOQ',
-    '• *07:10* Excel stok WH 7 hari belum dikirim',
-    '• *Minggu 22:00* backup spreadsheet · email bila gateway mati',
+    '- *07:00* stok di bawah standar _(+ perkiraan habis)_',
+    '- *Senin 07:05* item melebihi Plan BOQ',
+    '- *07:10* Excel stok WH 7 hari belum dikirim',
+    '- *Minggu 22:00* backup spreadsheet · email bila gateway mati',
     '', '📝 *CATATAN & PENGINGAT*',
-    '• *catat* _<teks>_ → simpan catatan',
-    '• *catatan* _[kata]_ → 10 catatan terakhir',
-    '• *ingatkan* _14:30 <teks>_ · _besok 08:00 <teks>_ · _30m <teks>_',
-    '• *pengingat* → daftar pengingat',
+    '- ' + A('catat <teks>') + ' simpan catatan',
+    '- ' + A('catatan [kata]') + ' 10 catatan terakhir',
+    '- ' + A('ingatkan 14:30 <teks>') + ' · ' + A('besok 08:00 <teks>') + ' · ' + A('30m <teks>'),
+    '- ' + A('pengingat') + ' daftar pengingat',
     '', '📋 *TODAY\'S PLAN*',
-    '• *permit* _<daftar>_ → permit besok · _permit hapus_',
-    '• *implementasi* _<daftar>_ → tambah site/aktivitas besok',
-    '   _• Nama Site_ = site · _-Pulling Cable_ = aktivitas',
-    '• *implementasi buang* _<nama site>_ → buang site otomatis',
-    '• *implementasi hapus* → kembali ke daftar otomatis',
-    '• *pagi* · *sore* · *mingguan* · *bulanan* → lihat contoh pesan',
-    '• *sore kirim* → kirim pengingat laporan sekarang',
+    '- ' + A('permit <daftar>') + ' permit besok · ' + A('permit hapus'),
+    '- ' + A('implementasi <daftar>') + ' tambah site/aktivitas besok',
+    '   _isi:_ ' + A('- Nama Site') + ' = site · ' + A('-Pulling Cable') + ' = aktivitas',
+    '- ' + A('implementasi buang <nama site>') + ' buang site otomatis',
+    '- ' + A('implementasi hapus') + ' kembali ke daftar otomatis',
+    '- ' + A('pagi') + ' ' + A('sore') + ' ' + A('mingguan') + ' ' + A('bulanan') + ' lihat contoh pesan',
+    '- ' + A('sore kirim') + ' kirim pengingat laporan sekarang',
     '', '👥 *TIM*',
-    '• *tim* _<nama> <nomor>_ → di-tag jam 17:30 · _tim hapus <nama>_',
-    '• *wh* _<nama> <nomor>_ → tim gudang · _wh hapus <nama>_',
+    '- ' + A('tim <nama> <nomor>') + ' di-tag jam 17:30 · ' + A('tim hapus <nama>'),
+    '- ' + A('wh <nama> <nomor>') + ' tim gudang · ' + A('wh hapus <nama>'),
     '', '📊 *STOK & BOQ*',
-    '• *menipis* → stok di bawah standar',
-    '• *batas* _<material> <angka>_ → standar stok · _batas awal_',
-    '• *setuju* · *batal* → usulan stok dari Excel WH',
-    '• *hapusba ya* · *hapusba batal* → konfirmasi hapus BA',
-    '• *revisi ya* · *revisi batal* → konfirmasi revisi Daily Report',
-    '• *mangkrak* → site 3+ hari tanpa laporan',
-    '• *boq* → item melebihi Plan BOQ',
-    '• _<site>_ *ok* → site itu tidak dilaporkan lagi · _boq ok_',
+    '- ' + A('menipis') + ' stok di bawah standar',
+    '- ' + A('batas <material> <angka>') + ' standar stok · ' + A('batas awal'),
+    '- ' + A('setuju') + ' ' + A('batal') + ' usulan stok dari Excel WH',
+    '- ' + A('hapusba ya') + ' ' + A('hapusba batal') + ' konfirmasi hapus BA',
+    '- ' + A('revisi ya') + ' ' + A('revisi batal') + ' konfirmasi revisi Daily Report',
+    '- ' + A('mangkrak') + ' site 3+ hari tanpa laporan',
+    '- ' + A('boq') + ' item melebihi Plan BOQ',
+    '- ' + A('<site> ok') + ' site itu tidak dilaporkan lagi · ' + A('boq ok'),
     '', '⚙️ *SISTEM*',
-    '• *status* → gateway, antrean, jadwal, error hari ini',
-    '• *backup* → backup spreadsheet sekarang',
-    '• *panduan lengkap* → PDF semua perintah (ke chat pribadi)']);
+    '- ' + A('status') + ' gateway, antrean, jadwal, error hari ini',
+    '- ' + A('backup') + ' backup spreadsheet sekarang',
+    '- ' + A('panduan lengkap') + ' PDF semua perintah (ke chat pribadi)']);
   return s.join('\n');
 }
 
@@ -997,7 +1000,7 @@ function botJadwal_() {
       });
       if (!msg || !msg.text) return;
       props.setProperty(WAQ_PREFIX_ + now + '_' + j.id.toLowerCase(), JSON.stringify({
-        t: now, n: 0, last: 0, files: [], to: msg.to || '', mentions: msg.mentions || [], text: String(msg.text).slice(0, 6000)
+        t: now, n: 0, last: 0, files: [], to: msg.to || '', mentions: msg.mentions || [], text: waText_(msg.text).slice(0, 6000)
       }));
     } catch (e) {
       console.error('Jadwal bot ' + j.id + ': ' + e);
@@ -1109,7 +1112,7 @@ function botTim_() {
 function botSoreKirim_() {
   var now = Date.now(), msg = botSore_(now);
   PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + now + '_sore', JSON.stringify({
-    t: now, n: 0, last: 0, files: [], to: '', mentions: msg.mentions || [], text: msg.text
+    t: now, n: 0, last: 0, files: [], to: '', mentions: msg.mentions || [], text: waText_(msg.text)
   }));
   return 'Pengingat laporan dikirim ke grup' + (msg.mentions.length ? ', ' + msg.mentions.length + ' orang di-tag.' : '. Semua tim sudah lapor, tidak ada yang di-tag.');
 }
@@ -1123,9 +1126,9 @@ function botSore_(now) {
     var k = n.toLowerCase();
     (pics.some(function (p) { return p.indexOf(k) >= 0 || k.indexOf(p) >= 0; }) ? sudah : belum).push(n);
   });
-  var s = ['⏰ *Pengingat Laporan Harian* ' + day, 'Mohon kirim Daily Report hari ini lewat Portal Waspang sebelum pulang.'];
-  if (belum.length) s.push('', 'Belum laporan: ' + belum.map(function (n) { return '@' + tim[n]; }).join(' '));
-  if (sudah.length) s.push('Sudah laporan: ' + sudah.join(', ') + ' 🙏');
+  var s = ['⏰ *Pengingat Laporan Harian* · ' + day, '> Mohon kirim Daily Report hari ini lewat Portal Waspang sebelum pulang.'];
+  if (belum.length) s = s.concat(['', '*Belum laporan* (' + belum.length + ')'], belum.map(function (n) { return '- @' + tim[n]; }));
+  if (sudah.length) s.push('', '*Sudah laporan* (' + sudah.length + '): ' + sudah.join(', ') + ' 🙏');
   if (Object.keys(tim).length && !belum.length) s.push('', 'Semua tim sudah laporan hari ini, terima kasih 🙏');
   return { text: s.join('\n'), mentions: belum.map(function (n) { return tim[n]; }) };
 }
@@ -1397,7 +1400,7 @@ function botCekDaily_(payload) {
     var pt = botPlanTotal_(name, sow);
     Object.keys(todayCols).forEach(function (k) {
       var p = pt.plan[k], t = pt.tot[k] || 0;
-      if (p && t > p) cek.push(botMatTitle_(k) + ': Total ' + botNum_(t) + ' melebihi Plan ' + botNum_(p) + '.');
+      if (p && t > p) cek.push(botMatTitle_(k) + ': Total ' + waKode_(botNum_(t)) + ' melebihi Plan ' + waKode_(botNum_(p)));
     });
   }
   if (!cek.length) return;
@@ -1406,8 +1409,9 @@ function botCekDaily_(payload) {
     var a = n.toLowerCase(), b = pic.toLowerCase();
     if (b && (a.indexOf(b) >= 0 || b.indexOf(a) >= 0)) no = tim[n];
   });
-  var text = ['⚠️ *Cek Daily Report*', name + ' (' + sow + ')' + (pic ? ' - PIC ' + (no ? '@' + no : pic) : '')]
-    .concat(cek.map(function (x) { return '- ' + x; })).concat(['Mohon dicek dan diperbaiki bila keliru.']).join('\n');
+  var text = waText_(['⚠️ *Cek Daily Report*', '> *' + name + '* (' + sow + ')' + (pic ? ' · PIC ' + (no ? '@' + no : pic) : '')]
+    .concat(cek.map(function (x, i) { return (i + 1) + '. ' + x; }))
+    .concat(['Salah input? Balas ' + waKode_('!revisi ' + String(name).toLowerCase())]).join('\n'));
   PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + now + '_cek', JSON.stringify({ t: now, n: 0, last: 0, files: [], mentions: no ? [no] : [], text: text }));
 }
 
