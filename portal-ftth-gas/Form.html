@@ -713,8 +713,965 @@
       #viewHome .site-table td:first-child { white-space: normal; }
     }
   </style>
+<!-- ===================== BMI POLISH v4 (gaya mockup Canva v4: classy, simple, modern) =====================
+  Hanya tampilan: huruf, warna, garis, sudut, tombol, tabel. Tata letak & logika tidak berubah.
+  Hapus seluruh blok ini (sampai 'akhir BMI POLISH') untuk kembali ke tampilan lama. -->
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" media="print" onload="this.media='all'">
+<style>
+  /* Huruf & warna dasar */
+  :root { --bmi-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif !important;  /* !important: paket animasi di bawah juga mengisi variabel ini */ --pl-ink: #191917; --pl-mut: #7A776E;
+    --pl-line: #ECE4D3; --pl-line2: #F1EBDF; --pl-in: #FBF9F4; --pl-in-line: #E6DECD; }
+  body { font-family: var(--bmi-font); font-optical-sizing: auto; letter-spacing: -.003em; color: var(--pl-ink); -webkit-font-smoothing: antialiased; }
+  button, input, select, textarea { font-family: inherit; }
+  h1, h2, h3, .hero h1 { font-family: var(--bmi-font); font-weight: 650; letter-spacing: -.025em; }
+  h2 { font-size: 21px; }
+  .desc, .hero p, .dash-sub { color: var(--pl-mut); }
+  .tt-main { font-weight: 600; }
+  .topbar { border-bottom-width: 3px; }
+
+  /* Menu samping: aktif = hitam + garis emas */
+  .nav-title { font-weight: 550; }
+  .nav-item.active { background: #1A1916; box-shadow: inset 3px 0 0 var(--gold); }
+  .nav-item.active svg { stroke: var(--gold); }
+  .nav-item.active .nav-title { color: #fff; }
+  .nav-item.active .nav-sub { color: #8b877c; }
+  .mtab-item.active { color: var(--pl-ink); }
+  .mtab-item.active svg { stroke: var(--gold-dark); }
+
+  /* Kartu: garis tipis, sudut lembut, tanpa bayangan */
+  .card { border: 1px solid var(--pl-line); border-top: 1px solid var(--pl-line); border-radius: 20px; box-shadow: none; }
+  .dash-panel, .kpi-card, .dt-card { border-color: var(--pl-line); box-shadow: none; }
+  .dash-panel { border-radius: 16px; }
+  .menu-card { border: 1px solid var(--pl-line); border-radius: 18px; box-shadow: none; }
+  .menu-card:hover { box-shadow: none; border-color: #DCCBA3; }
+  #guideSheet { border-radius: 20px; border-top-width: 3px; }
+
+  /* Isian */
+  label { font-size: 13px; font-weight: 600; color: #4a4842; }
+  input[type=text], input[type=password], input[type=date], input[type=number], input[type=search], input[type=email], input[type=tel], input[type=time], select, textarea {
+    background-color: var(--pl-in); border: 1px solid var(--pl-in-line); border-radius: 12px; }
+  input[type=file] { background-color: var(--pl-in); border-color: var(--pl-in-line); border-radius: 12px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,151,44,.18); background-color: #fff; }
+
+  /* Tombol: kapsul emas, teks gelap */
+  button.primary, a.primary, #saranSubmit { border-radius: 999px; color: #111; font-weight: 650; letter-spacing: .005em; }
+  button.primary:disabled { background: #DDD5C5; color: #8a857a; }
+  button.ghost { border-radius: 999px; border-color: #DCCBA3; font-weight: 600; }
+  button.small { border-radius: 999px; border-color: #DCCBA3; padding-left: 12px; padding-right: 12px; }
+  .chips button { border-color: #DCCBA3; font-weight: 600; }
+  .chips button:hover { background: #161512; border-color: #161512; color: var(--gold); }
+  .pager .pages button.on { color: #111; }
+
+  /* Tab segmen (Submit/Buat BOQ, BA Transaksi, BA Pekerjaan/FORM ATP): hitam, aktif emas */
+  .rpTabs { background: #000; padding: 4px; }
+  .rpTab { color: #E9E3D4; }
+  .rpTab:hover { background: rgba(255,255,255,.08); }
+  .rpTab.is-active { background: var(--gold); color: #111; box-shadow: none; }
+
+  /* Tabel: baris bergaris tipis, tanpa kotak */
+  td, th { border: 0; border-bottom: 1px solid var(--pl-line2); padding: 9px 10px; }
+  th { background: transparent; color: #8E8A80; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; border-bottom: 1px solid var(--pl-line); }
+  tbody tr:last-child td { border-bottom: 0; }
+
+  /* Status: titik + teks (layar lebar; di HP tabel Project Dashboard tetap ikon bulat) */
+  @media (min-width: 641px) {
+    .badge { background: transparent !important; padding: 0; border-radius: 0; font-weight: 600; color: #2b2a26; display: inline-flex; align-items: center; gap: 6px; }
+    .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #C9C2B2; flex: none; }
+    .badge.done, .badge.progress { color: #2b2a26; }
+    .badge.done::before { background: #191917; }
+    .badge.progress::before { background: var(--gold); }
+    .badge.pending { color: #8E8A80; }
+    .badge.drop { color: #A2442F; }
+    .badge.drop::before { background: #A2442F; }
+  }
+
+  /* Kotak pesan */
+  .status { border-radius: 14px; padding: 13px 15px; }
+  .status.info { background: #F4EFE4; color: var(--pl-ink); }
+  .status.success { background: #EEF4EE; color: #1E5631; }
+  .status.error { background: #FBEDE8; color: #A2442F; }
+  .warn { border-radius: 14px; background: #FBF3DF; }
+
+  /* Grafik & KPI monokrom: hitam · emas · abu hangat */
+  .kpi-green, .fill-green, .bar-green, .dot-permit { background: #191917; }
+  .kpi-amber, .fill-amber, .bar-amber, .dot-instalasi { background: var(--gold); }
+  .kpi-purple, .fill-purple, .bar-purple, .dot-baclosing { background: #BDB4A0; }
+  .kpi-value { letter-spacing: -.03em; }
+
+  /* Dashboard */
+  body.on-home { background: var(--bg); }
+  #viewHome { --h-c1: #191917; --h-c2: #C9972C; --h-c3: #BDB4A0; --h-acc: #C9972C; --h-bd: #ECE4D3; }
+  #viewHome .kpi-grid { border-radius: 16px; }
+  #viewHome .dash-panel { border-radius: 16px; }
+  #viewHome .dash-hello { font-weight: 650; letter-spacing: -.03em; }
+  #viewHome .kpi-value { font-weight: 650; letter-spacing: -.035em; }
+  #viewHome .kpi-label { font-weight: 500; }
+  #viewHome .alert-n { font-weight: 650; }
+  #viewHome .alert-item { border-radius: 12px; }
+  #viewHome .alert-danger { background: #FAF3EE; }
+  #viewHome .alert-warning { background: #F7F2E6; }
+</style>
+<!-- ===================== akhir BMI POLISH ===================== -->
+<!-- ===================== BMI LAYOUT v1 (tata letak mockup v4, tahap 3) =====================
+  Dashboard: KPI kartu + cincin, Kurva S panel gelap, baris bawah 3 kolom. Elemen ber-id hanya dipindah. -->
+<style>
+  /* ===== Dashboard (viewHome) seperti mockup v4 ===== */
+  /* KPI: 4 kartu terpisah, angka besar, cincin persen di kanan */
+  #viewHome .kpi-grid { background: transparent; border: 0; border-radius: 0; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  #viewHome .kpi-grid > .kpi-card.kpi-card { background: #fff; border: 1px solid var(--h-bd); border-radius: 18px; padding: 16px 18px; gap: 0; justify-content: center; }
+  #viewHome .kpi-top { justify-content: space-between; align-items: center; gap: 12px; }
+  #viewHome .kpi-txt { min-width: 0; }
+  #viewHome .kpi-bar { display: none; }
+  #viewHome .kpi-label { font-size: 13px; color: var(--h-mu); }
+  #viewHome .kpi-value { font-size: 34px; line-height: 1.05; margin: 4px 0 2px; }
+  #viewHome .kpi-icon.kpi-big { width: 52px; height: 52px; border-radius: 14px; flex: none; }
+  #viewHome .kpi-icon.kpi-big svg { width: 22px; height: 22px; stroke: var(--gold); }
+  .kpi-ring { --p: 0; --rc: #191917; position: relative; flex: none; width: 62px; height: 62px; border-radius: 50%;
+    background: conic-gradient(var(--rc) calc(var(--p) * 1%), #EFE8DA 0); display: grid; place-items: center; }
+  .kpi-ring::before { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: #fff; }
+  .kpi-ring b { position: relative; font-size: 12px; font-weight: 650; color: var(--h-tx, #191917); letter-spacing: -.02em; }
+  .kpi-ring.ring-gold { --rc: #C9972C; }
+  .kpi-ring.ring-grey { --rc: #BDB4A0; }
+
+  /* Baris 1: Kurva S besar (panel gelap) + kolom kanan Perlu Perhatian & Top 5 */
+  #viewHome .dash-row-a { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  #viewHome .scurve-panel { background: #000; border-color: #000; color: #fff; padding: 20px 22px; display: flex; flex-direction: column; }
+  #viewHome .scurve-panel .scurve-box { flex: 1; border-top: 0; padding-top: 0; margin: 0; min-height: 260px; }
+  #viewHome .scurve-panel .scurve-title { color: #fff; font-size: 16px; font-weight: 650; letter-spacing: -.01em; }
+  #viewHome .scurve-panel .scurve-cap { color: #a9a395; }
+  #viewHome .scurve-panel .scurve-legend { color: #d8d2c4; }
+  #viewHome .scurve-panel .scurve-empty { color: #a9a395; }
+  #viewHome .scurve-panel svg text { fill: #8f8b80; }
+  #viewHome .scurve-panel svg line[stroke="#e7e3d8"] { stroke: #2b2a27; }
+  #viewHome .scurve-panel svg polyline[stroke="#888780"] { stroke: #8f8b80; }
+  #viewHome .scurve-panel .sc-dash { border-top-color: #8f8b80; }
+  #viewHome .scurve-panel svg [stroke="#B8860B"] { stroke: #C9972C; }
+  #viewHome .scurve-panel svg [fill="#B8860B"] { fill: #C9972C; }
+  #viewHome .scurve-panel svg [stroke="#378ADD"] { stroke: #F4EFE4; }
+  #viewHome .scurve-panel svg [fill="#378ADD"] { fill: #F4EFE4; }
+  #viewHome .scurve-panel svg [stroke="#534AB7"] { stroke: #BDB4A0; }
+  #viewHome .scurve-panel svg [fill="#534AB7"] { fill: #BDB4A0; }
+  #viewHome .scurve-panel .sc-dot[style*="#B8860B"] { background: #C9972C !important; }
+  #viewHome .scurve-panel .sc-dot[style*="#378ADD"] { background: #F4EFE4 !important; }
+  #viewHome .scurve-panel .sc-dot[style*="#534AB7"] { background: #BDB4A0 !important; }
+
+  /* Kurva S seperti mockup: angka Realisasi / Target / Pencapaian di kiri, grafik berarsir emas di kanan */
+  #viewHome .scurve-panel .sc-body { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+  #viewHome .scurve-panel .sc-body.side { flex-direction: row; gap: 24px; align-items: stretch; }
+  #viewHome .scurve-panel .sc-stats { display: flex; gap: 18px; }
+  #viewHome .scurve-panel .sc-body.side .sc-stats { width: 170px; flex: none; flex-direction: column; gap: 0; }
+  #viewHome .scurve-panel .sc-stat { min-width: 0; }
+  #viewHome .scurve-panel .sc-body.side .sc-stat { padding: 12px 0; border-top: 1px solid #262522; }
+  #viewHome .scurve-panel .sc-body.side .sc-stat:first-child { border-top: 0; padding-top: 4px; }
+  #viewHome .scurve-panel .sc-stat span { display: block; font-size: 12.5px; color: #a9a395; }
+  #viewHome .scurve-panel .sc-stat b { display: block; font-size: 24px; font-weight: 650; color: #fff; letter-spacing: -.025em; line-height: 1.15; margin-top: 2px; }
+  #viewHome .scurve-panel .sc-stat b.sc-big { font-size: 42px; color: var(--gold); letter-spacing: -.035em; line-height: 1.05; }
+  #viewHome .scurve-panel .sc-stat small { display: block; font-size: 12px; color: #a9a395; margin-top: 2px; }
+  #viewHome .scurve-panel .sc-chart { flex: 1; min-width: 0; }
+  #viewHome .scurve-panel .scurve-cap { margin-top: 2px; }
+  /* Baris 2: Progress per Area (batang tegak) · Site Terbaru · BMI Area */
+  #viewHome .dash-row-b { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr); }
+  #viewHome .area-panel .area-chart { display: flex; flex-wrap: wrap; justify-content: space-around; align-items: flex-end; gap: 18px 24px; padding: 18px 4px 0; max-width: none; height: auto; }
+  #viewHome .area-panel .area-group { display: flex; flex-direction: column-reverse; align-items: center; gap: 8px; }
+  #viewHome .area-panel .area-label { margin: 0; text-align: center; font-size: 13px; font-weight: 650; }
+  #viewHome .area-panel .area-bars { flex-direction: row; align-items: flex-end; gap: 8px; height: 170px; }
+  #viewHome .area-panel .area-row { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; width: 30px; }
+  #viewHome .area-panel .area-row-label { display: none; }
+  #viewHome .area-panel .area-track { height: 100%; width: 100%; margin: 0; background: transparent; border-radius: 0; display: flex; align-items: flex-end; }
+  #viewHome .area-panel .area-bar { position: relative; width: 100% !important; height: var(--v, 0%); min-height: 3px; border-radius: 8px 8px 3px 3px; }
+  #viewHome .area-panel .area-pct { top: auto; bottom: 100%; left: 50%; right: auto; width: auto; transform: translateX(-50%); margin: 0 0 4px; font-size: 11px; }
+
+  /* Site Terbaru: hanya nama site yang boleh turun baris (nama panjang tanpa spasi tidak melebarkan tabel) */
+  #viewHome .site-panel .site-table td:first-child { overflow-wrap: anywhere; }
+  #viewHome .site-panel .site-table td:not(:first-child) { white-space: nowrap; }
+  @media (max-width: 1499px) {
+    #viewHome .dash-row-b { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    #viewHome .dash-row-b .site-panel { grid-column: 1 / -1; order: -1; }
+  }
+  @media (max-width: 860px) {
+    #viewHome .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 700px) {
+    #viewHome .dash-row-a, #viewHome .dash-row-b { grid-template-columns: minmax(0, 1fr); }
+    #viewHome .scurve-panel { display: none; }
+    #viewHome .kpi-grid { gap: 10px; }
+    #viewHome .kpi-grid > .kpi-card.kpi-card { padding: 12px 14px; }
+    #viewHome .kpi-value { font-size: 24px; }
+    #viewHome .kpi-sub { font-size: 11px; }
+    .kpi-ring { width: 44px; height: 44px; }
+    .kpi-ring::before { inset: 5px; }
+    .kpi-ring b { font-size: 10px; }
+    #viewHome .area-panel .area-bars { height: 130px; }
+  }
+
+  /* ===== Project Dashboard (viewCheckpoint) seperti mockup v4 ===== */
+  #viewCheckpoint .cp-page { background: transparent; border: 0; box-shadow: none; padding: 0; margin-top: 0; }
+  #viewCheckpoint .cp-page > h2 { font-size: 34px; letter-spacing: -.035em; margin-bottom: 4px; }
+  #viewCheckpoint .cp-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, 1.55fr); gap: 12px; margin: 16px 0 14px; }
+  #viewCheckpoint .cp-k { background: #fff; border: 1px solid #ECE4D3; border-radius: 18px; padding: 16px 18px; gap: 0; }
+  #viewCheckpoint .cp-k .kpi-label { display: flex; align-items: center; gap: 7px; font-size: 13px; color: #4a4842; font-weight: 500; }
+  #viewCheckpoint .cp-dot { width: 8px; height: 8px; border-radius: 50%; background: #191917; flex: none; }
+  #viewCheckpoint .cp-k .kpi-value { font-size: 34px; font-weight: 650; letter-spacing: -.035em; line-height: 1.1; margin: 6px 0 2px; }
+  #viewCheckpoint .cp-k .kpi-sub { font-size: 12px; color: #7A776E; min-height: 15px; }
+  #viewCheckpoint .cp-k-bar { height: 6px; border-radius: 99px; background: #EFE8DA; overflow: hidden; margin-top: 14px; }
+  #viewCheckpoint .cp-k-bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: #191917; transition: width .4s ease; }
+  #viewCheckpoint .k-progress .cp-dot, #viewCheckpoint .k-progress .cp-k-bar i { background: #C9972C; }
+  #viewCheckpoint .k-pending .cp-dot, #viewCheckpoint .k-pending .cp-k-bar i { background: #BDB4A0; }
+  #viewCheckpoint .k-drop .cp-dot, #viewCheckpoint .k-drop .cp-k-bar i { background: #A2442F; }
+  #viewCheckpoint .cp-area-card { background: #000; border: 1px solid #000; border-radius: 18px; padding: 16px 18px; color: #fff; }
+  #viewCheckpoint .cp-area-card .panel-title { color: #fff; font-size: 14px; font-weight: 650; text-transform: none; letter-spacing: -.01em; margin-bottom: 10px; }
+  #viewCheckpoint .cp-area-card .funnel-row { color: #E9E3D4; font-size: 13px; margin-bottom: 5px; }
+  #viewCheckpoint .cp-area-card .funnel-row span:last-child { color: #C9972C; font-weight: 650; }
+  #viewCheckpoint .cp-area-card .funnel-bar { background: #2b2a27; height: 6px; margin-bottom: 12px; }
+  #viewCheckpoint .cp-area-card .funnel-fill { background: #C9972C; }
+  #viewCheckpoint .cp-area-card .hint, #viewCheckpoint .cp-area-card .alert-empty { color: #a9a395; }
+  #viewCheckpoint .cp-detail { background: #fff; border: 1px solid #ECE4D3; border-radius: 20px; padding: 18px 20px 16px; }
+  #viewCheckpoint .cp-detail-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 6px; position: relative; }
+  #viewCheckpoint .cp-detail-head > .panel-title { font-size: 17px; font-weight: 650; color: #191917; text-transform: none; letter-spacing: -.015em; margin: 0 auto 0 0; }
+  #viewCheckpoint .cp-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  #viewCheckpoint .cp-chip { font: inherit; font-size: 12.5px; font-weight: 600; border: 0; border-radius: 999px; padding: 7px 13px; background: #F4EFE4; color: #3b3a35; cursor: pointer; }
+  #viewCheckpoint .cp-chip:hover { background: #EBE3D2; }
+  #viewCheckpoint .cp-chip.on { background: #000; color: #C9972C; }
+  #viewCheckpoint .cp-filters { flex-wrap: nowrap; gap: 8px; align-items: center; margin: 0; }
+  #viewCheckpoint .cp-filters > div { flex: 0 0 auto; min-width: 0; }
+  #viewCheckpoint .cp-filters .cp-sow-sel { display: none; }
+  #viewCheckpoint .cp-filters select { margin: 0; width: auto; min-width: 150px; }
+  #viewCheckpoint .site-search-toggle { border-radius: 50%; border-color: #E6DECD; background: #FBF9F4; }
+  #viewCheckpoint .cp-table td:first-child { font-weight: 600; }
+  #viewCheckpoint .pager .pages button { border: 0; border-radius: 999px !important; margin-left: 4px; min-width: 34px; background: #F4EFE4; color: #3b3a35; }
+  #viewCheckpoint .pager .pages button.on { background: #000; color: #C9972C; }
+  #viewCheckpoint .pager .rows select { border-radius: 999px; }
+  @media (max-width: 1300px) {
+    #viewCheckpoint .cp-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width: 700px) {
+    #viewCheckpoint .cp-page > h2 { font-size: 26px; }
+    #viewCheckpoint .cp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    #viewCheckpoint .cp-area-card { grid-column: 1 / -1; }
+    #viewCheckpoint .k-total { grid-column: 1 / -1; }
+    #viewCheckpoint .cp-k { padding: 12px 14px; }
+    #viewCheckpoint .cp-k .kpi-value { font-size: 26px; }
+    #viewCheckpoint .cp-detail { padding: 14px; }
+    #viewCheckpoint .cp-chips { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: 2px; }
+    #viewCheckpoint .cp-chip { flex: none; }
+    #viewCheckpoint .cp-filters { width: 100%; }
+    #viewCheckpoint .cp-filters select { min-width: 0; width: 100%; }
+    #viewCheckpoint .cp-filters > div:last-child { flex: 1; }
+  }
+  /* ---- Submit BOQ: dua kolom (form kiri, hasil baca kanan) ---- */
+  #viewBoq .boq-seg { display: none; }
+  #viewBoq .boq-right { display: none; }
+  #viewBoq .boq-right:has(#boqPreview[style*="block"]) { display: block; }
+  #viewBoq .boq-empty { display: none; }
+  #viewBoq .boq-pair { display: flex; gap: 14px; }
+  #viewBoq .boq-pair > * { flex: 1 1 0; min-width: 0; }
+  #viewBoq .boq-pair > #picRow[style*="none"] { display: none; }
+  #uploadForm input[type=file] { width: 100%; border: 1.5px dashed #DCC796; background: #FFFBF1; border-radius: 16px; padding: 14px; font-size: 14px; }
+  #uploadForm input[type=file]::file-selector-button { border: 1px solid #E6DECD; background: #fff; color: var(--gold-dark); border-radius: 999px; padding: 9px 18px; margin-right: 14px; font: inherit; font-weight: 650; cursor: pointer; }
+  #viewBoq .boq-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  #viewBoq .boq-foot #boqAddRow { margin: 0 auto 0 0 !important; background: none; border: 0; color: var(--gold-dark); font-weight: 650; padding: 8px 0; }
+  #viewBoq .boq-foot #boqCancelBtn { order: 1; }
+  #viewBoq .boq-foot #boqSendBtn { order: 2; }
+  #viewBoq .boq-right h3.sub { margin-top: 0; }
+  #boqPreview > label { color: var(--gold-dark); font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  #boqItems select { min-width: 140px; max-width: 100%; background-color: #FBF1D9; border-color: transparent; border-radius: 999px; font-weight: 600; color: #3b3a35; padding-top: 6px; padding-bottom: 6px; }
+  #boqItems input[type=number] { width: 84px; min-width: 76px; max-width: 96px; padding-left: 10px; padding-right: 6px; }
+  @media (min-width: 0px) {
+    #viewBoq .boq-seg { display: flex; gap: 4px; background: #F4EFE4; border-radius: 999px; padding: 4px; }
+    #viewBoq .boq-seg button { flex: 1; border: 0; background: transparent; color: #7A776E; border-radius: 999px; padding: 10px 8px; font: inherit; font-size: 13px; font-weight: 650; letter-spacing: .04em; cursor: pointer; }
+    #viewBoq .boq-seg button.on { background: #fff; color: #191917; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    #viewBoq .boq-seg + select#target { display: none; }
+  }
+  @media (min-width: 1200px) {
+    #viewBoq .boq-split { display: grid; grid-template-columns: minmax(340px, 4fr) 7fr; gap: 18px; align-items: stretch; margin-top: 14px; }
+    #viewBoq .boq-split > .card { margin: 0; min-width: 0; display: flex; flex-direction: column; }
+    #viewBoq .boq-left #uploadForm { display: flex; flex-direction: column; flex: 1; }
+    #viewBoq .boq-left #submitBtn { margin-top: auto; width: 100%; }
+    #viewBoq .boq-left #fileInput { margin-bottom: 22px; }
+    #viewBoq .boq-right { display: flex; }
+    #viewBoq .boq-right:not(:has(#boqPreview[style*="block"])) .boq-empty { display: flex; }
+    #viewBoq .boq-empty { flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; color: #9a958a; font-size: 14px; border: 1.5px dashed #E6DECD; border-radius: 16px; min-height: 320px; padding: 24px; }
+    #viewBoq .boq-empty b { color: #3b3a35; font-size: 16px; font-weight: 650; }
+    #viewBoq .boq-empty svg { width: 34px; height: 34px; color: var(--gold); }
+    #viewBoq #boqPreview[style*="block"] { display: flex !important; flex-direction: column; flex: 1; }
+    #viewBoq .boq-foot { margin-top: auto; padding-top: 18px; }
+  }
+  /* ---- Buat BOQ & Warehouse: kartu berdampingan (form kiri, tabel/hasil kanan) ---- */
+  .ws-right > .ws-head { margin: 0 0 12px; }
+  .ws-right > label.ws-moved-lab { display: none; }
+  .ws-right > label.ws-lab-head { display: block; margin: 0 0 12px; font-size: 20px; font-weight: 700; letter-spacing: -.02em; color: #191917; }
+  #mkSave { background: var(--gold); color: #111; border: 0; border-radius: 999px; padding: 12px 24px; font: inherit; font-weight: 650; cursor: pointer; }
+  #mkSave:hover { background: var(--gold-dark); }
+  #viewBa .ws-right { display: none; }
+  #viewBa .ws-right:has(#baPreview[style*="block"]) { display: block; }
+  .ws-empty { display: none; }
+  @media (min-width: 1200px) {
+    .ws-split { display: grid; gap: 18px; align-items: start; margin-top: 14px; }
+    .ws-split > .card { margin: 0 !important; min-width: 0; }
+    #viewBoqGen .ws-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; }
+    #viewBoqGen .ws-split > .ws-left { grid-row: 1 / span 2; }
+    #viewBoqGen .ws-split > .ws-right #bqBtn { width: 100%; }
+    #viewBaGen .ws-split.ws-a { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+    #viewBaGen .ws-split.ws-a > .ws-right { display: flex; flex-direction: column; }
+    #viewBaGen .ws-split.ws-a > .ws-right > div:has(> #bgBtn) { margin-top: auto; padding-top: 16px; }
+    #viewBaGen #bgBtn { width: 100%; }
+    #viewBaGen .ws-split.ws-b { grid-template-columns: minmax(0, 1.25fr) minmax(440px, 1fr); }
+    #masukCard table input, #masukCard table select { min-width: 72px; }
+    #masukCard .row > div { min-width: 0; }
+    .ws-right > #baPreview { margin-top: 0; }
+    .ws-right > #baPreview > h3.sub:first-of-type { margin-top: 0; }
+    .ws-split + .card { margin-top: 18px !important; }
+    #baPreview > div:has(> #baSaveBtn) { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
+    #baPreview > div:has(> #baSaveBtn) > button { margin: 0; }
+    #baSaveBtn { order: 3; } #baSkipBtn { order: 2; } #baCancelBtn { order: 1; }
+    #viewBaGen .ws-split.ws-b > .card { overflow-x: auto; }
+    #viewBa .ws-split { grid-template-columns: minmax(340px, 4fr) 7fr; align-items: stretch; }
+    #viewBa .ws-split > .ws-right { display: flex; flex-direction: column; }
+    #viewBa .ws-right:not(:has(#baPreview[style*="block"])) .ws-empty { display: flex; }
+    #viewBa #baReadBtn { width: 100%; }
+    .ws-empty { flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; color: #9a958a; font-size: 14px; border: 1.5px dashed #E6DECD; border-radius: 16px; min-height: 300px; padding: 24px; }
+    .ws-empty b { color: #3b3a35; font-size: 16px; font-weight: 650; }
+    .ws-empty svg { width: 34px; height: 34px; color: var(--gold); }
+  }
+  #baForm input[type=file], #viewBoqGen input[type=file] { border: 1.5px dashed #DCC796; background: #FFFBF1; border-radius: 16px; }
+  /* ---- Kerangka (layar lebar): logo di sidebar mengambang, tanpa bar hitam atas; lonceng + user di kanan atas ---- */
+  #bmiPageHead { display: none; }
+  .sb-brand { display: none; }
+  /* Menu sidebar: judul saja (subteks tetap dibaca untuk subjudul halaman). */
+  #sidebar .nav-sub { display: none; }
+  #sidebar .nav-item { align-items: center; padding-top: 11px; padding-bottom: 11px; }
+  #sidebar .nav-item svg { margin-top: 0; }
+  @media (min-width: 861px) {
+    body.bmi-shell .topbar.with-dash { position: fixed; top: 14px; right: 22px; left: auto; z-index: 160; background: transparent; border: 0; padding: 0; }
+    body.bmi-shell .topbar.with-dash .topbar-divider { display: none; }
+    body.bmi-shell .topbar-right { gap: 10px; }
+    body.bmi-shell .topbar-right .bell-btn, body.bmi-shell .topbar-right .sidebar-collapse-btn2 { width: 44px; height: 44px; justify-content: center; border-radius: 50%; background: #fff; border: 1px solid #ECE4D3; color: #3b3a35; padding: 0; }
+    body.bmi-shell .topbar-right .bell-btn:hover, body.bmi-shell .topbar-right .sidebar-collapse-btn2:hover { border-color: var(--gold); }
+    body.bmi-shell.sidebar-collapsed .sidebar-collapse-btn2 svg rect { fill: rgba(201,151,44,.18); }
+    body.bmi-shell .user-block { background: #000; border-radius: 999px; padding: 6px 14px 6px 6px; gap: 10px; color: #fff; }
+    body.bmi-shell .user-block .user-avatar { width: 36px; height: 36px; font-size: 14px; }
+    body.bmi-shell .user-block .chevron { color: #8b877c; }
+    /* Menu user: latar hitam chip membesar ke bawah menjadi panel menu. */
+    body.bmi-shell .user-block > :not(.user-dropdown) { position: relative; z-index: 2; }
+    body.bmi-shell .user-block .chevron { transition: transform .3s ease; }
+    body.bmi-shell .user-block:has(.user-dropdown.open) .chevron { transform: rotate(180deg); }
+    body.bmi-shell .user-dropdown { display: block; z-index: 1; top: 0; left: 0; right: 0; margin: 0; min-width: 0;
+      background: #000; border: 0; border-radius: 24px; box-shadow: 0 18px 40px rgba(0,0,0,.28);
+      padding: 56px 8px 8px; visibility: hidden; clip-path: inset(0 0 calc(100% - 48px) 0 round 24px);
+      transition: clip-path .38s cubic-bezier(.2,.8,.2,1), visibility 0s linear .38s; }
+    body.bmi-shell .user-dropdown.open { visibility: visible; clip-path: inset(0 0 0 0 round 24px); transition: clip-path .42s cubic-bezier(.2,.8,.2,1), visibility 0s; }
+    body.bmi-shell .user-dropdown::before { content: ""; display: block; height: 1px; background: rgba(255,255,255,.12); margin: 0 6px 6px; }
+    body.bmi-shell .user-dropdown a { color: #d9d3c4; font-size: 13px; padding: 10px 12px; border-radius: 14px; opacity: 0; transform: translateY(-6px); transition: opacity .2s ease, transform .2s ease, background-color .15s; }
+    body.bmi-shell .user-dropdown.open a { opacity: 1; transform: none; transition: opacity .25s ease .12s, transform .3s ease .12s, background-color .15s; }
+    body.bmi-shell .user-dropdown.open a:nth-of-type(2) { transition-delay: .17s, .17s, 0s; }
+    body.bmi-shell .user-dropdown.open a:nth-of-type(3) { transition-delay: .22s, .22s, 0s; }
+    body.bmi-shell .user-dropdown a:hover { background: rgba(255,255,255,.09); color: #fff; }
+    body.bmi-shell .user-dropdown a#logoutLink { color: var(--gold); }
+    @media (prefers-reduced-motion: reduce) { body.bmi-shell .user-dropdown, body.bmi-shell .user-dropdown a { transition: none !important; } }
+    body.bmi-shell #sidebar { position: sticky; top: 16px; margin: 16px 0 16px 16px; height: calc(100vh - 32px); border-radius: 24px; width: 248px; padding-top: 0; }
+    body.bmi-shell.sidebar-collapsed #sidebar { width: 76px; }
+    body.bmi-shell #sidebar { scrollbar-width: none; }
+    body.bmi-shell #sidebar::-webkit-scrollbar { display: none; }
+    body.bmi-shell .sb-brand { display: block; padding: 26px 22px 16px; margin: 0 12px 10px; border-bottom: 1px solid rgba(255,255,255,.12); }
+    body.bmi-shell .sb-brand #logo { height: 62px; max-width: 100%; cursor: pointer; }
+    body.bmi-shell .sb-brand #logoFallback { color: var(--gold); font-weight: 750; font-size: 20px; line-height: 1.15; cursor: pointer; }
+    body.bmi-shell .sb-brand .topbar-title { display: block; margin-top: 14px; }
+    body.bmi-shell .sb-brand .tt-main { color: #fff; font-size: 13.5px; font-weight: 650; }
+    body.bmi-shell .sb-brand .tt-sub { color: #8b877c; font-size: 11px; line-height: 1.4; margin-top: 3px; }
+    body.bmi-shell.sidebar-collapsed .sb-brand { padding: 18px 0 12px; margin: 0 10px 10px; text-align: center; }
+    .sb-brand .sb-mini { display: none; }
+    body.bmi-shell.sidebar-collapsed .sb-brand #logo, body.bmi-shell.sidebar-collapsed .sb-brand #logoFallback { display: none !important; }
+    body.bmi-shell.sidebar-collapsed .sb-brand .sb-mini { display: block; width: 52px; height: 52px; margin: 0 auto; cursor: pointer; }
+    body.bmi-shell.sidebar-collapsed .sb-brand .topbar-title { display: none; }
+    body.bmi-shell #mainContent { padding: 18px 24px 28px 22px; }
+    body.bmi-shell #bmiPageHead { display: block; min-height: 58px; padding: 2px calc(var(--bmi-tr, 340px) + 8px) 0 2px; margin-bottom: 18px; }
+    body.bmi-shell #bmiPageHead.off { display: none; }
+    #bmiPageHead h1 { margin: 0; font-size: 34px; line-height: 1.12; font-weight: 750; letter-spacing: -.035em; color: #191917; }
+    #bmiPageHead p { margin: 4px 0 0; font-size: 14px; color: #7A776E; }
+    body.bmi-shell #viewHome .dash-head { padding-right: calc(var(--bmi-tr, 340px) + 8px); min-height: 58px; }
+    body.bmi-shell #viewHome .dash-hello { font-size: 32px; font-weight: 750; letter-spacing: -.035em; line-height: 1.12; }
+    body.bmi-shell #viewCheckpoint .cp-page > h2, body.bmi-shell #viewCheckpoint .cp-page > h2 + .desc { display: none; }
+    body.bmi-shell #mainContent > [id^="view"] { margin-top: 0; }
+  }
+</style>
+<!-- ===================== akhir BMI LAYOUT ===================== -->
 </head>
 <body>
+<!-- =====================================================================
+  BMI FEEDBACK KIT — animasi loading & umpan balik untuk Portal FTTH, Portal Waspang, Gateway
+  Tempel SELURUH isi file ini tepat setelah tag <body> di Form.html.
+  (Ketiga portal memakai createHtmlOutputFromFile, jadi cara include() TIDAK berlaku tanpa mengubah doGet.)
+  Tidak butuh library. Aman untuk HP. Menghormati "kurangi animasi" (prefers-reduced-motion).
+  Panggil lewat objek global BMI — lihat PANDUAN_ANIMASI.md.
+====================================================================== -->
+<style>
+  :root{--bmi-gold:#C9972C;--bmi-gold-d:#A87A1B;--bmi-ink:#191917;--bmi-mut:#7A776E;--bmi-line:#ECE4D3;
+    --bmi-skel:#EFE8DA;--bmi-skel-hi:#F9F6EF;--bmi-ok:#2F7D4F;--bmi-err:#A2442F;--bmi-font:'Plus Jakarta Sans',Arial,sans-serif}
+  @keyframes bmiSpin{to{transform:rotate(360deg)}}
+  @keyframes bmiShimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}
+  @keyframes bmiSlide{from{left:-40%}to{left:100%}}
+  @keyframes bmiDraw{to{stroke-dashoffset:0}}
+  @keyframes bmiPop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+  @keyframes bmiEnter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes bmiToastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @keyframes bmiToastOut{to{opacity:0;transform:translateY(8px)}}
+  @keyframes bmiWave{0%{opacity:0;transform:scale(.6)}40%{opacity:1}100%{opacity:0;transform:scale(1.25)}}
+
+  /* 1. Splash saat portal pertama dibuka */
+  #bmiSplash{position:fixed;inset:0;z-index:100002;background:#000;display:flex;align-items:center;justify-content:center;transition:opacity .45s ease,visibility .45s}
+  #bmiSplash.bmi-hide{opacity:0;visibility:hidden}
+  .bmi-sp{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;padding:0 24px}
+  .bmi-sp-logo{position:relative;width:96px;height:96px;display:flex;align-items:center;justify-content:center}
+  .bmi-sp-logo img{width:60px;height:60px;border-radius:16px;position:relative;z-index:1}
+  .bmi-sp-ring{position:absolute;inset:0;border-radius:50%;border:2px solid rgba(201,151,44,.16);border-top-color:var(--bmi-gold);animation:bmiSpin 1.1s linear infinite}
+  .bmi-sp-wave{position:absolute;inset:-14px;border-radius:50%;border:1px solid rgba(201,151,44,.35);animation:bmiWave 2.2s ease-out infinite}
+  .bmi-sp-wave.w2{animation-delay:1.1s}
+  .bmi-sp-t{font:700 15px/1.25 var(--bmi-font);color:#fff;letter-spacing:.12em}
+  .bmi-sp-s{font:600 10.5px var(--bmi-font);letter-spacing:.24em;color:var(--bmi-gold);margin-top:-8px}
+  .bmi-sp-msg{font:500 12.5px var(--bmi-font);color:#8f8b80;min-height:16px}
+
+  /* 2. Garis emas berjalan di atas layar (pindah halaman / ambil data) */
+  #bmiTop{position:fixed;top:0;left:0;height:3px;width:0;z-index:100003;background:var(--bmi-gold);box-shadow:0 0 10px rgba(201,151,44,.55);opacity:0;transition:width .35s ease,opacity .35s ease;pointer-events:none}
+  #bmiTop.on{opacity:1}
+
+  /* 3. Spinner & tombol sibuk / berhasil */
+  .bmi-spin{display:inline-block;width:16px;height:16px;flex:none;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:bmiSpin .7s linear infinite;vertical-align:-3px}
+  .bmi-busy{pointer-events:none;cursor:progress;opacity:.92}
+  .bmi-busy .bmi-spin,.bmi-ok-ic{margin-right:8px}
+  .bmi-ok-ic{display:inline-block;vertical-align:-3px}
+  .bmi-ok-ic path{stroke-dasharray:24;stroke-dashoffset:24;animation:bmiDraw .4s .05s ease forwards}
+  .bmi-btn-ok{background:var(--bmi-ok)!important;border-color:var(--bmi-ok)!important;color:#fff!important}
+
+  /* 4. Skeleton (pengganti tulisan "Memuat...") */
+  .bmi-skel{display:block;height:12px;border-radius:7px;background:linear-gradient(90deg,var(--bmi-skel) 25%,var(--bmi-skel-hi) 37%,var(--bmi-skel) 63%);background-size:400% 100%;animation:bmiShimmer 1.4s ease infinite}
+  tr.bmi-skel-row td{padding:13px 10px!important;border-color:#F3EEE3!important;background:transparent!important}
+  .bmi-skel-card{border:1px solid var(--bmi-line);border-radius:16px;padding:16px;background:#fff;display:flex;flex-direction:column;gap:10px}
+  .bmi-skel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+
+  /* 5. Panel proses lama (baca BOQ / OCR / kirim WhatsApp) */
+  #bmiProc{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s}
+  #bmiProc.on{opacity:1;visibility:visible}
+  .bmi-pc{width:100%;max-width:420px;background:#fff;border-radius:20px;border-top:4px solid var(--bmi-gold);padding:22px 22px 18px;font-family:var(--bmi-font);color:var(--bmi-ink);box-shadow:0 24px 60px rgba(0,0,0,.3);transform:translateY(8px);transition:transform .25s}
+  #bmiProc.on .bmi-pc{transform:none}
+  .bmi-pc-h{display:flex;align-items:center;gap:12px}
+  .bmi-pc-ic{width:42px;height:42px;border-radius:13px;background:#F6F1E6;color:var(--bmi-gold-d);display:flex;align-items:center;justify-content:center;flex:none}
+  .bmi-pc-ic .bmi-spin{width:20px;height:20px}
+  .bmi-pc-t{font-weight:700;font-size:16px;line-height:1.3}
+  .bmi-pc-m{color:var(--bmi-mut);font-size:13px;margin-top:2px;line-height:1.45}
+  .bmi-pc-bar{position:relative;height:6px;border-radius:99px;background:#F1ECE1;overflow:hidden;margin:16px 0 6px}
+  .bmi-pc-bar i{position:absolute;top:0;bottom:0;width:40%;border-radius:99px;background:var(--bmi-gold);animation:bmiSlide 1.2s ease-in-out infinite}
+  .bmi-pc-bar.det i{position:static;display:block;height:100%;animation:none;transition:width .3s}
+  .bmi-pc-time{display:flex;justify-content:space-between;font-size:11.5px;color:#9a968c;font-variant-numeric:tabular-nums}
+  .bmi-steps{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:9px}
+  .bmi-steps li{display:flex;gap:10px;align-items:center;font-size:13.5px;color:#a9a59a}
+  .bmi-steps li i{width:20px;height:20px;border-radius:50%;border:1.5px solid #DCD4C3;display:flex;align-items:center;justify-content:center;flex:none;font-style:normal;font-size:11px}
+  .bmi-steps li.doing{color:var(--bmi-ink);font-weight:600}
+  .bmi-steps li.doing i{border-color:var(--bmi-gold);border-right-color:transparent;animation:bmiSpin .8s linear infinite}
+  .bmi-steps li.done{color:var(--bmi-ink)}
+  .bmi-steps li.done i{background:var(--bmi-ink);border-color:var(--bmi-ink);color:var(--bmi-gold)}
+  .bmi-steps li.fail{color:var(--bmi-err);font-weight:600}
+  .bmi-steps li.fail i{border-color:var(--bmi-err);background:var(--bmi-err);color:#fff;animation:none}
+  .bmi-pc.ok .bmi-pc-ic{background:#E9F3EC;color:var(--bmi-ok);animation:bmiPop .4s ease}
+  .bmi-pc.err .bmi-pc-ic{background:#FBEAE6;color:var(--bmi-err)}
+  .bmi-pc.ok .bmi-pc-bar i{width:100%!important;animation:none;left:0;background:var(--bmi-ok)}
+  .bmi-pc.err .bmi-pc-bar i{width:100%!important;animation:none;left:0;background:var(--bmi-err)}
+  .bmi-pc-act{display:flex;justify-content:flex-end;margin-top:14px}
+  .bmi-pc-act[hidden]{display:none}
+  .bmi-pc-act button{font:700 13.5px var(--bmi-font);border:0;border-radius:999px;padding:10px 18px;background:var(--bmi-ink);color:#fff;cursor:pointer}
+
+  /* 6. Progress berangka (memuat foto 3 dari 6, upload) */
+  .bmi-prog-l{display:flex;justify-content:space-between;font:500 12.5px var(--bmi-font);color:var(--bmi-mut);margin-bottom:6px;font-variant-numeric:tabular-nums}
+  .bmi-prog-l b{color:var(--bmi-ink)}
+  .bmi-prog{height:8px;border-radius:99px;background:#F1ECE1;overflow:hidden}
+  .bmi-prog i{display:block;height:100%;width:0;border-radius:99px;background:var(--bmi-gold);transition:width .35s ease}
+  .bmi-prog.full i{background:var(--bmi-ok)}
+
+  /* 7. Toast (notifikasi singkat) */
+  #bmiToasts{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:100001;display:flex;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:calc(100vw - 24px);pointer-events:none}
+  .bmi-toast{display:flex;align-items:center;gap:10px;background:#111;color:#fff;border-radius:14px;padding:12px 16px;font:600 13.5px/1.4 var(--bmi-font);box-shadow:0 14px 30px rgba(0,0,0,.25);border-left:3px solid var(--bmi-gold);animation:bmiToastIn .28s ease both;pointer-events:auto}
+  .bmi-toast.ok{border-left-color:#5FB37D}.bmi-toast.err{border-left-color:#E0735B}
+  .bmi-toast .bmi-ti{flex:none;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;background:rgba(255,255,255,.1)}
+  .bmi-toast.out{animation:bmiToastOut .25s ease forwards}
+  @media (max-width:680px){#bmiToasts{bottom:96px}}
+
+  /* 8. Keadaan kosong & gagal */
+  .bmi-state{text-align:center;padding:26px 16px;color:var(--bmi-mut);font:400 13.5px/1.5 var(--bmi-font);animation:bmiEnter .3s ease both}
+  .bmi-state .bmi-st-ic{width:46px;height:46px;border-radius:15px;background:#F6F1E6;color:var(--bmi-gold-d);display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+  .bmi-state.err .bmi-st-ic{background:#FBEAE6;color:var(--bmi-err)}
+  .bmi-state b{display:block;color:var(--bmi-ink);font-size:14.5px;margin-bottom:2px}
+  .bmi-state button{margin-top:12px;font:700 13px var(--bmi-font);border:1px solid #DCCBA3;background:#fff;color:var(--bmi-gold-d);border-radius:999px;padding:9px 16px;cursor:pointer}
+
+  /* 9b. Otomatis: spinner kecil di tombol/teks yang sedang memuat, bar tunggu di kotak status */
+  .bmi-spin.bmi-auto{width:1em;height:1em;border-width:.14em;margin-right:.45em;vertical-align:-.15em;opacity:.9}
+  button .bmi-spin.bmi-auto{margin-right:.5em}
+  .bmi-wait{display:flex;align-items:center;gap:10px;margin-top:9px}
+  .bmi-wait .bmi-pc-bar{flex:1;margin:0;height:4px;background:rgba(0,0,0,.07)}
+  .bmi-wait-t{font:600 11px var(--bmi-font);color:#8a867c;font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
+  .bmi-skel.bmi-inl{display:inline-block;vertical-align:middle;width:3.2em;height:.72em;border-radius:6px}
+  td.bmi-st-td{border:0!important;background:transparent!important}
+  .bmi-toast .bmi-ti .bmi-spin{width:11px;height:11px;border-width:2px;vertical-align:0}
+
+  /* 9. Transisi masuk halaman/kartu */
+  .bmi-enter{animation:bmiEnter .32s ease both}
+
+  @media (prefers-reduced-motion:reduce){
+    #bmiSplash *,#bmiTop,.bmi-spin,.bmi-wait *,.bmi-skel,.bmi-pc *,.bmi-toast,.bmi-state,.bmi-enter,.bmi-steps li i{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+    .bmi-pc-bar i{left:0!important;width:100%!important;opacity:.5}
+  }
+</style>
+
+<div id="bmiSplash" role="status" aria-live="polite">
+  <div class="bmi-sp">
+    <div class="bmi-sp-logo"><span class="bmi-sp-wave"></span><span class="bmi-sp-wave w2"></span><span class="bmi-sp-ring"></span>
+      <img src="https://buanamenara.github.io/portal-ftth/icon-192.png" alt="BMI" onerror="this.style.display='none'"></div>
+    <div class="bmi-sp-t" id="bmiSplashT">FTTH PROJECT CONTROL PORTAL</div>
+    <div class="bmi-sp-s">PT BUANA MENARA INDONESIA</div>
+    <div class="bmi-sp-msg" id="bmiSplashMsg">Menyiapkan portal...</div>
+  </div>
+</div>
+<div id="bmiTop"></div>
+
+<script>
+(function () {
+  if (window.BMI) return;
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var CHECK = '<svg class="bmi-ok-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  var ICON = {
+    ok: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    err: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 7v6M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>',
+    empty: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l2.5-7h13L21 13v6H3z"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/></svg>'
+  };
+  var BMI = {};
+
+  /* ---------- 1. Splash ---------- */
+  // Judul splash per portal: isi window.BMI_TITLE (mis. 'PORTAL WASPANG') di tag script tersendiri SEBELUM paket ini.
+  if (window.BMI_TITLE && $('bmiSplashT')) $('bmiSplashT').textContent = window.BMI_TITLE;
+  var splashStart = Date.now(), splashHold = false;
+  BMI.splash = {
+    msg: function (t) { var m = $('bmiSplashMsg'); if (m) m.textContent = t; },
+    show: function (t) { var s = $('bmiSplash'); if (!s) return; if (t) this.msg(t); s.classList.remove('bmi-hide'); splashStart = Date.now(); },
+    hide: function () { var s = $('bmiSplash'); if (!s) return; var wait = Math.max(0, 400 - (Date.now() - splashStart)); setTimeout(function () { s.classList.add('bmi-hide'); }, wait); },
+    hold: function () { splashHold = true; }   // panggil sebelum load bila splash ingin ditutup manual (BMI.splash.hide())
+  };
+  window.addEventListener('load', function () { if (!splashHold) BMI.splash.hide(); });
+  // Pengaman: splash TIDAK PERNAH menutupi portal lebih dari 8 detik, walau hide() tidak terpanggil (mis. ada error).
+  setTimeout(function () { var s = $('bmiSplash'); if (s) s.classList.add('bmi-hide'); }, 8000);
+  // Matikan splash: isi window.BMI_NO_SPLASH = true di tag script tersendiri SEBELUM paket ini.
+  if (window.BMI_NO_SPLASH) { var s0 = $('bmiSplash'); if (s0) s0.classList.add('bmi-hide'); }
+
+  /* ---------- 2. Garis emas atas ---------- */
+  var topTimer = null, topVal = 0, topCount = 0, topGuard = null;
+  BMI.top = {
+    start: function () {
+      var b = $('bmiTop'); if (!b) return; topCount++;
+      if (topCount > 1) return;
+      topVal = 8; b.style.transition = 'none'; b.style.width = '0'; b.offsetWidth; b.style.transition = '';
+      b.classList.add('on'); b.style.width = topVal + '%';
+      clearInterval(topTimer);
+      topTimer = setInterval(function () { topVal += (90 - topVal) * 0.08; b.style.width = topVal + '%'; }, 250);
+      // Pengaman: garis tidak pernah menggantung lebih dari 2 menit walau ada panggilan yang tidak pernah kembali.
+      clearTimeout(topGuard); topGuard = setTimeout(function () { topCount = 1; BMI.top.done(); }, 120000);
+    },
+    done: function () {
+      var b = $('bmiTop'); if (!b) return; topCount = Math.max(0, topCount - 1);
+      if (topCount > 0) return;
+      clearInterval(topTimer); clearTimeout(topGuard); b.style.width = '100%';
+      setTimeout(function () { b.classList.remove('on'); }, 300);
+      setTimeout(function () { if (!topCount) b.style.width = '0'; }, 700);
+    }
+  };
+
+  /* ---------- 3. Tombol sibuk / berhasil ---------- */
+  BMI.busy = function (btn, text) {
+    if (!btn || btn.dataset.bmiBusy) return;
+    btn.dataset.bmiBusy = '1'; btn.dataset.bmiHtml = btn.innerHTML; btn.dataset.bmiDis = btn.disabled ? '1' : '';
+    btn.disabled = true; btn.classList.add('bmi-busy'); btn.setAttribute('aria-busy', 'true');
+    btn.innerHTML = '<span class="bmi-spin"></span>' + esc(text || 'Memproses...');
+  };
+  BMI.reset = function (btn) {
+    if (!btn || !btn.dataset.bmiBusy) return;
+    btn.innerHTML = btn.dataset.bmiHtml; btn.disabled = !!btn.dataset.bmiDis;
+    btn.classList.remove('bmi-busy', 'bmi-btn-ok'); btn.removeAttribute('aria-busy');
+    delete btn.dataset.bmiBusy; delete btn.dataset.bmiHtml; delete btn.dataset.bmiDis;
+  };
+  BMI.done = function (btn, text, ms) {
+    if (!btn) return;
+    if (!btn.dataset.bmiBusy) BMI.busy(btn);
+    btn.classList.remove('bmi-busy'); btn.classList.add('bmi-btn-ok');
+    btn.innerHTML = CHECK + esc(text || 'Berhasil');
+    setTimeout(function () { BMI.reset(btn); }, ms || 1600);
+  };
+
+  /* ---------- 4. Skeleton ---------- */
+  function widths(i) { var w = [72, 55, 88, 40, 64, 80, 48]; return w[i % w.length]; }
+  BMI.skelRows = function (tbody, cols, rows) {
+    if (!tbody) return; cols = cols || 4; rows = rows || 5; var h = '';
+    for (var r = 0; r < rows; r++) {
+      h += '<tr class="bmi-skel-row">';
+      for (var c = 0; c < cols; c++) h += '<td><span class="bmi-skel" style="width:' + widths(r + c) + '%;animation-delay:' + (r * 0.08) + 's"></span></td>';
+      h += '</tr>';
+    }
+    tbody.innerHTML = h;
+  };
+  BMI.skelCards = function (box, n) {
+    if (!box) return; n = n || 4; var h = '<div class="bmi-skel-grid">';
+    for (var i = 0; i < n; i++) h += '<div class="bmi-skel-card"><span class="bmi-skel" style="width:45%"></span><span class="bmi-skel" style="height:26px;width:60%;border-radius:9px"></span><span class="bmi-skel" style="width:75%;height:10px"></span></div>';
+    box.innerHTML = h + '</div>';
+  };
+  BMI.skelLines = function (box, n) {
+    if (!box) return; n = n || 3; var h = '<div style="display:flex;flex-direction:column;gap:10px;padding:6px 0">';
+    for (var i = 0; i < n; i++) h += '<span class="bmi-skel" style="width:' + widths(i * 2) + '%"></span>';
+    box.innerHTML = h + '</div>';
+  };
+
+  /* ---------- 5. Panel proses lama ---------- */
+  var proc = null, procTimer = null, procT0 = 0;
+  function procEl() {
+    if (proc) return proc;
+    proc = el('div'); proc.id = 'bmiProc'; proc.setAttribute('role', 'dialog'); proc.setAttribute('aria-live', 'polite');
+    proc.innerHTML = '<div class="bmi-pc"><div class="bmi-pc-h"><div class="bmi-pc-ic"><span class="bmi-spin"></span></div><div><div class="bmi-pc-t"></div><div class="bmi-pc-m"></div></div></div>' +
+      '<div class="bmi-pc-bar"><i></i></div><div class="bmi-pc-time"><span class="bmi-pc-note"></span><span class="bmi-pc-sec">0:00</span></div><ul class="bmi-steps"></ul><div class="bmi-pc-act" hidden><button type="button">Tutup</button></div></div>';
+    document.body.appendChild(proc);
+    proc.querySelector('.bmi-pc-act button').onclick = function () { BMI.process.close(); };
+    return proc;
+  }
+  function q(s) { return procEl().querySelector(s); }
+  BMI.process = {
+    open: function (o) {
+      o = o || {}; var p = procEl(), card = q('.bmi-pc');
+      card.classList.remove('ok', 'err'); q('.bmi-pc-ic').innerHTML = '<span class="bmi-spin"></span>';
+      q('.bmi-pc-t').textContent = o.title || 'Memproses...';
+      q('.bmi-pc-m').textContent = o.msg || '';
+      q('.bmi-pc-note').textContent = o.note || '';
+      var bar = q('.bmi-pc-bar'); bar.classList.toggle('det', o.percent != null); bar.querySelector('i').style.width = o.percent != null ? o.percent + '%' : '';
+      q('.bmi-steps').innerHTML = (o.steps || []).map(function (s, i) { return '<li class="' + (i === 0 ? 'doing' : '') + '"><i></i>' + esc(s) + '</li>'; }).join('');
+      q('.bmi-pc-act').hidden = true;
+      procT0 = Date.now(); clearInterval(procTimer);
+      procTimer = setInterval(function () { var s = Math.floor((Date.now() - procT0) / 1000); q('.bmi-pc-sec').textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }, 500);
+      p.classList.add('on');
+    },
+    step: function (i) {
+      Array.prototype.forEach.call(q('.bmi-steps').children, function (li, k) { li.className = k < i ? 'done' : (k === i ? 'doing' : ''); li.querySelector('i').textContent = k < i ? '✓' : ''; });
+    },
+    msg: function (t) { q('.bmi-pc-m').textContent = t; },
+    percent: function (v) { var bar = q('.bmi-pc-bar'); bar.classList.add('det'); bar.querySelector('i').style.width = Math.max(0, Math.min(100, v)) + '%'; },
+    done: function (title, msg, autoClose) {
+      if (BMI._okBtn) BMI._okBtn();
+      clearInterval(procTimer); var card = q('.bmi-pc'); card.classList.add('ok');
+      q('.bmi-pc-ic').innerHTML = ICON.ok; q('.bmi-pc-t').textContent = title || 'Selesai'; if (msg != null) q('.bmi-pc-m').textContent = msg;
+      q('.bmi-pc-note').textContent = '';
+      this.step(99);
+      if (autoClose === false) q('.bmi-pc-act').hidden = false; else setTimeout(function () { BMI.process.close(); }, autoClose || 1400);
+    },
+    fail: function (title, msg) {
+      clearInterval(procTimer); q('.bmi-pc').classList.add('err');
+      q('.bmi-pc-ic').innerHTML = ICON.err; q('.bmi-pc-t').textContent = title || 'Gagal'; if (msg != null) q('.bmi-pc-m').textContent = msg;
+      q('.bmi-pc-note').textContent = '';
+      Array.prototype.forEach.call(q('.bmi-steps').children, function (li) { if (li.className === 'doing') { li.className = 'fail'; li.querySelector('i').textContent = '✕'; } });
+      q('.bmi-pc-act').hidden = false;
+    },
+    close: function () { clearInterval(procTimer); if (proc) proc.classList.remove('on'); }
+  };
+
+  /* ---------- 6. Progress berangka ---------- */
+  BMI.progress = function (box, value, max, label) {
+    if (!box) return; max = max || 100;
+    var pct = Math.round(Math.max(0, Math.min(1, value / max)) * 100);
+    if (!box.querySelector('.bmi-prog')) box.innerHTML = '<div class="bmi-prog-l"><span class="bmi-prog-t"></span><b class="bmi-prog-n"></b></div><div class="bmi-prog"><i></i></div>';
+    box.querySelector('.bmi-prog-t').textContent = label || '';
+    box.querySelector('.bmi-prog-n').textContent = max === 100 ? pct + '%' : value + ' / ' + max;
+    box.querySelector('.bmi-prog i').style.width = pct + '%';
+    box.querySelector('.bmi-prog').classList.toggle('full', pct >= 100);
+  };
+
+  /* ---------- 7. Toast ---------- */
+  BMI.toast = function (msg, type, ms) {
+    if (type === 'ok' && BMI._okBtn) BMI._okBtn();
+    var wrap = $('bmiToasts'); if (!wrap) { wrap = el('div'); wrap.id = 'bmiToasts'; wrap.setAttribute('aria-live', 'polite'); document.body.appendChild(wrap); }
+    type = type || 'info';
+    var t = el('div', 'bmi-toast ' + type, '<span class="bmi-ti">' + (type === 'ok' ? '✓' : type === 'err' ? '!' : type === 'wait' ? '<span class="bmi-spin"></span>' : 'i') + '</span><span>' + esc(msg) + '</span>');
+    wrap.appendChild(t);
+    while (wrap.children.length > 3) wrap.removeChild(wrap.firstChild);
+    setTimeout(function () { t.classList.add('out'); setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 260); }, ms || 3200);
+  };
+
+  /* ---------- 8. Keadaan kosong & gagal ---------- */
+  function stateBox(target, html) {
+    if (!target) return;
+    if (target.tagName === 'TBODY') {
+      var cols = 1, head = target.parentNode && target.parentNode.querySelector('thead tr');
+      if (head) cols = head.children.length; else if (target.rows[0]) cols = target.rows[0].cells.length || 1;
+      target.innerHTML = '<tr><td colspan="' + cols + '" style="border:0;background:transparent">' + html + '</td></tr>';
+    } else target.innerHTML = html;
+  }
+  BMI.empty = function (target, title, text) {
+    stateBox(target, '<div class="bmi-state"><div class="bmi-st-ic">' + ICON.empty + '</div><b>' + esc(title || 'Belum ada data') + '</b>' + esc(text || '') + '</div>');
+  };
+  BMI.error = function (target, text, retry) {
+    var id = 'bmiRetry' + Math.random().toString(36).slice(2, 8);
+    stateBox(target, '<div class="bmi-state err"><div class="bmi-st-ic">' + ICON.err + '</div><b>Gagal memuat</b>' + esc(text || 'Periksa koneksi lalu coba lagi.') + (retry ? '<br><button type="button" id="' + id + '">Coba lagi</button>' : '') + '</div>');
+    if (retry) { var b = $(id); if (b) b.onclick = retry; }
+  };
+
+  /* ---------- 9. Transisi ---------- */
+  BMI.enter = function (box) { if (!box || reduce) return; box.classList.remove('bmi-enter'); box.offsetWidth; box.classList.add('bmi-enter'); };
+
+  /* ---------- 10. Pembungkus google.script.run (garis atas otomatis) ---------- */
+  BMI.run = function () {
+    var ok = null, fail = null, r = google.script.run;
+    var api = {
+      withSuccessHandler: function (f) { ok = f; return api; },
+      withFailureHandler: function (f) { fail = f; return api; }
+    };
+    return new Proxy(api, { get: function (t, name) {
+      if (name in t) return t[name];
+      return function () {
+        var args = arguments; BMI.top.start();
+        r.withSuccessHandler(function (v) { BMI.top.done(); if (ok) ok(v); })
+         .withFailureHandler(function (e) { BMI.top.done(); if (fail) fail(e); else BMI.toast(e && e.message || 'Terjadi kesalahan', 'err'); })[name].apply(null, args);
+      };
+    } });
+  };
+
+
+  /* ---------- 11. Otomatis (tanpa mengubah kode portal) ----------
+     Mengamati halaman dan menambahkan animasi pada pola yang sudah ada:
+     a. tabel berisi satu baris "Memuat..."            -> skeleton bergaris
+     b. teks/kotak "Memuat..." (bukan tabel)           -> skeleton
+     c. tombol yang dinonaktifkan dengan teks "...", "…" atau diawali ⏳ -> spinner di tombol
+     d. teks pendek "Memuat/Membaca/Membuat/... ..." atau diawali ⏳   -> spinner kecil
+     e. kotak .status.info "mohon tunggu / ... detik"  -> bar tunggu + penghitung waktu
+     g. tabel "Belum ada / Tidak ada ..." -> tampilan kosong ber-ikon; "Gagal memuat: ..." -> tampilan gagal
+     h. angka yang masih "..." (KPI dashboard) -> kilau skeleton kecil
+     i. kotak status berubah jadi berhasil -> toast hijau; tombol yang baru selesai bekerja -> centang hijau sebentar
+     f. proses lama (baca BOQ / PDF Opname / OCR BA, buat BA, buat BOQ / ABD, terbitkan BA Pekerjaan)
+        -> panel proses dengan langkah + timer; berubah jadi berhasil / gagal mengikuti kotak status yang sama
+        (matikan hanya panel ini: window.BMI_NO_PROC = true)
+     Semua tambahan hilang sendiri saat portal menulis ulang isi elemen tersebut.
+     Matikan: isi window.BMI_NO_AUTO = true di tag script tersendiri SEBELUM paket ini. */
+  var LOADING_ONLY = /^Memuat\s*(\.\.\.|…)?$/;
+  var BUSY_END = /(\.\.\.|…)\s*(\([^)]*\))?\s*$/;
+  var HOURGLASS = /^\s*⏳️?\s*/;
+  var LOAD_TXT = /^(⏳️?\s*)?(Memuat|Membaca|Membuat|Menyiapkan|Mengirim|Menyimpan|Mengunduh|Menghapus|Memproses|Mengecek|Memeriksa|Menguji|Menyelaraskan|Sedang)\b|sedang dimuat/i;
+  var WAIT_TXT = /mohon tunggu|\bdetik\b|sampai 1 menit/i;
+  var LEAF = { DIV: 1, SPAN: 1, P: 1, SMALL: 1, TD: 1, LI: 1, LABEL: 1, B: 1, STRONG: 1, EM: 1 };
+  function skip(n) { return !n || !n.closest || !!n.closest('#bmiSplash,#bmiProc,#bmiToasts,#toastMessage,.bmi-prog-l,script,style,select,textarea,[contenteditable],[data-bmi-off]'); }
+  function addSpin(n) {
+    var f = n.firstElementChild;
+    if (f && f.classList.contains('bmi-auto')) return;
+    var s = document.createElement('span'); s.className = 'bmi-spin bmi-auto'; s.setAttribute('aria-hidden', 'true');
+    n.insertBefore(s, n.firstChild);
+  }
+  function dropSpin(n) { var f = n.firstElementChild; if (f && f.classList.contains('bmi-auto')) n.removeChild(f); }
+  // ⏳ di awal teks diganti spinner (hanya simbolnya; kalimatnya tetap).
+  function hourglass(n) {
+    for (var c = n.firstChild; c; c = c.nextSibling) {
+      if (c.nodeType === 1 && c.classList.contains('bmi-auto')) continue;
+      if (c.nodeType === 3 && !c.nodeValue.trim()) continue;
+      if (c.nodeType === 3 && HOURGLASS.test(c.nodeValue)) { c.nodeValue = c.nodeValue.replace(HOURGLASS, ''); addSpin(n); return true; }
+      return false;
+    }
+    return false;
+  }
+  function checkTbody(tb) {
+    if (tb.rows.length !== 1 || tb.rows[0].cells.length !== 1) return;
+    var td = tb.rows[0].cells[0], tt = (td.textContent || '').replace(/\s+/g, ' ').trim();
+    if (td.querySelector('.bmi-state')) return;
+    if (/^(Belum ada|Tidak ada)\b/i.test(tt) && td.children.length === 0) {
+      td.classList.add('bmi-st-td');
+      td.innerHTML = '<div class="bmi-state"><div class="bmi-st-ic">' + ICON.empty + '</div><b>' + esc(tt.replace(/\.$/, '')) + '</b></div>';
+      return;
+    }
+    if (/^Gagal memuat/i.test(tt) && td.children.length === 0) {
+      td.classList.add('bmi-st-td');
+      td.innerHTML = '<div class="bmi-state err"><div class="bmi-st-ic">' + ICON.err + '</div><b>Gagal memuat</b>' +
+        esc(tt.replace(/^Gagal memuat:?\s*/i, '') || 'Periksa koneksi lalu coba lagi.') + '</div>';
+      return;
+    }
+    if (!LOADING_ONLY.test(tt)) return;
+    var cols = td.colSpan > 1 ? td.colSpan : 0;
+    if (!cols) { var h = tb.parentNode && tb.parentNode.querySelector('thead tr'); cols = h ? h.children.length : 3; }
+    BMI.skelRows(tb, Math.min(cols, 10), 5);
+  }
+  var released = null;   // tombol yang baru selesai bekerja: { b, t, word }
+  function okWord(t) {
+    t = t.replace(HOURGLASS, '');
+    if (/Mengirim/i.test(t)) return 'Terkirim';
+    if (/^Menyimpan/i.test(t)) return 'Tersimpan';
+    if (/^Mengunduh/i.test(t)) return 'Terunduh';
+    if (/^Membaca/i.test(t)) return 'Terbaca';
+    if (/^Menghapus/i.test(t)) return 'Terhapus';
+    return 'Berhasil';
+  }
+  BMI._okBtn = function () { setTimeout(okBtnNow, 40); };   // tunggu sebentar: portal sering memulihkan tombol tepat setelah pesan berhasil
+  function okBtnNow() {
+    var r = released; released = null;
+    if (!r || Date.now() - r.t > 2500 || !r.b.isConnected || r.b.disabled || !r.b.offsetParent || r.b.dataset.bmiBusy) return;
+    BMI.done(r.b, r.word, 1800);
+  }
+  function checkBtn(b) {
+    if (b.dataset.bmiBusy) return;
+    var t = (b.textContent || '').trim();
+    // tombol '…' tanpa kata (mis. nomor halaman) bukan tanda sibuk
+    if (b.disabled && ((BUSY_END.test(t) && /[A-Za-z]/.test(t)) || HOURGLASS.test(t))) { if (!b.dataset.bmiWas) b.dataset.bmiWas = t.slice(0, 60); hourglass(b); addSpin(b); }
+    else {
+      dropSpin(b);
+      if (b.dataset.bmiWas && !b.disabled) { released = { b: b, t: Date.now(), word: okWord(b.dataset.bmiWas) }; delete b.dataset.bmiWas; }
+    }
+  }
+  /* f. Panel proses lama: dibuka dari kotak status "mohon tunggu", ditutup mengikuti hasil di kotak yang sama */
+  var LONG = [
+    [/latar belakang/i, null],   // banyak berkas BA: dibaca di latar belakang, BA pertama bisa langsung dicek -> tanpa panel
+    [/PDF Opname/i, 'Membaca PDF Opname', ['Menyiapkan halaman PDF', 'Mengunggah ke server', 'Membaca volume (OCR)', 'Menyiapkan hasil']],
+    [/Membaca BOQ/i, 'Membaca BOQ', ['Mengunggah file BOQ', 'Membaca volume Designator', 'Mencocokkan kolom sheet', 'Menyiapkan hasil']],
+    [/OCR/i, 'Membaca BA (OCR)', ['Mengunggah berkas BA', 'Membaca teks (OCR)', 'Mencocokkan site & material']],
+    [/nomor BA dan PDF/i, 'Membuat BA', ['Memeriksa isian & BA ganda', 'Memberi nomor BA', 'Membuat PDF BA', 'Menyimpan ke Drive & BA TRANSAKSI']],
+    [/file ABD/i, 'Membuat BOQ ABD', ['Membaca BOQ plan', 'Menghitung As Built', 'Mengisi PO & Form Opname', 'Menyiapkan file .xlsx']],
+    [/file BOQ/i, 'Membuat BOQ', ['Membuka template BOQ', 'Mengisi BoM & BoQ', 'Menyiapkan file .xlsx']],
+    [/Membuat PDF/i, 'Menerbitkan BA Pekerjaan', ['Menyiapkan data & foto', 'Menyusun dokumen BA', 'Membuat PDF', 'Menyimpan ke Drive']]
+  ];
+  var pw = null;   // proses yang sedang diikuti: { el, key, timers }
+  function stText(n) {   // teks kotak status tanpa penghitung waktu bar tunggu
+    var t = n.textContent || '', w = n.querySelector(':scope > .bmi-wait');
+    return w ? t.replace(w.textContent, '') : t;
+  }
+  function pwClear() { if (!pw) return; pw.timers.forEach(clearTimeout); pw = null; }
+  function headOf(n) {
+    // Judul = teks <strong> pertama (mis. "Gagal membaca BOQ:"), sisanya jadi pesan. Tanpa <strong>: kalimat pertama.
+    var t = stText(n).replace(/\s+/g, ' ').trim(), f = n.querySelector('strong'), h = '', m = t;
+    if (f && t.indexOf(f.textContent.trim()) === 0) { h = f.textContent.trim(); m = t.slice(h.length).trim(); }
+    else { var k = t.search(/[.:!]\s/); if (k > 0 && k < 70) { h = t.slice(0, k); m = t.slice(k + 1).trim(); } else h = t; }
+    h = h.replace(/[.:!\s]+$/, ''); if (m.length > 220) m = m.slice(0, 217) + '...';
+    return [h, m];
+  }
+  function procOpen(n, txt) {
+    if (window.BMI_NO_PROC) return;
+    var hit = null;
+    for (var i = 0; i < LONG.length; i++) if (LONG[i][0].test(txt)) { hit = LONG[i]; break; }
+    if (!hit || !hit[1]) return;
+    if (pw && pw.el === n && pw.key === txt) return;
+    pwClear();
+    pw = { el: n, key: txt, timers: [] };
+    var steps = hit[2], r = /(\d+)\s*(?:-|sampai)\s*(\d+)\s*detik/i.exec(txt), lo = r ? +r[1] : 12;
+    BMI.process.open({ title: hit[1], msg: txt.replace(/\s+/g, ' ').trim(), note: 'Jangan tutup halaman ini', steps: steps });
+    for (var s = 1; s < steps.length; s++) (function (s) {
+      pw.timers.push(setTimeout(function () { if (pw && pw.el === n) BMI.process.step(s); }, Math.round(lo * 1000 * s / (steps.length - 1))));
+    })(s);
+    pw.timers.push(setTimeout(function () { if (pw && pw.el === n) { pwClear(); BMI.process.close(); } }, 7 * 60000));   // pengaman 7 menit
+  }
+  function procFollow(n) {
+    if (!pw || pw.el !== n) return;
+    var txt = stText(n);
+    if (!n.isConnected || n.style.display === 'none' || !txt.trim()) { pwClear(); BMI.process.close(); return; }
+    if (n.classList.contains('info') && WAIT_TXT.test(txt)) { if (pw.key !== txt) procOpen(n, txt); return; }
+    var hm = headOf(n);
+    pwClear();
+    if (n.classList.contains('error')) BMI.process.fail(hm[0] || 'Gagal', hm[1]);
+    else BMI.process.done(hm[0] || 'Selesai', hm[1], 1800);
+  }
+  function checkStatus(n) {
+    var w = n.querySelector(':scope > .bmi-wait');
+    var on = n.classList.contains('info') && WAIT_TXT.test(stText(n));
+    var following = pw && pw.el === n;
+    if (on && !following) procOpen(n, stText(n));
+    procFollow(n);
+    if (n.classList.contains('success') && n.style.display !== 'none') {
+      var key = stText(n).trim();
+      if (key && n.dataset.bmiOk !== key) { n.dataset.bmiOk = key; if (!following) BMI.toast(headOf(n)[0] || 'Berhasil', 'ok'); }
+    } else if (n.dataset.bmiOk) delete n.dataset.bmiOk;
+    if (on && !w) {
+      w = document.createElement('div'); w.className = 'bmi-wait'; w.setAttribute('aria-hidden', 'true');
+      w.dataset.t0 = Date.now(); w.innerHTML = '<div class="bmi-pc-bar"><i></i></div><span class="bmi-wait-t">0:00</span>';
+      n.appendChild(w); waitTick();
+    } else if (!on && w) n.removeChild(w);
+  }
+  var waitTimer = null;
+  function waitTick() {
+    if (waitTimer) return;
+    waitTimer = setInterval(function () {
+      var list = document.querySelectorAll('.bmi-wait');
+      if (!list.length) { clearInterval(waitTimer); waitTimer = null; return; }
+      Array.prototype.forEach.call(list, function (w) {
+        var s = Math.floor((Date.now() - (+w.dataset.t0 || Date.now())) / 1000), t = w.querySelector('.bmi-wait-t');
+        if (t) t.textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2);
+      });
+    }, 1000);
+  }
+  function checkLeaf(n) {
+    if (!LEAF[n.tagName]) return;
+    var k = n.children;
+    if (k.length > 1 || (k.length === 1 && !k[0].classList.contains('bmi-auto'))) { hourglass(n); return; }
+    var t = (n.textContent || '').trim();
+    if (!t || t.length > 200) return;
+    if (/^(\.\.\.|…)$/.test(t) && n.tagName !== 'TD') { n.innerHTML = '<span class="bmi-skel bmi-inl"></span>'; return; }
+    if (LOADING_ONLY.test(t)) {
+      if (n.tagName === 'TD') { var tb = n.closest('tbody'); if (tb) checkTbody(tb); }
+      else BMI.skelLines(n, 3);
+      return;
+    }
+    if (HOURGLASS.test(t)) { hourglass(n); return; }
+    if (LOAD_TXT.test(t) && /(\.\.\.|…)/.test(t) && !(n.classList.contains('status') && !n.classList.contains('info'))) addSpin(n);
+  }
+  function visit(n) {
+    if (!n || n.nodeType !== 1 || skip(n)) return;
+    if (n.tagName === 'BUTTON') { checkBtn(n); return; }
+    var b = n.closest('button'); if (b) { checkBtn(b); return; }
+    if (n.tagName === 'TBODY') { checkTbody(n); return; }
+    if (n.classList.contains('status')) checkStatus(n);
+    checkLeaf(n);
+  }
+  function deep(n) {
+    if (n.nodeType !== 1 || skip(n)) return;
+    if (n.tagName === 'TBODY') checkTbody(n);
+    if (n.tagName === 'BUTTON') checkBtn(n);
+    if ((n.textContent || '').indexOf('⏳') < 0) return;
+    var w = document.createTreeWalker(n, NodeFilter.SHOW_TEXT, null, false), list = [], c;
+    while ((c = w.nextNode())) if (HOURGLASS.test(c.nodeValue) && c.parentNode) list.push(c.parentNode);
+    list.forEach(function (p) { var b = p.closest('button'); if (b) checkBtn(b); else if (!skip(p)) hourglass(p); });
+  }
+  BMI.auto = {
+    scan: function (root) {
+      root = root || document.body; if (!root) return;
+      Array.prototype.forEach.call(root.querySelectorAll('tbody'), function (tb) { if (!skip(tb)) checkTbody(tb); });
+      Array.prototype.forEach.call(root.querySelectorAll('button'), function (b) { if (!skip(b)) checkBtn(b); });
+      Array.prototype.forEach.call(root.querySelectorAll('.status'), function (n) { if (!skip(n)) checkStatus(n); });
+      Array.prototype.forEach.call(root.querySelectorAll('div,span,p,small,td,li,label,b,strong,em'), function (n) { if (n.childElementCount === 0 && !skip(n)) checkLeaf(n); });
+    }
+  };
+  function startAuto() {
+    try {
+      BMI.auto.scan();
+      new MutationObserver(function (recs) {
+        try {
+          for (var i = 0; i < recs.length; i++) {
+            var r = recs[i];
+            if (r.type === 'attributes') {
+              var t = r.target;
+              if (pw && t === pw.el) { procFollow(t); continue; }
+              if (r.attributeName === 'style') continue;
+              if (t.tagName === 'BUTTON') { if (!skip(t)) checkBtn(t); }
+              else if (r.attributeName === 'class' && t.classList && t.classList.contains('status') && !skip(t)) checkStatus(t);
+              continue;
+            }
+            visit(r.target);
+            for (var j = 0; j < r.addedNodes.length; j++) deep(r.addedNodes[j]);
+          }
+        } catch (e) { /* animasi tidak boleh mengganggu portal */ }
+      }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'class', 'style'] });
+    } catch (e) { /* abaikan */ }
+  }
+  if (!window.BMI_NO_AUTO) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startAuto); else startAuto();
+  }
+
+  window.BMI = BMI;
+})();
+</script>
+<!-- ===================== akhir BMI FEEDBACK KIT ===================== -->
   <div class="topbar">
     <img id="logo" alt="Buana Menara Indonesia" style="display:none">
     <div id="logoFallback" class="fallback">BUANA MENARA INDONESIA</div>
@@ -759,14 +1716,14 @@
         <div id="guideSheetBody">
           <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
           <h2>Panduan FTTH Project Control Portal</h2>
-          <p class="desc">Cara memakai Portal FTTH, Portal Waspang dan spreadsheet, langkah demi langkah dengan gambar.</p>
+          <p class="desc">Cara memakai portal dan spreadsheet, dengan gambar.</p>
           <div class="meta"><span>32 halaman</span><span>~5 MB</span><span>PDF</span></div>
           <a href="https://buanamenara.github.io/portal-ftth/Panduan_Portal_FTTH.pdf" target="_blank" rel="noopener" id="guideDl">Unduh PDF Panduan</a>
-          <p class="hint">Terbuka di tab baru peramban &mdash; ketuk lama pratinjaunya lalu pilih &ldquo;Simpan ke File&rdquo; bila tidak langsung tersimpan.</p>
+          <p class="hint">Terbuka di tab baru; bila tidak tersimpan, tekan lama lalu “Simpan ke File”.</p>
           <ul class="glist">
-            <li>Masuk sekali lewat FTTH Project Control Portal, lalu Submit BOQ, BA Transaksi dan Submit BA di Portal FTTH.</li>
-            <li>Portal Waspang: Daily Report EMR, BOQ Plan dan foto dokumentasi.</li>
-            <li>Cara pakai spreadsheet per sheet, dan cara mengatasi masalah umum.</li>
+            <li>Masuk lewat Gateway, lalu Submit BOQ &amp; BA di Portal FTTH.</li>
+            <li>Portal Waspang: Daily Report, BOQ Plan, foto.</li>
+            <li>Cara pakai spreadsheet &amp; atasi masalah umum.</li>
           </ul>
         </div>
         <button type="button" id="guideTop" aria-label="Kembali ke atas">
@@ -778,7 +1735,7 @@
         <div id="saranBody">
           <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
           <h2>Kritik &amp; Saran</h2>
-          <p class="desc">Sampaikan masukan Anda untuk pengembangan spreadsheet dan portal. Hanya RPM/pemilik yang membaca ini.</p>
+          <p class="desc">Masukan untuk pengembangan portal. Hanya RPM/pemilik yang membaca.</p>
           <label class="glabel" for="saranNama">Nama (opsional)</label>
           <input type="text" id="saranNama" maxlength="80" placeholder="Nama Anda">
           <label class="glabel" for="saranPesan">Pesan</label>
@@ -881,33 +1838,25 @@
 
         <div class="kpi-grid">
           <div class="kpi-card">
-            <div class="kpi-top"><div class="kpi-icon kpi-navy"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.686-6-10a6 6 0 0 1 12 0c0 4.314-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg></div><div><div class="kpi-label">Total Site</div><div class="kpi-value" id="kpiSite">...</div><div class="kpi-sub" id="kpiSiteSub">Site proyek FTTH</div></div></div>
+            <div class="kpi-top"><div class="kpi-txt"><div class="kpi-label">Total Site</div><div class="kpi-value" id="kpiSite">...</div><div class="kpi-sub" id="kpiSiteSub">Site proyek FTTH</div></div><div class="kpi-icon kpi-navy kpi-big"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.686-6-10a6 6 0 0 1 12 0c0 4.314-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg></div></div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-top"><div class="kpi-icon kpi-green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 5-5"/></svg></div><div><div class="kpi-label">Permit</div><div class="kpi-value" id="kpiPermit">...</div><div class="kpi-sub" id="kpiPermitSub">...</div></div></div>
+            <div class="kpi-top"><div class="kpi-txt"><div class="kpi-label">Permit</div><div class="kpi-value" id="kpiPermit">...</div><div class="kpi-sub" id="kpiPermitSub">...</div></div><div class="kpi-ring ring-ink" data-bar="kpiPermitBar"><b>&ndash;</b></div></div>
             <div class="kpi-bar"><div class="kpi-bar-fill fill-green" id="kpiPermitBar"></div></div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-top"><div class="kpi-icon kpi-amber"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 11-14h-7l1-6z"/></svg></div><div><div class="kpi-label">Instalasi</div><div class="kpi-value" id="kpiInstalasi">...</div><div class="kpi-sub" id="kpiInstalasiSub">...</div></div></div>
+            <div class="kpi-top"><div class="kpi-txt"><div class="kpi-label">Instalasi</div><div class="kpi-value" id="kpiInstalasi">...</div><div class="kpi-sub" id="kpiInstalasiSub">...</div></div><div class="kpi-ring ring-gold" data-bar="kpiInstalasiBar"><b>&ndash;</b></div></div>
             <div class="kpi-bar"><div class="kpi-bar-fill fill-amber" id="kpiInstalasiBar"></div></div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-top"><div class="kpi-icon kpi-purple"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div><div class="kpi-label">BA Closing</div><div class="kpi-value" id="kpiBaClosing">...</div><div class="kpi-sub" id="kpiBaClosingSub">...</div></div></div>
+            <div class="kpi-top"><div class="kpi-txt"><div class="kpi-label">BA Closing</div><div class="kpi-value" id="kpiBaClosing">...</div><div class="kpi-sub" id="kpiBaClosingSub">...</div></div><div class="kpi-ring ring-grey" data-bar="kpiBaClosingBar"><b>&ndash;</b></div></div>
             <div class="kpi-bar"><div class="kpi-bar-fill fill-purple" id="kpiBaClosingBar"></div></div>
           </div>
         </div>
 
-        <div class="dash-row">
-          <div class="dash-panel">
-            <div class="panel-title-row">
-              <div class="panel-title">Progress Project per Area</div>
-              <select id="areaFilter" class="area-filter"><option value="">Semua Area</option></select>
-            </div>
-            <div class="area-legend"><span><i class="dot dot-permit"></i>Permit</span><span><i class="dot dot-instalasi"></i>Instalasi</span><span><i class="dot dot-baclosing"></i>BA Closing</span></div>
-            <div class="area-body">
-              <div class="area-chart" id="areaChart"></div>
-              <div class="scurve-box" id="scurveBox"><div class="scurve-empty">Memuat Kurva S...</div></div>
-            </div>
+        <div class="dash-row dash-row-a">
+          <div class="dash-panel scurve-panel">
+            <div class="scurve-box" id="scurveBox"><div class="scurve-empty">Memuat Kurva S...</div></div>
           </div>
           <div class="dash-col">
           <div class="dash-panel">
@@ -922,8 +1871,16 @@
           </div>
         </div>
 
-        <div class="dash-row dash-row-2">
-          <div class="dash-panel">
+        <div class="dash-row dash-row-b">
+          <div class="dash-panel area-panel">
+            <div class="panel-title-row">
+              <div class="panel-title">Progress Project per Area</div>
+              <select id="areaFilter" class="area-filter"><option value="">Semua Area</option></select>
+            </div>
+            <div class="area-legend"><span><i class="dot dot-permit"></i>Permit</span><span><i class="dot dot-instalasi"></i>Instalasi</span><span><i class="dot dot-baclosing"></i>BA Closing</span></div>
+            <div class="area-chart" id="areaChart"></div>
+          </div>
+          <div class="dash-panel site-panel">
             <div class="panel-title">Site Terbaru</div>
             <div class="site-table-wrap">
               <table class="site-table">
@@ -954,52 +1911,82 @@
             </div>
           </div>
         </div>
+        <script>
+        /* Tata letak Dashboard: cincin KPI ikut lebar garis persen (diisi kode lama), batang area tegak ikut lebarnya. */
+        (function () {
+          var BARS = ['kpiPermitBar', 'kpiInstalasiBar', 'kpiBaClosingBar'];
+          function sync() {
+            BARS.forEach(function (id) {
+              var bar = document.getElementById(id), ring = document.querySelector('.kpi-ring[data-bar="' + id + '"]');
+              if (!bar || !ring) return;
+              var w = bar.style.width, p = Math.max(0, Math.min(100, parseFloat(w) || 0));
+              ring.style.setProperty('--p', p);
+              var t = w ? Math.round(p) + '%' : '\u2013', b = ring.querySelector('b');
+              if (b && b.textContent !== t) b.textContent = t;
+            });
+            var ch = document.getElementById('areaChart');
+            if (ch) Array.prototype.forEach.call(ch.querySelectorAll('.area-bar'), function (el) {
+              var w = el.style.width; if (w && el.style.getPropertyValue('--v') !== w) el.style.setProperty('--v', w);
+            });
+          }
+          try {
+            var mo = new MutationObserver(sync);
+            BARS.forEach(function (id) { var e = document.getElementById(id); if (e) mo.observe(e, { attributes: true, attributeFilter: ['style'] }); });
+            var ch = document.getElementById('areaChart'); if (ch) mo.observe(ch, { childList: true, subtree: true });
+            sync();
+          } catch (e) { /* tata letak tidak boleh mengganggu portal */ }
+        })();
+        </script>
 
               </div>
 <!-- ===== CHECKPOINT PROYEK ===== -->
   <div id="viewCheckpoint" style="display:none">
-    <div class="card wide">
+    <div class="card wide cp-page">
       <h2>Project Dashboard</h2>
-      <p class="desc">Ringkasan status tiap site dari data yang sudah ada di DATA BASE (tidak ada input baru). Klik satu baris untuk lihat rincian tahapnya.</p>
-      <div class="kpi-grid" id="cpKpiGrid">
-        <div class="kpi-card">
-          <div class="kpi-top"><div class="kpi-icon kpi-navy"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.686-6-10a6 6 0 0 1 12 0c0 4.314-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg></div><div><div class="kpi-label">Total Site</div><div class="kpi-value" id="cpKpiTotal">...</div></div></div>
+      <p class="desc">Ringkasan status tiap site dari DATA BASE. Klik baris untuk rincian tahap.</p>
+      <div class="kpi-grid cp-kpis" id="cpKpiGrid">
+        <div class="kpi-card cp-k k-total">
+          <div class="kpi-label"><i class="cp-dot"></i>Total Site</div><div class="kpi-value" id="cpKpiTotal">...</div><div class="kpi-sub">Site proyek FTTH</div>
+          <div class="cp-k-bar"><i></i></div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-top"><div class="kpi-icon kpi-green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 5-5"/></svg></div><div><div class="kpi-label">Completed</div><div class="kpi-value" id="cpKpiDone">...</div></div></div>
-          <div class="kpi-sub" id="cpKpiDoneSub">...</div>
+        <div class="kpi-card cp-k k-done">
+          <div class="kpi-label"><i class="cp-dot"></i>Completed</div><div class="kpi-value" id="cpKpiDone">...</div><div class="kpi-sub" id="cpKpiDoneSub">...</div>
+          <div class="cp-k-bar"><i></i></div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-top"><div class="kpi-icon kpi-amber"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div><div><div class="kpi-label">In Progress</div><div class="kpi-value" id="cpKpiProgress">...</div></div></div>
-          <div class="kpi-sub" id="cpKpiProgressSub">...</div>
+        <div class="kpi-card cp-k k-progress">
+          <div class="kpi-label"><i class="cp-dot"></i>In Progress</div><div class="kpi-value" id="cpKpiProgress">...</div><div class="kpi-sub" id="cpKpiProgressSub">...</div>
+          <div class="cp-k-bar"><i></i></div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-top"><div class="kpi-icon kpi-purple"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg></div><div><div class="kpi-label">Pending</div><div class="kpi-value" id="cpKpiPending">...</div></div></div>
-          <div class="kpi-sub" id="cpKpiPendingSub">...</div>
+        <div class="kpi-card cp-k k-pending">
+          <div class="kpi-label"><i class="cp-dot"></i>Pending</div><div class="kpi-value" id="cpKpiPending">...</div><div class="kpi-sub" id="cpKpiPendingSub">...</div>
+          <div class="cp-k-bar"><i></i></div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-top"><div class="kpi-icon" style="background:#B3261E"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg></div><div><div class="kpi-label">Drop</div><div class="kpi-value" id="cpKpiDrop">...</div></div></div>
-          <div class="kpi-sub" id="cpKpiDropSub">...</div>
+        <div class="kpi-card cp-k k-drop">
+          <div class="kpi-label"><i class="cp-dot"></i>Drop</div><div class="kpi-value" id="cpKpiDrop">...</div><div class="kpi-sub" id="cpKpiDropSub">...</div>
+          <div class="cp-k-bar"><i></i></div>
         </div>
-      </div>
-      <div class="dash-row" style="margin-bottom:18px">
-        <div class="dash-panel">
+        <div class="kpi-card cp-area-card">
           <div class="panel-title">Progress per Area</div>
           <div id="cpAreaBars"><div class="hint">Memuat...</div></div>
         </div>
+      </div>
+      <div class="dash-row cp-donut-row" style="display:none">
         <div class="dash-panel">
           <div class="panel-title">Status Project</div>
           <div class="cp-donut-wrap"><div class="cp-donut" id="cpDonut"></div><div class="cp-donut-center"><span id="cpDonutTotal">...</span><small>Site</small></div></div>
           <div class="cp-donut-legend" id="cpDonutLegend"></div>
         </div>
       </div>
+      <div class="cp-detail">
+      <div class="cp-detail-head">
       <div class="panel-title">Detail per Site</div>
-      <div class="row">
+      <div class="cp-chips" id="cpSowChips" role="tablist" aria-label="Filter SOW"></div>
+      <div class="row cp-filters">
         <div class="site-search-wrap" id="siteSearchWrap">
           <button type="button" class="site-search-toggle" id="cpQToggle" aria-label="Cari nama site"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg></button>
           <input type="text" id="cpQ" placeholder="Cari nama site..." autocomplete="off">
         </div>
-        <div>
+        <div class="cp-sow-sel">
           <select id="cpSow">
             <option value="">Semua SOW</option>
             <option>Cluster</option>
@@ -1020,6 +2007,7 @@
           </select>
         </div>
       </div>
+      </div>
       <div id="cpCount" class="hint"></div>
       <div style="overflow-x:auto">
       <table class="cp-table">
@@ -1031,6 +2019,32 @@
         <div class="pages" id="cpPages"></div>
       </div>
       </div>
+      </div>
+      <script>
+      /* Project Dashboard (tata letak v4): chip SOW mengatur select #cpSow; bar tiap KPI dari angka / total. */
+      (function () {
+        var sel = document.getElementById('cpSow'), box = document.getElementById('cpSowChips');
+        if (sel && box) {
+          Array.prototype.forEach.call(sel.options, function (o) {
+            var b = document.createElement('button'); b.type = 'button'; b.className = 'cp-chip'; b.textContent = o.text; b.dataset.v = o.value;
+            b.addEventListener('click', function () { if (sel.value === o.value) return; sel.value = o.value; sel.dispatchEvent(new Event('change')); mark(); });
+            box.appendChild(b);
+          });
+          function mark() { Array.prototype.forEach.call(box.children, function (b) { b.classList.toggle('on', b.dataset.v === sel.value); b.setAttribute('aria-pressed', b.dataset.v === sel.value); }); }
+          sel.addEventListener('change', mark); mark();
+        }
+        var grid = document.getElementById('cpKpiGrid');
+        function bars() {
+          var tot = parseFloat((document.getElementById('cpKpiTotal') || {}).textContent) || 0;
+          [['total', 'cpKpiTotal'], ['done', 'cpKpiDone'], ['progress', 'cpKpiProgress'], ['pending', 'cpKpiPending'], ['drop', 'cpKpiDrop']].forEach(function (p) {
+            var el = document.getElementById(p[1]), bar = grid && grid.querySelector('.k-' + p[0] + ' .cp-k-bar i'); if (!el || !bar) return;
+            var v = parseFloat(el.textContent), w = (tot && !isNaN(v)) ? Math.max(0, Math.min(100, v / tot * 100)) : 0;
+            var ws = w.toFixed(1) + '%'; if (bar.style.width !== ws) bar.style.width = ws;
+          });
+        }
+        try { if (grid) { new MutationObserver(bars).observe(grid, { childList: true, characterData: true, subtree: true }); bars(); } } catch (e) {}
+      })();
+      </script>
     </div>
   </div>
 
@@ -1042,7 +2056,7 @@
     </div>
     <div class="card wide">
       <h2 id="title">Submit BOQ ke Sheet DRAWING</h2>
-      <p class="desc">Upload file Excel BOQ (format sama seperti template BoQ NRO Cluster / BoQ NRO Mainfeeder). Volume Designator dibaca otomatis, lalu ditampilkan untuk Anda periksa <strong>sebelum</strong> dikirim ke spreadsheet. Bila satu item BOQ punya 2 kolom di sheet (mis. Dead End / Dead End 144), Anda memilih kolomnya di sini.</p>
+      <p class="desc">Upload Excel BOQ: volume Designator dibaca otomatis, periksa, lalu kirim ke sheet. Item dengan 2 kolom (mis. Dead End / Dead End 144) dipilih di sini.</p>
 
       <form id="uploadForm">
         <label for="target">Tujuan Sheet</label>
@@ -1054,7 +2068,7 @@
 
         <label for="siteName">Nama Site</label>
         <input type="text" id="siteName" required list="siteList" autocomplete="off" placeholder="Contoh: KELURAHAN TATAH BANGKAL BANJARMASIN">
-        <div class="hint">Ketik untuk memilih dari daftar DATA BASE. Nama + SOW yang sudah ada di sheet akan diperbarui, yang belum ada dibuat sebagai baris baru.</div>
+        <div class="hint">Pilih dari DATA BASE. Site + SOW yang sudah ada diperbarui, yang baru ditambahkan.</div>
 
         <label for="keterangan">SOW / Keterangan</label>
         <select id="keterangan" required>
@@ -1070,7 +2084,7 @@
           <label for="picSel">PIC (opsional)</label>
           <select id="picSel"></select>
           <input type="text" id="pic" placeholder="Nama PIC opname" style="display:none">
-          <div class="hint">Diisi ke kolom PIC di sheet OPNAME (hanya nama yang ada di daftar sheet yang diterima). Pilih &quot;(tidak diubah)&quot; jika tidak ingin mengubah.</div>
+          <div class="hint">Masuk ke kolom PIC di sheet OPNAME. Pilih "(tidak diubah)" bila tidak diganti.</div>
         </div>
 
         <label for="fileInput">File BOQ (.xlsx) atau Opname (.pdf)</label>
@@ -1107,11 +2121,44 @@
     </div>
   </div>
 
+  <script>
+  /* BMI LAYOUT v1 - Submit BOQ dua kolom. Hanya memindah elemen (id tetap), logika form tidak berubah. */
+  (function () {
+    var v = document.getElementById('viewBoq'); if (!v) return;
+    var card = v.querySelector(':scope > .card.wide'), prev = document.getElementById('boqPreview');
+    var tgt = document.getElementById('target'), form = document.getElementById('uploadForm');
+    if (!card || !prev || !tgt || !form) return;
+    // 1) Dua kartu: form di kiri, hasil baca di kanan.
+    var split = document.createElement('div'); split.className = 'boq-split';
+    card.parentNode.insertBefore(split, card); split.appendChild(card); card.classList.add('boq-left');
+    var right = document.createElement('div'); right.className = 'card wide boq-right';
+    right.innerHTML = '<div class="boq-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>' +
+      '<b>Hasil baca BOQ tampil di sini</b><span>Isi form di kiri, pilih file, lalu klik Baca BOQ.</span></div>';
+    split.appendChild(right); right.appendChild(prev);
+    // 2) Tombol bawah: + Tambah baris di kiri, Batal & Kirim di kanan.
+    var send = document.getElementById('boqSendBtn'), add = document.getElementById('boqAddRow');
+    if (send && add && send.parentNode) { send.parentNode.classList.add('boq-foot'); send.parentNode.insertBefore(add, send.parentNode.firstChild); }
+    // 3) SOW dan PIC berdampingan.
+    var ket = document.getElementById('keterangan'), lk = form.querySelector('label[for="keterangan"]'), pr = document.getElementById('picRow');
+    if (ket && lk && pr) { var pair = document.createElement('div'); pair.className = 'boq-pair'; var w = document.createElement('div');
+      lk.parentNode.insertBefore(pair, lk); w.appendChild(lk); w.appendChild(ket); pair.appendChild(w); pair.appendChild(pr); }
+    // 4) Tujuan Sheet jadi tombol segmen; select asli tetap dipakai (disembunyikan di layar lebar).
+    var seg = document.createElement('div'); seg.className = 'boq-seg'; seg.setAttribute('role', 'tablist');
+    Array.prototype.forEach.call(tgt.options, function (o) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = o.text; b.setAttribute('data-v', o.value);
+      b.addEventListener('click', function () { if (tgt.value !== o.value) { tgt.value = o.value; tgt.dispatchEvent(new Event('change')); } sync(); });
+      seg.appendChild(b);
+    });
+    tgt.parentNode.insertBefore(seg, tgt);
+    function sync() { Array.prototype.forEach.call(seg.children, function (b) { var on = b.getAttribute('data-v') === tgt.value; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }); }
+    tgt.addEventListener('change', sync); form.addEventListener('reset', function () { setTimeout(sync, 0); }); sync();
+  })();
+  </script>
   <!-- ===== SUBMIT BOQ - BUAT BOQ (volume -> file BOQ .xlsx) ===== -->
   <div id="viewBoqGen" style="display:none">
     <div class="card wide">
       <h2>Buat BOQ</h2>
-      <p class="desc">Kebalikan dari Submit BOQ: isi volume desain ke <strong>sheet BoM</strong> (rute kabel per Line, jumlah FAT, tiang, strand wire, FDT, dan seterusnya), lalu portal membuat file <strong>BOQ .xlsx</strong> dari template BOQ plan SOW yang dipilih. Sheet BoQ mengikuti rumus BoM, jadi kabel (plus slack dan toleransi 5%), label, splicing, Testcomm, Survey &amp; Design, dan Project Management terhitung otomatis. Semua sheet tetap ada di file. File langsung terunduh dan tersimpan di daftar <strong>BOQ yang Dibuat</strong> di bawah.</p>
+      <p class="desc">Isi volume desain di sheet BoM, portal membuat BOQ .xlsx dari template SOW. Kabel (+slack &amp; toleransi 5%), label, splicing, dll. dihitung otomatis. File tersimpan di BOQ yang Dibuat.</p>
       <div class="row">
         <div><label for="bqSow">SOW</label>
           <select id="bqSow"><option value="Cluster">Cluster</option><option value="Subfeeder">Subfeeder</option><option value="Mainfeeder">Mainfeeder</option><option value="Hubfeeder">Hubfeeder</option><option value="Uplink">Uplink</option><option value="FWA">FWA</option></select></div>
@@ -1121,7 +2168,7 @@
       <div id="bqTpl" class="hint"></div>
       <details id="bqTplUp" style="display:none">
         <summary>Ganti file contoh BOQ untuk SOW ini (khusus RPM)</summary>
-        <div class="hint" id="bqTplUpHint">Dipakai bila format BOQ dari klien berubah: unggah satu file BOQ plan .xlsx SOW ini (punya sheet BoQ dan sheet BoM). Rumus BoM disamakan otomatis dan angka site asalnya dikosongkan. BOQ berikutnya untuk SOW ini memakai file itu.</div>
+        <div class="hint" id="bqTplUpHint">Bila format BOQ klien berubah: unggah BOQ plan .xlsx baru (sheet BoQ + BoM) untuk SOW ini.</div>
         <input type="file" id="bqTplFile" accept=".xlsx">
         <button type="button" class="small" id="bqTplBtn">Unggah</button>
         <div id="bqTplMsg" class="hint"></div>
@@ -1158,8 +2205,8 @@
         <tbody id="bqItems"></tbody>
       </table>
       <button type="button" class="small" id="bqAddRow" style="margin-top:8px">+ Tambah baris</button>
-      <div class="hint">Satu baris satu item BoM. Kabel dan strand wire diisi <strong>panjang rute</strong> (meter); BOQ menambah slack 20 m per FAT/FDT dan toleransi 5% sesuai rumus BoM. Pilih Line bila template memakai kolom Line A/B/C. Item yang tidak diisi bernilai 0.</div>
-      <div class="hint" id="bqAbdVolHint" style="display:none">Untuk ABD, isi volume <strong>As Built</strong> (hasil lapangan). Klik <em>Ambil isian dari BOQ plan</em> supaya isian plan muncul di sini, lalu ubah yang berbeda. Hasilnya masuk ke Form Project Opname kolom As Built; deviasi, ABD BoQ, BoQ Roll Out, Summary Cost dan Reconsile terhitung otomatis.</div>
+      <div class="hint">Satu baris satu item BoM. Kabel/strand wire = panjang rute (m); slack &amp; toleransi 5% otomatis. Item kosong = 0.</div>
+      <div class="hint" id="bqAbdVolHint" style="display:none">ABD: isi volume As Built. Klik Ambil isian dari BOQ plan, lalu ubah yang berbeda; deviasi dihitung otomatis.</div>
 
       <div id="bqMsg" class="status"></div>
       <div><button type="button" class="primary" id="bqBtn">Buat BOQ (.xlsx)</button></div>
@@ -1168,7 +2215,7 @@
 
     <div class="card wide">
       <h2>BOQ yang Dibuat</h2>
-      <p class="desc">100 BOQ terbaru yang dibuat lewat menu ini. Klik Unduh untuk mengambil ulang file .xlsx-nya.</p>
+      <p class="desc">100 BOQ terbaru. Klik Unduh untuk mengambil ulang.</p>
       <div class="row"><div><input type="text" id="bqQ" placeholder="Cari site atau nama file..." autocomplete="off"></div></div>
       <div id="bqCount" class="hint"></div>
       <table class="hist hist-bq">
@@ -1187,15 +2234,15 @@
     <div class="card wide">
       <button type="button" class="back" id="backHomeBa">&larr; Kembali ke Warehouse</button>
       <h2>Warehouse &ndash; Submit BA Transaksi</h2>
-      <p class="desc">Upload PDF atau <strong>foto</strong> BA (Form Pengambilan / Pengembalian Material). Isi form dibaca otomatis lewat OCR (PDF yang teksnya diketik lewat editor PDF dibaca langsung): Site (dipakai sebagai Name), Jenis Pekerjaan (SOW), Nama Material, dan Qty. Periksa hasilnya, lalu simpan. PDF asli (atau PDF hasil konversi foto) tersimpan utuh di Drive dan bisa diunduh ulang. Bisa upload <strong>banyak berkas sekaligus untuk 1 site yang sama</strong>.</p>
+      <p class="desc">Upload PDF atau foto BA, isinya dibaca otomatis (OCR). Periksa, lalu simpan. Bisa banyak berkas untuk 1 site.</p>
 
       <form id="baForm">
         <label for="baFile">File BA (.pdf atau foto) &ndash; boleh pilih beberapa sekaligus</label>
         <input type="file" id="baFile" accept="application/pdf,.pdf,image/*" multiple required>
-        <div class="hint">Tahan Ctrl atau Shift saat memilih untuk mengambil banyak berkas (maks. 15). Semua BA yang diupload bersamaan dianggap milik 1 site yang sama. Di ponsel, pilih <strong>Kamera</strong> untuk memotret BA langsung: satu foto = satu BA; foto tegak lurus, terang, dan seluruh halaman terlihat.</div>
+        <div class="hint">Maks. 15 berkas untuk 1 site. Di ponsel pilih Kamera: satu foto = satu BA.</div>
         <label for="baSiteAll">Site untuk semua BA <span class="opt">(opsional)</span></label>
         <input type="text" id="baSiteAll" list="siteList" autocomplete="off" placeholder="Kosongkan = otomatis dari BA pertama yang terbaca">
-        <div class="hint">Diisi otomatis dari BA pertama yang terbaca. Ubah bila perlu; berlaku untuk semua BA di antrean. BA yang site-nya di PDF berbeda akan diberi peringatan.</div>
+        <div class="hint">Terisi dari BA pertama; berlaku untuk semua BA di antrean.</div>
         <button type="submit" class="primary" id="baReadBtn">Baca BA</button>
       </form>
 
@@ -1275,7 +2322,7 @@
 
     <div class="card wide">
       <h2>BA Tersimpan</h2>
-      <p class="desc">100 BA terbaru. Cari atau saring, lalu klik Unduh untuk mengambil PDF aslinya. Rekap material bersih per Site (Ambil dikurangi Pengembalian) ada di sheet <strong>REKAP BA</strong>.</p>
+      <p class="desc">100 BA terbaru. Klik Unduh untuk PDF aslinya. Rekap material bersih per site: sheet <strong>REKAP BA</strong>.</p>
       <div class="row">
         <div><input type="text" id="hfQ" placeholder="Cari Site atau ID BA..." autocomplete="off"></div>
         <div>
@@ -1303,7 +2350,7 @@
   <div id="viewWh" style="display:none">
     <div class="hero">
       <h1>Warehouse</h1>
-      <p>Pilih tugas gudang: membuat BA baru, atau menyimpan BA yang sudah ditandatangani.</p>
+      <p>Buat BA baru atau simpan BA yang sudah ditandatangani.</p>
     </div>
     <div class="rpTabs" id="whTabs" role="tablist">
       <button type="button" class="rpTab" id="goBaGen" role="tab">BA Transaksi</button>
@@ -1317,7 +2364,7 @@
     <div class="card wide">
       <button type="button" class="back" id="backWhGen">&larr; Kembali ke Warehouse</button>
       <h2>Warehouse &ndash; BA Transaksi</h2>
-      <p class="desc">Buat <strong>BA Pengambilan / Pengembalian Material</strong> otomatis. Nomor BA standar dibuat sistem, PDF mengikuti template (kotak tanda tangan dikosongkan untuk ditandatangani), dan datanya langsung masuk ke sheet BA TRANSAKSI dan REKAP BA.</p>
+      <p class="desc">Buat BA Pengambilan / Pengembalian otomatis: nomor BA dari sistem, PDF siap ditandatangani, data masuk ke BA TRANSAKSI &amp; REKAP BA.</p>
       <div id="bgNote"></div>
 
       <div class="row">
@@ -1351,7 +2398,7 @@
         <tbody id="bgItems"></tbody>
       </table>
       <button type="button" class="small" id="bgAddRow" style="margin-top:8px">+ Tambah baris</button>
-      <div class="hint">Satu baris satu material. Satuan (meter, pcs, roll) cukup ditulis di Keterangan. Maksimal <span id="bgMax">34</span> baris; PDF memuat 17 baris per halaman.</div>
+      <div class="hint">Satu baris satu material; satuan di Keterangan. Maks. <span id="bgMax">34</span> baris (17 per halaman PDF).</div>
 
       <div id="bgStatus" class="status"></div>
       <div id="bgResult"></div>
@@ -1361,7 +2408,7 @@
 
     <div class="card wide">
       <h2>BA yang Dibuat</h2>
-      <p class="desc">Semua BA yang dibuat lewat menu ini, terbaru di atas. Klik Unduh PDF untuk mengambil ulang file-nya.</p>
+      <p class="desc">Terbaru di atas. Klik Unduh PDF untuk mengambil ulang.</p>
       <div class="row"><div><input type="text" id="bgQ" placeholder="Cari Nomor BA, ID BA, Site, atau Mandor..." autocomplete="off"></div></div>
       <div id="bgCount" class="hint"></div>
       <table class="hist hist-bg">
@@ -1375,7 +2422,7 @@
     </div>
   <div class="card wide" id="masukCard">
     <h2>Masuk Material</h2>
-    <p class="desc">Catat material yang masuk ke gudang dari pembelian atau transfer antar gudang. Tidak ada PDF. Data langsung masuk ke sheet BA TRANSAKSI dan dihitung di SALDO GUDANG.</p>
+    <p class="desc">Material masuk dari pembelian atau transfer gudang. Tanpa PDF; dihitung di SALDO GUDANG.</p>
     <div class="row">
       <div><label for="mkJenis">Jenis</label>
         <select id="mkJenis"><option value="Masuk - Pembelian">Masuk - Pembelian</option><option value="Masuk - Transfer">Masuk - Transfer</option></select></div>
@@ -1408,7 +2455,7 @@
   </div>
   <div class="card wide" id="rpCardAtp" style="display:none">
     <h2>FORM ATP</h2>
-    <p class="desc">Isi tanggal, cluster / site, dan nominal entertain. <strong>Lihat PDF</strong> membuat pratinjau tanpa menyimpan. <strong>Terbitkan FORM ATP</strong> menyimpan PDF ke Drive dan mencatat di sheet <strong>FORM ATP</strong> pada spreadsheet RPM.</p>
+    <p class="desc">Lihat PDF = pratinjau. Terbitkan = simpan ke Drive &amp; catat di sheet FORM ATP.</p>
     <div class="row">
       <div><label for="atpTglAju">Tanggal pengajuan</label><input type="date" id="atpTglAju"></div>
       <div><label for="atpTglAtp">Tanggal ATP</label><input type="date" id="atpTglAtp"></div>
@@ -1442,7 +2489,7 @@
   </div>
   <div class="card wide" id="rpCardBa">
       <h2>BA Pekerjaan</h2>
-      <p class="desc">Terbitkan <strong>Berita Acara Penyelesaian Pekerjaan</strong> untuk Mandor. PDF dibuat otomatis (lengkap dengan kop surat dan foto), tersimpan di Drive, dan tercatat di spreadsheet khusus RPM.</p>
+      <p class="desc">Terbitkan BA Penyelesaian Pekerjaan untuk Mandor: PDF otomatis (kop &amp; foto), tersimpan di Drive.</p>
 
       <div class="row">
         <div><label for="rpTanggal">Tanggal BA</label><input type="date" id="rpTanggal"></div>
@@ -1481,7 +2528,7 @@
 
       <details>
         <summary>Tanda tangan (opsional)</summary>
-        <div class="hint">Gambar tanda tangan dipangkas otomatis dan diseragamkan ukurannya, jadi foto/scan dengan banyak ruang kosong pun tampil sama besar di PDF. Tinta gelap di latar putih paling jelas.</div>
+        <div class="hint">Dipangkas &amp; diseragamkan otomatis. Tinta gelap di latar putih paling jelas.</div>
         <label for="rpSignRpmFile">Tanda tangan RPM <span class="opt">(sekali unggah, dipakai otomatis di semua PDF)</span></label>
         <div id="rpSignInfo" class="hint"></div>
         <input type="file" id="rpSignRpmFile" accept="image/*">
@@ -1501,7 +2548,7 @@
 
     <div class="card wide">
       <h2>BA Pekerjaan Terbit</h2>
-      <p class="desc">100 BA terbaru. Cari lalu klik Unduh untuk mengambil PDF-nya. Rekap progres per Site ada di spreadsheet RPM, sheet <strong>REKAP PROGRES</strong>.</p>
+      <p class="desc">100 BA terbaru. Rekap progres: sheet REKAP PROGRES.</p>
       <div class="row"><div><input type="text" id="rpQ" placeholder="Cari Site, Mandor, atau ID BA..." autocomplete="off"></div></div>
       <div id="rpCount" class="hint"></div>
       <table class="hist hist-rp">
@@ -1582,7 +2629,7 @@
   <div id="viewLogHistory" style="display:none">
     <div class="card wide">
       <h2>Log History</h2>
-      <p class="desc">Riwayat semua aktivitas: login di Gateway, aksi di Portal FTTH dan Portal Waspang, dan edit manual di semua tab spreadsheet FTTH, Waspang, RPM BMI dan Gudang BMI. Hanya RPM yang bisa membuka halaman ini.</p>
+      <p class="desc">Riwayat login Gateway, aksi portal, dan edit spreadsheet. Khusus RPM.</p>
       <div class="row">
         <div><input type="text" id="logQ" placeholder="Cari user, aksi, atau detail..." autocomplete="off"></div>
         <div>
@@ -1612,6 +2659,79 @@
   </div>
 
   <script async src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" onload="if (window.renderMap_ && window.__areaAgg) renderMap_();"></script>
+  <script>
+  /* BMI LAYOUT v1 - Buat BOQ & Warehouse berdampingan. Elemen ber-id hanya dipindah; logika tidak berubah. */
+  (function () {
+    function cards(v) { return Array.prototype.filter.call(v.children, function (c) { return c.classList.contains('card'); }); }
+    function split(v, list, cls) { var w = document.createElement('div'); w.className = 'ws-split' + (cls ? ' ' + cls : ''); v.insertBefore(w, list[0]); list.forEach(function (c) { w.appendChild(c); }); return w; }
+    function rightCard(title) { var c = document.createElement('div'); c.className = 'card wide ws-right'; if (title) c.innerHTML = '<h2 class="ws-head">' + title + '</h2>'; return c; }
+    function moveFrom(start, to) { var n = start; while (n) { var nx = n.nextSibling; to.appendChild(n); n = nx; } }
+    // Buat BOQ: form kiri; Volume + BOQ yang Dibuat kanan.
+    var g = document.getElementById('viewBoqGen'), lab = document.getElementById('bqVolLab');
+    if (g && lab) { var gc = cards(g); if (gc.length >= 2) {
+      var vr = rightCard(''); lab.classList.add('ws-lab-head'); moveFrom(lab, vr);
+      gc[0].classList.add('ws-left'); var w1 = split(g, [gc[0]]); w1.appendChild(vr); w1.appendChild(gc[1]);
+    } }
+    // BA Transaksi: form kiri, Material kanan; baris kedua BA yang Dibuat + Masuk Material.
+    var b = document.getElementById('viewBaGen'), items = document.getElementById('bgItems');
+    if (b && items) { var bc = cards(b), tb = items.closest('table'), ml = tb && tb.previousElementSibling;
+      if (bc.length >= 3 && ml && ml.tagName === 'LABEL') {
+        var mr = rightCard('Material'); ml.classList.add('ws-moved-lab'); moveFrom(ml, mr);
+        bc[0].classList.add('ws-left'); var w2 = split(b, [bc[0]], 'ws-a'); w2.appendChild(mr);
+        split(b, [bc[1], bc[2]], 'ws-b');
+      } }
+    // Submit BA: form + antrean kiri, hasil ekstraksi kanan.
+    var a = document.getElementById('viewBa'), prev = document.getElementById('baPreview');
+    if (a && prev) { var ac = cards(a); if (ac.length >= 1) {
+      var ar = rightCard(''); ar.innerHTML = '<div class="ws-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>' +
+        '<b>Hasil ekstraksi BA tampil di sini</b><span>Pilih file BA di kiri, lalu klik Baca BA.</span></div>';
+      ar.appendChild(prev); ac[0].classList.add('ws-left'); var w3 = split(a, [ac[0]]); w3.appendChild(ar);
+    } }
+  })();
+  </script>
+  <script>
+  /* BMI LAYOUT v1 - kerangka layar lebar: logo & judul portal pindah ke sidebar, judul halaman di atas konten.
+     Elemen ber-id hanya dipindah (tidak dibuat ulang); di HP / sebelum masuk portal semuanya kembali ke bar atas. */
+  (function () {
+    var bar = document.querySelector('.topbar'), sb = document.getElementById('sidebar'), main = document.getElementById('mainContent');
+    if (!bar || !sb || !main || !window.matchMedia) return;
+    var logo = document.getElementById('logo'), fb = document.getElementById('logoFallback'), title = bar.querySelector('.topbar-title'),
+        div = bar.querySelector('.topbar-divider'), right = bar.querySelector('.topbar-right');
+    var mq = window.matchMedia('(min-width: 861px)');
+    var brand = document.createElement('div'); brand.className = 'sb-brand'; sb.insertBefore(brand, sb.firstChild);
+    // Sidebar diperkecil: tampil ikon menara saja (klik = sama seperti klik logo).
+    var mini = document.createElement('img'); mini.className = 'sb-mini'; mini.alt = 'BMI'; mini.src = 'https://buanamenara.github.io/portal-ftth/icon-192.png';
+    mini.addEventListener('click', function () { if (logo) logo.click(); }); brand.appendChild(mini);
+    var head = document.createElement('div'); head.id = 'bmiPageHead'; head.innerHTML = '<h1></h1><p></p>'; main.insertBefore(head, main.firstChild);
+    var SUB = { viewWh: 'Buat BA baru atau simpan BA yang sudah ditandatangani.', viewBa: 'Buat BA baru atau simpan BA yang sudah ditandatangani.',
+      viewBaGen: 'Buat BA baru atau simpan BA yang sudah ditandatangani.', viewAdministration: 'Kelola user, password, dan hak akses portal.' };
+    function apply() {
+      var on = mq.matches && bar.classList.contains('with-dash');
+      document.body.classList.toggle('bmi-shell', on);
+      if (on && logo.parentNode !== brand) { brand.appendChild(logo); brand.appendChild(fb); brand.appendChild(title); }
+      if (!on && logo.parentNode === brand) { bar.insertBefore(logo, div); bar.insertBefore(fb, div); bar.insertBefore(title, right); }
+      measure(); page();
+    }
+    function measure() { if (right) document.documentElement.style.setProperty('--bmi-tr', (right.offsetWidth || 320) + 'px'); }
+    function page() {
+      var v = null; Array.prototype.forEach.call(main.children, function (c) { if (/^view/.test(c.id) && c.style.display !== 'none') v = c.id; });
+      var nav = sb.querySelector('.nav-item.active'), cp = document.querySelector('#viewCheckpoint .cp-page > .desc');
+      var t = nav ? (nav.querySelector('.nav-title') || {}).textContent : '', sub = nav ? (nav.querySelector('.nav-sub') || {}).textContent : '';
+      if (v === 'viewCheckpoint' && cp) sub = cp.textContent;
+      if (SUB[v]) sub = SUB[v];
+      head.classList.toggle('off', !v || v === 'viewHome' || !t);
+      head.firstChild.textContent = t || ''; head.lastChild.textContent = sub || '';
+    }
+    var raf = 0; function later() { if (!raf) raf = requestAnimationFrame(function () { raf = 0; page(); measure(); }); }
+    new MutationObserver(apply).observe(bar, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(later).observe(sb, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(later).observe(main, { subtree: true, attributes: true, attributeFilter: ['style'] });
+    if (right) new MutationObserver(later).observe(right, { subtree: true, childList: true, characterData: true });
+    if (mq.addEventListener) mq.addEventListener('change', apply); else if (mq.addListener) mq.addListener(apply);
+    window.addEventListener('resize', later);
+    apply();
+  })();
+  </script>
     <nav id="mobileTabbar" class="mobile-tabbar">
     <button type="button" class="mtab-item" data-view="viewHome"><svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9h12v-9"/></svg><span>Home</span></button>
     <button type="button" class="mtab-item" data-view="viewBoq"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6"/><path d="M9.5 13.5 12 11l2.5 2.5"/></svg><span>BOQ</span></button>
@@ -1679,11 +2799,14 @@
         if (name === 'withFailureHandler') return function (f) { return makeRun(sh, f); };
         return function () {
           var args = [ACCESS].concat(Array.prototype.slice.call(arguments));
+          var bmi = window.BMI;   // garis emas di atas layar selama data diambil (animasi loading)
+          if (bmi) bmi.top.start();
           var r = google.script.run.withFailureHandler(function (err) {
+            if (bmi) bmi.top.done();
             if (err && /kode akses|username atau password|belum ada user/i.test(err.message || '') && ACCESS) requireLogin('Sesi berakhir.');
             if (fh) fh(err);
           });
-          if (sh) r = r.withSuccessHandler(sh);
+          r = r.withSuccessHandler(function (v) { if (bmi) bmi.top.done(); if (sh) sh(v); });
           return r[name].apply(r, args);
         };
       } });
@@ -1932,6 +3055,7 @@
       if (id === 'viewLogHistory' && ROLE !== 'rpm') id = 'viewHome';   // Log History hanya untuk RPM
       if (id === 'viewBoq' || id === 'viewBoqGen') boqTabsTo(id);
       VIEWS.forEach(function (v) { $(v).style.display = (v === id) ? 'block' : 'none'; });
+      if (window.BMI && id !== 'viewLogin') BMI.enter($(id));   // efek masuk halus saat ganti menu
       document.body.classList.toggle('on-home', id === 'viewHome');
       window.scrollTo(0, 0);
       if ((id === 'viewBa' || id === 'viewBoq' || id === 'viewBoqGen') && !baLoaded) { baLoaded = true; loadSiteNames(); }
@@ -3920,7 +5044,7 @@
       $('bqBtn').textContent = on ? 'Buat BOQ ABD (.xlsx)' : 'Buat BOQ (.xlsx)';
       $('bqTplUpHint').textContent = on
         ? 'Dipakai bila format ABD dari klien berubah: unggah satu file ABD BoQ .xlsx format MyRepublic (sheet PO, Form Project Opname, ABD BoQ RO ODN). Nama vendor dan PIC site asal diganti, volume dikosongkan, rumus antar sheet disamakan.'
-        : 'Dipakai bila format BOQ dari klien berubah: unggah satu file BOQ plan .xlsx SOW ini (punya sheet BoQ dan sheet BoM). Rumus BoM disamakan otomatis dan angka site asalnya dikosongkan. BOQ berikutnya untuk SOW ini memakai file itu.';
+        : 'Bila format BOQ klien berubah: unggah BOQ plan .xlsx baru (sheet BoQ + BoM) untuk SOW ini.';
       if (on) { bqAbdPlans(); bqAbdLoadTpl(); }
       bqHint();
     }
@@ -4628,7 +5752,9 @@
     var n = pick ? 1 : data.regions.length;
     // Lebar gambar mengikuti lebar kotak supaya Kurva S memenuhi panel tanpa teks ikut melar
     var bw = box.clientWidth;
-    var W = bw > 400 ? Math.round(bw) : 680, H = bw > 400 ? 145 : 200, L = 48, R = 14, T = 10;
+    // Tata letak v4: kolom angka (Realisasi / Target / Pencapaian) di kiri grafik bila panel cukup lebar
+    var side = bw > 640 && data.current >= 0, cw = side ? bw - 194 : bw;
+    var W = cw > 400 ? Math.round(cw) : 680, H = cw > 400 ? (side ? Math.max(215, Math.min(260, Math.round(cw * 0.42))) : Math.max(170, Math.min(250, Math.round(cw * 0.36)))) : 200, L = 48, R = 14, T = 10;
     var pw = W - L - R, ph = H - T - 24;
     var tgt = data.labels.map(function (_, k) { return data.targetPerRegion * n * (k + 1); });
     var lines = [];
@@ -4645,7 +5771,8 @@
     function X(k) { return L + k * pw / 11; }
     function Y(v) { return T + ph * (1 - v / top); }
 
-    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Kurva S">';
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Kurva S">' +
+      '<defs><linearGradient id="scArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C9972C" stop-opacity=".55"/><stop offset="1" stop-color="#C9972C" stop-opacity="0"/></linearGradient></defs>';
     for (var g = 0; g <= 4; g++) {
       var gv = top * g / 4;
       s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(gv).toFixed(1) + '" y2="' + Y(gv).toFixed(1) + '" stroke="#e7e3d8"/>';
@@ -4660,26 +5787,34 @@
     }
     s += '<polyline fill="none" stroke="#888780" stroke-width="1.6" stroke-dasharray="5 4" points="' +
       tgt.map(function (v, k) { return X(k).toFixed(1) + ',' + Y(v).toFixed(1); }).join(' ') + '"/>';
-    lines.forEach(function (ln) {
+    lines.forEach(function (ln, li) {
       var pts = [];
       ln.cum.forEach(function (v, k) { if (v !== null) pts.push([X(k), Y(v)]); });
+      if (li === 0 && pts.length > 1) {   // arsiran emas di bawah garis pertama (seperti mockup)
+        s += '<polygon fill="url(#scArea)" stroke="none" points="' + pts[0][0].toFixed(1) + ',' + Y(0).toFixed(1) + ' ' +
+          pts.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ') + ' ' + pts[pts.length - 1][0].toFixed(1) + ',' + Y(0).toFixed(1) + '"/>';
+      }
       if (pts.length > 1) {
-        s += '<polyline fill="none" stroke="' + ln.color + '" stroke-width="2" points="' +
+        s += '<polyline fill="none" stroke="' + ln.color + '" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" points="' +
           pts.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ') + '"/>';
       }
       pts.forEach(function (p) {
-        s += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="2.5" fill="' + ln.color + '"/>';
+        s += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="3" fill="' + ln.color + '"/>';
       });
     });
     s += '</svg>';
 
-    var cap = 'Belum ada bulan berjalan dalam rentang data.';
+    var cap = 'Belum ada bulan berjalan dalam rentang data.', stats = '';
     if (data.current >= 0) {
       var tNow = tgt[data.current];
       var rNow = 0;
       lines.forEach(function (ln) { rNow += ln.cum[data.current] || 0; });
       var pct = tNow > 0 ? rNow / tNow * 100 : 0;
       cap = 'Bulan berjalan: target kumulatif ' + num(tNow) + ' HP, realisasi ' + num(rNow) + ' HP (' + pct.toFixed(1).replace('.', ',') + '%)';
+      stats = '<div class="sc-stats">' +
+        '<div class="sc-stat"><span>Realisasi</span><b class="sc-big">' + num(rNow) + '</b><small>HP</small></div>' +
+        '<div class="sc-stat"><span>Target kumulatif</span><b>' + num(tNow) + '</b></div>' +
+        '<div class="sc-stat"><span>Pencapaian</span><b>' + pct.toFixed(1).replace('.', ',') + '%</b></div></div>';
     }
     var leg = '<span><i class="sc-dash"></i>Target' + (pick ? '' : ' total') + ' (' + num(data.targetPerRegion) + ' HP/bulan/region)</span>';
     lines.forEach(function (ln) {
@@ -4689,8 +5824,8 @@
     box.innerHTML =
       '<div class="scurve-title">Kurva S Cluster (HP RFS kumulatif)</div>' +
       '<div class="scurve-cap">' + esc(cap) + ' · data ' + esc(data.updatedMs ? localStamp_(data.updatedMs) : data.updated) + '</div>' +
-      s +
-      '<div class="scurve-legend">' + leg + '</div>';
+      '<div class="sc-body' + (side ? ' side' : '') + '">' + (stats || '') +
+      '<div class="sc-chart">' + s + '<div class="scurve-legend">' + leg + '</div></div></div>';
   }
 
   var alertBox = document.getElementById('alertList');
