@@ -700,7 +700,7 @@ function waCmd_(p) {
 // Format WhatsApp: `kode` = perintah (siap disalin), "- " = daftar, "> " = kutipan, *tebal* = judul, _miring_ = keterangan.
 function botHelp_(owner) {
   var g = owner ? '' : '!', K = function (c) { return waKode_(g + c); }, A = waKode_;
-  var s = ['📖 *AdminSuper · Daftar Perintah*',
+  var s = ['📖 *IRIS · Asisten Proyek BMI*',
     owner ? '> Ketik perintahnya langsung di chat ini.' : '> Di grup, awali perintah dengan tanda *!*',
     '', '📦 *CEK DATA*',
     '- ' + K('stok [material] [gudang]') + ' saldo gudang',
@@ -1761,7 +1761,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-11-01-1';
+var BOT_PANDUAN_VERSI_ = '2026-11-05-1';
 // Baris ['#Judul'] = judul kelompok di tabel perintah.
 var BOT_PANDUAN_TIM_ = [
   ['#Cek data proyek'],
@@ -1880,7 +1880,7 @@ function botPanduanPdf_(lengkap) {
   var h = ['<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;font-size:10pt;color:' + gelap + ';margin:0;">',
     '<table style="width:100%;border-collapse:collapse;"><tr><td style="background:' + gelap + ';padding:16px 18px;">',
     '<div style="color:#93c5fd;font-size:9pt;font-weight:bold;letter-spacing:1px;">GRUP REPORT BMI</div>',
-    '<div style="color:#ffffff;font-size:20pt;font-weight:bold;margin:2px 0;">Panduan Bot AdminSuper</div>',
+    '<div style="color:#ffffff;font-size:20pt;font-weight:bold;margin:2px 0;">Panduan Bot IRIS · Asisten Proyek BMI</div>',
     '<div style="color:#cbd5e1;font-size:10pt;">' + (lengkap ? 'Edisi lengkap untuk admin: semua perintah dan jadwal otomatis' : 'Semua perintah yang bisa dipakai tim di grup WhatsApp') + '</div>',
     '</td><td style="background:' + gelap + ';padding:16px 18px;text-align:right;vertical-align:top;">',
     '<span style="background:' + (lengkap ? '#f59e0b' : biru) + ';color:#fff;font-size:8.5pt;font-weight:bold;padding:3px 9px;border-radius:10px;">' + (lengkap ? 'KHUSUS ADMIN' : 'TIM') + '</span>',
@@ -1898,7 +1898,7 @@ function botPanduanPdf_(lengkap) {
     'Bot tidak menjawab kalau laptop gateway mati.' + (lengkap ? ' Dokumen ini khusus admin, jangan diteruskan ke grup.' : ' Pertanyaan lain hubungi admin.') + '</div>',
     '<p style="text-align:center;color:' + abu + ';font-size:8pt;margin-top:14px;">© 2026 Rama · All Rights Reserved</p></body></html>');
   return Utilities.newBlob(h.join(''), 'text/html', 'panduan.html').getAs('application/pdf')
-    .setName('Panduan Bot AdminSuper ' + (lengkap ? 'Lengkap (Admin) ' : '') + BOT_PANDUAN_VERSI_ + '.pdf');
+    .setName('Panduan Bot IRIS ' + (lengkap ? 'Lengkap (Admin) ' : '') + BOT_PANDUAN_VERSI_ + '.pdf');
 }
 
 function botPanduan_(p, owner, arg) {
@@ -1919,7 +1919,7 @@ function botPanduan_(p, owner, arg) {
   }
   var t = Date.now();
   props.setProperty(WAQ_PREFIX_ + t + '_panduan', JSON.stringify({ t: t, n: 0, last: 0, to: to, mentions: [],
-    files: [{ id: file.getId(), name: file.getName() }], text: '📘 Panduan perintah bot AdminSuper' + (lengkap ? ' (lengkap, khusus admin)' : '') }));
+    files: [{ id: file.getId(), name: file.getName() }], text: '📘 Panduan perintah IRIS' + (lengkap ? ' (lengkap, khusus admin)' : '') }));
   return lengkap && p.chat === 'group' ? 'Panduan lengkap dikirim ke chat pribadi admin.' : 'Panduan PDF dikirim sebentar lagi.';
 }
 
