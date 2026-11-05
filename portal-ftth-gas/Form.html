@@ -813,6 +813,82 @@
   #viewHome .alert-warning { background: #F7F2E6; }
 </style>
 <!-- ===================== akhir BMI POLISH ===================== -->
+<!-- ===================== BMI LAYOUT v1 (tata letak mockup v4, tahap 3) =====================
+  Dashboard: KPI kartu + cincin, Kurva S panel gelap, baris bawah 3 kolom. Elemen ber-id hanya dipindah. -->
+<style>
+  /* ===== Dashboard (viewHome) seperti mockup v4 ===== */
+  /* KPI: 4 kartu terpisah, angka besar, cincin persen di kanan */
+  #viewHome .kpi-grid { background: transparent; border: 0; border-radius: 0; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  #viewHome .kpi-grid > .kpi-card.kpi-card { background: #fff; border: 1px solid var(--h-bd); border-radius: 18px; padding: 16px 18px; gap: 0; justify-content: center; }
+  #viewHome .kpi-top { justify-content: space-between; align-items: center; gap: 12px; }
+  #viewHome .kpi-txt { min-width: 0; }
+  #viewHome .kpi-bar { display: none; }
+  #viewHome .kpi-label { font-size: 13px; color: var(--h-mu); }
+  #viewHome .kpi-value { font-size: 34px; line-height: 1.05; margin: 4px 0 2px; }
+  #viewHome .kpi-icon.kpi-big { width: 52px; height: 52px; border-radius: 14px; flex: none; }
+  #viewHome .kpi-icon.kpi-big svg { width: 22px; height: 22px; stroke: var(--gold); }
+  .kpi-ring { --p: 0; --rc: #191917; position: relative; flex: none; width: 62px; height: 62px; border-radius: 50%;
+    background: conic-gradient(var(--rc) calc(var(--p) * 1%), #EFE8DA 0); display: grid; place-items: center; }
+  .kpi-ring::before { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: #fff; }
+  .kpi-ring b { position: relative; font-size: 12px; font-weight: 650; color: var(--h-tx, #191917); letter-spacing: -.02em; }
+  .kpi-ring.ring-gold { --rc: #C9972C; }
+  .kpi-ring.ring-grey { --rc: #BDB4A0; }
+
+  /* Baris 1: Kurva S besar (panel gelap) + kolom kanan Perlu Perhatian & Top 5 */
+  #viewHome .dash-row-a { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  #viewHome .scurve-panel { background: #000; border-color: #000; color: #fff; padding: 20px 22px; display: flex; flex-direction: column; }
+  #viewHome .scurve-panel .scurve-box { flex: 1; border-top: 0; padding-top: 0; margin: 0; min-height: 260px; }
+  #viewHome .scurve-panel .scurve-title { color: #fff; font-size: 16px; font-weight: 650; letter-spacing: -.01em; }
+  #viewHome .scurve-panel .scurve-cap { color: #a9a395; }
+  #viewHome .scurve-panel .scurve-legend { color: #d8d2c4; }
+  #viewHome .scurve-panel .scurve-empty { color: #a9a395; }
+  #viewHome .scurve-panel svg text { fill: #8f8b80; }
+  #viewHome .scurve-panel svg line[stroke="#e7e3d8"] { stroke: #2b2a27; }
+  #viewHome .scurve-panel svg polyline[stroke="#888780"] { stroke: #8f8b80; }
+  #viewHome .scurve-panel .sc-dash { border-top-color: #8f8b80; }
+  #viewHome .scurve-panel svg [stroke="#B8860B"] { stroke: #C9972C; }
+  #viewHome .scurve-panel svg [fill="#B8860B"] { fill: #C9972C; }
+  #viewHome .scurve-panel svg [stroke="#378ADD"] { stroke: #F4EFE4; }
+  #viewHome .scurve-panel svg [fill="#378ADD"] { fill: #F4EFE4; }
+  #viewHome .scurve-panel svg [stroke="#534AB7"] { stroke: #BDB4A0; }
+  #viewHome .scurve-panel svg [fill="#534AB7"] { fill: #BDB4A0; }
+  #viewHome .scurve-panel .sc-dot[style*="#B8860B"] { background: #C9972C !important; }
+  #viewHome .scurve-panel .sc-dot[style*="#378ADD"] { background: #F4EFE4 !important; }
+  #viewHome .scurve-panel .sc-dot[style*="#534AB7"] { background: #BDB4A0 !important; }
+
+  /* Baris 2: Progress per Area (batang tegak) · Site Terbaru · BMI Area */
+  #viewHome .dash-row-b { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr); }
+  #viewHome .area-panel .area-chart { display: flex; flex-wrap: wrap; justify-content: space-around; align-items: flex-end; gap: 18px 24px; padding: 18px 4px 0; max-width: none; height: auto; }
+  #viewHome .area-panel .area-group { display: flex; flex-direction: column-reverse; align-items: center; gap: 8px; }
+  #viewHome .area-panel .area-label { margin: 0; text-align: center; font-size: 13px; font-weight: 650; }
+  #viewHome .area-panel .area-bars { flex-direction: row; align-items: flex-end; gap: 8px; height: 170px; }
+  #viewHome .area-panel .area-row { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; width: 30px; }
+  #viewHome .area-panel .area-row-label { display: none; }
+  #viewHome .area-panel .area-track { height: 100%; width: 100%; margin: 0; background: transparent; border-radius: 0; display: flex; align-items: flex-end; }
+  #viewHome .area-panel .area-bar { position: relative; width: 100% !important; height: var(--v, 0%); min-height: 3px; border-radius: 8px 8px 3px 3px; }
+  #viewHome .area-panel .area-pct { top: auto; bottom: 100%; left: 50%; right: auto; width: auto; transform: translateX(-50%); margin: 0 0 4px; font-size: 11px; }
+
+  @media (max-width: 1200px) {
+    #viewHome .dash-row-b { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    #viewHome .dash-row-b .site-panel { grid-column: 1 / -1; order: -1; }
+  }
+  @media (max-width: 860px) {
+    #viewHome .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 700px) {
+    #viewHome .dash-row-a, #viewHome .dash-row-b { grid-template-columns: minmax(0, 1fr); }
+    #viewHome .scurve-panel { display: none; }
+    #viewHome .kpi-grid { gap: 10px; }
+    #viewHome .kpi-grid > .kpi-card.kpi-card { padding: 12px 14px; }
+    #viewHome .kpi-value { font-size: 24px; }
+    #viewHome .kpi-sub { font-size: 11px; }
+    .kpi-ring { width: 44px; height: 44px; }
+    .kpi-ring::before { inset: 5px; }
+    .kpi-ring b { font-size: 10px; }
+    #viewHome .area-panel .area-bars { height: 130px; }
+  }
+</style>
+<!-- ===================== akhir BMI LAYOUT ===================== -->
 </head>
 <body>
 <!-- =====================================================================
@@ -1554,33 +1630,25 @@
 
         <div class="kpi-grid">
           <div class="kpi-card">
-            <div class="kpi-top"><div class="kpi-icon kpi-navy"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.686-6-10a6 6 0 0 1 12 0c0 4.314-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg></div><div><div class="kpi-label">Total Site</div><div class="kpi-value" id="kpiSite">...</div><div class="kpi-sub" id="kpiSiteSub">Site proyek FTTH</div></div></div>
+            <div class="kpi-top"><div class="kpi-txt"><div class="kpi-label">Total Site</div><div class="kpi-value" id="kpiSite">...</div><div class="kpi-sub" id="kpiSiteSub">Site proyek FTTH</div></div><div class="kpi-icon kpi-navy kpi-big"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.686-6-10a6 6 0 0 1 12 0c0 4.314-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg></div></div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-top"><div class="kpi-icon kpi-green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 5-5"/></svg></div><div><div class="kpi-label">Permit</div><div class="kpi-value" id="kpiPermit">...</div><div class="kpi-sub" id="kpiPermitSub">...</div></div></div>
+            <div class="kpi-top"><div class="kpi-txt"><div class="kpi-label">Permit</div><div class="kpi-value" id="kpiPermit">...</div><div class="kpi-sub" id="kpiPermitSub">...</div></div><div class="kpi-ring ring-ink" data-bar="kpiPermitBar"><b>&ndash;</b></div></div>
             <div class="kpi-bar"><div class="kpi-bar-fill fill-green" id="kpiPermitBar"></div></div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-top"><div class="kpi-icon kpi-amber"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 11-14h-7l1-6z"/></svg></div><div><div class="kpi-label">Instalasi</div><div class="kpi-value" id="kpiInstalasi">...</div><div class="kpi-sub" id="kpiInstalasiSub">...</div></div></div>
+            <div class="kpi-top"><div class="kpi-txt"><div class="kpi-label">Instalasi</div><div class="kpi-value" id="kpiInstalasi">...</div><div class="kpi-sub" id="kpiInstalasiSub">...</div></div><div class="kpi-ring ring-gold" data-bar="kpiInstalasiBar"><b>&ndash;</b></div></div>
             <div class="kpi-bar"><div class="kpi-bar-fill fill-amber" id="kpiInstalasiBar"></div></div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-top"><div class="kpi-icon kpi-purple"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div><div class="kpi-label">BA Closing</div><div class="kpi-value" id="kpiBaClosing">...</div><div class="kpi-sub" id="kpiBaClosingSub">...</div></div></div>
+            <div class="kpi-top"><div class="kpi-txt"><div class="kpi-label">BA Closing</div><div class="kpi-value" id="kpiBaClosing">...</div><div class="kpi-sub" id="kpiBaClosingSub">...</div></div><div class="kpi-ring ring-grey" data-bar="kpiBaClosingBar"><b>&ndash;</b></div></div>
             <div class="kpi-bar"><div class="kpi-bar-fill fill-purple" id="kpiBaClosingBar"></div></div>
           </div>
         </div>
 
-        <div class="dash-row">
-          <div class="dash-panel">
-            <div class="panel-title-row">
-              <div class="panel-title">Progress Project per Area</div>
-              <select id="areaFilter" class="area-filter"><option value="">Semua Area</option></select>
-            </div>
-            <div class="area-legend"><span><i class="dot dot-permit"></i>Permit</span><span><i class="dot dot-instalasi"></i>Instalasi</span><span><i class="dot dot-baclosing"></i>BA Closing</span></div>
-            <div class="area-body">
-              <div class="area-chart" id="areaChart"></div>
-              <div class="scurve-box" id="scurveBox"><div class="scurve-empty">Memuat Kurva S...</div></div>
-            </div>
+        <div class="dash-row dash-row-a">
+          <div class="dash-panel scurve-panel">
+            <div class="scurve-box" id="scurveBox"><div class="scurve-empty">Memuat Kurva S...</div></div>
           </div>
           <div class="dash-col">
           <div class="dash-panel">
@@ -1595,8 +1663,16 @@
           </div>
         </div>
 
-        <div class="dash-row dash-row-2">
-          <div class="dash-panel">
+        <div class="dash-row dash-row-b">
+          <div class="dash-panel area-panel">
+            <div class="panel-title-row">
+              <div class="panel-title">Progress Project per Area</div>
+              <select id="areaFilter" class="area-filter"><option value="">Semua Area</option></select>
+            </div>
+            <div class="area-legend"><span><i class="dot dot-permit"></i>Permit</span><span><i class="dot dot-instalasi"></i>Instalasi</span><span><i class="dot dot-baclosing"></i>BA Closing</span></div>
+            <div class="area-chart" id="areaChart"></div>
+          </div>
+          <div class="dash-panel site-panel">
             <div class="panel-title">Site Terbaru</div>
             <div class="site-table-wrap">
               <table class="site-table">
@@ -1627,6 +1703,32 @@
             </div>
           </div>
         </div>
+        <script>
+        /* Tata letak Dashboard: cincin KPI ikut lebar garis persen (diisi kode lama), batang area tegak ikut lebarnya. */
+        (function () {
+          var BARS = ['kpiPermitBar', 'kpiInstalasiBar', 'kpiBaClosingBar'];
+          function sync() {
+            BARS.forEach(function (id) {
+              var bar = document.getElementById(id), ring = document.querySelector('.kpi-ring[data-bar="' + id + '"]');
+              if (!bar || !ring) return;
+              var w = bar.style.width, p = Math.max(0, Math.min(100, parseFloat(w) || 0));
+              ring.style.setProperty('--p', p);
+              var t = w ? Math.round(p) + '%' : '\u2013', b = ring.querySelector('b');
+              if (b && b.textContent !== t) b.textContent = t;
+            });
+            var ch = document.getElementById('areaChart');
+            if (ch) Array.prototype.forEach.call(ch.querySelectorAll('.area-bar'), function (el) {
+              var w = el.style.width; if (w && el.style.getPropertyValue('--v') !== w) el.style.setProperty('--v', w);
+            });
+          }
+          try {
+            var mo = new MutationObserver(sync);
+            BARS.forEach(function (id) { var e = document.getElementById(id); if (e) mo.observe(e, { attributes: true, attributeFilter: ['style'] }); });
+            var ch = document.getElementById('areaChart'); if (ch) mo.observe(ch, { childList: true, subtree: true });
+            sync();
+          } catch (e) { /* tata letak tidak boleh mengganggu portal */ }
+        })();
+        </script>
 
               </div>
 <!-- ===== CHECKPOINT PROYEK ===== -->
@@ -5305,7 +5407,7 @@
     var n = pick ? 1 : data.regions.length;
     // Lebar gambar mengikuti lebar kotak supaya Kurva S memenuhi panel tanpa teks ikut melar
     var bw = box.clientWidth;
-    var W = bw > 400 ? Math.round(bw) : 680, H = bw > 400 ? 145 : 200, L = 48, R = 14, T = 10;
+    var W = bw > 400 ? Math.round(bw) : 680, H = bw > 400 ? Math.max(145, Math.min(240, Math.round(bw * 0.3))) : 200, L = 48, R = 14, T = 10;   // panel Kurva S besar (tata letak v4)
     var pw = W - L - R, ph = H - T - 24;
     var tgt = data.labels.map(function (_, k) { return data.targetPerRegion * n * (k + 1); });
     var lines = [];
