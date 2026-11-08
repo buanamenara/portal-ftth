@@ -695,16 +695,24 @@ function waCmd_(p) {
   }
   p.cmd = out ? cmd : '';
   if (!out) return { status: 'success', reply: '' };
-  // Balasan panjang (mis. rekap bulanan) dipecah per ~3500 huruf: bagian 1 = balasan langsung, sisanya lewat antrean ke chat yang sama.
-  var parts = waPecah_(waText_((/^(pagi|sore|mingguan|bulanan)$/.test(cmd) ? '' : '🤖 ') + out));   // contoh pesan jadwal tampil persis seperti di grup
-  if (parts.length > 1 && p.jid) waAntreBagian_(parts.slice(1), { to: p.jid }, '_lanjut');
-  return { status: 'success', reply: parts.length > 1 && p.jid ? parts[0] : parts[0].slice(0, 3500) };
+  // Balasan langsung boleh sampai WA_BALAS_MAX_ huruf dalam satu pesan (tidak lewat Script Properties). Lebih dari itu baru dipecah;
+  // bagian berikutnya lewat antrean (maks WA_ANTRE_MAX_ per pesan) ke chat yang sama.
+  var full = waText_((/^(pagi|sore|mingguan|bulanan)$/.test(cmd) ? '' : '🤖 ') + out);   // contoh pesan jadwal tampil persis seperti di grup
+  if (full.length <= WA_BALAS_MAX_ || !p.jid) return { status: 'success', reply: full.slice(0, WA_BALAS_MAX_) };
+  var parts = waPecah_(full, WA_BALAS_MAX_), rest = waPecah_(parts.slice(1).join('\n\n').replace(/\n_\(\d+\/\d+\)_/g, ''), WA_ANTRE_MAX_);
+  waAntreBagian_(rest, { to: p.jid }, '_lanjut');
+  return { status: 'success', reply: parts[0].replace(/_\(1\/\d+\)_$/, '_(bersambung)_') };
 }
+
+// Batas panjang pesan. WhatsApp sendiri menerima sampai ~65.000 huruf; balasan langsung dibatasi 20.000 supaya masih nyaman dibaca.
+// Pesan lewat antrean disimpan di Script Properties yang maksimal 9 KB per nilai, jadi maks 6.000 huruf per pesan (sisa ruang untuk
+// huruf multi-byte seperti ≡ dan emoji). Yang lebih panjang tidak dipotong, tapi dipecah jadi beberapa pesan berurutan.
+var WA_BALAS_MAX_ = 20000, WA_ANTRE_MAX_ = 6000;
 
 // Pecah teks panjang jadi beberapa pesan WhatsApp (maks 'max' huruf), dipotong di baris kosong / akhir baris.
 // Bila lebih dari satu bagian, tiap bagian diberi penanda (1/3), (2/3), ...
 function waPecah_(text, max) {
-  max = max || 3500;
+  max = max || WA_ANTRE_MAX_;
   text = String(text || '');
   if (text.length <= max) return [text];
   var parts = [], sisa = text, lim = max - 20;
