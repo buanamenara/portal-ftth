@@ -694,7 +694,39 @@ function waCmd_(p) {
       out = p.chat === 'group' ? '' : 'Perintah "' + cmd + '" belum ada. Ketik *bantu* untuk daftar perintah.';
   }
   p.cmd = out ? cmd : '';
-  return { status: 'success', reply: out ? waText_((/^(pagi|sore|mingguan|bulanan)$/.test(cmd) ? '' : '🤖 ') + out).slice(0, 3500) : '' };   // contoh pesan jadwal tampil persis seperti di grup
+  if (!out) return { status: 'success', reply: '' };
+  // Balasan panjang (mis. rekap bulanan) dipecah per ~3500 huruf: bagian 1 = balasan langsung, sisanya lewat antrean ke chat yang sama.
+  var parts = waPecah_(waText_((/^(pagi|sore|mingguan|bulanan)$/.test(cmd) ? '' : '🤖 ') + out));   // contoh pesan jadwal tampil persis seperti di grup
+  if (parts.length > 1 && p.jid) waAntreBagian_(parts.slice(1), { to: p.jid }, '_lanjut');
+  return { status: 'success', reply: parts.length > 1 && p.jid ? parts[0] : parts[0].slice(0, 3500) };
+}
+
+// Pecah teks panjang jadi beberapa pesan WhatsApp (maks 'max' huruf), dipotong di baris kosong / akhir baris.
+// Bila lebih dari satu bagian, tiap bagian diberi penanda (1/3), (2/3), ...
+function waPecah_(text, max) {
+  max = max || 3500;
+  text = String(text || '');
+  if (text.length <= max) return [text];
+  var parts = [], sisa = text, lim = max - 20;
+  while (sisa.length > lim) {
+    var cut = sisa.lastIndexOf('\n\n', lim);
+    if (cut < lim / 2) cut = sisa.lastIndexOf('\n', lim);
+    if (cut < lim / 2) cut = lim;
+    parts.push(sisa.slice(0, cut).replace(/\s+$/, ''));
+    sisa = sisa.slice(cut).replace(/^\s+/, '');
+  }
+  if (sisa) parts.push(sisa);
+  return parts.map(function (x, i) { return x + '\n_(' + (i + 1) + '/' + parts.length + ')_'; });
+}
+
+// Masukkan beberapa bagian pesan ke antrean berurutan (kunci waq_ diurutkan, jadi t naik 1 ms per bagian).
+function waAntreBagian_(parts, job, akhiran) {
+  var props = PropertiesService.getScriptProperties(), t0 = Date.now();
+  parts.forEach(function (x, i) {
+    var t = t0 + i;
+    props.setProperty(WAQ_PREFIX_ + t + (akhiran || '_bag') + i, JSON.stringify({ t: t, n: 0, last: 0, files: [], to: job.to || '',
+      mentions: i ? [] : (job.mentions || []), text: x }));
+  });
 }
 
 // Format WhatsApp: `kode` = perintah (siap disalin), "- " = daftar, "> " = kutipan, *tebal* = judul, _miring_ = keterangan.
@@ -1001,9 +1033,7 @@ function botJadwal_() {
         if (m && m[2] < today) props.deleteProperty(k);
       });
       if (!msg || !msg.text) return;
-      props.setProperty(WAQ_PREFIX_ + now + '_' + j.id.toLowerCase(), JSON.stringify({
-        t: now, n: 0, last: 0, files: [], to: msg.to || '', mentions: msg.mentions || [], text: waText_(msg.text).slice(0, 6000)
-      }));
+      waAntreBagian_(waPecah_(waText_(msg.text)), msg, '_' + j.id.toLowerCase());   // pesan panjang (rekap bulanan) jadi beberapa bagian
     } catch (e) {
       console.error('Jadwal bot ' + j.id + ': ' + e);
     } finally {
@@ -1384,7 +1414,7 @@ function botRekapPeriode_(dari, sampai, judul, opt) {
   if (allCols.length) s.push('', '*Total pemakaian*');
   allCols.forEach(function (k) { s.push('- ' + botMatTitle_(k) + ': ' + botNum_(all[k])); });
   s.push(BOT_GARIS_);
-  return s.join('\n').slice(0, 5900);
+  return s.join('\n');
 }
 
 // SOW baris Daily Report: kolom SOW, kalau kosong dari awalan id site; '' = tidak dikenali (tampil "Lainnya").
@@ -1411,7 +1441,7 @@ function botRekapPerSow_(rows, c, mats, s) {
   if (allCols.length) s.push('', '*Total semua SOW*');
   allCols.forEach(function (m) { s.push('- ' + botMatTitle_(m) + ': ' + botNum_(all[m])); });
   s.push('', '_Rincian per site:_ ' + waKode_('bulanan cluster') + ' ' + waKode_('bulanan subfeeder') + ' dst.', BOT_GARIS_);
-  return s.join('\n').slice(0, 5900);
+  return s.join('\n');
 }
 
 // ---- Cek Daily Report yang baru masuk; temuan dikirim ke grup (PIC di-tag bila nomornya ada di daftar tim). ----
