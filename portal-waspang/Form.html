@@ -2394,7 +2394,12 @@
           
           <div class="form-grid-2">
             <div class="form-group">
-              <label for="photoSiteSelect">Pilih Site Name (dari DATA BASE) *</label>
+              <label for="photoSiteSelect">Site Name * <span style="font-weight: 500; color: var(--text-muted, #64748b);">(pilih dari DATA BASE, atau centang nama baru)</span></label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 600; color: var(--bmi-dark); margin: 2px 0 6px; cursor: pointer;">
+                <input type="checkbox" id="photoSiteManualToggle" onchange="onPhotoSiteManualToggle()" style="width: auto; margin: 0;">
+                Nama site / cluster baru (belum ada di DATA BASE, mis. laporan tim Permit)
+              </label>
+              <input type="text" id="photoSiteManual" maxlength="100" placeholder="Ketik nama site / cluster baru..." oninput="onPhotoSiteManualInput()" autocomplete="off" style="display: none; font-weight: 600; margin-bottom: 6px;">
               <input type="search" id="photoSiteSearch" class="cluster-search" placeholder="🔍 Ketik nama atau nomor untuk mencari cluster..." oninput="onClusterSearch('photoSiteSelect')" autocomplete="off" style="margin-bottom: 6px;">
               <select id="photoSiteSelect" onchange="onPhotoSiteChange()" required style="font-weight: 600;">
                 <!-- Populated dynamically from Database -->
@@ -2407,6 +2412,7 @@
               <option value="Nazar">Nazar</option>
               <option value="Fahreza">Fahreza</option>
               <option value="Zain">Zain</option>
+              <option value="Ikhsan">Ikhsan</option>
             </select>
             </div>
           </div>
@@ -4720,7 +4726,7 @@ ${todayActivity}`;
 
       // Sinkronkan Site & SOW ke Menu 3 (Foto)
       const photoSel = document.getElementById('photoSiteSelect');
-      if (name && photoSel) {
+      if (name && photoSel && !isPhotoSiteManual()) {
         if (photoSel.value !== name && Array.from(photoSel.options).some(o => o.value === name)) {
           photoSel.value = name;
           updateSowSelectorForSite(name);
@@ -5894,7 +5900,7 @@ ${todayActivity}`;
       const prevPhotoSow = photoSow ? photoSow.value : '';
       fill('photoSiteSelect', null);
       const ps = document.getElementById('photoSiteSelect');
-      if (ps && ps.value && (!onlySelId || onlySelId === 'photoSiteSelect')) {
+      if (ps && ps.value && !isPhotoSiteManual() && (!onlySelId || onlySelId === 'photoSiteSelect')) {
         updateSowSelectorForSite(ps.value);
         const so = (pref && pref.name === ps.value) ? pref.sow : prevPhotoSow;
         if (photoSow && Array.from(photoSow.options).some(o => o.value === so)) { photoSow.value = so; onPhotoSowChange(); }
@@ -6441,9 +6447,38 @@ ${todayActivity}`;
       onPhotoProgressManualChange();
     }
 
+    // Nama site bebas (tim Permit: cluster / site baru yang belum ada di DATA BASE). Garis miring dipakai server sebagai
+    // pemisah folder Drive, jadi diganti "-"; tanda kutip, backtick dan < > dibuang supaya keterangan WA dan pratinjau aman.
+    function isPhotoSiteManual() {
+      const t = document.getElementById('photoSiteManualToggle');
+      return !!(t && t.checked);
+    }
+    function cleanManualSiteName(v) {
+      return String(v || '').replace(/[\/\\]+/g, '-').replace(/[<>"'\x60]/g, '').replace(/[\u200B-\u200D\uFEFF\u2060]/g, '')
+        .replace(/\s+/g, ' ').trim().slice(0, 100);
+    }
     function getActivePhotoSite() {
+      if (isPhotoSiteManual()) {
+        const inp = document.getElementById('photoSiteManual');
+        return cleanManualSiteName(inp ? inp.value : '');
+      }
       const sel = document.getElementById('photoSiteSelect');
       return (sel && sel.value) ? sel.value : '';
+    }
+    function onPhotoSiteManualToggle() {
+      const on = isPhotoSiteManual();
+      const inp = document.getElementById('photoSiteManual');
+      const sel = document.getElementById('photoSiteSelect'), search = document.getElementById('photoSiteSearch');
+      if (inp) { inp.style.display = on ? '' : 'none'; inp.required = on; }
+      if (sel) { sel.style.display = on ? 'none' : ''; sel.required = !on; }
+      if (search) search.style.display = on ? 'none' : '';
+      if (on && inp) inp.focus();
+      onPhotoSiteChange();
+    }
+    let photoSiteManualTimer = null;
+    function onPhotoSiteManualInput() {
+      clearTimeout(photoSiteManualTimer);
+      photoSiteManualTimer = setTimeout(onPhotoSiteChange, 250);
     }
 
     function getActivePhotoSow() {
@@ -6580,6 +6615,8 @@ ${todayActivity}`;
       const name = cleanSiteName(item.name);
 
       // 1. Site & SOW di Menu 3 (Foto)
+      const manualTgl = document.getElementById('photoSiteManualToggle');
+      if (manualTgl && manualTgl.checked) { manualTgl.checked = false; onPhotoSiteManualToggle(); }
       const siteSel = document.getElementById('photoSiteSelect');
       if (siteSel && Array.from(siteSel.options).some(o => o.value === name)) {
         siteSel.value = name;
@@ -6914,6 +6951,11 @@ ${todayActivity}`;
 
       if (photoItems.length === 0) {
         alert("Pilih setidaknya 1 foto dokumentasi dari kamera atau galeri terlebih dahulu!");
+        return;
+      }
+
+      if (!getActivePhotoSite()) {
+        alert(isPhotoSiteManual() ? "Ketik dulu nama site / cluster barunya." : "Pilih dulu Site Name dari DATA BASE.");
         return;
       }
 
