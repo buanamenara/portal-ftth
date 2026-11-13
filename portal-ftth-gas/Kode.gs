@@ -6645,7 +6645,9 @@ function atpCreate_(data, oleh) {
   atpSheet_().appendRow([d.idAtp, new Date(), oleh || '', d.aju.iso, d.atp.iso, d.regionRpm, d.regionSite, d.cluster, d.total, d.b1, d.b2, d.rekening, file.getUrl()]);
   var sync = atpSyncDataBase_(d.cluster, d.atp.iso);
   if (!sync.ok && sync.warning) d.warnings.push(sync.warning);
-  return { ok: true, url: file.getUrl(), downloadUrl: 'https://drive.google.com/uc?export=download&id=' + file.getId(), warnings: d.warnings };
+  // pdf + name: halaman langsung menyimpan PDF ke perangkat (tidak dialihkan ke Google Drive); url tetap untuk tautan "Buka di Drive".
+  return { ok: true, url: file.getUrl(), downloadUrl: 'https://drive.google.com/uc?export=download&id=' + file.getId(),
+    pdf: Utilities.base64Encode(blob.getBytes()), name: name, warnings: d.warnings };
 }
 function atpPreview(code, data) { requireRpm_(code); return atpPreview_(data); }
 function atpCreate(code, data) {
