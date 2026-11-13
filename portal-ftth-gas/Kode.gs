@@ -1558,14 +1558,10 @@ function requireRpm_(code) {
   throw new Error('Menu ini khusus RPM.');
 }
 
-// Fungsi Administration: hanya kode admin (bukan RPM).
-function requireAdmin_(code) {
-  var r = roleOf_(code);
-  if (r === 'rpm') return;
-  if (!r) failAccess_();
-  Utilities.sleep(1500);
-  throw new Error('Menu ini khusus RPM.');
-}
+// Fungsi Administration (kelola akun USERS: daftar, tambah, ubah, reset sandi, hapus): sengaja hanya kode RPM,
+// sama dengan requireRpm_. Kode admin biasa tidak boleh mengelola akun. (13 Nov 2026: komentar lama "hanya kode admin
+// (bukan RPM)" keliru; perilaku tidak diubah.)
+function requireAdmin_(code) { requireRpm_(code); }
 
 // Fungsi khusus pemilik/editor spreadsheet (dijalankan dari editor atau menu), tidak bisa dipanggil pengunjung web.
 function ownerOnly_() {
