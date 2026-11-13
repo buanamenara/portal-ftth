@@ -6117,7 +6117,7 @@ function gantiKodeAksesUtama() {
 // saat pertama kali dijalankan dari editor - ikuti dialog izin bila muncul); `matikanCadanganMingguan` melepasnya.
 // ---------------------------------------------------------------------
 var CADANGAN_FOLDER = 'BMI-FTTH Backup';
-var CADANGAN_SIMPAN = 8;   // jumlah salinan terbaru yang disimpan per spreadsheet, sisanya ke Sampah
+var CADANGAN_SIMPAN = 1;   // hanya salinan terbaru yang disimpan per spreadsheet, sisanya ke Sampah (13 Nov 2026: dari 8)
 
 function cadanganFolder_() {
   var it = DriveApp.getFoldersByName(CADANGAN_FOLDER);

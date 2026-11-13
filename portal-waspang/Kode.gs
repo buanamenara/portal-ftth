@@ -666,7 +666,7 @@ function waCmd_(p) {
     case 'bulanan':
       out = owner ? botBulanan_(Date.now(), arg) : ''; break;
     case 'backup':
-      out = owner ? botBackup_(true) : ''; break;
+      out = !owner ? '' : /^(bersih|hapus|rapikan)\b/i.test(arg) ? botBackupBersih_() : botBackup_(true); break;
     case 'status':
       out = owner ? botStatus_() : ''; break;
     case 'potongan':
@@ -800,7 +800,7 @@ function botHelp_(owner) {
     '- ' + A('<site> ok') + ' site itu tidak dilaporkan lagi · ' + A('boq ok'),
     '', '⚙️ *SISTEM*',
     '- ' + A('status') + ' gateway, antrean, jadwal, error hari ini',
-    '- ' + A('backup') + ' backup spreadsheet sekarang',
+    '- ' + A('backup') + ' backup spreadsheet sekarang · ' + A('backup bersih') + ' buang backup lama',
     '- ' + A('panduan lengkap') + ' PDF semua perintah (ke chat pribadi)']);
   return s.join('\n');
 }
@@ -1841,7 +1841,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-11-08-2';
+var BOT_PANDUAN_VERSI_ = '2026-11-13-1';
 // Baris ['#Judul'] = judul kelompok di tabel perintah.
 var BOT_PANDUAN_TIM_ = [
   ['#Cek data proyek'],
@@ -1904,6 +1904,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['#Sistem'],
   ['status', 'Gateway, antrean pesan, jadwal hari ini, Excel WH, backup terakhir, kesehatan spreadsheet dan error hari ini.', 'status'],
   ['backup', 'Backup spreadsheet FTTH + Waspang ke Drive sekarang.', 'backup'],
+  ['backup bersih', 'Backup lama di Drive (folder Backup Portal BMI dan BMI-FTTH Backup) dipindah ke Sampah, hanya yang terbaru per spreadsheet disisakan. Otomatis juga tiap kali backup mingguan jalan.', 'backup bersih'],
   ['mingguan / bulanan', 'Lihat contoh rekap mingguan / bulanan sekarang.', 'mingguan | bulanan'],
   ['bulanan [sow] [kota] [bulan]', 'Rekap bulanan tersaring SOW (Cluster, Subfeeder/sf, Mainfeeder/mf, Hubfeeder/hf, Uplink, FWA) dan/atau kota (Region di DATA BASE, mis. banjarmasin/bjm, pontianak/ptk), rincian per site + total. ' +
     '<b>bulanan sow</b> = ringkasan per SOW, <b>bulanan kota</b> = ringkasan per kota (jumlah site, laporan, total material) dalam satu balasan; bisa digabung, mis. bulanan sow pontianak. ' +
@@ -1914,7 +1915,7 @@ var BOT_PANDUAN_JADWAL_ADMIN_ = [
   ['07:00', 'Setiap hari', 'Stok yang berkurang dan di bawah standar + perkiraan habis (Senin: daftar lengkap)'],
   ['07:05', 'Senin', 'Item yang melebihi Plan BOQ, kecuali site yang sudah di-OK'],
   ['07:10', 'Setiap hari', 'Peringatan bila Excel stok WH 7 hari tidak dikirim (diulang tiap 3 hari)'],
-  ['22:00', 'Minggu', 'Backup spreadsheet ke Drive (4 terbaru disimpan)'],
+  ['22:00', 'Minggu', 'Backup spreadsheet ke Drive (hanya yang terbaru disimpan)'],
   ['Langsung', 'Saat ada', 'Usulan stok dari Excel !stokwh (balas setuju / batal); email bila laptop gateway mati']
 ];
 
@@ -2737,8 +2738,9 @@ function botFilterSalah_(cmd, kata, km) {
 }
 
 // 19. Backup mingguan (Minggu >= 22:00 WITA): salinan spreadsheet Portal FTTH dan Waspang ke folder Drive
-// "Backup Portal BMI (otomatis)" milik akun yang menjalankan script; 4 salinan terbaru per spreadsheet disimpan,
-// salinan lama hasil backup ini dipindah ke Sampah. Dijalankan dari trigger cekGatewayBot, jadi tidak bergantung laptop.
+// "Backup Portal BMI (otomatis)" milik akun yang menjalankan script; hanya salinan terbaru per spreadsheet disimpan
+// (BOT_BACKUP_SIMPAN), salinan lama hasil backup ini dipindah ke Sampah. Dijalankan dari trigger cekGatewayBot, jadi tidak bergantung laptop.
+var BOT_BACKUP_SIMPAN = 1;   // jumlah backup terbaru per spreadsheet yang disimpan (13 Nov 2026: dari 4)
 function botBackup_(paksa) {
   var props = PropertiesService.getScriptProperties(), now = Date.now(), today = botWita_(now, 'yyyyMMdd');
   if (!paksa && (Number(botWita_(now, 'u')) !== 7 || botWita_(now, 'HH:mm') < '22:00' || props.getProperty('BOT_SENT_BACKUP') === today)) return '';
@@ -2755,14 +2757,39 @@ function botBackup_(paksa) {
       DriveApp.getFileById(x[1]).makeCopy('Backup ' + x[0] + ' ' + tgl, folder);
       var lama = [], it = folder.getFiles();
       while (it.hasNext()) { var f = it.next(); if (f.getName().indexOf('Backup ' + x[0] + ' ') === 0) lama.push(f); }
-      lama.sort(function (a, b) { return b.getName() < a.getName() ? -1 : 1; }).slice(4).forEach(function (f) { f.setTrashed(true); });
+      lama.sort(function (a, b) { return b.getName() < a.getName() ? -1 : 1; }).slice(BOT_BACKUP_SIMPAN).forEach(function (f) { f.setTrashed(true); });
       hasil.push('✅ ' + x[0]);
     } catch (e) { hasil.push('❌ ' + x[0] + ': ' + String(e.message || e).slice(0, 120)); }
   });
-  var text = '💾 *Backup mingguan* ' + tgl + '\n' + hasil.join('\n') + '\nFolder: ' + folder.getUrl() + '\n(4 backup terbaru disimpan per spreadsheet)';
+  var text = '💾 *Backup mingguan* ' + tgl + '\n' + hasil.join('\n') + '\nFolder: ' + folder.getUrl() + '\n(hanya backup terbaru yang disimpan, yang lama ke Sampah)';
   var to = botOwnerJid_();
   if (to && !paksa) props.setProperty(WAQ_PREFIX_ + now + '_backup', JSON.stringify({ t: now, n: 0, last: 0, files: [], mentions: [], to: to, text: text }));
   return text;
+}
+
+// backup bersih (pemilik): rapikan kedua folder backup sekarang, sisakan BOT_BACKUP_SIMPAN salinan terbaru per spreadsheet.
+// Folder FTTH ("BMI-FTTH Backup", backup Senin dari Portal FTTH) milik akun yang sama dengan script ini.
+function botBackupBersih_() {
+  var props = PropertiesService.getScriptProperties(), baris = [], total = 0;
+  function rapikan(folder, prefix, nama) {
+    var all = [], it = folder.getFiles();
+    while (it.hasNext()) { var f = it.next(); if (f.getName().indexOf(prefix) === 0) all.push(f); }
+    all.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); });
+    var buang = all.slice(BOT_BACKUP_SIMPAN);
+    buang.forEach(function (f) { f.setTrashed(true); });
+    total += buang.length;
+    baris.push('- ' + nama + ': ' + (all.length ? 'terbaru ' + botWita_(all[0].getDateCreated().getTime(), 'dd/MM') : 'belum ada') + (buang.length ? ' · ' + buang.length + ' ke Sampah' : ''));
+  }
+  try {
+    var fid = props.getProperty('BOT_BACKUP_FOLDER'), fw = fid && DriveApp.getFolderById(fid);
+    if (fw && !fw.isTrashed()) { rapikan(fw, 'Backup FTTH ', 'Backup FTTH (Minggu)'); rapikan(fw, 'Backup Waspang ', 'Backup Waspang'); }
+    else baris.push('- Folder Backup Portal BMI belum ada');
+  } catch (e) { baris.push('- Backup Portal BMI: ' + String(e.message || e).slice(0, 100)); }
+  try {
+    var it = DriveApp.getFoldersByName('BMI-FTTH Backup');
+    if (it.hasNext()) { var ff = it.next(); rapikan(ff, 'BACKUP FTTH Utama - ', 'Backup FTTH (Senin)'); rapikan(ff, 'BACKUP Gudang BMI - ', 'Backup Gudang BMI'); }
+  } catch (e) { baris.push('- BMI-FTTH Backup: ' + String(e.message || e).slice(0, 100)); }
+  return '🧹 *Backup dirapikan*\n' + baris.join('\n') + '\n' + (total ? total + ' file lama dipindah ke Sampah (bisa dipulihkan 30 hari).' : 'Tidak ada backup lama.');
 }
 
 // ---- Alarm gateway mati: trigger tiap 15 menit, email ke Script Property BOT_ALARM_EMAIL (WA ikut mati, jadi lewat email). ----
