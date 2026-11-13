@@ -691,7 +691,7 @@ function waCmd_(p) {
       out = owner ? (/^kirim$/i.test(arg) ? botSoreKirim_() : botSore_(Date.now()).text) : ''; break;
     default:
       if (owner && /\s+ok$/i.test(text)) { out = botBoqOk_(text.replace(/\s+ok$/i, '').trim()); break; }   // "<site> ok" (BOQ melebihi Plan)
-      out = p.chat === 'group' ? '' : 'Perintah "' + cmd + '" belum ada. Ketik *bantu* untuk daftar perintah.';
+      out = p.chat === 'group' ? '' : 'Perintah "' + cmd + '" belum ada. Ketik \\`bantu\\` untuk daftar perintah.';
   }
   p.cmd = out ? cmd : '';
   if (!out) return { status: 'success', reply: '' };
@@ -850,7 +850,7 @@ function botStok_(arg) {
     by[g].push(d + ': ' + botNum_(sal));
     if (sal < 0) minus = true;
   }
-  if (!order.length) return arg ? 'Tidak ada material yang cocok dengan "' + arg + '". Contoh: *stok kabel*, *stok tiang batola*.' : 'Semua saldo gudang 0.';
+  if (!order.length) return arg ? 'Tidak ada material yang cocok dengan "' + arg + '". Contoh: \\`stok kabel\\`, \\`stok tiang batola\\`.' : 'Semua saldo gudang 0.';
   var out = ['*Stok gudang*' + (arg ? ' "' + arg + '"' : '')];
   order.forEach(function (g) { out.push('', '_' + g + '_'); out = out.concat(by[g]); });
   var pd = botPotonganData_(), potLines = [];
@@ -862,7 +862,7 @@ function botStok_(arg) {
       if (o) potLines.push('- ' + d + ' (' + botGudangKey_(g) + '): ' + botPotonganTeks_(o));
     });
   });
-  if (potLines.length) out = out.concat(['', '✂️ _Rincian kabel (Excel WH ' + (pd[Object.keys(pd)[0]] || {}).tgl + ', ketik ' + 'potongan <kabel> untuk daftar)_']).concat(potLines);
+  if (potLines.length) out = out.concat(['', '✂️ _Rincian kabel (Excel WH ' + (pd[Object.keys(pd)[0]] || {}).tgl + ')_ · ' + waKode_('potongan <kabel>') + ' untuk daftar']).concat(potLines);
   if (minus) out.push('', 'Angka minus = barang keluar lebih banyak dari BA Masuk yang tercatat.');
   return out.join('\n');
 }
@@ -878,7 +878,7 @@ function botFindSites_(arg) {
 }
 
 function botSite_(arg) {
-  if (!arg) return 'Tulis kata yang dicari, mis. *site jati baru*.';
+  if (!arg) return 'Tulis kata yang dicari, mis. \\`site jati baru\\`.';
   var hit = botFindSites_(arg);
   if (!hit.length) return 'Tidak ada site yang cocok dengan "' + arg + '".';
   return ['*' + hit.length + ' site cocok*'].concat(hit.slice(0, 15).map(function (s) {
@@ -888,9 +888,9 @@ function botSite_(arg) {
 
 // Total (DAILY REPORT EMR) vs Plan (MASTER BOQ CLUSTER) per kolom material.
 function botProgres_(arg) {
-  if (!arg) return 'Tulis nama site, mis. *progres jati baru rt 04*.';
+  if (!arg) return 'Tulis nama site, mis. \\`progres jati baru rt 04\\`.';
   var hit = botFindSites_(arg);
-  if (!hit.length) return 'Tidak ada site yang cocok dengan "' + arg + '". Coba *site ' + arg.split(/\s+/)[0] + '*.';
+  if (!hit.length) return 'Tidak ada site yang cocok dengan "' + arg + '". Coba \\`site ' + arg.split(/\s+/)[0] + '\\`.';
   if (hit.length > 3) return botSite_(arg) + '\n\nPerjelas nama site-nya.';
   var bsh = boqSheet_(), bh = sheetHeader_(bsh), bdata = boqData_(bsh, bh), bmats = materialCols_(bh);
   var dsh = dailySheet_(), dh = sheetHeader_(dsh), dmats = materialCols_(dh), cTgl = dh.idx['tanggal'];
@@ -950,7 +950,7 @@ function botRekap_(arg) {
 }
 
 function botCatat_(arg, from) {
-  if (!arg) return 'Tulis isinya, mis. *catat beli 2 roll cable 24C*.';
+  if (!arg) return 'Tulis isinya, mis. \\`catat beli 2 roll cable 24C\\`.';
   var sh = sheetWithHeader_(BOT_NOTE_SHEET_, BOT_NOTE_HEADER_);
   sh.appendRow(rowByHeader_(sheetHeader_(sh), { 'Timestamp': new Date(), 'Dari': String(from || ''), 'Catatan': /^[=+\-@]/.test(arg) ? "'" + arg : arg }));
   return 'Tercatat (' + (sh.getLastRow() - 1) + ' catatan di tab ' + BOT_NOTE_SHEET_ + ').';
@@ -958,7 +958,7 @@ function botCatat_(arg, from) {
 
 function botCatatan_(arg) {
   var ss = getWaspangSpreadsheet_(), sh = ss.getSheetByName(BOT_NOTE_SHEET_);
-  if (!sh || sh.getLastRow() < 2) return 'Belum ada catatan. Mulai dengan *catat <teks>*.';
+  if (!sh || sh.getLastRow() < 2) return 'Belum ada catatan. Mulai dengan \\`catat <teks>\\`.';
   var h = sheetHeader_(sh), q = arg.toLowerCase();
   var rows = sh.getRange(2, 1, sh.getLastRow() - 1, h.width).getValues().filter(function (r) {
     return !q || String(r[h.idx['catatan']]).toLowerCase().indexOf(q) >= 0;
@@ -985,7 +985,7 @@ function botIngatkan_(arg, jid) {
     if (m[1] || due <= now) due += 864e5;
     text = m[4];
   } else {
-    return 'Contoh: *ingatkan 14:30 rapat Waspang*, *ingatkan besok 08:00 kirim BA*, *ingatkan 30m telpon mandor*.';
+    return 'Contoh: \\`ingatkan 14:30 rapat Waspang\\`, \\`ingatkan besok 08:00 kirim BA\\`, \\`ingatkan 30m telpon mandor\\`.';
   }
   if (due - now > 30 * 864e5) return 'Pengingat paling lama 30 hari ke depan.';
   var key = WAQ_PREFIX_ + due + '_r' + Math.floor(Math.random() * 1e6);
@@ -1186,7 +1186,7 @@ function botPermit_(arg) {
   if (/^hapus$/i.test(arg)) { props.deleteProperty(key); return 'Permit untuk Today\'s Plan ' + tgl + ' dihapus.'; }
   if (!arg) {
     var cur = props.getProperty(key);
-    return cur ? '*Permit ' + tgl + '*\n' + cur : 'Belum ada permit untuk ' + tgl + '. Kirim *permit* diikuti daftar cluster, satu per baris.';
+    return cur ? '*Permit ' + tgl + '*\n' + cur : 'Belum ada permit untuk ' + tgl + '. Kirim \\`permit\\` diikuti daftar cluster, satu per baris.';
   }
   var lines = arg.split(/\r?\n/).map(function (l) {
     return l.replace(/\t+/g, '  ').replace(/^[\s\-•*]+/, '').replace(/\s{3,}/g, '  ').trim();
@@ -1210,16 +1210,16 @@ function botImplementasi_(arg) {
   if ((m = arg.match(/^buang\b\s*([\s\S]*)$/i))) {
     var buang = botImplBuang_(xkey), kata = m[1].replace(/\s+/g, ' ').trim().toLowerCase();
     var oto = botPagiOtomatis_(key.slice(-8)).sites;
-    if (!kata) return buang.length ? '*Site dibuang dari Today\'s Plan ' + tgl + '*\n' + buang.map(function (k) { return '- ' + k; }).join('\n') : 'Belum ada site yang dibuang untuk ' + tgl + '. Kirim *implementasi buang* diikuti sebagian nama site.';
+    if (!kata) return buang.length ? '*Site dibuang dari Today\'s Plan ' + tgl + '*\n' + buang.map(function (k) { return '- ' + k; }).join('\n') : 'Belum ada site yang dibuang untuk ' + tgl + '. Kirim \\`implementasi buang\\` diikuti sebagian nama site.';
     var kena = oto.filter(function (n) { return n.toLowerCase().indexOf(kata) >= 0; });
-    if (!kena.length) return 'Tidak ada site di daftar otomatis Today\'s Plan ' + tgl + ' yang memuat "' + kata + '". Cek dengan *pagi*.';
+    if (!kena.length) return 'Tidak ada site di daftar otomatis Today\'s Plan ' + tgl + ' yang memuat "' + kata + '". Cek dengan \\`pagi\\`.';
     if (buang.indexOf(kata) < 0) buang.push(kata);
     props.setProperty(xkey, JSON.stringify(buang));
     return 'Siap, dibuang dari Today\'s Plan ' + tgl + ':\n' + kena.map(function (n) { return '- ' + n; }).join('\n') + '\n(implementasi hapus = kembalikan semua)';
   }
   if (!arg) {
     var cur = props.getProperty(key);
-    return cur ? '*Implementasi ' + tgl + '*\n' + cur : 'Belum ada tambahan implementasi untuk ' + tgl + ' (Today\'s Plan hanya memakai Daily Report terakhir). Kirim *implementasi* diikuti daftar, satu per baris.';
+    return cur ? '*Implementasi ' + tgl + '*\n' + cur : 'Belum ada tambahan implementasi untuk ' + tgl + ' (Today\'s Plan hanya memakai Daily Report terakhir). Kirim \\`implementasi\\` diikuti daftar, satu per baris.';
   }
   var lines = arg.split(/\r?\n/).map(function (l) {
     l = l.replace(/\t+/g, '  ').replace(/\s{3,}/g, '  ').trim();
@@ -1247,14 +1247,14 @@ function botTimCmd_(arg, prop) {
     delete tim[hit];
   } else if ((m = arg.match(/^(.+?)\s+(\+?[\d\s\-]{9,})$/))) {
     var no = m[2].replace(/\D/g, '').replace(/^0/, '62');
-    if (!/^62\d{8,13}$/.test(no)) return 'Nomor tidak valid. Contoh: *' + cmd + ' Nazar 081234567890*.';
+    if (!/^62\d{8,13}$/.test(no)) return 'Nomor tidak valid. Contoh: \\`' + cmd + ' Nazar 081234567890\\`.';
     tim[m[1].trim()] = no;
   } else if (arg) {
-    return 'Contoh: *' + cmd + ' Nazar 081234567890*, *' + cmd + ' hapus Nazar*, atau *' + cmd + '* untuk melihat daftar.';
+    return 'Contoh: \\`' + cmd + ' Nazar 081234567890\\`, \\`' + cmd + ' hapus Nazar\\`, atau \\`' + cmd + '\\` untuk melihat daftar.';
   }
   if (arg) props.setProperty(prop, JSON.stringify(tim));
   var names = Object.keys(tim).sort();
-  if (!names.length) return 'Daftar ' + cmd + ' kosong. Tambah dengan *' + cmd + ' <nama> <nomor WA>*.';
+  if (!names.length) return 'Daftar ' + cmd + ' kosong. Tambah dengan \\`' + cmd + ' <nama> <nomor WA>\\`.';
   return [prop === 'BOT_WH' ? '*Tim WH yang di-tag pengingat stok*' : '*Tim yang di-tag jam 17:30*'].concat(names.map(function (n) { return '- ' + n + ': ' + tim[n]; })).join('\n');
 }
 
@@ -1377,7 +1377,7 @@ function botBatasCmd_(arg) {
     var mat = m[1].trim().toLowerCase().split(/\s+/).map(function (w) { return BOT_MATERIAL_ALIAS_[w] || w; }).join(' ');
     b[mat] = Number(m[2].replace(/\./g, ''));
     props.setProperty('BOT_STOK_MIN', JSON.stringify(b));
-  } else if (arg) return 'Contoh: *batas cable 24c 3000*, *batas hapus fat*, *batas awal*, atau *batas* untuk melihat.';
+  } else if (arg) return 'Contoh: \\`batas cable 24c 3000\\`, \\`batas hapus fat\\`, \\`batas awal\\`, atau \\`batas\\` untuk melihat.';
   var ks = Object.keys(b).sort();
   return ['*Batas stok menipis* (rekap tiap Senin 07:00)'].concat(ks.length ? ks.map(function (k) { return '- ' + k + ': ' + botNum_(b[k]); }) : ['(kosong)']).join('\n');
 }
@@ -1591,7 +1591,7 @@ function botWhParse_(excel, argGudang, desig, names) {
       if (/^area$/i.test(first) && !argGudang) g = botWhGudang_(v.slice(1).filter(String)[0], names) || g;
       if (v.filter(function (x) { return typeof x === 'string' && byKey[botWhNorm_(x)]; }).length >= 3) head = v;
       if (!/^stock gudang/i.test(first) || !head) return;
-      if (!g) { out.err = out.err || 'Baris "Area" (nama gudang) tidak ada di file. Kirim ulang dengan caption mis. *!stokwh banjarmasin*.'; return; }
+      if (!g) { out.err = out.err || 'Baris "Area" (nama gudang) tidak ada di file. Kirim ulang dengan caption mis. \\`!stokwh banjarmasin\\`.'; return; }
       var m = out.g[g] = out.g[g] || {};
       head.forEach(function (h, c) {
         if (typeof h !== 'string' || !h.trim() || c === 0 || v[c] === '' || v[c] == null) return;
@@ -1629,13 +1629,13 @@ function botStokWhUsulan_(pend) {
   });
   if (pend.skip.length) out.push('', 'Tidak ada kolomnya di portal, dilewati: ' + pend.skip.join(', '));
   if (!ada) return { ada: 0, text: out.concat(['', 'Stok file sama dengan SALDO GUDANG, tidak ada yang perlu dicatat.']).join('\n') };
-  out.push('', '⚠️ = berubah lebih dari 30%, cek dulu tanggal filenya.', 'Balas *setuju* untuk mencatat penyesuaian ke BA TRANSAKSI, atau *batal*.');
+  out.push('', '⚠️ = berubah lebih dari 30%, cek dulu tanggal filenya.', '> Balas \\`setuju\\` untuk mencatat penyesuaian ke BA TRANSAKSI, atau \\`batal\\`.');
   return { ada: ada, text: out.join('\n') };
 }
 
 // p.excel dari gateway. Di grup: siapa saja di grup boleh mengirim; usulan selalu dikirim ke pemilik.
 function botStokWh_(p, arg, owner) {
-  if (!p.excel) return 'Kirim file Excel stok WH (.xlsx) dengan caption *!stokwh* (boleh ditambah nama gudang, mis. *!stokwh batola*).';
+  if (!p.excel) return 'Kirim file Excel stok WH (.xlsx) dengan caption \\`!stokwh\\` (boleh ditambah nama gudang, mis. \\`!stokwh batola\\`).';
   var props = PropertiesService.getScriptProperties(), lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
@@ -1734,7 +1734,7 @@ function botPotonganData_() {
 // potongan [kabel] [gudang] : rincian potongan kabel dari Excel WH terakhir.
 function botPotongan_(arg) {
   var data = botPotonganData_(), gs = Object.keys(data);
-  if (!gs.length) return 'Belum ada data potongan kabel. Kirim Excel WH yang berisi sheet POTONGAN dengan caption *!stokwh*.';
+  if (!gs.length) return 'Belum ada data potongan kabel. Kirim Excel WH yang berisi sheet POTONGAN dengan caption \\`!stokwh\\`.';
   var words = arg.toLowerCase().split(/\s+/).filter(Boolean).map(function (w) { return BOT_GUDANG_ALIAS_[w] || BOT_MATERIAL_ALIAS_[w] || w; });
   var out = ['✂️ *Potongan kabel*'];
   gs.forEach(function (g) {
@@ -1764,13 +1764,13 @@ function botWhBasi_(now) {
   return ['⏳ *Excel stok WH belum dikirim ' + hari + ' hari*',
     'File terakhir: ' + botWita_(last, 'dd/MM/yyyy HH:mm') + ' WITA.',
     'Saldo portal, cek stok menipis dan data potongan kabel bisa sudah tidak sesuai gudang.',
-    'Minta tim WH kirim Excel stok ke grup dengan caption *!stokwh*.'].join('\n');
+    'Minta tim WH kirim Excel stok ke grup dengan caption \\`!stokwh\\`.'].join('\n');
 }
 
 // ba <site> [sow] : BA Ambil dan Pengembalian satu site dari BA TRANSAKSI (Portal FTTH) + total bersih per material.
 // Semua kata harus ada di Name. Kata terakhir yang sama dengan SOW (cluster, subfeeder, ...) = filter SOW.
 function botBa_(arg) {
-  if (!arg) return 'Tulis nama site, mis. *ba penggalaman* atau *ba jati baru rt 04 subfeeder*.';
+  if (!arg) return 'Tulis nama site, mis. \\`ba penggalaman\\` atau \\`ba jati baru rt 04 subfeeder\\`.';
   var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('BA TRANSAKSI');
   if (!sh || sh.getLastRow() < 2) return 'BA TRANSAKSI masih kosong.';
   var vals = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
@@ -1784,7 +1784,7 @@ function botBa_(arg) {
     var n = String(r[cN]).toLowerCase();
     return words.every(function (w) { return n.indexOf(w) >= 0; }) && (!sow || String(r[cS] || '').trim().toLowerCase() === sow);
   });
-  if (!hit.length) return 'Tidak ada BA Ambil / Pengembalian untuk "' + arg + '". Cek nama site dengan *site ' + words[0] + '*.';
+  if (!hit.length) return 'Tidak ada BA Ambil / Pengembalian untuk "' + arg + '". Cek nama site dengan \\`site ' + words[0] + '\\`.';
   var names = [];
   hit.forEach(function (r) { var n = String(r[cN]).trim(); if (names.indexOf(n) < 0) names.push(n); });
   var exact = names.filter(function (n) { return n.toLowerCase() === words.join(' '); });
@@ -1834,7 +1834,7 @@ function botBa_(arg) {
     });
   });
   var text = out.join('\n');
-  return text.length > 3400 ? text.slice(0, 3350) + '\n... (terpotong, tambahkan SOW, mis. *ba ' + words.join(' ') + ' cluster*)' : text;
+  return text.length > 3400 ? text.slice(0, 3350) + '\n... (terpotong, tambahkan SOW, mis. \\`ba ' + words.join(' ') + ' cluster\\`)' : text;
 }
 
 // panduan : PDF panduan perintah untuk tim (tanpa perintah admin) dikirim lewat antrean gateway ke chat yang meminta.
@@ -1987,7 +1987,7 @@ function botPanduanPdf_(lengkap) {
 
 function botPanduan_(p, owner, arg) {
   var lengkap = /^(lengkap|admin|full)$/i.test(arg || ''), to = p.jid || '';
-  if (lengkap && !owner) return 'Panduan lengkap hanya untuk admin. Ketik *!panduan* untuk versi tim.';
+  if (lengkap && !owner) return 'Panduan lengkap hanya untuk admin. Ketik \\`!panduan\\` untuk versi tim.';
   if (lengkap && p.chat === 'group') to = botOwnerJid_();   // versi admin tidak pernah dikirim ke grup
   if (!to) return 'Nomor admin (WA_OWNER) belum diatur.';
   var props = PropertiesService.getScriptProperties(), key = lengkap ? 'BOT_PANDUAN_ADMIN' : 'BOT_PANDUAN', cache = {}, file = null;
@@ -2062,8 +2062,8 @@ function botHapusBa_(p, owner, arg) {
     props.deleteProperty('BOT_HAPUSBA');
     return 'Permintaan hapus BA ' + pend.label + ' dibatalkan.';
   }
-  if (!arg) return pend ? '*Menunggu konfirmasi hapus*\n' + pend.text + '\n\nAdmin: balas *hapusba ya* atau *hapusba batal*.'
-    : 'Contoh: *' + (owner ? '' : '!') + 'hapusba BA/OUT-CW/HST/2610/001 salah tanggal*. Boleh pakai sebagian nomor, mis. HST/2610/001.';
+  if (!arg) return pend ? '*Menunggu konfirmasi hapus*\n' + pend.text + '\n\n> Admin: balas \\`hapusba ya\\` atau \\`hapusba batal\\`.'
+    : 'Contoh: \\`' + (owner ? '' : '!') + 'hapusba BA/OUT-CW/HST/2610/001 salah tanggal\\`. Boleh pakai sebagian nomor, mis. HST/2610/001.';
   var w = arg.split(/\s+/), kata = w[0], alasan = w.slice(1).join(' ').slice(0, 200);
   var f = botBaCari_(kata);
   if (!f.hits.length) return 'BA "' + kata + '" tidak ditemukan di BA TRANSAKSI. Tulis Nomor BA atau ID BA, mis. HST/2610/001.';
@@ -2071,10 +2071,10 @@ function botHapusBa_(p, owner, arg) {
   var h = f.hits[0], text = botBaRingkas_(f.head, h.r) + (alasan ? '\nAlasan: ' + alasan : '');
   pend = { t: Date.now(), id: h.id, nomor: h.nomor, label: h.nomor || h.id, alasan: alasan, by: who, text: text };
   props.setProperty('BOT_HAPUSBA', JSON.stringify(pend));
-  if (owner && p.chat !== 'group') return '🗑️ *Hapus BA ini?*\n' + text + '\n\nBalas *hapusba ya* untuk menghapus (PDF ke tempat sampah Drive, saldo gudang ikut berubah) atau *hapusba batal*.';
+  if (owner && p.chat !== 'group') return '🗑️ *Hapus BA ini?*\n' + text + '\n\n> Balas \\`hapusba ya\\` untuk menghapus (PDF ke tempat sampah Drive, saldo gudang ikut berubah) atau \\`hapusba batal\\`.';
   var to = botOwnerJid_(), t = Date.now();
   if (to) props.setProperty(WAQ_PREFIX_ + t + '_hapusba', JSON.stringify({ t: t, n: 0, last: 0, to: to, mentions: [], files: [],
-    text: '🗑️ *Permintaan hapus BA* dari ' + who + '\n' + text + '\n\nBalas *hapusba ya* untuk menghapus atau *hapusba batal*.' }));
+    text: '🗑️ *Permintaan hapus BA* dari ' + who + '\n' + text + '\n\n> Balas \\`hapusba ya\\` untuk menghapus atau \\`hapusba batal\\`.' }));
   return 'Permintaan hapus BA ' + pend.label + ' diteruskan ke admin untuk dikonfirmasi.';
 }
 
@@ -2214,12 +2214,12 @@ function botRevisiCari_(arg, g) {
     arg = arg.slice(0, m.index).trim();
   }
   var words = arg.toLowerCase().split(/\s+/).filter(Boolean);
-  if (!words.length) return { err: 'Tulis nama site, mis. *' + g + 'revisi jati baru rt 04* atau *' + g + 'revisi jati baru rt 04 31/10*.' };
+  if (!words.length) return { err: 'Tulis nama site, mis. \\`' + g + 'revisi jati baru rt 04\\` atau \\`' + g + 'revisi jati baru rt 04 31/10\\`.' };
   var sh = dailySheet_(), h = sheetHeader_(sh), rows = botRevisiBaris_(sh, h).filter(function (x) {
     var n = x.site.toLowerCase();
     return words.every(function (w) { return n.indexOf(w) >= 0; });
   });
-  if (!rows.length) return { err: 'Belum ada Daily Report untuk site "' + arg + '". Coba *' + g + 'site ' + words[0] + '* untuk cek nama site.' };
+  if (!rows.length) return { err: 'Belum ada Daily Report untuk site "' + arg + '". Coba \\`' + g + 'site ' + words[0] + '\\` untuk cek nama site.' };
   var sites = {};
   rows.forEach(function (x) { sites[x.site + (x.sow ? ' (' + x.sow + ')' : '')] = true; });
   var names = Object.keys(sites);
@@ -2236,10 +2236,10 @@ function botRevisiCari_(arg, g) {
     .concat(sel.items.length ? sel.items.map(function (o, i) { return (i + 1) + '. ' + o.label + ' = ' + botNum_(o.n); }) : ['(tanpa angka Today)'])
     .concat(pilih.length > 1 ? ['_Ada ' + pilih.length + ' laporan' + (day ? ' tanggal ini' : '') + ', ini yang terakhir dikirim._'] : [])
     .concat(['', 'Balas:',
-      '• *' + g + 'revisi 1=150* → ganti angka _(0 = buang item; beberapa sekaligus: ' + g + 'revisi 1=150 2=6)_',
-      '• *' + g + 'revisi pole 7/3=4* → tambah item',
-      '• *' + g + 'revisi tanggal 30/10* → ganti tanggal laporan',
-      '• *' + g + 'revisi hapus* _[alasan]_ → hapus laporan ini _(mis. terkirim dobel)_']);
+      '- \\`' + g + 'revisi 1=150\\` ganti angka _(0 = buang item; beberapa sekaligus: \\`' + g + 'revisi 1=150 2=6\\`)_',
+      '- \\`' + g + 'revisi pole 7/3=4\\` tambah item',
+      '- \\`' + g + 'revisi tanggal 30/10\\` ganti tanggal laporan',
+      '- \\`' + g + 'revisi hapus [alasan]\\` hapus laporan ini _(mis. terkirim dobel)_']);
   return { sel: sel, text: text.join('\n') };
 }
 
@@ -2276,27 +2276,27 @@ function botRevisi_(p, owner, arg) {
   }
   if (!arg) {
     if (owner && p.chat !== 'group' && list.length) return '*Revisi Daily Report menunggu konfirmasi*\n' + daftar() +
-      '\n\nBalas *revisi ya*' + (list.length > 1 ? ' (semua) atau *revisi ya 1*' : '') + ', atau *revisi batal*.';
-    return 'Ketik *' + g + 'revisi <site>* untuk melihat Daily Report terakhir site itu, mis. *' + g + 'revisi jati baru rt 04* atau *' + g + 'revisi jati baru rt 04 31/10*.';
+      '\n\n> Balas \\`revisi ya\\`' + (list.length > 1 ? ' (semua) atau \\`revisi ya 1\\`' : '') + ', atau \\`revisi batal\\`.';
+    return 'Ketik \\`' + g + 'revisi <site>\\` untuk melihat Daily Report terakhir site itu, mis. \\`' + g + 'revisi jati baru rt 04\\` atau \\`' + g + 'revisi jati baru rt 04 31/10\\`.';
   }
 
-  var pend = null, perlu = 'Pilih laporannya dulu: *' + g + 'revisi <site>* (pilihan berlaku 6 jam).';
+  var pend = null, perlu = 'Pilih laporannya dulu: \\`' + g + 'revisi <site>\\` (pilihan berlaku 6 jam).';
   if ((m = arg.match(/^tanggal\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?$/i))) {
     if (!sel) return perlu;
     var y = m[3] ? (m[3].length === 2 ? '20' + m[3] : m[3]) : botWita_(Date.now(), 'yyyy'), baru = botDmy_(m[1] + '/' + m[2] + '/' + y);
-    if (!baru || +m[1] > 31 || +m[2] > 12) return 'Tanggal tidak valid. Contoh: *' + g + 'revisi tanggal 30/10*.';
+    if (!baru || +m[1] > 31 || +m[2] > 12) return 'Tanggal tidak valid. Contoh: \\`' + g + 'revisi tanggal 30/10\\`.';
     if (botDmyKey_(baru) > botWita_(Date.now(), 'yyyyMMdd')) return 'Tanggal ' + baru + ' belum lewat.';
     if (baru === sel.day) return 'Tanggalnya sudah ' + baru + '.';
     pend = { jenis: 'tanggal', baru: baru, ubah: '- Tanggal: ' + (sel.day || '-') + ' → ' + baru };
   } else if (/^tanggal\b/i.test(arg)) {
-    return 'Contoh: *' + g + 'revisi tanggal 30/10*.';
+    return 'Contoh: \\`' + g + 'revisi tanggal 30/10\\`.';
   } else if ((m = arg.match(/^hapus\b\s*([\s\S]*)$/i))) {
     if (!sel) return perlu;
     pend = { jenis: 'hapus', alasan: m[1].trim().slice(0, 200), ubah: '- Hapus seluruh laporan' + (m[1].trim() ? ' (' + m[1].trim().slice(0, 200) + ')' : '') };
   } else if (arg.indexOf('=') >= 0) {
     if (!sel) return perlu;
     var pairs = botRevisiPasangan_(arg);
-    if (!pairs) return 'Format: *' + g + 'revisi 1=150* atau *' + g + 'revisi 1=150 2=6* (nomor dari daftar, atau nama item, lalu = angka baru).';
+    if (!pairs) return 'Format: \\`' + g + 'revisi 1=150\\` atau \\`' + g + 'revisi 1=150 2=6\\` (nomor dari daftar, atau nama item, lalu = angka baru).';
     var ubah = [], salah = [];
     pairs.forEach(function (x) {
       var k = x.kiri.toLowerCase().replace(/\s+/g, ' '), o = null;
@@ -2331,11 +2331,11 @@ function botRevisi_(p, owner, arg) {
   list.push(pend);
   simpan();
   if (pend.jenis === 'hapus') props.deleteProperty(selKey);
-  var lagi = list.length > 1 ? '\n_(' + list.length + ' revisi menunggu: *revisi ya* = semua, *revisi ya ' + list.length + '* = yang ini saja)_' : '';
-  if (owner && p.chat !== 'group') return '✏️ *Revisi Daily Report ini?*\n' + pend.text + '\n\nBalas *revisi ya* untuk menyimpan (Total site ikut berubah) atau *revisi batal*.' + lagi;
+  var lagi = list.length > 1 ? '\n_(' + list.length + ' revisi menunggu: \\`revisi ya\\` = semua, \\`revisi ya ' + list.length + '\\` = yang ini saja)_' : '';
+  if (owner && p.chat !== 'group') return '✏️ *Revisi Daily Report ini?*\n' + pend.text + '\n\n> Balas \\`revisi ya\\` untuk menyimpan (Total site ikut berubah) atau \\`revisi batal\\`.' + lagi;
   var to = botOwnerJid_(), t = Date.now() + Math.floor(Math.random() * 1000);   // dua permintaan di milidetik yang sama tidak saling menimpa
   if (to) props.setProperty(WAQ_PREFIX_ + t + '_revisi', JSON.stringify({ t: t, n: 0, last: 0, to: to, mentions: [], files: [],
-    text: '✏️ *Permintaan revisi Daily Report* dari ' + who + '\n' + pend.text + '\n\nBalas *revisi ya* atau *revisi batal*.' + lagi }));
+    text: '✏️ *Permintaan revisi Daily Report* dari ' + who + '\n' + pend.text + '\n\n> Balas \\`revisi ya\\` atau \\`revisi batal\\`.' + lagi }));
   return 'Permintaan revisi Daily Report ' + sel.site + ' (' + (sel.day || '-') + ') diteruskan ke admin untuk dikonfirmasi.';
 }
 
@@ -2518,7 +2518,7 @@ function botMangkrak_(now, semua) {
   if (!list.length && !ditunda.length) return null;
   var s = ['🚧 *Site tanpa laporan* ' + botWita_(now, 'dd/MM/yyyy') + (semua ? ' (daftar lengkap)' : '')].concat(list);
   if (ditunda.length) s = s.concat(['', '✅ *Sudah dikonfirmasi*'], ditunda);
-  if (list.length) s.push('', 'Mohon konfirmasi: balas *!ok <nama site> [alasan]*, mis. !ok EMR-32739 menunggu izin. Yang belum dikonfirmasi diulang tiap Senin.');
+  if (list.length) s.push('', '> Mohon konfirmasi: balas \\`!ok <nama site> [alasan]\\`, mis. \\`!ok EMR-32739 menunggu izin\\`. Yang belum dikonfirmasi diulang tiap Senin.');
   return { text: s.join('\n'), mentions: semua === true ? [] : mentions };
 }
 
@@ -2539,7 +2539,7 @@ function botTunda_(arg, who, ok) {
     simpan();
     var ks = Object.keys(tunda).sort();
     return ks.length ? ['✅ *Site tanpa laporan yang sudah dikonfirmasi*'].concat(ks.map(function (k) { return '- ' + tunda[k].site + ': ' + tunda[k].alasan + ' _(' + tunda[k].by + ', ' + tunda[k].tgl + ')_'; })).join('\n')
-      : 'Belum ada site yang dikonfirmasi. Contoh: *!' + c + ' EMR-32739 menunggu izin*.';
+      : 'Belum ada site yang dikonfirmasi. Contoh: \\`!' + c + ' EMR-32739 menunggu izin\\`.';
   }
   if ((m = arg.match(/^(hapus|batal)\s+(.+)$/i))) {
     var h = Object.keys(tunda).filter(function (k) { return k.indexOf(m[2].trim().toLowerCase()) >= 0; });
@@ -2551,10 +2551,10 @@ function botTunda_(arg, who, ok) {
   // Nama site = kata-kata awal sebanyak mungkin yang masih cocok dengan satu site; sisanya alasan.
   var w = arg.split(/\s+/), kena = [], n;
   for (n = w.length; n >= 1; n--) { kena = cari(w.slice(0, n).join(' ')); if (kena.length) break; }
-  if (!kena.length) return 'Site "' + w[0] + '" tidak ditemukan di Daily Report. Tulis sebagian nama site, mis. *!' + c + ' EMR-32739 menunggu izin*.';
+  if (!kena.length) return 'Site "' + w[0] + '" tidak ditemukan di Daily Report. Tulis sebagian nama site, mis. \\`!' + c + ' EMR-32739 menunggu izin\\`.';
   if (kena.length > 1) return 'Ada ' + kena.length + ' site yang cocok, tulis lebih lengkap:\n' + kena.slice(0, 5).map(function (k) { return '- ' + last[k].site; }).join('\n');
   var k = kena[0], alasan = w.slice(n).join(' ').trim();
-  if (!alasan && !ok) return 'Tulis alasannya juga, mis. *!tunda ' + w.slice(0, n).join(' ') + ' menunggu izin*.';
+  if (!alasan && !ok) return 'Tulis alasannya juga, mis. \\`!tunda ' + w.slice(0, n).join(' ') + ' menunggu izin\\`.';
   alasan = alasan || 'OK';
   tunda[k] = { site: last[k].site, day: last[k].day, alasan: alasan.slice(0, 200), by: String(who || '').slice(0, 40), tgl: botWita_(Date.now(), 'dd/MM') };
   simpan();
@@ -2595,8 +2595,8 @@ function botBoqLewat_(now) {
   if (!list.length) return null;
   return ['📐 *Realisasi melebihi Plan BOQ* ' + botWita_(now, 'dd/MM/yyyy')].concat(list.map(function (x) { return x.line; }))
     .concat(['Cek Daily Report (salah ketik?) atau perbarui Plan di BOQ Plan.',
-      'Kalau sudah dicek, balas *<nama site> ok* supaya site itu tidak dilaporkan lagi.'])
-    .concat(nSkip ? ['(' + nSkip + ' site sudah di-OK tidak ditampilkan; ketik *boq ok* untuk daftar)'] : []).join('\n').slice(0, 3800);
+      '> Kalau sudah dicek, balas \\`<nama site> ok\\` supaya site itu tidak dilaporkan lagi.'])
+    .concat(nSkip ? ['(' + nSkip + ' site sudah di-OK tidak ditampilkan; ketik \\`boq ok\\` untuk daftar)'] : []).join('\n').slice(0, 3800);
 }
 
 // "<site> ok" / "boq ok <site>" : site itu tidak dilaporkan lagi di BOQ melebihi Plan. "boq ok" = daftar, "boq ok hapus <site>" = batalkan.
@@ -2606,7 +2606,7 @@ function botBoqOk_(arg) {
   if (!arg) {
     var ks = Object.keys(ok);
     return ks.length ? ['*Site yang sudah di-OK* (tidak dilaporkan di BOQ melebihi Plan)'].concat(ks.map(function (k) { return '- ' + ok[k]; }))
-      .concat(['Batalkan dengan *boq ok hapus <nama site>*.']).join('\n') : 'Belum ada site yang di-OK. Balas *<nama site> ok* setelah dicek.';
+      .concat(['Batalkan dengan \\`boq ok hapus <nama site>\\`.']).join('\n') : 'Belum ada site yang di-OK. Balas \\`<nama site> ok\\` setelah dicek.';
   }
   var words = function (t) { return t.toLowerCase().split(/\s+/).filter(Boolean); };
   var cocok = function (names, t) { var w = words(t); return names.filter(function (n) { return w.every(function (x) { return n.toLowerCase().indexOf(x) >= 0; }); }); };
@@ -2620,10 +2620,10 @@ function botBoqOk_(arg) {
   botBoqItems_().forEach(function (x) { if (names.indexOf(x.name) < 0) names.push(x.name); });
   var hit = cocok(names, arg), exact = hit.filter(function (n) { return n.toLowerCase() === arg.toLowerCase().trim(); });
   if (exact.length) hit = exact;
-  if (!hit.length) return 'Tidak ada site yang melebihi Plan BOQ dengan nama "' + arg + '". Ketik *boq* untuk daftar.';
+  if (!hit.length) return 'Tidak ada site yang melebihi Plan BOQ dengan nama "' + arg + '". Ketik \\`boq\\` untuk daftar.';
   if (hit.length > 1) return ['Lebih dari satu site cocok, perjelas namanya:'].concat(hit.slice(0, 10).map(function (n) { return '- ' + n; })).join('\n');
   ok[hit[0].toLowerCase()] = hit[0]; simpan();
-  return '✅ ' + hit[0] + ' di-OK, tidak dilaporkan lagi di BOQ melebihi Plan. Batalkan dengan *boq ok hapus ' + hit[0].toLowerCase() + '*.';
+  return '✅ ' + hit[0] + ' di-OK, tidak dilaporkan lagi di BOQ melebihi Plan. Batalkan dengan \\`boq ok hapus ' + hit[0].toLowerCase() + '\\`.';
 }
 
 // 12 + 17. Tim WH: Senin pengingat kirim Excel stok, tanggal 28 pengingat stok opname, tanggal 1 tagih file opname.
@@ -2635,9 +2635,9 @@ function botWhIngat_(now) {
   var tgl = Number(botWita_(now, 'd')), senin = Number(botWita_(now, 'u')) === 1, wh = botWhTim_();
   var tag = Object.keys(wh).map(function (n) { return '@' + wh[n]; }).join(' '), mentions = Object.keys(wh).map(function (n) { return wh[n]; });
   var bulanLalu = botWita_(now - 2 * 864e5, 'MM/yyyy'), s;
-  if (tgl === 1) s = ['📦 *Stok Opname ' + bulanLalu + '*', 'Mohon kirim Excel hasil stok opname akhir bulan ke grup ini dengan caption *!stokwh*.'];
-  else if (tgl === 28) s = ['📦 *Persiapan Stok Opname Akhir Bulan*', 'Mohon jadwalkan opname fisik gudang di akhir bulan ini. File hasilnya dikirim tanggal 1 dengan caption *!stokwh*.'];
-  else if (senin) s = ['📥 *Update Stok Gudang Mingguan*', 'Mohon kirim Excel stok gudang terbaru ke grup ini dengan caption *!stokwh* supaya saldo portal tetap sesuai.'];
+  if (tgl === 1) s = ['📦 *Stok Opname ' + bulanLalu + '*', 'Mohon kirim Excel hasil stok opname akhir bulan ke grup ini dengan caption \\`!stokwh\\`.'];
+  else if (tgl === 28) s = ['📦 *Persiapan Stok Opname Akhir Bulan*', 'Mohon jadwalkan opname fisik gudang di akhir bulan ini. File hasilnya dikirim tanggal 1 dengan caption \\`!stokwh\\`.'];
+  else if (senin) s = ['📥 *Update Stok Gudang Mingguan*', 'Mohon kirim Excel stok gudang terbaru ke grup ini dengan caption \\`!stokwh\\` supaya saldo portal tetap sesuai.'];
   else return null;
   if (tag) s.push('', tag);
   return { text: s.join('\n'), mentions: mentions };
@@ -2840,7 +2840,7 @@ function botStatus_() {
   out.push('', '*Kesehatan web & spreadsheet*');
   out = out.concat(cek.items.map(function (c) { return (c.ok ? '✅ ' : '❌ ') + c.nama + ': ' + c.info; }));
   out.push('Error Portal Waspang hari ini: ' + (err.n ? err.n + 'x' : 'tidak ada'));
-  out = out.concat(err.items.slice(-3).map(function (x) { return '• ' + x.jam + ' ' + x.aksi + ': ' + x.pesan; }));
+  out = out.concat(err.items.slice(-3).map(function (x) { return '- ' + x.jam + ' ' + x.aksi + ': ' + x.pesan; }));
   return out.join('\n');
 }
 
