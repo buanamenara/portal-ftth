@@ -57,6 +57,8 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   menampilkan hari laporan terakhir.
 - **Format WA:** kotak kode `waKode_()`, daftar `- `, kutipan `> `, awalan balasan `✦ `. Logo IRIS resmi: emblem
   lingkaran emas milik pemilik (`IRIS_Asisten_Proyek_BMI_Emblem.png`).
+- **IRIS Gateway jalan di balik layar:** jadwal login dan jaga tidak membuka panel; panel hanya dari shortcut Desktop
+  (`IRIS Gateway.vbs /panel`). Instalasi lama: ganti `IRIS Gateway.vbs` + `bin\pasang.ps1`, lalu jalankan `Pasang Otomatis.bat` lagi.
 - **Gateway WA** jalan di laptop terpisah, bukan di laptop kerja pemilik. Folder `auth` dan `config.json` tidak pernah
   dibagikan atau diunggah.
 

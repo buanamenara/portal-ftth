@@ -1,7 +1,7 @@
 # Pasang otomatis IRIS Gateway untuk akun Windows ini (tanpa hak admin):
-#  - "IRIS Gateway"        : menyala + membuka panel 20 dtk setelah login (juga setelah laptop restart)
+#  - "IRIS Gateway"        : menyala di balik layar 20 dtk setelah login (juga setelah laptop restart), tanpa panel
 #  - "IRIS Gateway (jaga)" : 15 dtk setelah bangun dari sleep, dan tiap 15 menit, memastikan gateway menyala (tanpa panel)
-#  - shortcut "IRIS Gateway" di Desktop
+#  - shortcut "IRIS Gateway" di Desktop: membuka panel ("/panel")
 # Shortcut lama start.bat (gateway versi lama) di folder Startup dibuang supaya tidak ada dua gateway.
 param([switch]$Uji)   # -Uji: hanya menulis XML jadwal ke folder data untuk diperiksa, tanpa memasang apa pun
 $ErrorActionPreference = 'Stop'
@@ -41,7 +41,7 @@ $logon  = "<LogonTrigger><Enabled>true</Enabled><UserId>$(X $user)</UserId><Dela
 $resume = "<EventTrigger><Enabled>true</Enabled><Delay>PT15S</Delay><Subscription>" + (X "<QueryList><Query Id=`"0`" Path=`"System`"><Select Path=`"System`">*[System[Provider[@Name='Microsoft-Windows-Power-Troubleshooter'] and EventID=1]]</Select></Query></QueryList>") + "</Subscription></EventTrigger>"
 $every  = "<TimeTrigger><Enabled>true</Enabled><StartBoundary>2026-01-01T00:00:00</StartBoundary><Repetition><Interval>PT15M</Interval><StopAtDurationEnd>false</StopAtDurationEnd></Repetition></TimeTrigger>"
 
-$xUtama = TaskXml 'IRIS Gateway: menyala dan membuka panel setelah login.' $logon ''
+$xUtama = TaskXml 'IRIS Gateway: menyala di balik layar setelah login.' $logon ''
 $xJaga  = TaskXml 'IRIS Gateway: memastikan gateway menyala setelah bangun dari sleep dan tiap 15 menit.' ($resume + $every) ' /diam'
 if ($Uji) {
   foreach ($p in @(@('uji_jadwal_utama.xml', $xUtama), @('uji_jadwal_jaga.xml', $xJaga))) {
@@ -57,7 +57,7 @@ Register-ScheduledTask -TaskName 'IRIS Gateway (jaga)' -Xml $xJaga -Force | Out-
 
 $sh = New-Object -ComObject WScript.Shell
 $lnk = $sh.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'IRIS Gateway.lnk'))
-$lnk.TargetPath = 'wscript.exe'; $lnk.Arguments = '"' + $vbs + '"'; $lnk.WorkingDirectory = $root
+$lnk.TargetPath = 'wscript.exe'; $lnk.Arguments = '"' + $vbs + '" /panel'; $lnk.WorkingDirectory = $root
 $lnk.IconLocation = $ico; $lnk.Description = 'IRIS Gateway (WhatsApp Portal Waspang)'; $lnk.Save()
 
 $startup = [Environment]::GetFolderPath('Startup')
@@ -68,5 +68,6 @@ Get-ChildItem $startup -Filter *.lnk -ErrorAction SilentlyContinue | ForEach-Obj
 Write-Host 'Gateway lama yang masih berjalan di laptop ini (start.bat) dihentikan otomatis saat IRIS Gateway mulai.'
 
 Write-Host ''
-Write-Host 'Selesai. IRIS Gateway akan menyala sendiri saat laptop menyala/login dan setelah bangun dari sleep.' -ForegroundColor Green
-Start-Process wscript.exe -ArgumentList ('"' + $vbs + '"')
+Write-Host 'Selesai. IRIS Gateway menyala sendiri di balik layar saat laptop menyala/login dan setelah bangun dari sleep.' -ForegroundColor Green
+Write-Host 'Panel hanya terbuka dari shortcut "IRIS Gateway" di Desktop.'
+Start-Process wscript.exe -ArgumentList ('"' + $vbs + '" /panel')
