@@ -697,7 +697,7 @@ function waCmd_(p) {
   if (!out) return { status: 'success', reply: '' };
   // Balasan langsung boleh sampai WA_BALAS_MAX_ huruf dalam satu pesan (tidak lewat Script Properties). Lebih dari itu baru dipecah;
   // bagian berikutnya lewat antrean (maks WA_ANTRE_MAX_ per pesan) ke chat yang sama.
-  var full = waText_((/^(pagi|sore|mingguan|bulanan)$/.test(cmd) ? '' : '🤖 ') + out);   // contoh pesan jadwal tampil persis seperti di grup
+  var full = waText_((/^(pagi|sore|mingguan|bulanan)$/.test(cmd) ? '' : '✦ ') + out);   // contoh pesan jadwal tampil persis seperti di grup
   if (full.length <= WA_BALAS_MAX_ || !p.jid) return { status: 'success', reply: full.slice(0, WA_BALAS_MAX_) };
   var parts = waPecah_(full, WA_BALAS_MAX_), rest = waPecah_(parts.slice(1).join('\n\n').replace(/\n_\(\d+\/\d+\)_/g, ''), WA_ANTRE_MAX_);
   waAntreBagian_(rest, { to: p.jid }, '_lanjut');
