@@ -11,21 +11,33 @@ import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, Disconn
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import { readXlsx } from './xlsx-mini.mjs';
+import { startPanel, panel } from './panel.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
-const CFG = JSON.parse(fs.readFileSync(path.join(DIR, 'config.json'), 'utf8'));
+// Data (config.json, auth, state.json) di folder terpisah supaya program bisa diganti tanpa menyentuh tautan WA.
+// Paket portable: IRIS_DATA = ..\data. Cara lama (config.json di folder program) tetap jalan.
+const DATA = process.env.IRIS_DATA ? path.resolve(process.env.IRIS_DATA)
+  : (fs.existsSync(path.join(DIR, 'config.json')) ? DIR : path.join(DIR, '..', 'data'));
+fs.mkdirSync(DATA, { recursive: true });
+const CFG_FILE = path.join(DATA, 'config.json');
+let CFG = {};
+try { CFG = JSON.parse(fs.readFileSync(CFG_FILE, 'utf8')); } catch (e) {}
 const POLL_MS = Math.max(5, Number(CFG.pollSeconds) || 15) * 1000;
-const log = (...a) => console.log(new Date().toLocaleString('id-ID'), '-', ...a);
+const log = (...a) => { console.log(new Date().toLocaleString('id-ID'), '-', ...a); };
+const FAKE = process.env.IRIS_FAKE_WA === '1';   // uji tampilan tanpa WhatsApp (tidak mengirim apa pun)
 
-if (!CFG.url || !CFG.secret || !CFG.group) {
-  console.error('config.json belum lengkap: isi url, secret dan group (lihat BACA.md).');
-  process.exit(1);
-}
-
-let sock = null, ready = false, groupJid = null;
+let sock = null, ready = false, groupJid = null, activeSince = Date.now();
+const configured = !!(CFG.url && CFG.secret && CFG.group);
+const paused = () => panel.state().paused;   // tombol Stop di panel: WhatsApp diputus, antrean tidak diambil (bertahan walau restart)
+// config.json dibaca ulang tiap kali, supaya isian lain (mis. panelPass yang dihapus manual) tidak tertimpa.
+const readCfg = () => { try { return JSON.parse(fs.readFileSync(CFG_FILE, 'utf8')); } catch (e) { return {}; } };
+const writeCfg = (c) => fs.writeFileSync(CFG_FILE, JSON.stringify(c, null, 2));
 
 async function connect() {
-  const { state, saveCreds } = await useMultiFileAuthState(path.join(DIR, 'auth'));
+  if (paused()) { ready = false; panel.wa('paused'); return; }
+  if (FAKE) { ready = true; panel.wa('open', { me: '62800000000 (uji)' }); return; }
+  panel.wa('connecting');
+  const { state, saveCreds } = await useMultiFileAuthState(path.join(DATA, 'auth'));
   const { version } = await fetchLatestBaileysVersion();
   sock = makeWASocket({ version, auth: state, logger: pino({ level: 'silent' }), browser: Browsers.windows('Portal Waspang') });
   sock.ev.on('creds.update', saveCreds);
@@ -39,27 +51,44 @@ async function connect() {
       if (CFG.pairPhone && !pairingAsked) {
         // Tautkan dengan nomor: di HP buka WhatsApp > Perangkat tertaut > Tautkan perangkat > Tautkan dengan nomor telepon.
         pairingAsked = true;
-        try { log('KODE TAUTAN:', await sock.requestPairingCode(String(CFG.pairPhone).replace(/\D/g, ''))); }
+        try { const kode = await sock.requestPairingCode(String(CFG.pairPhone).replace(/\D/g, '')); log('KODE TAUTAN:', kode); panel.wa('qr', { pairCode: kode }); }
         catch (e) { log('Kode tautan gagal, pakai QR di bawah:', e.message); }
       }
       if (!CFG.pairPhone) {
         log('Scan QR ini dari HP: WhatsApp > Perangkat tertaut > Tautkan perangkat');
-        qrcode.generate(u.qr, { small: true });
+        if (process.stdout.isTTY) qrcode.generate(u.qr, { small: true });   // di jendela hitam saja; tanpa jendela, QR ada di panel
+        panel.wa('qr', { qr: u.qr });
       }
     }
     if (u.connection === 'open') {
       ready = true;
       groupJid = null;
       log('Tersambung ke WhatsApp sebagai', sock.user && sock.user.id);
+      panel.wa('open', { me: sock.user && String(sock.user.id).split(':')[0].split('@')[0] });
+      panel.event('ok', 'WhatsApp tersambung');
     }
     if (u.connection === 'close') {
       ready = false;
+      if (paused()) { log('Gateway dihentikan dari panel.'); panel.wa('paused'); return; }
       const code = u.lastDisconnect && u.lastDisconnect.error && u.lastDisconnect.error.output && u.lastDisconnect.error.output.statusCode;
+      if (code === DisconnectReason.connectionReplaced) {
+        // Nomor ini dipakai gateway lain (mis. laptop lama masih menyala dengan folder auth yang sama).
+        log('Sambungan diambil alih gateway lain dengan tautan yang sama. Dicoba lagi 60 detik lagi.');
+        panel.event('err', 'Dipakai gateway lain (tutup gateway lama)');
+        panel.wa('connecting');
+        setTimeout(connect, 60000);
+        return;
+      }
       if (code === DisconnectReason.loggedOut) {
-        log('Perangkat dikeluarkan dari WhatsApp. Hapus folder "auth" lalu jalankan lagi untuk menautkan ulang.');
-        process.exit(2);
+        // Dilepas dari HP / ditautkan ulang dari panel: tautan lama dibuang, QR baru tampil di panel.
+        log('Perangkat dikeluarkan dari WhatsApp. Menyiapkan QR untuk menautkan ulang...');
+        panel.event('err', 'Dilepas dari WhatsApp, tautkan ulang');
+        fs.rmSync(path.join(DATA, 'auth'), { recursive: true, force: true });
+        setTimeout(connect, 2000);
+        return;
       }
       log('Sambungan WhatsApp putus (' + code + '), menyambung ulang...');
+      panel.wa('connecting');
       setTimeout(connect, 5000);
     }
   });
@@ -139,6 +168,7 @@ async function onMessage(m) {
   if (!reply) return;
   await sock.sendMessage(chat, { text: reply }, { quoted: m });
   log('Perintah dijawab:', text.split(/\s+/)[0], isGroup ? '(grup)' : '(pribadi ' + from + ')');
+  panel.count('cmd'); panel.event('bot', text.split(/\s+/).slice(0, 3).join(' ').slice(0, 40));
 }
 
 // Tag anggota grup: Apps Script menulis "@628..." di teks dan nomornya di mentions. Grup yang memakai LID butuh
@@ -161,6 +191,7 @@ async function withMentions(text, nums) {
 
 // Satu laporan: teks saja, atau file (foto/PDF) dengan keterangan pada file pertama.
 async function sendJob(job) {
+  if (FAKE) return;
   const jid = job.to || await targetJid();   // job.to = pengingat bot ke chat pribadi
   const files = job.files || [];
   if (!files.length) {
@@ -178,28 +209,105 @@ async function sendJob(job) {
 
 let busy = false;
 async function poll() {
-  if (busy || !ready) return;
+  if (busy || !ready || paused()) return;
   busy = true;
   try {
     const { jobs } = await api({ action: 'WA_PULL' });
+    panel.pulled((jobs || []).length);
     for (const job of jobs || []) {
       try {
         await sendJob(job);
         await api({ action: 'WA_DONE', key: job.key, ok: true });
         log('Terkirim:', job.key, (job.files || []).length ? (job.files.length + ' file') : 'teks');
+        panel.count('sent'); panel.event('ok', jobLabel(job));
       } catch (e) {
         log('Gagal kirim', job.key + ':', e.message);
+        panel.count('fail'); panel.event('err', 'Gagal: ' + e.message.slice(0, 60));
         await api({ action: 'WA_DONE', key: job.key, ok: false, error: e.message }).catch(() => {});
         if (/tidak ditemukan/.test(e.message)) groupJid = null;
       }
     }
   } catch (e) {
     log('Antrean belum bisa diambil:', e.message);
+    panel.pullFailed(e.message);
   } finally {
     busy = false;
   }
 }
 
-await connect();
-setInterval(poll, POLL_MS);
-log('Gateway berjalan. Cek antrean tiap', POLL_MS / 1000, 'detik. Biarkan jendela ini terbuka.');
+// Ringkasan isi laporan untuk log panel: baris pertama teks, tanpa tanda format WhatsApp.
+function jobLabel(job) {
+  const n = (job.files || []).length;
+  const first = String(job.text || '').split('\n').map(x => x.replace(/[*_~`>]/g, '').trim()).filter(Boolean)[0] || 'Laporan';
+  return (n ? n + ' file · ' : '') + first.slice(0, 48);
+}
+
+// Panel (tampilan) + tombol. Server hanya di 127.0.0.1, kecuali config "panelLan": true.
+await startPanel({
+  dataDir: DATA, port: Number(CFG.panelPort) || 8737, lan: CFG.panelLan === true, configured, pollMs: POLL_MS,
+  config: { url: CFG.url || '', group: CFG.group || '', hasSecret: !!CFG.secret },
+  isReady: () => ready,
+  test: async () => {
+    if (!ready) throw new Error('WhatsApp belum tersambung.');
+    if (!FAKE) await sock.sendMessage(await targetJid(), { text: '✅ Tes IRIS Gateway · ' + new Date().toLocaleString('id-ID') });
+    panel.event('ok', 'Pesan tes terkirim');
+  },
+  reconnect: () => { panel.event('re', 'Sambung ulang manual'); try { sock && sock.end(new Error('sambung ulang')); } catch (e) { setTimeout(connect, 1000); } },
+  relink: async () => { panel.event('re', 'Tautkan ulang'); try { await sock.logout(); } catch (e) { fs.rmSync(path.join(DATA, 'auth'), { recursive: true, force: true }); process.exit(1); } },
+  stop: () => {
+    if (paused()) return;
+    panel.setPaused(true); ready = false; panel.event('err', 'Gateway dihentikan (Stop)'); log('Stop dari panel.');
+    if (FAKE || !sock) { panel.wa('paused'); return; }
+    try { sock.end(new Error('stop')); } catch (e) { panel.wa('paused'); }
+  },
+  start: () => {
+    if (!paused()) return;
+    panel.setPaused(false); activeSince = Date.now(); panel.event('ok', 'Gateway dijalankan lagi'); log('Jalankan dari panel.');
+    if (configured) connect().catch(e => log('Gagal menyambung:', e.message));
+  },
+  quit: () => {
+    // Tutup program: pelari berhenti (kode 4) dan jadwal "jaga" tidak menyalakannya lagi sampai dibuka dari shortcut.
+    try { fs.writeFileSync(path.join(DATA, 'tutup.flag'), new Date().toISOString()); } catch (e) {}
+    panel.event('err', 'Program ditutup dari panel'); log('Program ditutup dari panel.');
+    setTimeout(() => process.exit(4), 300);
+  },
+  passGet: () => readCfg().panelPass || null,
+  passSet: (rec) => { const c = readCfg(); c.panelPass = rec; writeCfg(c); },
+  saveSetup: (c) => {
+    const cur = readCfg();
+    const next = Object.assign({}, cur, { url: c.url || cur.url, group: c.group || cur.group, pollSeconds: cur.pollSeconds || 15 });
+    if (c.secret) next.secret = c.secret;
+    writeCfg(next);
+    setTimeout(() => process.exit(1), 300);   // pelari (jalankan.bat) menyalakan ulang dengan config baru
+  }
+});
+try { fs.rmSync(path.join(DATA, 'tutup.flag'), { force: true }); } catch (e) {}
+
+if (!configured) {
+  log('config belum lengkap (url, secret, group). Isi lewat panel IRIS Gateway atau', CFG_FILE);
+  panel.wa('noconfig');
+} else {
+  await connect();
+  setInterval(poll, POLL_MS);
+  log(paused() ? 'Gateway dalam keadaan Stop (jalankan lagi dari panel).' : 'Gateway berjalan. Cek antrean tiap ' + POLL_MS / 1000 + ' detik.');
+}
+
+// Pengawas: jam loncat > 60 dtk = laptop baru bangun dari sleep -> sambung ulang segera (soket lama biasanya mati diam-diam).
+// WhatsApp tidak tersambung > 5 menit (bukan sedang menunggu scan) atau antrean gagal > 10 menit -> keluar,
+// pelari menyalakan ulang program dari awal.
+let lastTick = Date.now(), downSince = 0;
+setInterval(() => {
+  const now = Date.now(), gap = now - lastTick; lastTick = now;
+  if (gap > 60000) {
+    log('Laptop bangun dari sleep (' + Math.round(gap / 1000) + ' dtk). Menyambung ulang WhatsApp...');
+    panel.resumed(gap);
+    if (configured && !FAKE && !paused()) { try { sock && sock.end(new Error('bangun dari sleep')); } catch (e) {} }
+    downSince = 0; return;
+  }
+  if (!configured || FAKE || paused()) { downSince = 0; return; }
+  const st = panel.state();
+  if (!ready && st.wa !== 'qr') { downSince = downSince || now; if (now - downSince > 5 * 60000) { log('WhatsApp 5 menit tidak tersambung, program dimulai ulang.'); process.exit(1); } }
+  else downSince = 0;
+  if (ready && now - Math.max(st.lastPollOk || 0, st.startedAt, activeSince) > 10 * 60000) { log('Antrean 10 menit gagal diambil, program dimulai ulang.'); process.exit(1); }
+}, 5000);
+process.on('unhandledRejection', e => log('Error:', e && e.message ? e.message : e));

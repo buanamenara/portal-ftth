@@ -1,3 +1,6 @@
 
 android/.tools/
 android/out/
+wa-gateway/state.json
+wa-gateway/data/
+wa-gateway/*.log

@@ -1,0 +1,56 @@
+IRIS GATEWAY (versi portable) - gateway WhatsApp Portal Waspang
+================================================================
+
+Folder ini sudah lengkap: Node.js ada di folder "node", program di "app".
+Tidak perlu memasang Node.js atau menjalankan npm.
+
+PINDAH DARI GATEWAY LAMA (start.bat), di laptop gateway:
+1. Gateway lama boleh dibiarkan menyala: saat IRIS Gateway mulai, gateway lama
+   di laptop yang sama (jendela hitam start.bat) dihentikan otomatis.
+2. Salin folder IRIS-Gateway ini ke laptop, misalnya ke C:\IRIS-Gateway
+   (jangan di dalam OneDrive).
+3. Dari folder gateway lama, salin folder "auth" dan file "config.json"
+   ke folder IRIS-Gateway\data\
+   Dengan begitu WhatsApp tidak perlu ditautkan ulang.
+4. Klik dua kali "Pasang Otomatis.bat" (cukup sekali).
+   - IRIS Gateway menyala sendiri setiap laptop dinyalakan/login,
+     setelah laptop bangun dari sleep, dan dicek ulang tiap 15 menit.
+   - Shortcut "IRIS Gateway" muncul di Desktop untuk membuka panel.
+   - Shortcut start.bat lama di folder Startup dibuang otomatis.
+5. Panel terbuka dan meminta "Buat kata sandi admin" (min. 8 karakter).
+   Setelah itu panel selalu minta kata sandi ini.
+6. Lingkaran hijau + "Tersambung" = siap.
+
+PASANG BARU (belum pernah ada gateway):
+- Klik dua kali "Pasang Otomatis.bat". Buat kata sandi admin, lalu panel
+  menampilkan isian:
+  URL Portal Waspang, kata sandi (sama dengan WA_PC_SECRET di Script
+  Properties Waspang) dan nama grup (REPORT BMI). Simpan.
+- Lalu scan QR di panel dari HP nomor laporan:
+  WhatsApp > Perangkat tertaut > Tautkan perangkat.
+
+PANEL (perlu kata sandi admin)
+- Tes: kirim pesan uji ke grup.
+- Sambung ulang: memutus lalu menyambung lagi ke WhatsApp.
+- Stop: WhatsApp diputus, laporan menunggu di portal. Tetap Stop walau
+  laptop dinyalakan ulang, sampai tombol "Jalankan" ditekan.
+- Tombol ... : Tautkan ulang WhatsApp, Ganti kata sandi, Keluar dari panel,
+  Tutup program (program berhenti total sampai dibuka lagi dari shortcut
+  Desktop atau laptop dinyalakan ulang).
+- Salah kata sandi 5 kali: panel menolak masuk 1 menit (lalu lebih lama).
+- Lupa kata sandi: buka data\config.json dengan Notepad, hapus baris
+  "panelPass" beserta isinya, simpan. Panel lalu minta kata sandi baru.
+- Panel hanya bisa dibuka dari laptop itu sendiri: http://127.0.0.1:8737
+
+PERLU DIINGAT
+- Setelah laptop restart, Windows harus login dulu baru gateway menyala.
+  Bila laptop dipakai tanpa orang, atur login otomatis Windows.
+- Sambungkan charger. Sleep boleh, tapi selama sleep pesan tertunda
+  (terkirim begitu laptop bangun).
+- Bila gateway lama ada di LAPTOP LAIN dengan folder auth yang sama, matikan
+  yang di laptop lain itu. Dua gateway dengan tautan sama saling menendang;
+  panel akan menulis "Dipakai gateway lain".
+- Folder "data" berisi kunci WhatsApp (auth) dan kata sandi (config.json).
+  Jangan dibagikan atau diunggah ke mana pun.
+- Catatan program: data\gateway.log
+- Melepas dari Windows: "Hapus Otomatis.bat" (folder data tidak dihapus).

@@ -1,4 +1,4 @@
-# Gateway WhatsApp Portal Waspang (laptop 24 jam)
+# IRIS Gateway: gateway WhatsApp Portal Waspang (laptop 24 jam)
 
 Program ini menggantikan Fonnte tanpa biaya. Laptop yang menyala 24 jam menautkan nomor WA laporan sebagai
 **perangkat tertaut** (seperti WhatsApp Web). Program lalu mengambil laporan Daily Report dan foto/PDF Dokumentasi
@@ -9,7 +9,49 @@ Laptop yang menghubungi portal, jadi tidak perlu IP publik, port terbuka, atau p
 atau internet putus, laporan menunggu di portal dan terkirim begitu laptop menyala lagi (paling lama 3 hari).
 Laporan dan foto tetap tersimpan di sheet dan Drive seperti biasa.
 
-## Pasang sekali di laptop (Windows)
+## Versi portable + panel (disarankan, sejak 13 Nov 2026)
+
+Paket `IRIS-Gateway-Portable.zip` berisi Node.js 22 portable, program dan semua paket npm. Tidak perlu memasang
+Node.js atau menjalankan `npm install`. Petunjuk singkat ada di `BACA-DULU.txt` di dalam paket.
+
+Isi folder:
+- `node\node.exe` (Node.js 22 LTS portable), `app\` (program ini + `node_modules`), `data\` (`config.json`, `auth\`,
+  `state.json`, `gateway.log`).
+- `IRIS Gateway.vbs`: menyalakan gateway tanpa jendela hitam lalu membuka panel sebagai jendela aplikasi (Edge `--app`).
+- `bin\jalankan.bat`: pelari tersembunyi; bila program berhenti, dinyalakan lagi 5 detik kemudian. Hanya satu pelari
+  per folder (`data\pelari.lock`).
+- `Pasang Otomatis.bat` (tanpa hak admin): jadwal Windows **IRIS Gateway** (20 detik setelah login, juga setelah
+  restart) dan **IRIS Gateway (jaga)** (15 detik setelah bangun dari sleep, dan tiap 15 menit), shortcut Desktop,
+  dan membuang shortcut `start.bat` lama dari folder Startup. `Hapus Otomatis.bat` melepas semuanya.
+
+Pindah dari gateway lama: salin folder `auth` dan `config.json` lama ke `IRIS-Gateway\data\`, lalu klik dua kali
+`Pasang Otomatis.bat`. WhatsApp tidak perlu ditautkan ulang. Gateway lama tidak perlu ditutup dulu: setiap kali
+pelari mulai, `bin\ambil-alih.ps1` menghentikan gateway lain di laptop yang sama (`start.bat` + `node gateway.mjs`,
+atau IRIS Gateway dari folder lain). Gateway lama di laptop lain tetap harus dimatikan; bila tidak, keduanya saling
+menendang dan panel menulis "Dipakai gateway lain" (dicoba lagi tiap 60 detik).
+
+Panel (`http://127.0.0.1:8737`, hanya dari laptop itu) dikunci kata sandi admin: dibuat saat panel pertama dibuka,
+disimpan sebagai hash scrypt di `config.json` (`panelPass`), sesi 12 jam (cookie HttpOnly). Salah 5 kali = ditolak
+1 menit (makin lama bila diulang). Lupa kata sandi: hapus `panelPass` dari `data\config.json`. Isi panel: status WhatsApp, kapan antrean terakhir dicek, jumlah
+menunggu / terkirim hari ini / gagal, garis 24 jam, catatan kejadian, tombol Tes, Sambung ulang, **Stop** / Jalankan (tersimpan di `state.json`, tetap Stop walau
+restart), dan menu ⋯: Tautkan ulang (QR baru tampil di panel), Ganti kata sandi, Keluar, **Tutup program** (keluar
+kode 4, `data\tutup.flag` membuat jadwal "jaga" tidak menyalakannya; shortcut Desktop atau login berikutnya
+menyalakan lagi). Selama Stop, alarm email `BOT_ALARM_EMAIL` tetap berbunyi setelah 15 menit. Bila `config.json` belum ada, panel menampilkan isian URL, kata sandi dan grup.
+
+Pengawas di dalam program: bila jam melompat lebih dari 60 detik (laptop bangun dari sleep) koneksi WhatsApp
+disambung ulang; bila belum tersambung 5 menit (bukan sedang menunggu scan QR) atau antrean tidak berhasil dicek
+10 menit, program keluar dan pelari menyalakannya lagi. Bila WhatsApp mengeluarkan perangkat, folder `auth` dibuang
+dan QR baru tampil di panel.
+
+Opsi `config.json` tambahan: `panelPort` (bawaan 8737), `panelLan: true` (panel bisa dibuka dari jaringan, tanpa
+login, jadi jangan dipakai di Wi-Fi umum).
+
+Membuat paket baru: unduh `node-v22.x-win-x64.zip` dari nodejs.org (cek SHA256), salin `node.exe` ke `node\`, salin
+`gateway.mjs`, `panel.mjs`, `panel.html`, `xlsx-mini.mjs`, `assets\`, `package.json`, `package-lock.json` ke `app\`,
+jalankan `npm ci --omit=dev` di `app\`, salin isi `portable\` dari repo ke akar paket, lalu zip tanpa `data\auth`
+dan `data\config.json`.
+
+## Pasang cara lama (Node.js terpasang, jendela hitam)
 
 1. Pasang **Node.js versi LTS** dari https://nodejs.org (Next sampai selesai).
 2. Salin folder `wa-gateway` ke laptop, misalnya ke `C:\wa-gateway`.
@@ -60,10 +102,10 @@ Pengingat dikirim saat laptop mengambil antrean, jadi bisa terlambat sampai 15 d
 ## Supaya tetap menyala 24 jam
 
 - Pengaturan daya laptop: **Sleep = Never**, dan saat layar ditutup = **Do nothing**. Sambungkan charger terus.
-- Jalan otomatis saat laptop menyala: tekan `Win + R`, ketik `shell:startup`, Enter, lalu taruh **shortcut**
-  `start.bat` di folder yang terbuka. Atur juga Windows supaya masuk otomatis tanpa kata sandi bila perlu.
-- Jendela hitam `Gateway WhatsApp Portal Waspang` harus tetap terbuka (boleh diperkecil). Bila program berhenti,
-  `start.bat` menjalankannya lagi sendiri.
+- Versi portable: `Pasang Otomatis.bat` sudah mengatur jalan otomatis saat login dan setelah sleep. Atur Windows
+  supaya masuk otomatis tanpa kata sandi bila laptop dipakai tanpa orang.
+- Cara lama: tekan `Win + R`, ketik `shell:startup`, Enter, lalu taruh **shortcut** `start.bat` di folder yang
+  terbuka. Jendela hitam `Gateway WhatsApp Portal Waspang` harus tetap terbuka (boleh diperkecil).
 - HP nomor laporan perlu tersambung internet setidaknya sekali dalam 14 hari, kalau tidak WhatsApp melepas semua
   perangkat tertaut.
 - Bila jendela menulis "Perangkat dikeluarkan dari WhatsApp", hapus folder `auth` lalu jalankan `start.bat` dan
