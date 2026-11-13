@@ -625,7 +625,12 @@ function waCmd_(p) {
   if (!m) return { status: 'success', reply: '' };
   var cmd = m[1].toLowerCase(), arg = m[2].trim(), out;
   switch (cmd) {
-    case 'bantu': case 'bantuan': case 'menu': case 'help': case '?':
+    case 'menu':
+      if (p.canPoll) return botMenuPoll_(owner, arg);   // gateway baru: kirim polling
+      out = botHelp_(owner); break;
+    case 'pilih':   // pilihan dari polling Menu IRIS (dikirim gateway saat anggota menekan pilihan)
+      return botMenuPilih_(p, owner, arg);
+    case 'bantu': case 'bantuan': case 'help': case '?':
       out = botHelp_(owner); break;
     case 'stok': case 'stock': case 'saldo':
       out = botStok_(arg); break;
@@ -706,6 +711,55 @@ function waCmd_(p) {
   return { status: 'success', reply: parts[0].replace(/_\(1\/\d+\)_$/, '_(bersambung)_') };
 }
 
+// ---- Menu IRIS lewat polling WhatsApp: !menu (semua) dan !menu admin (admin). ----
+// label = teks pilihan di polling (maks 12, harus unik); cmd = perintah yang dijalankan; tanya = pilihan yang butuh ketikan.
+var BOT_MENU_ = [
+  { label: '📊 Rekap hari ini', cmd: 'rekap' },
+  { label: '📅 Rekap mingguan', cmd: 'mingguan' },
+  { label: '🗓️ Rekap bulan ini', cmd: 'bulanan ini' },
+  { label: '🏙️ Rekap bulan ini per kota & SOW', cmd: 'bulanan kota sow ini' },
+  { label: '📦 Stok gudang', cmd: 'stok' },
+  { label: '✂️ Potongan kabel', cmd: 'potongan' },
+  { label: '🔎 Cari site', tanya: 'Ketik ' + waKode_('!site <kata>') + '\n_contoh:_ ' + waKode_('!site jati baru') },
+  { label: '📈 Progres site', tanya: 'Ketik ' + waKode_('!progres <site>') + '\n_contoh:_ ' + waKode_('!progres jati baru rt 04') },
+  { label: '✏️ Revisi Daily Report', tanya: 'Ketik ' + waKode_('!revisi <site> [dd/mm]') + '\n_contoh:_ ' + waKode_('!revisi mf beruntung 12/11') },
+  { label: '📖 Panduan PDF', cmd: 'panduan' },
+  { label: '❓ Semua perintah', cmd: 'bantu' }
+];
+var BOT_MENU_ADMIN_ = [
+  { label: '🟢 Status IRIS', cmd: 'status' },
+  { label: '🔧 Pulihkan data hilang', cmd: 'pulihkan' },
+  { label: '💾 Backup sekarang', cmd: 'backup' },
+  { label: '🧹 Buang backup lama', cmd: 'backup bersih' },
+  { label: '⚠️ Stok menipis', cmd: 'stokmin' },
+  { label: '💤 Site tanpa laporan', cmd: 'mangkrak' },
+  { label: '📐 Melebihi Plan BOQ', cmd: 'boq' },
+  { label: '🌅 Contoh pesan pagi', cmd: 'pagi' },
+  { label: '🌇 Contoh pesan sore', cmd: 'sore' },
+  { label: '📝 Catatan terakhir', cmd: 'catatan' },
+  { label: '⏰ Daftar pengingat', cmd: 'pengingat' }
+];
+
+function botMenuPoll_(owner, arg) {
+  var admin = /^admin\b/i.test(arg || '');
+  if (admin && !owner) return { status: 'success', reply: '' };
+  var list = admin ? BOT_MENU_ADMIN_ : BOT_MENU_;
+  return { status: 'success', reply: '', poll: { name: admin ? '✦ Menu Admin IRIS' : '✦ Menu IRIS', values: list.map(function (x) { return x.label; }) } };
+}
+
+function botMenuPilih_(p, owner, label) {
+  var it = BOT_MENU_.concat(BOT_MENU_ADMIN_).filter(function (x) { return x.label === label; })[0];
+  if (!it) return { status: 'success', reply: '' };   // polling lama yang isinya sudah berubah
+  if (BOT_MENU_ADMIN_.indexOf(it) >= 0 && !owner) return { status: 'success', reply: '' };
+  if (it.tanya) return { status: 'success', reply: waText_('✦ ' + (p.chat === 'group' ? it.tanya : it.tanya.replace(/`!/g, '`'))) };
+  var q = {};
+  Object.keys(p).forEach(function (k) { q[k] = p[k]; });
+  q.text = (p.chat === 'group' ? '!' : '') + it.cmd;
+  var r = waCmd_(q);
+  p.cmd = q.cmd;
+  return r;
+}
+
 // Batas panjang pesan. WhatsApp sendiri menerima sampai ~65.000 huruf; balasan langsung dibatasi 20.000 supaya masih nyaman dibaca.
 // Pesan lewat antrean disimpan di Script Properties yang maksimal 9 KB per nilai, jadi maks 6.000 huruf per pesan (sisa ruang untuk
 // huruf multi-byte seperti ≡ dan emoji). Yang lebih panjang tidak dipotong, tapi dipecah jadi beberapa pesan berurutan.
@@ -763,6 +817,7 @@ function botHelp_(owner) {
     '- ' + K('revisi <site> [dd/mm]') + ' perbaiki Daily Report yang sudah terkirim' + (owner ? '' : ' _(dikonfirmasi admin)_'),
     '- ' + K('hapusba <nomor BA> [alasan]') + ' hapus BA salah input' + (owner ? '' : ' _(dikonfirmasi admin)_'),
     '- ' + K('panduan') + ' PDF panduan perintah',
+    '- ' + K('menu') + ' menu pilihan (polling, tinggal tekan)' + (owner ? ' · ' + A('menu admin') + ' menu admin' : ''),
     '- ' + K('bantu') + ' daftar ini',
     '- Kirim Excel stok WH dengan caption ' + K('stokwh') + ', dicocokkan dengan SALDO GUDANG',
     '', '⏰ *OTOMATIS KE GRUP*',
@@ -1907,7 +1962,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-11-13-3';
+var BOT_PANDUAN_VERSI_ = '2026-11-13-4';
 // Baris ['#Judul'] = judul kelompok di tabel perintah.
 var BOT_PANDUAN_TIM_ = [
   ['#Cek data proyek'],
@@ -1929,6 +1984,7 @@ var BOT_PANDUAN_TIM_ = [
   ['!hapusba &lt;nomor BA&gt; [alasan]', 'Minta hapus BA yang salah input di Portal Warehouse. Bot menampilkan isi BA dan meneruskannya ke admin; BA baru dihapus setelah admin mengonfirmasi. Saldo gudang ikut terkoreksi, lalu input ulang BA yang benar di portal.', '!hapusba HST/2610/001 salah tanggal | !hapusba BA-261026-180847'],
   ['Excel + caption !stokwh', 'Kirim file Excel stok WH (.xlsx). Selisih dengan saldo portal dikirim ke admin untuk disetujui.', '!stokwh | !stokwh batola'],
   ['#Bantuan'],
+  ['!menu', 'Kirim polling Menu IRIS. Tekan salah satu pilihan (rekap, stok, potongan, panduan, ...) dan IRIS langsung menjawab; polling yang sama bisa dipakai lagi. Pilihan yang butuh nama site memberi contoh perintah yang perlu diketik. Admin: <b>menu admin</b> untuk status, pulihkan, backup, dll.', '!menu | menu admin'],
   ['!bantu', 'Daftar perintah singkat langsung di WhatsApp.', '!bantu'],
   ['!panduan', 'Kirim PDF panduan ini ke grup.', '!panduan']
 ];
