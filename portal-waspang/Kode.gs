@@ -305,7 +305,7 @@ function uploadWaspangPhotos_(payload) {
   });
 
   var caption = buildWaspangPhotoCaption_(payload);
-  var waOk = sendWaspangPhotosToWhatsApp_(blobs, saved, caption);
+  var waOk = sendWaspangPhotosToWhatsApp_(blobs, saved, caption, botGrupSite_(payload.siteName, payload.sow));
   logWaspangPhotoToSheet_(payload, targetFolder.getUrl(), saved, waOk);
 
   var res = { status: 'success', folderUrl: targetFolder.getUrl(), waSent: waOk };
@@ -435,8 +435,8 @@ function waSend_(wa, message, blob) {
 
 // Foto / PDF Dokumentasi Lapangan. Script Property WA_SEND_FILES (paket berbayar): keterangan ikut pada file pertama, file lain
 // menyusul satu per satu. Paket gratis: satu pesan berisi keterangan laporan + link tiap file. -> true bila terkirim.
-function sendWaspangPhotosToWhatsApp_(blobs, saved, caption) {
-  if (waPcMode_()) return waEnqueue_(caption, saved);
+function sendWaspangPhotosToWhatsApp_(blobs, saved, caption, grup) {
+  if (waPcMode_()) return waEnqueue_(caption, saved, grup);
   var wa = waConfig_();
   if (!wa) return false;
   if (wa.files && blobs.length) {
@@ -465,8 +465,8 @@ function sendWaLinks_(wa, caption, saved) {
   return waSend_(wa, (caption ? caption + '\n\n' : '') + '📷 *Foto / dokumen*:\n' + links.join('\n'));
 }
 
-function sendDailyReportToWhatsApp_(text) {
-  if (waPcMode_()) return waEnqueue_(text, []);
+function sendDailyReportToWhatsApp_(text, grup) {
+  if (waPcMode_()) return waEnqueue_(text, [], grup);
   var wa = waConfig_();
   return wa ? waSend_(wa, text) : false;
 }
@@ -512,11 +512,11 @@ function waPcMode_() {
 }
 
 // Laporan (teks + file Drive yang sudah tersimpan) ke antrean laptop. -> true bila masuk antrean.
-function waEnqueue_(text, saved) {
+function waEnqueue_(text, saved, grup) {
   try {
     var now = Date.now();
     var job = {
-      t: now, n: 0, last: 0,
+      t: now, n: 0, last: 0, grup: grup || '',
       text: waText_(text).slice(0, 6000),   // satu Script Property maksimal 9 KB
       files: (saved || []).map(function (f) { return { id: f.file.getId(), name: f.name }; })
     };
@@ -556,9 +556,9 @@ function waPull_(p) {
       return;
     }
     if (j.n && now - j.last < j.n * 60000) return;
-    if (jobs.length < 3) jobs.push({ key: k, text: j.text, files: j.files, to: j.to || '', mentions: j.mentions || [] });
+    if (jobs.length < 3) jobs.push({ key: k, text: j.text, files: j.files, to: j.to || '', grup: j.grup || '', mentions: j.mentions || [] });
   });
-  return { status: 'success', jobs: jobs };
+  return { status: 'success', jobs: jobs, grup: botGrupMap_() };   // grup region -> nama grup WA (gateway baru)
 }
 
 // Isi satu file dari laporan di antrean (hanya file yang memang ada di laporan itu).
@@ -616,6 +616,13 @@ function waOwner_(from) {
 // p = {secret, chat: 'group' | 'dm', from: nomor pengirim, fromName, jid: tujuan balasan, text}
 // -> {status, reply: teks balasan atau '' (tidak dijawab)}
 function waCmd_(p) {
+  var lama = BOT_GRUP_CTX_;
+  // Perintah dari grup: saring ke region grup itu (hanya bila sudah ada grup region). p.grup = kunci region dari gateway.
+  if (p.chat === 'group' && botGrupAktif_()) BOT_GRUP_CTX_ = botGrupDariRegion_(p.grup);
+  try { return waCmdIsi_(p); } finally { BOT_GRUP_CTX_ = lama; }
+}
+
+function waCmdIsi_(p) {
   waPcAuth_(p);
   var owner = waOwner_(p.from), text = String(p.text || '').trim();
   if (p.chat !== 'group' && !owner) return { status: 'success', reply: '' };
@@ -656,6 +663,8 @@ function waCmd_(p) {
       out = owner ? botImplementasi_(arg) : ''; break;
     case 'tim':
       out = owner ? botTimCmd_(arg) : ''; break;
+    case 'grup': case 'group':
+      out = owner ? botGrupCmd_(arg) : ''; break;
     case 'batas':
       out = owner ? botBatasCmd_(arg) : ''; break;
     case 'stokmin': case 'menipis':
@@ -789,7 +798,7 @@ function waAntreBagian_(parts, job, akhiran) {
   parts.forEach(function (x, i) {
     var t = t0 + i;
     props.setProperty(WAQ_PREFIX_ + t + (akhiran || '_bag') + i, JSON.stringify({ t: t, n: 0, last: 0, files: [], to: job.to || '',
-      mentions: i ? [] : (job.mentions || []), text: x }));
+      grup: job.grup || '', mentions: i ? [] : (job.mentions || []), text: x }));
   });
 }
 
@@ -861,6 +870,7 @@ function botHelp_(owner) {
     '- ' + A('status') + ' gateway, antrean, jadwal, error hari ini',
     '- ' + A('backup') + ' backup spreadsheet sekarang · ' + A('backup bersih') + ' buang backup lama',
     '- ' + A('pulihkan') + ' cek & pulihkan Daily Report / log foto yang hilang (otomatis tiap jam)',
+    '- ' + A('grup') + ' grup WA per region · ' + A('grup pontianak <nama grup>') + ' laporan Pontianak ke grup sendiri',
     '- ' + A('panduan lengkap') + ' PDF semua perintah (ke chat pribadi)']);
   return s.join('\n');
 }
@@ -991,7 +1001,7 @@ function botRekap_(arg) {
     else if ((m = w.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/))) { day = botDmy_(m[1] + '/' + m[2] + '/' + (m[3] || Utilities.formatDate(now, BOT_TZ_.id, 'yyyy'))); pilih = true; }
     else lain.push(w);
   });
-  var km = lain.length ? botKotaMap_() : null, f = km ? botFilterSowKota_(lain, km) : { sow: '', kota: '', region: '', sisa: [] };
+  var km = lain.length || BOT_GRUP_CTX_ !== null ? botKotaMap_() : null, f = km ? botFilterSowKota_(lain, km) : { sow: '', kota: '', region: '', sisa: [] };
   if (f.sisa.length) return botFilterSalah_('rekap', f.sisa.join(' '), km) + ' ' + waKode_('rekap kemarin fwa');
   if (f.perSow || f.perKota) {
     var p = day.split('/'), ms = Date.UTC(+p[2], +p[1] - 1, +p[0]) - 8 * 3600000 + 12 * 3600000;
@@ -1005,7 +1015,7 @@ function botRekap_(arg) {
     return !/^(saldo awal|koreksi total)/i.test(String(r[c.a] || '')) && (!km || botRowLolos_(r, c, f, km));
   });
   var rows = semua.filter(function (r) { return botDmy_(r[c.t]) === day; });
-  var label = [f.sow, f.kota, f.region && 'Region ' + f.region].filter(Boolean).join(' · '), catatan = '';
+  var label = [f.sow, f.kota, f.region && 'Region ' + f.region, km && botFilterGrup_(f) && 'Region ' + botGrupNama_(BOT_GRUP_CTX_)].filter(Boolean).join(' · '), catatan = '';
   if (!rows.length && !pilih) {
     // Hari ini belum ada laporan (biasanya dikirim malam): tampilkan hari terakhir yang ada laporannya.
     var kunciHari = botDmyKey_(day), akhir = '';
@@ -1084,12 +1094,12 @@ function botPengingat_(jid) {
 // Permit dikirim pemilik lewat chat pribadi ("permit" + daftar) dan dipakai di Today's Plan berikutnya.
 // Nomor WA tim untuk di-tag disimpan lewat perintah "tim <nama> <nomor>" (nama = PIC di Daily Report).
 var BOT_JADWAL_ = [
-  { id: 'PAGI', from: '07:00', until: '10:00', build: function (now) { return { text: botPagi_(now), mentions: [] }; } },
-  { id: 'SORE', from: '17:30', until: '19:30', build: function (now) { return botSore_(now); } },
+  { id: 'PAGI', from: '07:00', until: '10:00', perGrup: true, build: function (now) { return { text: botPagi_(now), mentions: [] }; } },
+  { id: 'SORE', from: '17:30', until: '19:30', perGrup: true, build: function (now) { return botSore_(now); } },
   { id: 'STOK', from: '07:00', until: '10:00', build: function (now) { return { text: botStokMenipis_(Number(botWita_(now, 'u')) === 1), to: botOwnerJid_() }; } },   // Senin: daftar lengkap
-  { id: 'MINGGU', from: '07:00', until: '10:00', day: 1, build: function (now) { return { text: botMingguan_(now) }; } },
-  { id: 'BULAN', from: '07:00', until: '10:00', date: 1, build: function (now) { return { text: botBulanan_(now) }; } },
-  { id: 'MANGKRAK', from: '07:05', until: '10:00', build: function (now) { return botMangkrak_(now, Number(botWita_(now, 'u')) === 1 ? 'senin' : false); } },
+  { id: 'MINGGU', from: '07:00', until: '10:00', day: 1, perGrup: true, build: function (now) { return { text: botMingguan_(now) }; } },
+  { id: 'BULAN', from: '07:00', until: '10:00', date: 1, perGrup: true, build: function (now) { return { text: botBulanan_(now) }; } },
+  { id: 'MANGKRAK', from: '07:05', until: '10:00', perGrup: true, build: function (now) { return botMangkrak_(now, Number(botWita_(now, 'u')) === 1 ? 'senin' : false); } },
   { id: 'BOQ', from: '07:05', until: '10:00', day: 1, build: function (now) { return { text: botBoqLewat_(now), to: botOwnerJid_() }; } },   // Senin saja
   { id: 'WH', from: '08:00', until: '11:00', build: function (now) { return botWhIngat_(now); } },   // Senin, tanggal 28 dan tanggal 1
   { id: 'WHBASI', from: '07:10', until: '10:00', build: function (now) { return { text: botWhBasi_(now), to: botOwnerJid_() }; } }
@@ -1111,13 +1121,25 @@ function botJadwal_() {
     try {
       if (props.getProperty('BOT_SENT_' + j.id) === today) return;
       props.setProperty('BOT_SENT_' + j.id, today);   // dulu ditandai, supaya tidak terkirim dua kali bila gagal di tengah
-      var msg = j.build(now);
+      // Ada grup region (perintah "grup"): pesan grup dibuat per grup, masing-masing hanya berisi site / tim region itu.
+      var ctxs = j.perGrup && botGrupAktif_() ? [''].concat(Object.keys(botGrupMap_())) : [null];
+      ctxs.forEach(function (ctx) {
+        BOT_GRUP_CTX_ = ctx;
+        try {
+          var msg = j.build(now);
+          if (!msg || !msg.text) return;
+          if (ctx) msg.grup = ctx;
+          waAntreBagian_(waPecah_(waText_(msg.text)), msg, '_' + j.id.toLowerCase() + (ctx ? '_' + ctx.toLowerCase().replace(/\W+/g, '') : ''));   // pesan panjang (rekap bulanan) jadi beberapa bagian
+        } catch (e) {
+          console.error('Jadwal bot ' + j.id + (ctx ? ' (' + ctx + ')' : '') + ': ' + e);
+        } finally {
+          BOT_GRUP_CTX_ = null;
+        }
+      });
       if (j.id === 'PAGI') Object.keys(props.getProperties()).forEach(function (k) {   // permit / implementasi hari yang sudah lewat
         var m = k.match(/^BOT_(PERMIT|IMPL|IMPLX)_(\d{8})$/);
         if (m && m[2] < today) props.deleteProperty(k);
       });
-      if (!msg || !msg.text) return;
-      waAntreBagian_(waPecah_(waText_(msg.text)), msg, '_' + j.id.toLowerCase());   // pesan panjang (rekap bulanan) jadi beberapa bagian
     } catch (e) {
       console.error('Jadwal bot ' + j.id + ': ' + e);
     } finally {
@@ -1131,10 +1153,11 @@ function botJadwal_() {
 function botDailyRows_() {
   var sh = dailySheet_(), h = sheetHeader_(sh), last = sh.getLastRow();
   if (last < 2) return [];
-  var c = { ts: h.idx['timestamp'], t: h.idx['tanggal'], n: h.idx['cluster name'], p: h.idx['pic'], a: h.idx['today activity'] };
-  var width = Math.max(c.ts, c.t, c.n, c.p, c.a) + 1;
+  var c = { ts: h.idx['timestamp'], t: h.idx['tanggal'], n: h.idx['cluster name'], p: h.idx['pic'], a: h.idx['today activity'], s: h.idx['sow'] };
+  var width = Math.max(c.ts, c.t, c.n, c.p, c.a, c.s === undefined ? 0 : c.s) + 1;
+  var km = BOT_GRUP_CTX_ !== null ? botKotaMap_() : null;
   return sh.getRange(2, 1, last - 1, width).getValues().filter(function (r) {
-    return !/^(saldo awal|koreksi total)/i.test(String(r[c.a] || ''));
+    return !/^(saldo awal|koreksi total)/i.test(String(r[c.a] || '')) && (!km || botGrupSite_(r[c.n], c.s === undefined ? '' : r[c.s], km) === BOT_GRUP_CTX_);
   }).map(function (r) {
     return { day: botDmy_(r[c.t]) || botDmy_(r[c.ts]), sent: botDmy_(r[c.ts]), site: siteName_(r[c.n]), pic: String(r[c.p] || '').trim(), act: String(r[c.a] || '') };
   });
@@ -1186,11 +1209,12 @@ function botPagi_(now) {
   var oto = botPagiOtomatis_(todayKey), acts = oto.acts, buang = botImplBuang_('BOT_IMPLX_' + todayKey);
   // implementasi buang <kata>: site otomatis yang namanya memuat kata itu tidak dimasukkan
   var sites = oto.sites.filter(function (n) { return !buang.some(function (k) { return n.toLowerCase().indexOf(k) >= 0; }); });
-  var permit = props.getProperty('BOT_PERMIT_' + todayKey) || '';
-  var impl = props.getProperty('BOT_IMPL_' + todayKey) || '';   // dari perintah implementasi, ditambahkan ke daftar dari Daily Report terakhir
+  var reg = BOT_GRUP_CTX_ || '';   // grup region: permit / implementasi (perintah pemilik) hanya untuk grup utama
+  var permit = reg ? '' : props.getProperty('BOT_PERMIT_' + todayKey) || '';
+  var impl = reg ? '' : props.getProperty('BOT_IMPL_' + todayKey) || '';   // dari perintah implementasi, ditambahkan ke daftar dari Daily Report terakhir
   var s = ['» *TODAY\'S PLAN*  : ' + botWita_(now, 'dd/MM/yyyy'),
-    '» *PIC*  :  ' + (props.getProperty('BOT_PIC') || 'Rama'),
-    '» *REGION*  : ' + (props.getProperty('BOT_REGION') || 'Banjarmasin'),
+    '» *PIC*  :  ' + ((reg && props.getProperty('BOT_PIC_' + reg.toUpperCase())) || props.getProperty('BOT_PIC') || 'Rama'),
+    '» *REGION*  : ' + (reg || props.getProperty('BOT_REGION') || 'Banjarmasin'),
     BOT_GARIS_];
   if (permit) s = s.concat(['*Permit*', 'Cluster :'], permit.split('\n'), ['']);   // tanpa permit malam itu = bagian Permit tidak ada
   // Daftar dari perintah implementasi digabung ke daftar otomatis: site baru ditambah di bawah.
@@ -1228,13 +1252,13 @@ function botTim_() {
 function botSoreKirim_() {
   var now = Date.now(), msg = botSore_(now);
   PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + now + '_sore', JSON.stringify({
-    t: now, n: 0, last: 0, files: [], to: '', mentions: msg.mentions || [], text: waText_(msg.text)
+    t: now, n: 0, last: 0, files: [], to: '', grup: BOT_GRUP_CTX_ || '', mentions: msg.mentions || [], text: waText_(msg.text)
   }));
   return 'Pengingat laporan dikirim ke grup' + (msg.mentions.length ? ', ' + msg.mentions.length + ' orang di-tag.' : '. Semua tim sudah lapor, tidak ada yang di-tag.');
 }
 
 function botSore_(now) {
-  var day = botWita_(now, 'dd/MM/yyyy'), tim = botTim_();
+  var day = botWita_(now, 'dd/MM/yyyy'), tim = botTimGrup_(BOT_GRUP_CTX_);
   var pics = botDailyRows_().filter(function (r) { return r.day === day || r.sent === day; })
     .map(function (r) { return r.pic.toLowerCase(); }).filter(Boolean);
   var sudah = [], belum = [];
@@ -1469,19 +1493,20 @@ function botMingguan_(now, arg) {
     else if (w === 'minggu' || w === 'pekan') { /* "minggu ini" / "minggu lalu" */ }
     else lain.push(w);
   });
-  var km = lain.length ? botKotaMap_() : null, f = km ? botFilterSowKota_(lain, km) : null;
+  var km = lain.length || BOT_GRUP_CTX_ !== null ? botKotaMap_() : null, f = km ? botFilterSowKota_(lain, km) : null;
   if (f && f.sisa.length) return botFilterSalah_('mingguan', f.sisa.join(' '), km);
   return botRekapPeriode_(dari, sampai, '📊 *REKAP MINGGUAN' + (f ? botLabelFilter_(f) : '') + '* ' + botWita_(dari, 'dd/MM') + ' - ' + botWita_(sampai, 'dd/MM/yyyy'),
     f ? botOptFilter_(f, km) : {});
 }
 // Judul dan opsi rekap dari hasil botFilterSowKota_.
 function botLabelFilter_(f) {
-  var label = [f.sow && f.sow.toUpperCase(), f.kota && f.kota.toUpperCase(), f.region && 'REGION ' + f.region.toUpperCase()].filter(Boolean).join(' · ');
+  var label = [f.sow && f.sow.toUpperCase(), f.kota && f.kota.toUpperCase(), f.region && 'REGION ' + f.region.toUpperCase(),
+    botFilterGrup_(f) && 'REGION ' + botGrupNama_(BOT_GRUP_CTX_).toUpperCase()].filter(Boolean).join(' · ');
   var per = f.perKota && f.perSow ? ' PER KOTA & SOW' : f.perKota ? ' PER KOTA' : f.perSow && !f.sow ? ' PER SOW' : '';
   return (label ? ' · ' + label : '') + per;
 }
 function botOptFilter_(f, km) {
-  return { sow: f.sow, kota: f.kota, region: f.region, km: km, perKota: f.perKota, perSow: f.perSow && (!f.sow || f.perKota) };
+  return { sow: f.sow, kota: f.kota, region: f.region, semua: f.semua, km: km, perKota: f.perKota, perSow: f.perSow && (!f.sow || f.perKota) };
 }
 
 // Rekap Daily Report dari hari 'dari' sampai hari 'sampai' (ms, WITA, dua-duanya ikut).
@@ -1613,7 +1638,7 @@ function botCekDaily_(payload) {
   var text = waText_(['⚠️ *Cek Daily Report*', '> *' + name + '* (' + sow + ')' + (pic ? ' · PIC ' + (no ? '@' + no : pic) : '')]
     .concat(cek.map(function (x, i) { return (i + 1) + '. ' + x; }))
     .concat(['Salah input? Balas ' + waKode_('!revisi ' + String(name).toLowerCase())]).join('\n'));
-  PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + now + '_cek', JSON.stringify({ t: now, n: 0, last: 0, files: [], mentions: no ? [no] : [], text: text }));
+  PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + now + '_cek', JSON.stringify({ t: now, n: 0, last: 0, files: [], mentions: no ? [no] : [], text: text, grup: botGrupSite_(cluster, sow) }));
 }
 
 // ---- BA Ambil dan BA Masuk (Pembelian / Transfer) baru di BA TRANSAKSI (Portal FTTH) diteruskan ke grup. Dicek paling sering
@@ -1656,7 +1681,8 @@ function botBaBaru_() {
     var fid = ix('File ID') >= 0 ? String(r[ix('File ID')] || '').trim() : '';
     var fname = (ix('Nama File PDF') >= 0 ? String(r[ix('Nama File PDF')] || '').trim() : '') || (String(r[ix('ID BA')] || 'BA') + '.pdf');
     var t = Date.now() + i;
-    props.setProperty(WAQ_PREFIX_ + t + '_ba', JSON.stringify({ t: t, n: 0, last: 0, files: fid ? [{ id: fid, name: fname }] : [], mentions: [], text: text.slice(0, 3000) }));
+    props.setProperty(WAQ_PREFIX_ + t + '_ba', JSON.stringify({ t: t, n: 0, last: 0, files: fid ? [{ id: fid, name: fname }] : [], mentions: [], text: text.slice(0, 3000),
+      grup: botGrupSite_(r[ix('Name')], r[ix('SOW')]) }));
   });
 }
 
@@ -1962,7 +1988,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-11-13-4';
+var BOT_PANDUAN_VERSI_ = '2026-11-13-5';
 // Baris ['#Judul'] = judul kelompok di tabel perintah.
 var BOT_PANDUAN_TIM_ = [
   ['#Cek data proyek'],
@@ -2028,6 +2054,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['#Sistem'],
   ['status', 'Gateway, antrean pesan, jadwal hari ini, Excel WH, backup terakhir, kesehatan spreadsheet dan error hari ini.', 'status'],
   ['backup', 'Backup spreadsheet FTTH + Waspang ke Drive sekarang.', 'backup'],
+  ['grup', 'Grup WhatsApp per region. ' + '<b>grup pontianak &lt;nama grup WA&gt;</b>: laporan, cek, BA, revisi, Today\'s Plan, pengingat 17:30, rekap Senin / tanggal 1, dan site tanpa laporan untuk site region Pontianak dikirim ke grup itu; region lain tetap ke grup utama. Perintah dari grup region (rekap, mingguan, bulanan) otomatis hanya region itu, tambah <b>semua</b> untuk semua region. <b>grup pontianak pic &lt;nama&gt;</b> = PIC Today\'s Plan; <b>grup pontianak tim &lt;nama&gt;</b> = pindahkan anggota tim yang di-tag 17:30 (bawaan: dari site yang paling sering dilaporkan). <b>grup pontianak hapus</b> = kembali satu grup.', 'grup | grup pontianak Report Pontianak'],
   ['pulihkan', 'Setiap Daily Report dan log foto juga disalin ke tab JURNAL WASPANG (spreadsheet LOG ARSIP). Tiap jam IRIS mencocokkan jurnal dengan spreadsheet Waspang; baris yang hilang (mis. versi spreadsheet dikembalikan) ditulis lagi otomatis dan admin diberi tahu. Perintah ini menjalankan pengecekan sekarang. Laporan yang memang mau dihapus: pakai revisi &lt;site&gt; lalu revisi hapus.', 'pulihkan'],
   ['backup bersih', 'Backup lama di Drive (folder Backup Portal BMI dan BMI-FTTH Backup) dipindah ke Sampah, hanya yang terbaru per spreadsheet disisakan. Otomatis juga tiap kali backup mingguan jalan.', 'backup bersih'],
   ['panduan lengkap', 'PDF ini, selalu dikirim ke chat pribadi admin.', 'panduan lengkap']
@@ -2507,7 +2534,7 @@ function botRevisiJalan_(pend, who) {
     }
     if (pend.jenis !== 'hapus') { SpreadsheetApp.flush(); jurnalTandai_(kunciLama, '', sh.getRange(x.row, 1, 1, h.width).getValues()[0], h); }
     var props = PropertiesService.getScriptProperties(), t = Date.now() + Math.floor(Math.random() * 1000);
-    props.setProperty(WAQ_PREFIX_ + t + '_revisi', JSON.stringify({ t: t, n: 0, last: 0, files: [], mentions: [], text: grup }));
+    props.setProperty(WAQ_PREFIX_ + t + '_revisi', JSON.stringify({ t: t, n: 0, last: 0, files: [], mentions: [], text: grup, grup: botGrupSite_(s.site, s.sow) }));
     return '✅ ' + jenis + ' disimpan: ' + botRevisiJudul_(s) + '\n' + pend.ubah +
       '\nSalinan sebelum diubah di tab ' + BOT_DAILY_ARSIP_ + ' (spreadsheet LOG ARSIP). Grup diberi tahu.';
   } finally {
@@ -2621,9 +2648,9 @@ function botTundaList_() {
 
 function botMangkrak_(now, semua) {
   var props = PropertiesService.getScriptProperties(), today = botHari_(botWita_(now, 'yyyyMMdd'));
-  var last = botSiteTerakhir_(), selesai = botSiteSelesai_(), tim = botTim_(), tunda = botTundaList_();
-  var lama = {}, list = [], ditunda = [], mentions = [];
-  try { lama = JSON.parse(props.getProperty('BOT_MANGKRAK') || '{}'); } catch (e) {}
+  var last = botSiteTerakhir_(), selesai = botSiteSelesai_(), tim = botTim_(), tunda = botTundaList_();   // botSiteTerakhir_ ikut konteks grup
+  var lama = {}, list = [], ditunda = [], mentions = [], kunci = 'BOT_MANGKRAK' + (BOT_GRUP_CTX_ ? '_' + BOT_GRUP_CTX_.toUpperCase() : '');
+  try { lama = JSON.parse(props.getProperty(kunci) || '{}'); } catch (e) {}
   var baru = {};
   Object.keys(last).sort().forEach(function (k) {
     var x = last[k], idle = today - x.d;
@@ -2638,7 +2665,7 @@ function botMangkrak_(now, semua) {
     if (no && mentions.indexOf(no) < 0) mentions.push(no);
     list.push('- ' + x.site + ': ' + idle + ' hari tanpa laporan (terakhir ' + x.day + (x.pic ? ', ' + (no ? '@' + no : x.pic) : '') + ')');
   });
-  if (semua !== true || !props.getProperty('BOT_MANGKRAK')) props.setProperty('BOT_MANGKRAK', JSON.stringify(baru));
+  if (semua !== true || !props.getProperty(kunci)) props.setProperty(kunci, JSON.stringify(baru));
   if (!list.length && !ditunda.length) return null;
   var s = ['🚧 *Site tanpa laporan* ' + botWita_(now, 'dd/MM/yyyy') + (semua ? ' (daftar lengkap)' : '')].concat(list);
   if (ditunda.length) s = s.concat(['', '✅ *Sudah dikonfirmasi*'], ditunda);
@@ -2781,6 +2808,131 @@ var BOT_SOW_URUT_ = ['Cluster', 'Subfeeder', 'Mainfeeder', 'Hubfeeder', 'Uplink'
 var BOT_KOTA_ALIAS_ = { bjm: 'banjarmasin', banjar: 'banjarmasin', ptk: 'pontianak', bjb: 'banjarbaru', mtp: 'martapura',
   batola: 'barito kuala', hst: 'hulu sungai tengah', tala: 'tanah laut' };
 var BOT_REGION_ALIAS_ = { kalsel: 'Banjarmasin', kalbar: 'Pontianak' };
+
+// ===================== GRUP WA PER REGION (perintah "grup") =====================
+// Script Property BOT_GRUP_REGION = {"Pontianak": "<nama grup WA>"}. Selama kosong, semua seperti biasa (satu grup).
+// Bila diisi: laporan, cek, BA, revisi, dan jadwal grup untuk site region itu dikirim ke grup region (field "grup" di
+// antrean; gateway mencari grup dari namanya). Site region lain tetap ke grup utama (config.json gateway), yang dianggap
+// region BOT_REGION (bawaan Banjarmasin). Perintah dari grup region otomatis tersaring ke region itu (BOT_GRUP_CTX_).
+// Gateway lama yang belum mengenal "grup" tetap mengirim semuanya ke grup utama.
+var BOT_GRUP_CTX_ = null;   // null = tanpa saringan grup; '' = grup utama; 'Pontianak' = grup region
+
+function botGrupMap_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('BOT_GRUP_REGION') || '{}') || {}; } catch (e) { return {}; }
+}
+function botGrupAktif_() { return Object.keys(botGrupMap_()).length > 0; }
+// Nama region (dari DATA BASE) -> kunci grup region yang diatur ('' = grup utama).
+function botGrupDariRegion_(region, map) {
+  var r = String(region || '').trim().toLowerCase();
+  if (!r) return '';
+  map = map || botGrupMap_();
+  return Object.keys(map).filter(function (k) { return k.toLowerCase() === r; })[0] || '';
+}
+// Site (nama + SOW) -> kunci grup region ('' = grup utama, juga bila belum ada grup region).
+function botGrupSite_(name, sow, km) {
+  var map = botGrupMap_();
+  if (!Object.keys(map).length || !name) return '';
+  km = km || botKotaMap_();
+  var n = botNamaKey_(siteName_(name)), sw = String(sow || '').trim().toLowerCase();
+  return botGrupDariRegion_(km.regKey[n + '|' + sw] || km.regName[n] || '', map);
+}
+function botGrupNama_(ctx) {
+  return ctx || PropertiesService.getScriptProperties().getProperty('BOT_REGION') || 'Banjarmasin';
+}
+// Grup tiap anggota tim: atur manual (BOT_TIM_GRUP) atau dari region site yang paling sering dilaporkan 45 hari terakhir.
+function botTimGrupSemua_() {
+  var tim = botTim_(), names = Object.keys(tim), out = {}, hit = {}, atur = {};
+  try { atur = JSON.parse(PropertiesService.getScriptProperties().getProperty('BOT_TIM_GRUP') || '{}') || {}; } catch (e) {}
+  if (!names.length) return out;
+  var sh = dailySheet_(), h = sheetHeader_(sh), last = sh.getLastRow(), batas = botWita_(Date.now() - 45 * 864e5, 'yyyyMMdd');
+  if (last >= 2 && botGrupAktif_()) {
+    var c = { t: h.idx['tanggal'], ts: h.idx['timestamp'], n: h.idx['cluster name'], s: h.idx['sow'], p: h.idx['pic'] }, km = botKotaMap_();
+    sh.getRange(2, 1, last - 1, h.width).getValues().forEach(function (r) {
+      var d = botDmy_(r[c.t]) || botDmy_(r[c.ts]), pic = String(r[c.p] || '').trim().toLowerCase();
+      if (!d || botDmyKey_(d) < batas || !pic) return;
+      var g = botGrupSite_(r[c.n], c.s === undefined ? '' : r[c.s], km);
+      names.forEach(function (nm) {
+        var k = nm.toLowerCase();
+        if (pic.indexOf(k) < 0 && k.indexOf(pic) < 0) return;
+        hit[nm] = hit[nm] || {};
+        hit[nm][g] = (hit[nm][g] || 0) + 1;
+      });
+    });
+  }
+  names.forEach(function (nm) {
+    if (atur[nm] !== undefined) { out[nm] = atur[nm]; return; }
+    var best = '', n = 0;
+    Object.keys(hit[nm] || {}).forEach(function (g) { if (hit[nm][g] > n) { n = hit[nm][g]; best = g; } });
+    out[nm] = best;
+  });
+  return out;
+}
+// Tim yang di-tag di grup ctx (null = semua).
+function botTimGrup_(ctx) {
+  var tim = botTim_();
+  if (ctx === null || ctx === undefined || !botGrupAktif_()) return tim;
+  var g = botTimGrupSemua_(), out = {};
+  Object.keys(tim).forEach(function (n) { if ((g[n] || '') === ctx) out[n] = tim[n]; });
+  return out;
+}
+
+// grup | grup <region> <nama grup WA> | grup <region> hapus | grup <region> pic <nama> | grup <region|utama> tim <nama>
+function botGrupCmd_(arg) {
+  var props = PropertiesService.getScriptProperties(), map = botGrupMap_(), utama = botGrupNama_(''), m;
+  var regions = [], km = botKotaMap_();
+  Object.keys(km.regName).forEach(function (n) { var r = km.regName[n]; if (regions.indexOf(r) < 0) regions.push(r); });
+  var cariRegion = function (w) {
+    w = String(w || '').toLowerCase();
+    if (BOT_REGION_ALIAS_[w]) w = BOT_REGION_ALIAS_[w].toLowerCase();
+    return regions.concat(Object.keys(map)).filter(function (r) { return r.toLowerCase() === w; })[0] || '';
+  };
+  if ((m = arg.match(/^(\S+)\s+tim\s+(.+)$/i))) {
+    var tim = botTim_(), nm = Object.keys(tim).filter(function (n) { return n.toLowerCase() === m[2].trim().toLowerCase(); })[0];
+    if (!nm) return 'Nama "' + m[2].trim() + '" belum ada di daftar tim. Tambah dulu: ' + waKode_('tim <nama> <nomor WA>') + '.';
+    var tg = /^(utama|bawaan|banjarmasin|kalsel)$/i.test(m[1]) || cariRegion(m[1]) === utama ? '' : cariRegion(m[1]);
+    if (tg && !map[tg]) return 'Grup region ' + tg + ' belum diatur. Atur dulu: ' + waKode_('grup ' + tg.toLowerCase() + ' <nama grup WA>') + '.';
+    if (!tg && !/^(utama|bawaan|banjarmasin|kalsel)$/i.test(m[1]) && cariRegion(m[1]) !== utama) return 'Region "' + m[1] + '" tidak dikenal.';
+    var atur = {};
+    try { atur = JSON.parse(props.getProperty('BOT_TIM_GRUP') || '{}') || {}; } catch (e) {}
+    atur[nm] = tg;
+    props.setProperty('BOT_TIM_GRUP', JSON.stringify(atur));
+    return nm + ' sekarang di-tag di grup ' + (tg ? tg : 'utama (' + utama + ')') + ' untuk pengingat 17:30.';
+  }
+  if ((m = arg.match(/^(\S+)\s+pic\s+(.+)$/i))) {
+    var rp = cariRegion(m[1]);
+    if (!rp || !map[rp]) return 'Grup region "' + m[1] + '" belum diatur.';
+    props.setProperty('BOT_PIC_' + rp.toUpperCase(), m[2].trim().slice(0, 60));
+    return 'PIC Today\'s Plan grup ' + rp + ': ' + m[2].trim().slice(0, 60);
+  }
+  if ((m = arg.match(/^(\S+)\s+(hapus|matikan|off)$/i))) {
+    var rh = cariRegion(m[1]);
+    if (!rh || !map[rh]) return 'Grup region "' + m[1] + '" memang belum diatur.';
+    delete map[rh];
+    props.setProperty('BOT_GRUP_REGION', JSON.stringify(map));
+    return 'Grup region ' + rh + ' dihapus. Laporan dan jadwal region ' + rh + ' kembali ke grup utama.';
+  }
+  if ((m = arg.match(/^(\S+)\s+(.+)$/))) {
+    var r = cariRegion(m[1]);
+    if (!r) return 'Region "' + m[1] + '" tidak ada di kolom Region DATA BASE. Region yang ada: ' + (regions.join(', ') || '-') + '.';
+    if (r.toLowerCase() === utama.toLowerCase()) return r + ' adalah region grup utama (grup di config.json gateway), tidak perlu diatur.';
+    map[r] = m[2].trim().slice(0, 100);
+    props.setProperty('BOT_GRUP_REGION', JSON.stringify(map));
+    return '✅ Grup region ' + r + ': *' + map[r] + '*\nLaporan, cek Daily Report, BA, revisi, Today\'s Plan, pengingat 17:30, rekap Senin / tanggal 1, dan site tanpa laporan untuk region ' + r +
+      ' sekarang dikirim ke grup itu. Pastikan nomor IRIS sudah jadi anggota grup dan namanya persis sama.\n> Butuh IRIS Gateway versi terbaru; gateway lama tetap mengirim ke grup utama.';
+  }
+  if (arg) return 'Contoh: ' + waKode_('grup pontianak Report Pontianak') + ', ' + waKode_('grup pontianak hapus') + ', ' + waKode_('grup pontianak pic Andi') + ', ' + waKode_('grup pontianak tim Andi') + '.';
+  var timG = botTimGrupSemua_(), baris = ['*Grup WA per region*', '- Utama (' + utama + '): grup di config.json gateway'];
+  Object.keys(map).sort().forEach(function (k) { baris.push('- ' + k + ': *' + map[k] + '*' + (props.getProperty('BOT_PIC_' + k.toUpperCase()) ? ' · PIC ' + props.getProperty('BOT_PIC_' + k.toUpperCase()) : '')); });
+  if (!Object.keys(map).length) baris.push('_Belum ada grup region. Semua laporan ke grup utama._', 'Atur: ' + waKode_('grup pontianak <nama grup WA>'));
+  else {
+    var per = {};
+    Object.keys(timG).forEach(function (n) { var g = timG[n] || ''; (per[g] = per[g] || []).push(n); });
+    baris.push('', '*Tim yang di-tag 17:30*');
+    [''].concat(Object.keys(map).sort()).forEach(function (g) { baris.push('- ' + (g || 'Utama') + ': ' + ((per[g] || []).sort().join(', ') || '-')); });
+    baris.push('> Pindah tim: ' + waKode_('grup pontianak tim <nama>') + ' / ' + waKode_('grup utama tim <nama>'));
+  }
+  return baris.join('\n');
+}
 function botJudulKota_(t) { return String(t || '').toLowerCase().replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }); }
 
 // Kota = kolom KOTA di tab DATA BASE (Portal FTTH), bila kosong pakai Region.
@@ -2811,8 +2963,11 @@ function botRowRegion_(r, c, km) {
 // Satu baris lolos filter sow / kota / region?
 function botRowLolos_(r, c, f, km) {
   return (!f.sow || botRowSow_(r, c) === f.sow) && (!f.kota || botRowKota_(r, c, km) === f.kota) &&
-    (!f.region || botRowRegion_(r, c, km) === f.region);
+    (!f.region || botRowRegion_(r, c, km) === f.region) &&
+    (!botFilterGrup_(f) || botGrupSite_(r[c.n], botRowSow_(r, c), km) === BOT_GRUP_CTX_);
 }
+// Saringan konteks grup berlaku bila perintah datang dari grup (atau jadwal per grup) dan tidak menyebut kota / region / "semua".
+function botFilterGrup_(f) { return BOT_GRUP_CTX_ !== null && !f.kota && !f.region && !f.semua; }
 
 // Kata / frasa -> nama kota yang ada di DATA BASE ('' bila bukan kota). Boleh singkatan (bjm, hst, batola) atau awalan
 // 3+ huruf (ponti, hulu sungai). Nama persis didahulukan, lalu awalan yang hanya cocok satu kota.
@@ -2832,7 +2987,8 @@ function botFilterSowKota_(words, km) {
     var w = words[i], k = '', pakai = 1;
     if (w === 'sow') { f.perSow = true; continue; }
     if (w === 'kota' || w === 'region') { f.perKota = true; continue; }
-    if (w === 'per' || w === 'semua' || w === 'tiap' || w === 'dan') continue;
+    if (w === 'semua') { f.semua = true; continue; }
+    if (w === 'per' || w === 'tiap' || w === 'dan') continue;
     if (BOT_REGION_ALIAS_[w]) { f.region = BOT_REGION_ALIAS_[w]; continue; }
     for (var n = Math.min(3, words.length - i); n >= 1 && !k; n--) {
       var frasa = words.slice(i, i + n).join(' ');
@@ -3116,7 +3272,7 @@ function sendDailyReportEMR_(payload) {
   if (!text) {
     return { status: 'error', message: 'Teks Daily Report kosong.' };
   }
-  var waOk = sendDailyReportToWhatsApp_(text);
+  var waOk = sendDailyReportToWhatsApp_(text, botGrupSite_(payload.cluster, (payload.report || {}).sow || payload.sow));
 
   // Catat di tab DAILY REPORT EMR, juga bila WhatsApp gagal (laporan tidak hilang). Gagal di sini tidak membatalkan laporan.
   var res;

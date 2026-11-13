@@ -70,6 +70,8 @@ Cek sintaks: `node -e "new Function(require('fs').readFileSync('portal-waspang/K
 - Perintah bot didaftarkan di `waCmd_` (switch), `botHelp_` (daftar `!bantu`), dan `BOT_PANDUAN_*` (PDF `!panduan`).
   Naikkan `BOT_PANDUAN_VERSI_` bila isi panduan berubah. Menu polling: `BOT_MENU_` dan `BOT_MENU_ADMIN_` (maks 12 pilihan).
 - Perintah admin dicek dengan `waOwner_(p.from)` (Script Property `WA_OWNER`).
+- Pesan ke grup: isi field `grup` di job antrean dengan `botGrupSite_(nama, sow)` supaya site region lain masuk grup regionnya.
+  Fungsi yang membaca Daily Report untuk pesan grup sebaiknya menghormati `BOT_GRUP_CTX_` (lihat `botRowLolos_`, `botDailyRows_`).
 - Hapus Daily Report hanya lewat perintah `revisi <site>` → `revisi hapus`. Hapus langsung di sheet akan dipulihkan
   lagi oleh pemulihan otomatis (jurnal `JURNAL WASPANG` di spreadsheet LOG ARSIP).
 

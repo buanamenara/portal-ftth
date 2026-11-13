@@ -27,6 +27,9 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   spreadsheet atau teks laporan di grup WA. Pemulihan otomatis baru mencatat laporan sejak @119.
 - **Portal FTTH:** sebelum deploy pertama lewat workflow, cocokkan `portal-ftth-gas/Kode.gs` dengan HEAD Apps Script
   (`Kode.js`). Keduanya beda: HEAD punya `CADANGAN_SIMPAN = 1`.
+- **Grup region Pontianak (PR grup-region, belum di-deploy):** kode siap (Apps Script + gateway). Setelah deploy: buat grup WA,
+  masukkan nomor IRIS, lalu admin ketik `grup pontianak <nama grup persis>`. Butuh gateway versi baru (paket portable perlu
+  dibangun ulang dari `wa-gateway/`); gateway lama tetap mengirim semuanya ke grup utama.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 
@@ -41,6 +44,13 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Menu polling (Waspang @120 + gateway baru):** tombol ala Telegram tidak tersedia untuk WhatsApp biasa (Baileys),
   jadi dipakai polling WhatsApp. Gateway menyimpan kunci polling di `data/menu-polling.json`, mendekripsi suara
   (`decryptPollVote`, mencoba pasangan JID nomor/LID), lalu mengirim `pilih <label>` ke Apps Script.
+- **Grup WA per region:** Script Property `BOT_GRUP_REGION` = `{"Pontianak": "<nama grup>"}` (perintah admin `grup`).
+  Kosong = satu grup seperti dulu. Bila diisi: antrean diberi field `grup` (laporan, foto, cek Daily Report, BA, revisi) menurut
+  Region site di DATA BASE; jadwal `perGrup` (PAGI, SORE, MINGGU, BULAN, MANGKRAK) dibuat per grup dengan `BOT_GRUP_CTX_`.
+  Grup utama = region `BOT_REGION` (bawaan Banjarmasin) + site tanpa region. Perintah dari grup region tersaring ke region itu
+  (`botRowLolos_` / `botDailyRows_`), kecuali menyebut kota/region atau `semua`. Tim 17:30 per grup: `BOT_TIM_GRUP` (manual)
+  atau dari site yang paling sering dilaporkan 45 hari. PIC Today's Plan region: `BOT_PIC_<REGION>`. Permit/implementasi
+  hanya untuk grup utama. Gateway: `regionJid()` cari grup dari nama; tidak ketemu = kirim ke grup utama dengan catatan.
 - **Backup Drive:** hanya backup terbaru yang disimpan. Perintah `backup bersih` membuang yang lama.
 - **Rekap:** `rekap`, `mingguan [ini|lalu]`, `bulanan [bulan|ini]` terbuka untuk semua anggota, bisa disaring SOW dan kota
   (kolom KOTA di DATA BASE), plus ringkasan `sow` / `kota` / `kota sow`. Kalau hari ini belum ada laporan, `rekap`
