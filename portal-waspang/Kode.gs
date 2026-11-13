@@ -666,7 +666,7 @@ function waCmd_(p) {
     case 'bulanan':
       out = owner ? botBulanan_(Date.now(), arg) : ''; break;
     case 'backup':
-      out = owner ? botBackup_(true) : ''; break;
+      out = !owner ? '' : /^(bersih|hapus|rapikan)\b/i.test(arg) ? botBackupBersih_() : botBackup_(true); break;
     case 'status':
       out = owner ? botStatus_() : ''; break;
     case 'potongan':
@@ -800,7 +800,7 @@ function botHelp_(owner) {
     '- ' + A('<site> ok') + ' site itu tidak dilaporkan lagi · ' + A('boq ok'),
     '', '⚙️ *SISTEM*',
     '- ' + A('status') + ' gateway, antrean, jadwal, error hari ini',
-    '- ' + A('backup') + ' backup spreadsheet sekarang',
+    '- ' + A('backup') + ' backup spreadsheet sekarang · ' + A('backup bersih') + ' buang backup lama',
     '- ' + A('panduan lengkap') + ' PDF semua perintah (ke chat pribadi)']);
   return s.join('\n');
 }
@@ -1904,6 +1904,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['#Sistem'],
   ['status', 'Gateway, antrean pesan, jadwal hari ini, Excel WH, backup terakhir, kesehatan spreadsheet dan error hari ini.', 'status'],
   ['backup', 'Backup spreadsheet FTTH + Waspang ke Drive sekarang.', 'backup'],
+  ['backup bersih', 'Backup lama di Drive (folder Backup Portal BMI dan BMI-FTTH Backup) dipindah ke Sampah, hanya yang terbaru per spreadsheet disisakan. Otomatis juga tiap kali backup mingguan jalan.', 'backup bersih'],
   ['mingguan / bulanan', 'Lihat contoh rekap mingguan / bulanan sekarang.', 'mingguan | bulanan'],
   ['bulanan [sow] [kota] [bulan]', 'Rekap bulanan tersaring SOW (Cluster, Subfeeder/sf, Mainfeeder/mf, Hubfeeder/hf, Uplink, FWA) dan/atau kota (Region di DATA BASE, mis. banjarmasin/bjm, pontianak/ptk), rincian per site + total. ' +
     '<b>bulanan sow</b> = ringkasan per SOW, <b>bulanan kota</b> = ringkasan per kota (jumlah site, laporan, total material) dalam satu balasan; bisa digabung, mis. bulanan sow pontianak. ' +
@@ -2764,6 +2765,31 @@ function botBackup_(paksa) {
   var to = botOwnerJid_();
   if (to && !paksa) props.setProperty(WAQ_PREFIX_ + now + '_backup', JSON.stringify({ t: now, n: 0, last: 0, files: [], mentions: [], to: to, text: text }));
   return text;
+}
+
+// backup bersih (pemilik): rapikan kedua folder backup sekarang, sisakan BOT_BACKUP_SIMPAN salinan terbaru per spreadsheet.
+// Folder FTTH ("BMI-FTTH Backup", backup Senin dari Portal FTTH) milik akun yang sama dengan script ini.
+function botBackupBersih_() {
+  var props = PropertiesService.getScriptProperties(), baris = [], total = 0;
+  function rapikan(folder, prefix, nama) {
+    var all = [], it = folder.getFiles();
+    while (it.hasNext()) { var f = it.next(); if (f.getName().indexOf(prefix) === 0) all.push(f); }
+    all.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); });
+    var buang = all.slice(BOT_BACKUP_SIMPAN);
+    buang.forEach(function (f) { f.setTrashed(true); });
+    total += buang.length;
+    baris.push('- ' + nama + ': ' + (all.length ? 'terbaru ' + botWita_(all[0].getDateCreated().getTime(), 'dd/MM') : 'belum ada') + (buang.length ? ' · ' + buang.length + ' ke Sampah' : ''));
+  }
+  try {
+    var fid = props.getProperty('BOT_BACKUP_FOLDER'), fw = fid && DriveApp.getFolderById(fid);
+    if (fw && !fw.isTrashed()) { rapikan(fw, 'Backup FTTH ', 'Backup FTTH (Minggu)'); rapikan(fw, 'Backup Waspang ', 'Backup Waspang'); }
+    else baris.push('- Folder Backup Portal BMI belum ada');
+  } catch (e) { baris.push('- Backup Portal BMI: ' + String(e.message || e).slice(0, 100)); }
+  try {
+    var it = DriveApp.getFoldersByName('BMI-FTTH Backup');
+    if (it.hasNext()) { var ff = it.next(); rapikan(ff, 'BACKUP FTTH Utama - ', 'Backup FTTH (Senin)'); rapikan(ff, 'BACKUP Gudang BMI - ', 'Backup Gudang BMI'); }
+  } catch (e) { baris.push('- BMI-FTTH Backup: ' + String(e.message || e).slice(0, 100)); }
+  return '🧹 *Backup dirapikan*\n' + baris.join('\n') + '\n' + (total ? total + ' file lama dipindah ke Sampah (bisa dipulihkan 30 hari).' : 'Tidak ada backup lama.');
 }
 
 // ---- Alarm gateway mati: trigger tiap 15 menit, email ke Script Property BOT_ALARM_EMAIL (WA ikut mati, jadi lewat email). ----
