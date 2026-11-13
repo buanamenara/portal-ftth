@@ -17,11 +17,8 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-13 18:00 WITA.*
-- **Belum di-merge pemilik:** PR #96 (rekap hari terakhir, ikon ✦, teks status), PR #97 (pemulihan otomatis),
-  PR #98 (menu polling + workflow deploy + memori ini). Ketiganya bertumpuk dan **sudah live** di Waspang.
-  `main` masih lebih lama dari yang live. Jangan deploy dari `main` sebelum ketiganya di-merge, karena fitur di atas
-  akan hilang.
+*Terakhir diperbarui 2026-11-13 18:02 WITA.*
+- **`main` = yang live (13 Nov 18:01):** PR #96, #97, #98 sudah di-merge. Kode Waspang di `main` sama dengan Waspang @121 (md5 `Kode.gs` 81bb798e). Deploy dari `main` aman.
 - **IRIS Gateway (laptop baru):** belum dipasang. Paket portable terbaru (menu polling) ada di
   Drive `IRIS - Asisten Proyek BMI/IRIS-Gateway-Build/IRIS-Gateway-Portable.zip`. Selama gateway lama masih jalan,
   `!menu` dibalas daftar teks (fallback), bukan polling. Menu polling belum diuji di grup WhatsApp asli.
