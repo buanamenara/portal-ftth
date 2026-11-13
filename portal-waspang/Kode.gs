@@ -926,11 +926,11 @@ function botDmyKey_(t) { return t.slice(6) + t.slice(3, 5) + t.slice(0, 2); }
 
 // rekap [kemarin | dd/mm] [sow] [kota] : Daily Report satu hari, boleh disaring SOW dan/atau kota (Region DATA BASE).
 function botRekap_(arg) {
-  var now = new Date(), day = Utilities.formatDate(now, BOT_TZ_.id, 'dd/MM/yyyy'), lain = [], m;
+  var now = new Date(), day = Utilities.formatDate(now, BOT_TZ_.id, 'dd/MM/yyyy'), lain = [], m, pilih = false;
   String(arg || '').toLowerCase().split(/\s+/).filter(Boolean).forEach(function (w) {
     if (w === 'hari' || w === 'ini') return;
-    if (w === 'kemarin') day = Utilities.formatDate(new Date(now.getTime() - 864e5), BOT_TZ_.id, 'dd/MM/yyyy');
-    else if ((m = w.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/))) day = botDmy_(m[1] + '/' + m[2] + '/' + (m[3] || Utilities.formatDate(now, BOT_TZ_.id, 'yyyy')));
+    if (w === 'kemarin') { day = Utilities.formatDate(new Date(now.getTime() - 864e5), BOT_TZ_.id, 'dd/MM/yyyy'); pilih = true; }
+    else if ((m = w.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/))) { day = botDmy_(m[1] + '/' + m[2] + '/' + (m[3] || Utilities.formatDate(now, BOT_TZ_.id, 'yyyy'))); pilih = true; }
     else lain.push(w);
   });
   var km = lain.length ? botKotaMap_() : null, f = km ? botFilterSowKota_(lain, km) : { sow: '', kota: '', region: '', sisa: [] };
@@ -943,13 +943,19 @@ function botRekap_(arg) {
   if (last < 2) return 'DAILY REPORT EMR masih kosong.';
   var c = { t: h.idx['tanggal'], n: h.idx['cluster name'], s: h.idx['sow'], p: h.idx['pic'], r: h.idx['ringkasan pencapaian'], a: h.idx['today activity'] };
   var width = Math.max(c.t, c.n, c.s, c.p, c.r, c.a) + 1;
-  var rows = sh.getRange(2, 1, last - 1, width).getValues().filter(function (r) {
-    return botDmy_(r[c.t]) === day && !/^(saldo awal|koreksi total)/i.test(String(r[c.a] || '')) &&
-      (!km || botRowLolos_(r, c, f, km));
+  var semua = sh.getRange(2, 1, last - 1, width).getValues().filter(function (r) {
+    return !/^(saldo awal|koreksi total)/i.test(String(r[c.a] || '')) && (!km || botRowLolos_(r, c, f, km));
   });
-  var label = [f.sow, f.kota, f.region && 'Region ' + f.region].filter(Boolean).join(' · ');
+  var rows = semua.filter(function (r) { return botDmy_(r[c.t]) === day; });
+  var label = [f.sow, f.kota, f.region && 'Region ' + f.region].filter(Boolean).join(' · '), catatan = '';
+  if (!rows.length && !pilih) {
+    // Hari ini belum ada laporan (biasanya dikirim malam): tampilkan hari terakhir yang ada laporannya.
+    var kunciHari = botDmyKey_(day), akhir = '';
+    semua.forEach(function (r) { var d = botDmy_(r[c.t]), k = d && botDmyKey_(d); if (k && k < kunciHari && k > (akhir ? botDmyKey_(akhir) : '')) akhir = d; });
+    if (akhir) { catatan = '> Hari ini (' + day + ') belum ada laporan, ditampilkan laporan terakhir.'; day = akhir; rows = semua.filter(function (r) { return botDmy_(r[c.t]) === day; }); }
+  }
   if (!rows.length) return 'Belum ada Daily Report' + (label ? ' ' + label : '') + ' tanggal ' + day + '.';
-  return ['*Rekap Daily Report ' + day + '*' + (label ? ' · ' + label : '') + ' (' + rows.length + ' laporan)'].concat(rows.map(function (r, i) {
+  return ['*Rekap Daily Report ' + day + '*' + (label ? ' · ' + label : '') + ' (' + rows.length + ' laporan)'].concat(catatan ? [catatan] : []).concat(rows.map(function (r, i) {
     return (i + 1) + '. ' + siteName_(r[c.n]) + (r[c.s] ? ' (' + r[c.s] + ')' : '') + (r[c.p] ? ' - ' + r[c.p] : '') +
       '\n   ' + (String(r[c.r] || '').trim() || '-').slice(0, 300);
   })).join('\n');
