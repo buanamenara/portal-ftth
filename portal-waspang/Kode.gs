@@ -561,7 +561,7 @@ function waPull_(p) {
     if (j.n && now - j.last < j.n * 60000) return;
     if (jobs.length < 3) jobs.push({ key: k, text: j.text, files: j.files, to: j.to || '', grup: j.grup || '', mentions: j.mentions || [] });
   });
-  return { status: 'success', jobs: jobs, grup: botGrupMap_() };   // grup region -> nama grup WA (gateway baru)
+  return { status: 'success', jobs: jobs, grup: botGrupMap_(), grupUtama: botGrupNama_('') };   // grup region -> nama grup WA; nama region grup utama (panel gateway)
 }
 
 // Isi satu file dari laporan di antrean (hanya file yang memang ada di laporan itu).

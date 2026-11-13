@@ -67,7 +67,8 @@ function snapshot() {
     lastPoll: st.lastPoll, lastPollOk: st.lastPollOk, lastPollErr: st.lastPollErr, pending: st.pending, pollMs: opts.pollMs,
     sent: st.sent, fail: st.fail, cmd: st.cmd, restarts: st.restarts, lastResume: st.lastResume,
     uptime: vals.length ? Math.round(up / vals.length * 1000) / 10 : null, bars,
-    events: st.events.slice(0, 8), now, host: os.hostname(), startedAt: st.startedAt
+    events: st.events.slice(0, 8), now, host: os.hostname(), startedAt: st.startedAt,
+    groups: opts.groups ? opts.groups() : []
   };
 }
 
