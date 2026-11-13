@@ -330,10 +330,13 @@ function uploadStatus_(payload) {
 }
 
 function buildWaspangPhotoCaption_(payload) {
+  var reg = '';   // Region site dari kolom Region DATA BASE (kosong untuk nama site baru / Region belum diisi)
+  try { var km = botKotaMap_(), n = botNamaKey_(siteName_(payload.siteName)); reg = km.regKey[n + '|' + String(payload.sow || '').toLowerCase()] || km.regName[n] || ''; } catch (e) {}
   var caption = "📌 *LAPORAN WASPANG - PT. BUANA MENARA INDONESIA*\n" +
     "━━━━━━━━━━━━━━━━━━━━\n" +
     "🏷️ *Site Name* : `" + (payload.siteName || '') + "`\n" +
     "📋 *SOW*       : `" + (payload.sow || '') + "`\n" +
+    (reg ? "🌏 *Region*    : `" + reg + "`\n" : '') +
     "🚧 *Progress*  : `" + (payload.progressText || '') + "`\n" +
     "👤 *Waspang*   : " + (payload.waspang || '');
   if (payload.notes) {
