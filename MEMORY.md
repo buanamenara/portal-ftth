@@ -30,6 +30,10 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Grup region Pontianak (PR grup-region, belum di-deploy):** kode siap (Apps Script + gateway). Setelah deploy: buat grup WA,
   masukkan nomor IRIS, lalu admin ketik `grup pontianak <nama grup persis>`. Butuh gateway versi baru (paket portable perlu
   dibangun ulang dari `wa-gateway/`); gateway lama tetap mengirim semuanya ke grup utama.
+- **Panduan portal baru (13 Nov):** `Panduan_Portal_FTTH.pdf` di repo (GitHub Pages, tombol "Unduh PDF Panduan") diganti
+  panduan tim 31 halaman (portal, tampilan HP, 6 alur kerja, spreadsheet). Teks kartu panduan di kedua `Form.html`
+  (judul, 31 halaman, ~3 MB, `?v=20261113`) baru tampil setelah deploy FTTH dan Waspang berikutnya. Versi lengkap
+  (RPM, FORM ATP, Administration, Log History) hanya di Drive, jangan dipasang di repo publik. Panduan Bot IRIS belum diperbarui.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 
