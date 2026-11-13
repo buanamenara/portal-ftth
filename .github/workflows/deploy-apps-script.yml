@@ -1,0 +1,93 @@
+# Deploy Apps Script tanpa laptop.
+# Cara pakai: push commit yang mau dipasang ke branch deploy-waspang / deploy-ftth / deploy-gateway
+#   git push -f origin <commit>:refs/heads/deploy-waspang
+# atau jalankan manual dari tab Actions (workflow_dispatch, setelah file ini ada di main).
+# Kunci login clasp (akun pemilik Apps Script) disimpan di secret repo CLASPRC_JSON.
+# Isi project di Apps Script diambil dulu (clasp pull), lalu HANYA kode + Form.html dari repo yang ditimpa,
+# jadi file lain di project (manifest, template BOQ, KopSurat) tidak berubah.
+name: Deploy Apps Script
+
+on:
+  push:
+    branches: [deploy-waspang, deploy-ftth, deploy-gateway]
+  workflow_dispatch:
+    inputs:
+      project:
+        description: 'waspang / ftth / gateway'
+        required: true
+        default: waspang
+
+concurrency:
+  group: deploy-apps-script
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pilih project
+        id: p
+        run: |
+          P="${{ github.event.inputs.project }}"
+          [ -z "$P" ] && P="${GITHUB_REF_NAME#deploy-}"
+          case "$P" in
+            waspang) echo "script=1zzLE_fmwlJ5Bf2MPX7uqHeVYU3IbHt0Ea0Z3-DSf9yA0tr9sBGJAHT7b" >> $GITHUB_OUTPUT
+                     echo "dep=AKfycbw4TJYefbBIIoBS4Kztyv2lClvmngtIMotFbSLfp_E6ptKjv0qVwDBg_ppR1fY8zGKG" >> $GITHUB_OUTPUT
+                     echo "src=portal-waspang" >> $GITHUB_OUTPUT; echo "code=Code.js" >> $GITHUB_OUTPUT ;;
+            ftth)    echo "script=1j4r7wN_Oujagy9gFg2IMQyfFOaECyUxSzLkNwsw-bZU06MMojyZO41kU" >> $GITHUB_OUTPUT
+                     echo "dep=AKfycbwO25NZjRNu11QfyZQDGp1ZAPHdR-PwMwrc3U09lGUQ03KH91bNUl178-A7F246fm_djw" >> $GITHUB_OUTPUT
+                     echo "src=portal-ftth-gas" >> $GITHUB_OUTPUT; echo "code=Kode.js" >> $GITHUB_OUTPUT ;;
+            gateway) echo "script=1cb-gaBiILQeNXd-c8NLrP1NY-GtjxLfKR4zPVq53gR47XXs0gT73qAOh" >> $GITHUB_OUTPUT
+                     echo "dep=AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ" >> $GITHUB_OUTPUT
+                     echo "src=gateway" >> $GITHUB_OUTPUT; echo "code=Kode.js" >> $GITHUB_OUTPUT ;;
+            *) echo "Project tidak dikenal: $P"; exit 1 ;;
+          esac
+          echo "name=$P" >> $GITHUB_OUTPUT
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Pasang clasp + kunci login
+        env:
+          CLASPRC: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          [ -n "$CLASPRC" ] || { echo "Secret CLASPRC_JSON belum diisi"; exit 1; }
+          npm install -g @google/clasp@3.4.1 >/dev/null
+          umask 077; printf '%s' "$CLASPRC" > ~/.clasprc.json
+
+      - name: Ambil isi project sekarang, timpa kode dari repo
+        run: |
+          mkdir w && cd w
+          printf '{"scriptId":"%s","rootDir":""}' "${{ steps.p.outputs.script }}" > .clasp.json
+          clasp pull
+          echo "Sebelum:"; md5sum * | sed 's/^/  /'
+          cp "../${{ steps.p.outputs.src }}/Kode.gs" "${{ steps.p.outputs.code }}"
+          cp "../${{ steps.p.outputs.src }}/Form.html" Form.html
+          echo "Sesudah:"; md5sum * | sed 's/^/  /'
+
+      - name: Push + deploy
+        working-directory: w
+        run: |
+          DESC="$(git -C .. log -1 --format=%s | cut -c1-90)"
+          clasp push -f
+          clasp deploy -i "${{ steps.p.outputs.dep }}" -d "$DESC"
+
+      - name: Cek web app
+        run: |
+          sleep 5
+          URL="https://script.google.com/macros/s/${{ steps.p.outputs.dep }}/exec"
+          [ "${{ steps.p.outputs.name }}" = waspang ] && URL="$URL?api=json"
+          CODE=$(curl -s -L -o out.txt -w '%{http_code}' "$URL")
+          echo "HTTP $CODE"; head -c 300 out.txt; echo
+          [ "$CODE" = 200 ] || exit 1
+
+      - name: Hapus kunci login
+        if: always()
+        run: rm -f ~/.clasprc.json
