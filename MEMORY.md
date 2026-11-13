@@ -17,7 +17,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-13 18:02 WITA.*
+*Terakhir diperbarui 2026-11-13 18:10 WITA.*
 - **`main` = yang live (13 Nov 18:01):** PR #96, #97, #98 sudah di-merge. Kode Waspang di `main` sama dengan Waspang @121 (md5 `Kode.gs` 81bb798e). Deploy dari `main` aman.
 - **IRIS Gateway (laptop baru):** belum dipasang. Paket portable terbaru (menu polling) ada di
   Drive `IRIS - Asisten Proyek BMI/IRIS-Gateway-Build/IRIS-Gateway-Portable.zip`. Selama gateway lama masih jalan,
@@ -25,8 +25,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Data hilang 07/11:** 4 Daily Report + 3 log foto (MF Beruntung, Lawahan, FWA Tapin, FWA HST) hilang karena
   spreadsheet Waspang dikembalikan ke versi lama (antara 7 dan 8 Nov). Belum dipulihkan. Sumbernya: Riwayat versi
   spreadsheet atau teks laporan di grup WA. Pemulihan otomatis baru mencatat laporan sejak @119.
-- **Portal FTTH:** sebelum deploy pertama lewat workflow, cocokkan `portal-ftth-gas/Kode.gs` dengan HEAD Apps Script
-  (`Kode.js`). Keduanya beda: HEAD punya `CADANGAN_SIMPAN = 1`.
+- **Portal FTTH (dicek 13 Nov 18:10):** `main` vs HEAD Apps Script (`Kode.js` md5 4363d75f) hanya beda di `requireAdmin_` (PR #94: memanggil `requireRpm_`, perilaku sama). `CADANGAN_SIMPAN = 1` sudah ada di keduanya; `Form.html` sama (dcfc5c7a). Deploy FTTH lewat workflow aman; template BOQ, `KopSurat.js`, dan manifest tetap dari Apps Script.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 
