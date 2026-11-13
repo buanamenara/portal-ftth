@@ -24,12 +24,19 @@ Isi folder:
   restart) dan **IRIS Gateway (jaga)** (15 detik setelah bangun dari sleep, dan tiap 15 menit), shortcut Desktop,
   dan membuang shortcut `start.bat` lama dari folder Startup. `Hapus Otomatis.bat` melepas semuanya.
 
-Pindah dari gateway lama: tutup jendela `start.bat`, salin folder `auth` dan `config.json` lama ke
-`IRIS-Gateway\data\`, lalu klik dua kali `Pasang Otomatis.bat`. WhatsApp tidak perlu ditautkan ulang.
+Pindah dari gateway lama: salin folder `auth` dan `config.json` lama ke `IRIS-Gateway\data\`, lalu klik dua kali
+`Pasang Otomatis.bat`. WhatsApp tidak perlu ditautkan ulang. Gateway lama tidak perlu ditutup dulu: setiap kali
+pelari mulai, `bin\ambil-alih.ps1` menghentikan gateway lain di laptop yang sama (`start.bat` + `node gateway.mjs`,
+atau IRIS Gateway dari folder lain). Gateway lama di laptop lain tetap harus dimatikan; bila tidak, keduanya saling
+menendang dan panel menulis "Dipakai gateway lain" (dicoba lagi tiap 60 detik).
 
-Panel (`http://127.0.0.1:8737`, hanya dari laptop itu): status WhatsApp, kapan antrean terakhir dicek, jumlah
-menunggu / terkirim hari ini / gagal, garis 24 jam, catatan kejadian, tombol Tes, Sambung ulang, dan Tautkan ulang
-(QR baru tampil di panel). Bila `config.json` belum ada, panel menampilkan isian URL, kata sandi dan grup.
+Panel (`http://127.0.0.1:8737`, hanya dari laptop itu) dikunci kata sandi admin: dibuat saat panel pertama dibuka,
+disimpan sebagai hash scrypt di `config.json` (`panelPass`), sesi 12 jam (cookie HttpOnly). Salah 5 kali = ditolak
+1 menit (makin lama bila diulang). Lupa kata sandi: hapus `panelPass` dari `data\config.json`. Isi panel: status WhatsApp, kapan antrean terakhir dicek, jumlah
+menunggu / terkirim hari ini / gagal, garis 24 jam, catatan kejadian, tombol Tes, Sambung ulang, **Stop** / Jalankan (tersimpan di `state.json`, tetap Stop walau
+restart), dan menu ⋯: Tautkan ulang (QR baru tampil di panel), Ganti kata sandi, Keluar, **Tutup program** (keluar
+kode 4, `data\tutup.flag` membuat jadwal "jaga" tidak menyalakannya; shortcut Desktop atau login berikutnya
+menyalakan lagi). Selama Stop, alarm email `BOT_ALARM_EMAIL` tetap berbunyi setelah 15 menit. Bila `config.json` belum ada, panel menampilkan isian URL, kata sandi dan grup.
 
 Pengawas di dalam program: bila jam melompat lebih dari 60 detik (laptop bangun dari sleep) koneksi WhatsApp
 disambung ulang; bila belum tersambung 5 menit (bukan sedang menunggu scan QR) atau antrean tidak berhasil dicek

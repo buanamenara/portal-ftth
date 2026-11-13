@@ -65,8 +65,7 @@ Get-ChildItem $startup -Filter *.lnk -ErrorAction SilentlyContinue | ForEach-Obj
   $t = $sh.CreateShortcut($_.FullName).TargetPath
   if ($t -match 'start\.bat$' -and (Test-Path (Join-Path (Split-Path $t) 'gateway.mjs'))) { Remove-Item $_.FullName -Force; Write-Host "Shortcut gateway lama dibuang dari Startup: $($_.Name)" }
 }
-$lama = Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -match 'gateway\.mjs' -and $_.CommandLine -notmatch [regex]::Escape($root) }
-if ($lama) { Write-Host ''; Write-Host 'PERHATIAN: gateway versi lama masih berjalan (jendela hitam). Tutup jendela itu dulu supaya tidak ada dua gateway.' -ForegroundColor Yellow }
+Write-Host 'Gateway lama yang masih berjalan di laptop ini (start.bat) dihentikan otomatis saat IRIS Gateway mulai.'
 
 Write-Host ''
 Write-Host 'Selesai. IRIS Gateway akan menyala sendiri saat laptop menyala/login dan setelah bangun dari sleep.' -ForegroundColor Green

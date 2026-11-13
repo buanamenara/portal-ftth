@@ -26,10 +26,15 @@ const POLL_MS = Math.max(5, Number(CFG.pollSeconds) || 15) * 1000;
 const log = (...a) => { console.log(new Date().toLocaleString('id-ID'), '-', ...a); };
 const FAKE = process.env.IRIS_FAKE_WA === '1';   // uji tampilan tanpa WhatsApp (tidak mengirim apa pun)
 
-let sock = null, ready = false, groupJid = null;
+let sock = null, ready = false, groupJid = null, activeSince = Date.now();
 const configured = !!(CFG.url && CFG.secret && CFG.group);
+const paused = () => panel.state().paused;   // tombol Stop di panel: WhatsApp diputus, antrean tidak diambil (bertahan walau restart)
+// config.json dibaca ulang tiap kali, supaya isian lain (mis. panelPass yang dihapus manual) tidak tertimpa.
+const readCfg = () => { try { return JSON.parse(fs.readFileSync(CFG_FILE, 'utf8')); } catch (e) { return {}; } };
+const writeCfg = (c) => fs.writeFileSync(CFG_FILE, JSON.stringify(c, null, 2));
 
 async function connect() {
+  if (paused()) { ready = false; panel.wa('paused'); return; }
   if (FAKE) { ready = true; panel.wa('open', { me: '62800000000 (uji)' }); return; }
   panel.wa('connecting');
   const { state, saveCreds } = await useMultiFileAuthState(path.join(DATA, 'auth'));
@@ -64,7 +69,16 @@ async function connect() {
     }
     if (u.connection === 'close') {
       ready = false;
+      if (paused()) { log('Gateway dihentikan dari panel.'); panel.wa('paused'); return; }
       const code = u.lastDisconnect && u.lastDisconnect.error && u.lastDisconnect.error.output && u.lastDisconnect.error.output.statusCode;
+      if (code === DisconnectReason.connectionReplaced) {
+        // Nomor ini dipakai gateway lain (mis. laptop lama masih menyala dengan folder auth yang sama).
+        log('Sambungan diambil alih gateway lain dengan tautan yang sama. Dicoba lagi 60 detik lagi.');
+        panel.event('err', 'Dipakai gateway lain (tutup gateway lama)');
+        panel.wa('connecting');
+        setTimeout(connect, 60000);
+        return;
+      }
       if (code === DisconnectReason.loggedOut) {
         // Dilepas dari HP / ditautkan ulang dari panel: tautan lama dibuang, QR baru tampil di panel.
         log('Perangkat dikeluarkan dari WhatsApp. Menyiapkan QR untuk menautkan ulang...');
@@ -195,7 +209,7 @@ async function sendJob(job) {
 
 let busy = false;
 async function poll() {
-  if (busy || !ready) return;
+  if (busy || !ready || paused()) return;
   busy = true;
   try {
     const { jobs } = await api({ action: 'WA_PULL' });
@@ -240,13 +254,34 @@ await startPanel({
   },
   reconnect: () => { panel.event('re', 'Sambung ulang manual'); try { sock && sock.end(new Error('sambung ulang')); } catch (e) { setTimeout(connect, 1000); } },
   relink: async () => { panel.event('re', 'Tautkan ulang'); try { await sock.logout(); } catch (e) { fs.rmSync(path.join(DATA, 'auth'), { recursive: true, force: true }); process.exit(1); } },
+  stop: () => {
+    if (paused()) return;
+    panel.setPaused(true); ready = false; panel.event('err', 'Gateway dihentikan (Stop)'); log('Stop dari panel.');
+    if (FAKE || !sock) { panel.wa('paused'); return; }
+    try { sock.end(new Error('stop')); } catch (e) { panel.wa('paused'); }
+  },
+  start: () => {
+    if (!paused()) return;
+    panel.setPaused(false); activeSince = Date.now(); panel.event('ok', 'Gateway dijalankan lagi'); log('Jalankan dari panel.');
+    if (configured) connect().catch(e => log('Gagal menyambung:', e.message));
+  },
+  quit: () => {
+    // Tutup program: pelari berhenti (kode 4) dan jadwal "jaga" tidak menyalakannya lagi sampai dibuka dari shortcut.
+    try { fs.writeFileSync(path.join(DATA, 'tutup.flag'), new Date().toISOString()); } catch (e) {}
+    panel.event('err', 'Program ditutup dari panel'); log('Program ditutup dari panel.');
+    setTimeout(() => process.exit(4), 300);
+  },
+  passGet: () => readCfg().panelPass || null,
+  passSet: (rec) => { const c = readCfg(); c.panelPass = rec; writeCfg(c); },
   saveSetup: (c) => {
-    const next = Object.assign({}, CFG, { url: c.url || CFG.url, group: c.group || CFG.group, pollSeconds: CFG.pollSeconds || 15 });
+    const cur = readCfg();
+    const next = Object.assign({}, cur, { url: c.url || cur.url, group: c.group || cur.group, pollSeconds: cur.pollSeconds || 15 });
     if (c.secret) next.secret = c.secret;
-    fs.writeFileSync(CFG_FILE, JSON.stringify(next, null, 2));
+    writeCfg(next);
     setTimeout(() => process.exit(1), 300);   // pelari (jalankan.bat) menyalakan ulang dengan config baru
   }
 });
+try { fs.rmSync(path.join(DATA, 'tutup.flag'), { force: true }); } catch (e) {}
 
 if (!configured) {
   log('config belum lengkap (url, secret, group). Isi lewat panel IRIS Gateway atau', CFG_FILE);
@@ -254,7 +289,7 @@ if (!configured) {
 } else {
   await connect();
   setInterval(poll, POLL_MS);
-  log('Gateway berjalan. Cek antrean tiap', POLL_MS / 1000, 'detik.');
+  log(paused() ? 'Gateway dalam keadaan Stop (jalankan lagi dari panel).' : 'Gateway berjalan. Cek antrean tiap ' + POLL_MS / 1000 + ' detik.');
 }
 
 // Pengawas: jam loncat > 60 dtk = laptop baru bangun dari sleep -> sambung ulang segera (soket lama biasanya mati diam-diam).
@@ -266,13 +301,13 @@ setInterval(() => {
   if (gap > 60000) {
     log('Laptop bangun dari sleep (' + Math.round(gap / 1000) + ' dtk). Menyambung ulang WhatsApp...');
     panel.resumed(gap);
-    if (configured && !FAKE) { try { sock && sock.end(new Error('bangun dari sleep')); } catch (e) {} }
+    if (configured && !FAKE && !paused()) { try { sock && sock.end(new Error('bangun dari sleep')); } catch (e) {} }
     downSince = 0; return;
   }
-  if (!configured || FAKE) return;
+  if (!configured || FAKE || paused()) { downSince = 0; return; }
   const st = panel.state();
   if (!ready && st.wa !== 'qr') { downSince = downSince || now; if (now - downSince > 5 * 60000) { log('WhatsApp 5 menit tidak tersambung, program dimulai ulang.'); process.exit(1); } }
   else downSince = 0;
-  if (ready && now - (st.lastPollOk || st.startedAt) > 10 * 60000) { log('Antrean 10 menit gagal diambil, program dimulai ulang.'); process.exit(1); }
+  if (ready && now - Math.max(st.lastPollOk || 0, st.startedAt, activeSince) > 10 * 60000) { log('Antrean 10 menit gagal diambil, program dimulai ulang.'); process.exit(1); }
 }, 5000);
 process.on('unhandledRejection', e => log('Error:', e && e.message ? e.message : e));

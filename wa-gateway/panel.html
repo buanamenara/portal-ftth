@@ -14,15 +14,19 @@ body{background:var(--bg);color:var(--txt);font-family:Inter,"Segoe UI",system-u
 .emb.on{box-shadow:0 0 0 4px var(--ok),0 0 42px rgba(63,184,116,.28)}
 .emb.warn{box-shadow:0 0 0 4px var(--gold2),0 0 36px rgba(227,182,81,.22)}
 .emb.off{box-shadow:0 0 0 4px var(--bad),0 0 36px rgba(224,106,90,.22)}
+.emb.idle{box-shadow:0 0 0 4px #5b564b}.emb.idle img{filter:grayscale(.85) brightness(.7)}
 .pill{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;font-weight:700;font-size:13px}
 .pill i{width:8px;height:8px;border-radius:50%;background:currentColor}
 .p-ok{background:rgba(91,208,138,.12);color:var(--ok)}.p-warn{background:rgba(227,182,81,.14);color:var(--gold)}.p-bad{background:rgba(224,106,90,.14);color:var(--bad)}
+.p-idle{background:#24221d;color:#b3ab98}
 .p-ok i{animation:pulse 2s infinite}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(91,208,138,.5)}100%{box-shadow:0 0 0 9px rgba(91,208,138,0)}}
 .mut{color:var(--mut)}.small{font-size:13px}
 .btns{display:flex;gap:8px;margin-top:auto;flex-wrap:wrap;justify-content:center}
 button{font:inherit;cursor:pointer;height:38px;padding:0 16px;border-radius:999px;font-weight:700;font-size:13px;border:1.5px solid #5a4a24;color:var(--gold);background:transparent}
 button:hover{border-color:var(--gold)}button.pri{background:linear-gradient(#E9C46A,#C9972C);color:#141310;border:0}
 button:disabled{opacity:.5;cursor:default}button.ic{width:38px;padding:0}
+button.stop{border-color:#6b2c24;color:var(--bad)}button.stop:hover{border-color:var(--bad)}
+.menu{display:flex;flex-direction:column;gap:8px}.menu button{width:100%;height:42px}
 .main{display:flex;flex-direction:column;gap:16px;min-width:0}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .big{font-size:34px;font-weight:800;line-height:1;color:#F3E9D2;font-variant-numeric:tabular-nums}
@@ -49,9 +53,7 @@ label{display:block;text-align:left;font-size:12px;color:var(--mut);margin:0 0 6
 </style></head>
 <body>
 <div class="app" id="app"></div>
-<div class="modal" id="modal"><div class="card"><b style="font-size:17px">Tautkan ulang?</b>
-<div class="mut small">Tautan WhatsApp sekarang dilepas, lalu QR baru muncul untuk di-scan.</div>
-<div class="btns"><button onclick="closeM()">Batal</button><button class="pri" onclick="closeM();act('relink')">Tautkan ulang</button></div></div></div>
+<div class="modal" id="modal"><div class="card" id="mBox"></div></div>
 <div class="toast" id="toast"></div>
 <script>
 var S = null, mode = '';
@@ -61,6 +63,49 @@ function ago(t){ if(!t) return '-'; var s = Math.max(0, Math.round((S.now - t)/1
 function hm(t){ var d = new Date(t); return ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2); }
 function toast(t){ var e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(function(){ e.classList.remove('on'); }, 2600); }
 function closeM(){ $('modal').classList.remove('on'); }
+function openM(html){ $('mBox').innerHTML = html; $('modal').classList.add('on'); }
+// konfirmasi: judul, keterangan, label tombol, aksi
+function ask(t, d, ok, fn, danger){
+  openM('<b style="font-size:17px">' + t + '</b><div class="mut small">' + d + '</div><div class="btns"><button onclick="closeM()">Batal</button><button class="' + (danger ? 'stop' : 'pri') + '" id="mOk">' + ok + '</button></div>');
+  $('mOk').onclick = function(){ closeM(); fn(); };
+}
+function menu(){
+  var p = S && S.paused;
+  openM('<b style="font-size:17px">Menu</b><div class="menu">' +
+    '<button id="mRelink"' + (p ? ' disabled' : '') + '>Tautkan ulang WhatsApp</button><button id="mPass">Ganti kata sandi</button>' +
+    '<button id="mOut">Keluar dari panel</button><button class="stop" id="mQuit">Tutup program</button><button onclick="closeM()">Batal</button></div>');
+  $('mRelink').onclick = function(){ ask('Tautkan ulang?', 'Tautan WhatsApp sekarang dilepas, lalu QR baru muncul untuk di-scan.', 'Tautkan ulang', function(){ act('relink').catch(function(e){ toast(e.message); }); }); };
+  $('mPass').onclick = gantiSandi;
+  $('mOut').onclick = function(){ closeM(); act('keluar').then(function(){ mode = ''; tick.now(); }); };
+  $('mQuit').onclick = function(){ ask('Tutup program?', 'Gateway berhenti total. Buka lagi lewat shortcut IRIS Gateway di Desktop (atau otomatis saat laptop dinyalakan ulang).', 'Tutup program', function(){ act('tutup').then(function(){ toast('Program ditutup'); }).catch(function(e){ toast(e.message); }); }, true); };
+}
+function gantiSandi(){
+  openM('<b style="font-size:17px">Ganti kata sandi</b><div class="form"><div><label>Kata sandi lama</label><input id="gL" type="password"></div>' +
+    '<div><label>Kata sandi baru (min. 8 karakter)</label><input id="gB" type="password"></div><div><label>Ulangi kata sandi baru</label><input id="gU" type="password"></div>' +
+    '<div class="err" id="gE"></div><div class="btns"><button onclick="closeM()">Batal</button><button class="pri" id="gOk">Simpan</button></div></div>');
+  $('gOk').onclick = function(){
+    if ($('gB').value !== $('gU').value) { $('gE').textContent = 'Kata sandi baru tidak sama.'; return; }
+    act('ganti-sandi', { lama:$('gL').value, baru:$('gB').value }).then(function(){ closeM(); toast('Kata sandi diganti'); }).catch(function(e){ $('gE').textContent = e.message; });
+  };
+}
+function viewLogin(first){
+  return '<div class="full"><div class="center"><div class="emb warn" style="width:120px;height:120px"><img src="/emblem.png" alt=""></div>' +
+    '<b style="font-size:20px">' + (first ? 'Buat kata sandi admin' : 'IRIS Gateway') + '</b>' +
+    (first ? '<div class="mut small">Kata sandi ini dipakai setiap membuka panel.</div>' : '') +
+    '<div class="form"><div><label>Kata sandi' + (first ? ' (min. 8 karakter)' : '') + '</label><input id="lP" type="password" autofocus></div>' +
+    (first ? '<div><label>Ulangi kata sandi</label><input id="lU" type="password"></div>' : '') +
+    '<div class="err" id="lE"></div><button class="pri" id="lOk">' + (first ? 'Simpan' : 'Masuk') + '</button></div></div></div>';
+}
+function bindLogin(first){
+  var go = function(){
+    $('lE').textContent = '';
+    if (first && $('lP').value !== $('lU').value) { $('lE').textContent = 'Kata sandi tidak sama.'; return; }
+    act(first ? 'sandi-baru' : 'masuk', { password:$('lP').value }).then(function(){ mode = ''; tick.now(); }).catch(function(e){ $('lE').textContent = e.message; });
+  };
+  $('lOk').onclick = go;
+  ['lP','lU'].forEach(function(id){ var e = $(id); if (e) e.onkeydown = function(ev){ if (ev.key === 'Enter') go(); }; });
+  setTimeout(function(){ $('lP').focus(); }, 50);
+}
 function act(a, body){
   return fetch('/api/' + a, { method:'POST', headers:{'X-IRIS':'1','Content-Type':'application/json'}, body: JSON.stringify(body || {}) })
     .then(function(r){ return r.json(); }).then(function(j){ if(!j.ok) throw new Error(j.error || 'Gagal'); return j; });
@@ -70,7 +115,8 @@ var TAG = { ok:'✓', err:'✕', bot:'Bot', re:'↻' };
 function viewMain(){
   return '<div class="card side"><div class="emb" id="emb"><img src="/emblem.png" alt="IRIS"></div><span id="pill"></span>' +
     '<div class="mut small" id="poll"></div>' +
-    '<div class="btns"><button class="pri" id="bTest">Tes</button><button id="bRe">Sambung ulang</button></div><button class="more" id="bMore" title="Tautkan ulang">⋯</button></div>' +
+    '<div class="btns" id="bRun"><button class="pri" id="bTest">Tes</button><button id="bRe">Sambung ulang</button><button class="stop" id="bStop">Stop</button></div>' +
+    '<div class="btns" id="bIdle" style="display:none"><button class="pri" id="bStart">Jalankan</button></div><button class="more" id="bMore" title="Menu">⋯</button></div>' +
     '<div class="main"><div class="stats">' +
     '<div class="card"><div class="big" id="vPend">0</div><div class="lbl">Menunggu</div></div>' +
     '<div class="card"><div class="big gold" id="vSent">0</div><div class="lbl">Terkirim hari ini</div></div>' +
@@ -96,7 +142,11 @@ function render(){
   var m = !S.configured ? 'setup' : S.wa === 'qr' ? 'qr' : 'main';
   if (m !== mode) {
     mode = m; $('app').innerHTML = m === 'setup' ? viewSetup() : m === 'qr' ? viewQr() : viewMain();
-    if (m === 'main') { btn('bTest','test','Pesan tes terkirim ke grup'); btn('bRe','reconnect','Menyambung ulang...'); $('bMore').onclick = function(){ $('modal').classList.add('on'); }; }
+    if (m === 'main') {
+      btn('bTest','test','Pesan tes terkirim ke grup'); btn('bRe','reconnect','Menyambung ulang...'); btn('bStart','start','Gateway dijalankan');
+      $('bMore').onclick = menu;
+      $('bStop').onclick = function(){ ask('Stop gateway?', 'WhatsApp diputus dan laporan menunggu di portal sampai gateway dijalankan lagi. Tetap Stop walau laptop dinyalakan ulang.', 'Stop', function(){ act('stop').then(function(){ toast('Gateway dihentikan'); }).catch(function(e){ toast(e.message); }); }, true); };
+    }
     if (m === 'setup') $('bSave').onclick = function(){
       $('fErr').textContent = ''; act('setup', { url:$('fUrl').value, secret:$('fSec').value, group:$('fGrp').value })
         .then(function(){ toast('Tersimpan, gateway dimulai ulang...'); }).catch(function(e){ $('fErr').textContent = e.message; });
@@ -104,10 +154,11 @@ function render(){
   }
   if (m === 'qr') { $('qr').innerHTML = S.qrSvg || '<span class="mut small">Menyiapkan QR...</span>'; $('code').textContent = S.pairCode || ''; $('qr').style.display = S.pairCode ? 'none' : ''; return; }
   if (m !== 'main') return;
-  var on = S.wa === 'open', conn = S.wa === 'connecting';
-  $('emb').className = 'emb ' + (on ? 'on' : conn ? 'warn' : 'off');
-  $('pill').innerHTML = on ? '<span class="pill p-ok"><i></i>Tersambung</span>' : conn ? '<span class="pill p-warn"><i></i>Menyambung...</span>' : '<span class="pill p-bad"><i></i>Terputus</span>';
-  $('poll').innerHTML = S.lastPollErr && S.lastPoll > S.lastPollOk ? '<span class="badc">Antrean gagal diambil</span>' : 'Antrean dicek ' + ago(S.lastPollOk);
+  var on = S.wa === 'open', conn = S.wa === 'connecting', idle = S.paused;
+  $('emb').className = 'emb ' + (idle ? 'idle' : on ? 'on' : conn ? 'warn' : 'off');
+  $('pill').innerHTML = idle ? '<span class="pill p-idle"><i></i>Berhenti</span>' : on ? '<span class="pill p-ok"><i></i>Tersambung</span>' : conn ? '<span class="pill p-warn"><i></i>Menyambung...</span>' : '<span class="pill p-bad"><i></i>Terputus</span>';
+  $('poll').innerHTML = idle ? 'Laporan menunggu di portal' : S.lastPollErr && S.lastPoll > S.lastPollOk ? '<span class="badc">Antrean gagal diambil</span>' : 'Antrean dicek ' + ago(S.lastPollOk);
+  $('bRun').style.display = idle ? 'none' : ''; $('bIdle').style.display = idle ? '' : 'none';
   $('bTest').disabled = !on;
   $('vPend').textContent = S.pending; $('vSent').textContent = S.sent;
   $('vFail').textContent = S.fail; $('vFail').className = 'big ' + (S.fail ? 'badc' : 'okc');
@@ -117,12 +168,22 @@ function render(){
     return '<div><span class="t">' + hm(e.t) + '</span><span class="tag k-' + e.k + '">' + TAG[e.k] + '</span><span class="x">' + esc(e.x) + '</span></div>';
   }).join('') : '<div class="mut">Belum ada aktivitas</div>';
 }
-function tick(){
-  fetch('/api/status', { cache:'no-store' }).then(function(r){ return r.json(); })
-    .then(function(j){ S = j; render(); })
-    .catch(function(){ if (mode !== 'down') { mode = 'down'; $('app').innerHTML = '<div class="full"><div class="center"><span class="pill p-bad"><i></i>Gateway tidak berjalan</span><div class="mut small">Menunggu program menyala lagi...</div></div></div>'; } })
-    .then(function(){ setTimeout(tick, 2000); });
+function showLogin(){
+  return fetch('/api/auth', { cache:'no-store' }).then(function(r){ return r.json(); }).then(function(a){
+    var m = a.hasPass ? 'login' : 'first';
+    if (m !== mode) { mode = m; closeM(); $('app').innerHTML = viewLogin(m === 'first'); bindLogin(m === 'first'); }
+  });
 }
+function tick(){
+  clearTimeout(tick.t);
+  fetch('/api/status', { cache:'no-store' }).then(function(r){
+      if (r.status === 401) return showLogin();
+      return r.json().then(function(j){ S = j; render(); });
+    })
+    .catch(function(){ if (mode !== 'down') { mode = 'down'; closeM(); $('app').innerHTML = '<div class="full"><div class="center"><span class="pill p-bad"><i></i>Gateway tidak berjalan</span><div class="mut small">Buka lagi lewat shortcut IRIS Gateway di Desktop.</div></div></div>'; } })
+    .then(function(){ tick.t = setTimeout(tick, 2000); });
+}
+tick.now = function(){ tick(); };
 tick();
 </script>
 </body></html>
