@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IRIS Gateway</title><link rel="icon" href="/mata.png">
+<style>
+:root{--bg:#0B0B0A;--card:#141310;--line:#26231c;--gold:#E3B651;--gold2:#C9972C;--txt:#EDE7D9;--mut:#8e8778;--ok:#5BD08A;--bad:#E06A5A}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--txt);font-family:Inter,"Segoe UI",system-ui,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.app{display:grid;grid-template-columns:280px 1fr;gap:16px;padding:18px;height:100vh}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.side{background:#000;border-color:#3a3020;display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px;text-align:center;position:relative}
+.more{position:absolute;top:10px;right:10px;width:32px;height:32px;border:0;color:var(--mut);font-size:18px}.more:hover{color:var(--gold)}
+.emb{width:168px;height:168px;border-radius:50%;overflow:hidden;transition:box-shadow .4s}
+.emb img{width:100%;height:100%;display:block}
+.emb.on{box-shadow:0 0 0 4px var(--ok),0 0 42px rgba(63,184,116,.28)}
+.emb.warn{box-shadow:0 0 0 4px var(--gold2),0 0 36px rgba(227,182,81,.22)}
+.emb.off{box-shadow:0 0 0 4px var(--bad),0 0 36px rgba(224,106,90,.22)}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;font-weight:700;font-size:13px}
+.pill i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.p-ok{background:rgba(91,208,138,.12);color:var(--ok)}.p-warn{background:rgba(227,182,81,.14);color:var(--gold)}.p-bad{background:rgba(224,106,90,.14);color:var(--bad)}
+.p-ok i{animation:pulse 2s infinite}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(91,208,138,.5)}100%{box-shadow:0 0 0 9px rgba(91,208,138,0)}}
+.mut{color:var(--mut)}.small{font-size:13px}
+.btns{display:flex;gap:8px;margin-top:auto;flex-wrap:wrap;justify-content:center}
+button{font:inherit;cursor:pointer;height:38px;padding:0 16px;border-radius:999px;font-weight:700;font-size:13px;border:1.5px solid #5a4a24;color:var(--gold);background:transparent}
+button:hover{border-color:var(--gold)}button.pri{background:linear-gradient(#E9C46A,#C9972C);color:#141310;border:0}
+button:disabled{opacity:.5;cursor:default}button.ic{width:38px;padding:0}
+.main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.big{font-size:34px;font-weight:800;line-height:1;color:#F3E9D2;font-variant-numeric:tabular-nums}
+.lbl{font-size:13px;color:var(--mut);margin-top:6px}.gold{color:var(--gold)}.okc{color:var(--ok)}.badc{color:var(--bad)}
+.beat{display:flex;gap:3px}.beat i{flex:1;height:24px;border-radius:3px;background:#3FB874}.beat i.d{background:#D9604F}.beat i.n{background:#2c2a25}
+.row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.log{flex:1;overflow:auto;min-height:0}.log div{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #1f1d18;font-size:13.5px}.log div:last-child{border:0}
+.log .t{color:var(--mut);width:42px;flex:none;font-variant-numeric:tabular-nums}
+.tag{font-size:11px;font-weight:800;min-width:26px;height:20px;padding:0 7px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.k-ok{background:#17301f;color:var(--ok)}.k-err{background:#341a16;color:var(--bad)}.k-bot{background:#2a251b;color:var(--gold)}.k-re{background:#2a251b;color:var(--gold)}
+.log .x{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.full{grid-column:1/-1;display:flex;align-items:center;justify-content:center}
+.center{max-width:380px;width:100%;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+.qr{width:230px;height:230px;background:#fff;border-radius:16px;padding:10px;display:flex;align-items:center;justify-content:center}
+.qr svg{width:100%;height:100%}.code{font-size:30px;font-weight:800;letter-spacing:.18em;color:var(--gold)}
+input{width:100%;height:42px;border-radius:12px;border:1px solid #3a3326;background:#0f0e0c;color:var(--txt);padding:0 14px;font:inherit}
+label{display:block;text-align:left;font-size:12px;color:var(--mut);margin:0 0 6px 4px}
+.form{width:100%;display:flex;flex-direction:column;gap:12px}.err{color:var(--bad);font-size:13px;min-height:18px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}.modal.on{display:flex}
+.modal .card{max-width:340px;text-align:center;display:flex;flex-direction:column;gap:14px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;transition:.3s;background:#1d1b17;border:1px solid #3a3326;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:600}
+.toast.on{opacity:1;transform:translateX(-50%)}
+@media (max-width:760px){.app{grid-template-columns:1fr;height:auto}.stats{gap:10px}.big{font-size:28px}}
+</style></head>
+<body>
+<div class="app" id="app"></div>
+<div class="modal" id="modal"><div class="card"><b style="font-size:17px">Tautkan ulang?</b>
+<div class="mut small">Tautan WhatsApp sekarang dilepas, lalu QR baru muncul untuk di-scan.</div>
+<div class="btns"><button onclick="closeM()">Batal</button><button class="pri" onclick="closeM();act('relink')">Tautkan ulang</button></div></div></div>
+<div class="toast" id="toast"></div>
+<script>
+var S = null, mode = '';
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function ago(t){ if(!t) return '-'; var s = Math.max(0, Math.round((S.now - t)/1000)); return s < 60 ? s + ' dtk lalu' : s < 3600 ? Math.round(s/60) + ' mnt lalu' : Math.round(s/3600) + ' jam lalu'; }
+function hm(t){ var d = new Date(t); return ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2); }
+function toast(t){ var e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(function(){ e.classList.remove('on'); }, 2600); }
+function closeM(){ $('modal').classList.remove('on'); }
+function act(a, body){
+  return fetch('/api/' + a, { method:'POST', headers:{'X-IRIS':'1','Content-Type':'application/json'}, body: JSON.stringify(body || {}) })
+    .then(function(r){ return r.json(); }).then(function(j){ if(!j.ok) throw new Error(j.error || 'Gagal'); return j; });
+}
+function btn(id, a, okMsg){ var b = $(id); if(!b) return; b.onclick = function(){ b.disabled = true; act(a).then(function(){ toast(okMsg); }).catch(function(e){ toast(e.message); }).then(function(){ setTimeout(function(){ b.disabled = false; }, 1500); }); }; }
+var TAG = { ok:'✓', err:'✕', bot:'Bot', re:'↻' };
+function viewMain(){
+  return '<div class="card side"><div class="emb" id="emb"><img src="/emblem.png" alt="IRIS"></div><span id="pill"></span>' +
+    '<div class="mut small" id="poll"></div>' +
+    '<div class="btns"><button class="pri" id="bTest">Tes</button><button id="bRe">Sambung ulang</button></div><button class="more" id="bMore" title="Tautkan ulang">⋯</button></div>' +
+    '<div class="main"><div class="stats">' +
+    '<div class="card"><div class="big" id="vPend">0</div><div class="lbl">Menunggu</div></div>' +
+    '<div class="card"><div class="big gold" id="vSent">0</div><div class="lbl">Terkirim hari ini</div></div>' +
+    '<div class="card"><div class="big" id="vFail">0</div><div class="lbl">Gagal</div></div></div>' +
+    '<div class="card"><div class="row"><span class="lbl" style="margin:0">24 jam</span><b class="gold" id="vUp"></b></div><div class="beat" id="beat"></div></div>' +
+    '<div class="card log" id="log"></div></div>';
+}
+function viewQr(){
+  return '<div class="full"><div class="center"><span class="pill p-warn"><i></i>Menunggu scan</span>' +
+    '<div class="qr" id="qr"></div><div class="code" id="code"></div>' +
+    '<div class="mut">WhatsApp → <b style="color:#E9E1CF">Perangkat tertaut</b> → Scan</div></div></div>';
+}
+function viewSetup(){
+  var c = S.config || {};
+  return '<div class="full"><div class="center"><div class="emb warn" style="width:120px;height:120px"><img src="/emblem.png" alt=""></div>' +
+    '<b style="font-size:20px">Atur IRIS Gateway</b><div class="form">' +
+    '<div><label>URL Apps Script Waspang</label><input id="fUrl" value="' + esc(c.url) + '" placeholder="https://script.google.com/macros/s/.../exec"></div>' +
+    '<div><label>Kata sandi (sama dengan WA_PC_SECRET)</label><input id="fSec" type="password" placeholder="' + (c.hasSecret ? 'tetap seperti sekarang' : 'min. 16 karakter') + '"></div>' +
+    '<div><label>Nama grup WhatsApp</label><input id="fGrp" value="' + esc(c.group || 'REPORT BMI') + '"></div>' +
+    '<div class="err" id="fErr"></div><button class="pri" id="bSave">Simpan</button></div></div></div>';
+}
+function render(){
+  var m = !S.configured ? 'setup' : S.wa === 'qr' ? 'qr' : 'main';
+  if (m !== mode) {
+    mode = m; $('app').innerHTML = m === 'setup' ? viewSetup() : m === 'qr' ? viewQr() : viewMain();
+    if (m === 'main') { btn('bTest','test','Pesan tes terkirim ke grup'); btn('bRe','reconnect','Menyambung ulang...'); $('bMore').onclick = function(){ $('modal').classList.add('on'); }; }
+    if (m === 'setup') $('bSave').onclick = function(){
+      $('fErr').textContent = ''; act('setup', { url:$('fUrl').value, secret:$('fSec').value, group:$('fGrp').value })
+        .then(function(){ toast('Tersimpan, gateway dimulai ulang...'); }).catch(function(e){ $('fErr').textContent = e.message; });
+    };
+  }
+  if (m === 'qr') { $('qr').innerHTML = S.qrSvg || '<span class="mut small">Menyiapkan QR...</span>'; $('code').textContent = S.pairCode || ''; $('qr').style.display = S.pairCode ? 'none' : ''; return; }
+  if (m !== 'main') return;
+  var on = S.wa === 'open', conn = S.wa === 'connecting';
+  $('emb').className = 'emb ' + (on ? 'on' : conn ? 'warn' : 'off');
+  $('pill').innerHTML = on ? '<span class="pill p-ok"><i></i>Tersambung</span>' : conn ? '<span class="pill p-warn"><i></i>Menyambung...</span>' : '<span class="pill p-bad"><i></i>Terputus</span>';
+  $('poll').innerHTML = S.lastPollErr && S.lastPoll > S.lastPollOk ? '<span class="badc">Antrean gagal diambil</span>' : 'Antrean dicek ' + ago(S.lastPollOk);
+  $('bTest').disabled = !on;
+  $('vPend').textContent = S.pending; $('vSent').textContent = S.sent;
+  $('vFail').textContent = S.fail; $('vFail').className = 'big ' + (S.fail ? 'badc' : 'okc');
+  $('vUp').textContent = S.uptime == null ? '' : String(S.uptime).replace('.', ',') + '%';
+  $('beat').innerHTML = S.bars.map(function(b){ return '<i class="' + (b === 0 ? 'd' : b < 0 ? 'n' : '') + '"></i>'; }).join('');
+  $('log').innerHTML = S.events.length ? S.events.slice(0, 6).map(function(e){
+    return '<div><span class="t">' + hm(e.t) + '</span><span class="tag k-' + e.k + '">' + TAG[e.k] + '</span><span class="x">' + esc(e.x) + '</span></div>';
+  }).join('') : '<div class="mut">Belum ada aktivitas</div>';
+}
+function tick(){
+  fetch('/api/status', { cache:'no-store' }).then(function(r){ return r.json(); })
+    .then(function(j){ S = j; render(); })
+    .catch(function(){ if (mode !== 'down') { mode = 'down'; $('app').innerHTML = '<div class="full"><div class="center"><span class="pill p-bad"><i></i>Gateway tidak berjalan</span><div class="mut small">Menunggu program menyala lagi...</div></div></div>'; } })
+    .then(function(){ setTimeout(tick, 2000); });
+}
+tick();
+</script>
+</body></html>
