@@ -7,7 +7,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, DisconnectReason, Browsers, downloadMediaMessage } from '@whiskeysockets/baileys';
+import crypto from 'node:crypto';
+import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, DisconnectReason, Browsers, downloadMediaMessage, decryptPollVote, jidNormalizedUser } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import { readXlsx } from './xlsx-mini.mjs';
@@ -129,6 +130,58 @@ async function phoneOf(jid, alt) {
   return '';
 }
 
+// ---- Menu IRIS (polling WhatsApp) ----
+// Polling yang dikirim gateway disimpan (kunci rahasia + daftar pilihan) supaya pilihan anggota bisa dibaca.
+// Suara polling terenkripsi: kuncinya messageSecret polling + JID pembuat & pemilih (bisa nomor atau LID), jadi dicoba semua pasangan.
+const POLL_FILE = path.join(DATA, 'menu-polling.json');
+let polls = {};
+try { polls = JSON.parse(fs.readFileSync(POLL_FILE, 'utf8')); } catch (e) {}
+const votesSeen = new Set();
+function savePolls() {
+  const ids = Object.keys(polls).sort((a, b) => polls[b].t - polls[a].t);
+  for (const id of ids.slice(60)) delete polls[id];   // simpan 60 polling terakhir
+  try { fs.writeFileSync(POLL_FILE, JSON.stringify(polls)); } catch (e) {}
+}
+async function sendMenuPoll(chat, p) {
+  const sent = await sock.sendMessage(chat, { poll: { name: String(p.name).slice(0, 255), values: p.values.slice(0, 12), selectableCount: 1 } });
+  const secret = sent && sent.message && sent.message.messageContextInfo && sent.message.messageContextInfo.messageSecret;
+  if (!secret) throw new Error('kunci polling tidak ada');
+  polls[sent.key.id] = { s: Buffer.from(secret).toString('base64'), o: p.values.slice(0, 12), c: chat, t: Date.now() };
+  savePolls();
+}
+const sha256 = (t) => crypto.createHash('sha256').update(Buffer.from(t)).digest('hex');
+function readVote(upd, rec, voterJids) {
+  const me = sock.user || {}, creators = [me.id, me.lid].filter(Boolean).map(j => jidNormalizedUser(j));
+  const voters = [...new Set(voterJids.filter(Boolean).map(j => jidNormalizedUser(j)))];
+  const pollEncKey = Buffer.from(rec.s, 'base64');
+  for (const pollCreatorJid of creators) for (const voterJid of voters) {
+    try {
+      const v = decryptPollVote(upd.vote, { pollEncKey, pollCreatorJid, pollMsgId: upd.pollCreationMessageKey.id, voterJid });
+      const pilih = (v.selectedOptions || []).map(b => Buffer.from(b).toString('hex'));
+      return rec.o.filter(o => pilih.includes(sha256(o)));
+    } catch (e) {}
+  }
+  return null;
+}
+async function onVote(m, upd) {
+  const k = m.key || {}, chat = k.remoteJid || '', isGroup = /@g\.us$/.test(chat);
+  const rec = upd.pollCreationMessageKey && polls[upd.pollCreationMessageKey.id];
+  if (!rec || !upd.vote || votesSeen.has(k.id)) return;
+  votesSeen.add(k.id); if (votesSeen.size > 500) votesSeen.clear();
+  if (isGroup && chat !== await targetJid()) return;
+  const pilih = readVote(upd, rec, isGroup ? [k.participant, k.participantAlt] : [chat, k.remoteJidAlt]);
+  if (pilih === null) { log('Suara polling tidak bisa dibaca:', k.id); return; }
+  if (!pilih.length) return;   // pilihan dibatalkan
+  const from = isGroup ? await phoneOf(k.participant, k.participantAlt) : await phoneOf(chat, k.remoteJidAlt);
+  const res = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, text: (isGroup ? '!' : '') + 'pilih ' + pilih[0], canPoll: true });
+  if (res.poll) await sendMenuPoll(chat, res.poll);
+  if (!res.reply) return;
+  const siapa = m.pushName || from || 'Anggota';
+  await sock.sendMessage(chat, { text: '↪️ _' + siapa + ': ' + pilih[0] + '_\n\n' + res.reply });
+  log('Menu dijawab:', pilih[0], isGroup ? '(grup)' : '(pribadi ' + from + ')');
+  panel.count('cmd'); panel.event('bot', 'Menu: ' + pilih[0].slice(0, 34));
+}
+
 let cmdQueue = Promise.resolve();
 const stokwhSender = {};
 async function onMessage(m) {
@@ -137,6 +190,7 @@ async function onMessage(m) {
   // Pesan lama yang ikut terunduh saat menyambung ulang tidak dijawab.
   if (Date.now() / 1000 - Number(m.messageTimestamp || 0) > 120) return;
   const msg = m.message.ephemeralMessage ? m.message.ephemeralMessage.message : m.message;
+  if (msg.pollUpdateMessage) return onVote(m, msg.pollUpdateMessage);
   const doc = msg.documentMessage || (msg.documentWithCaptionMessage && msg.documentWithCaptionMessage.message.documentMessage);
   let text = String(msg.conversation || (msg.extendedTextMessage && msg.extendedTextMessage.text) || (doc && doc.caption) || '').trim();
   const isGroup = /@g\.us$/.test(chat);
@@ -164,7 +218,12 @@ async function onMessage(m) {
     }
   }
   const from = isGroup ? await phoneOf(k.participant, k.participantAlt) : await phoneOf(chat, k.remoteJidAlt);
-  const { reply } = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, text, excel });
+  const { reply, poll: menu } = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, text, excel, canPoll: true });
+  if (menu) {
+    await sendMenuPoll(chat, menu);
+    log('Menu polling dikirim', isGroup ? '(grup)' : '(pribadi ' + from + ')');
+    panel.count('cmd'); panel.event('bot', 'Menu polling');
+  }
   if (!reply) return;
   await sock.sendMessage(chat, { text: reply }, { quoted: m });
   log('Perintah dijawab:', text.split(/\s+/)[0], isGroup ? '(grup)' : '(pribadi ' + from + ')');
