@@ -9,7 +9,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
 | waspang | @121 | 2026-11-13 17:50 | e46b17e | Uji deploy lewat GitHub Actions (isi sama dengan @120: menu polling) |
-| ftth | @261 | 2026-11-13 13:14 | - | FORM ATP unduh langsung + animasi (PR #90). HEAD Apps Script berisi CADANGAN_SIMPAN=1 yang belum di-deploy |
+| ftth | @262 | 2026-11-13 21:02 | e4ac434 | Merge pull request #99 from buanamenara/memori-merge |
 | gateway | @22 | 2026-11-05 22:46 | - | Tampilan sesuai mockup (tahap 3 lanjutan) |
 <!-- LIVE:END -->
 
@@ -60,6 +60,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-13 21:02 · **ftth @262** · e4ac434 · Merge pull request #99 from buanamenara/memori-merge · GitHub Actions
 - 2026-11-13 17:50 · **waspang @121** · e46b17e · Uji deploy lewat GitHub Actions (isi sama dengan @120) · GitHub Actions
 - 2026-11-13 17:23 · **waspang @120** · c7b8cf2 · Menu IRIS lewat polling WhatsApp (`!menu`, `menu admin`) · clasp laptop
 - 2026-11-13 17:07 · **waspang @119** · bfb9ecb · Pemulihan otomatis Daily Report & log foto (jurnal) · clasp laptop
