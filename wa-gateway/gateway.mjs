@@ -51,7 +51,7 @@ async function connect() {
       }
       if (!CFG.pairPhone) {
         log('Scan QR ini dari HP: WhatsApp > Perangkat tertaut > Tautkan perangkat');
-        qrcode.generate(u.qr, { small: true });
+        if (process.stdout.isTTY) qrcode.generate(u.qr, { small: true });   // di jendela hitam saja; tanpa jendela, QR ada di panel
         panel.wa('qr', { qr: u.qr });
       }
     }

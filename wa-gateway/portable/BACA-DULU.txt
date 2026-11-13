@@ -1,0 +1,42 @@
+IRIS GATEWAY (versi portable) - gateway WhatsApp Portal Waspang
+================================================================
+
+Folder ini sudah lengkap: Node.js ada di folder "node", program di "app".
+Tidak perlu memasang Node.js atau menjalankan npm.
+
+PINDAH DARI GATEWAY LAMA (start.bat), di laptop gateway:
+1. Tutup jendela hitam "Gateway WhatsApp Portal Waspang".
+2. Salin folder IRIS-Gateway ini ke laptop, misalnya ke C:\IRIS-Gateway
+   (jangan di dalam OneDrive).
+3. Dari folder gateway lama, salin folder "auth" dan file "config.json"
+   ke folder IRIS-Gateway\data\
+   Dengan begitu WhatsApp tidak perlu ditautkan ulang.
+4. Klik dua kali "Pasang Otomatis.bat" (cukup sekali).
+   - IRIS Gateway menyala sendiri setiap laptop dinyalakan/login,
+     setelah laptop bangun dari sleep, dan dicek ulang tiap 15 menit.
+   - Shortcut "IRIS Gateway" muncul di Desktop untuk membuka panel.
+   - Shortcut start.bat lama di folder Startup dibuang otomatis.
+5. Panel terbuka. Lingkaran hijau + "Tersambung" = siap.
+
+PASANG BARU (belum pernah ada gateway):
+- Klik dua kali "Pasang Otomatis.bat". Panel menampilkan isian:
+  URL Portal Waspang, kata sandi (sama dengan WA_PC_SECRET di Script
+  Properties Waspang) dan nama grup (REPORT BMI). Simpan.
+- Lalu scan QR di panel dari HP nomor laporan:
+  WhatsApp > Perangkat tertaut > Tautkan perangkat.
+
+PANEL
+- Tes: kirim pesan uji ke grup.
+- Sambung ulang: memutus lalu menyambung lagi ke WhatsApp.
+- Tombol ... : Tautkan ulang (keluar dari WhatsApp, lalu muncul QR baru).
+- Panel hanya bisa dibuka dari laptop itu sendiri: http://127.0.0.1:8737
+
+PERLU DIINGAT
+- Setelah laptop restart, Windows harus login dulu baru gateway menyala.
+  Bila laptop dipakai tanpa orang, atur login otomatis Windows.
+- Sambungkan charger. Sleep boleh, tapi selama sleep pesan tertunda
+  (terkirim begitu laptop bangun).
+- Folder "data" berisi kunci WhatsApp (auth) dan kata sandi (config.json).
+  Jangan dibagikan atau diunggah ke mana pun.
+- Catatan program: data\gateway.log
+- Melepas dari Windows: "Hapus Otomatis.bat" (folder data tidak dihapus).
