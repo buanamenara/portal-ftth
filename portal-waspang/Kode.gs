@@ -667,6 +667,8 @@ function waCmd_(p) {
       out = botBulanan_(Date.now(), arg); break;
     case 'backup':
       out = !owner ? '' : /^(bersih|hapus|rapikan)\b/i.test(arg) ? botBackupBersih_() : botBackup_(true); break;
+    case 'pulihkan': case 'pulih':
+      out = owner ? botPulih_(true) : ''; break;
     case 'status':
       out = owner ? botStatus_() : ''; break;
     case 'potongan':
@@ -803,6 +805,7 @@ function botHelp_(owner) {
     '', '⚙️ *SISTEM*',
     '- ' + A('status') + ' gateway, antrean, jadwal, error hari ini',
     '- ' + A('backup') + ' backup spreadsheet sekarang · ' + A('backup bersih') + ' buang backup lama',
+    '- ' + A('pulihkan') + ' cek & pulihkan Daily Report / log foto yang hilang (otomatis tiap jam)',
     '- ' + A('panduan lengkap') + ' PDF semua perintah (ke chat pribadi)']);
   return s.join('\n');
 }
@@ -1904,7 +1907,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-11-13-2';
+var BOT_PANDUAN_VERSI_ = '2026-11-13-3';
 // Baris ['#Judul'] = judul kelompok di tabel perintah.
 var BOT_PANDUAN_TIM_ = [
   ['#Cek data proyek'],
@@ -1969,6 +1972,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['#Sistem'],
   ['status', 'Gateway, antrean pesan, jadwal hari ini, Excel WH, backup terakhir, kesehatan spreadsheet dan error hari ini.', 'status'],
   ['backup', 'Backup spreadsheet FTTH + Waspang ke Drive sekarang.', 'backup'],
+  ['pulihkan', 'Setiap Daily Report dan log foto juga disalin ke tab JURNAL WASPANG (spreadsheet LOG ARSIP). Tiap jam IRIS mencocokkan jurnal dengan spreadsheet Waspang; baris yang hilang (mis. versi spreadsheet dikembalikan) ditulis lagi otomatis dan admin diberi tahu. Perintah ini menjalankan pengecekan sekarang. Laporan yang memang mau dihapus: pakai revisi &lt;site&gt; lalu revisi hapus.', 'pulihkan'],
   ['backup bersih', 'Backup lama di Drive (folder Backup Portal BMI dan BMI-FTTH Backup) dipindah ke Sampah, hanya yang terbaru per spreadsheet disisakan. Otomatis juga tiap kali backup mingguan jalan.', 'backup bersih'],
   ['panduan lengkap', 'PDF ini, selalu dikirim ke chat pribadi admin.', 'panduan lengkap']
 ];
@@ -2419,8 +2423,10 @@ function botRevisiJalan_(pend, who) {
     })));
 
     var kapan = botWita_(Date.now(), 'dd/MM HH:mm'), grup;
+    var kunciLama = jurnalKunci_('DAILY REPORT EMR', h, full);
     if (pend.jenis === 'hapus') {
       sh.deleteRow(x.row);
+      jurnalTandai_(kunciLama, 'hapus');   // dihapus sengaja: tidak dipulihkan
       grup = '🗑️ *Daily Report dihapus*: ' + botRevisiJudul_(s) + (pend.alasan ? '\nAlasan: ' + pend.alasan : '') +
         '\nTotal site ikut terkoreksi; abaikan laporan itu di grup.';
     } else if (pend.jenis === 'tanggal') {
@@ -2443,6 +2449,7 @@ function botRevisiJalan_(pend, who) {
       }
       grup = '✏️ *Daily Report direvisi*: ' + botRevisiJudul_(s) + '\n' + pend.ubah + '\nTotal site ikut terkoreksi; abaikan angka itu di laporan lama.';
     }
+    if (pend.jenis !== 'hapus') { SpreadsheetApp.flush(); jurnalTandai_(kunciLama, '', sh.getRange(x.row, 1, 1, h.width).getValues()[0], h); }
     var props = PropertiesService.getScriptProperties(), t = Date.now() + Math.floor(Math.random() * 1000);
     props.setProperty(WAQ_PREFIX_ + t + '_revisi', JSON.stringify({ t: t, n: 0, last: 0, files: [], mentions: [], text: grup }));
     return '✅ ' + jenis + ' disimpan: ' + botRevisiJudul_(s) + '\n' + pend.ubah +
@@ -2925,6 +2932,8 @@ function botStatus_() {
   out = out.concat(cek.items.map(function (c) { return (c.ok ? '✅ ' : '❌ ') + c.nama + ': ' + c.info; }));
   out.push(err.n ? '⚠️ Error Portal Waspang hari ini: ' + err.n + 'x (3 terakhir):' : '✅ Tidak ada error hari ini');
   out = out.concat(err.items.slice(-3).map(function (x) { return '- ' + x.jam + ' ' + x.aksi + ': ' + x.pesan; }));
+  var pl = Number(all.BOT_PULIH_LAST || 0);
+  out.push('🔧 Pemulihan otomatis: ' + (pl ? 'cek terakhir ' + lalu(pl) : 'belum berjalan') + (all.BOT_PULIH_INFO ? ' · ' + all.BOT_PULIH_INFO : ''));
   return out.join('\n');
 }
 
@@ -2993,6 +3002,7 @@ function pasangAlarmGateway() {
 
 function cekGatewayBot() {
   try { botBackup_(); } catch (e) { console.error('Backup mingguan: ' + e); }
+  try { botPulih_(false); } catch (e) { console.error('Pemulihan otomatis: ' + e); }
   var props = PropertiesService.getScriptProperties();
   if (!waPcMode_()) return;
   var to = String(props.getProperty('BOT_ALARM_EMAIL') || '').trim();
@@ -3037,6 +3047,7 @@ function logWaspangPhotoToSheet_(payload, folderUrl, saved, waOk) {
       });
     });
     sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+    jurnalCatat_('LOG FOTO WASPANG', h, rows);
   } catch (err) {
     console.error('Log photo to sheet error: ' + err);
   }
@@ -3585,7 +3596,9 @@ function appendDailyRow_(sh, vals, byKey, names) {
   var byCol = sumByMaterial_(byKey);
   Object.keys(byCol).forEach(function (c) { vals[c] = byCol[c]; });
   vals['Rincian Item'] = rincianText_(byKey, names);
-  sh.appendRow(rowByHeader_(sheetHeader_(sh), vals));
+  var baris = rowByHeader_(sheetHeader_(sh), vals);
+  sh.appendRow(baris);
+  jurnalCatat_('DAILY REPORT EMR', sheetHeader_(sh), [baris]);
   try { formatDailyRows_(sh, sh.getLastRow()); } catch (e) { console.error('Format DAILY REPORT EMR: ' + e); }
 }
 
@@ -3929,4 +3942,154 @@ function setTotalByRpm_(payload) {
     lock.releaseLock();
   }
   return { status: 'success' };
+}
+
+// ===================== JURNAL & PEMULIHAN OTOMATIS =====================
+// Setiap baris DAILY REPORT EMR dan LOG FOTO WASPANG juga disalin ke tab JURNAL WASPANG di spreadsheet LOG ARSIP
+// (file terpisah). Tiap jam (trigger cekGatewayBot) jurnal dicocokkan dengan spreadsheet Waspang: baris yang hilang,
+// misalnya karena versi spreadsheet dikembalikan atau terhapus tidak sengaja, ditulis lagi lalu admin diberi tahu.
+// Hapus laporan yang disengaja lewat "revisi hapus" ditandai di jurnal, jadi tidak dipulihkan.
+var JURNAL_SH_ = 'JURNAL WASPANG';
+var JURNAL_HARI_ = 45;   // hanya baris jurnal 45 hari terakhir yang dicocokkan
+var JURNAL_MAKS_OTOMATIS_ = 30;   // lebih dari ini sekali jalan = kemungkinan salah baca; tunggu perintah pulihkan
+var JURNAL_TAB_ = {
+  'DAILY REPORT EMR': { kolom: ['timestamp', 'cluster name', 'sow', 'pic'], sheet: function () { return dailySheet_(); }, nama: 'Daily Report' },
+  'LOG FOTO WASPANG': { kolom: ['timestamp', 'site name', 'nama file'], sheet: function () { return sheetWithHeader_('LOG FOTO WASPANG', PHOTO_LOG_HEADER_); }, nama: 'log foto' }
+};
+
+function jurnalSheet_(buat) {
+  var ss = SpreadsheetApp.openById(LOG_ARSIP_SS_ID), sh = ss.getSheetByName(JURNAL_SH_);
+  if (!sh && buat) {
+    sh = ss.insertSheet(JURNAL_SH_);
+    sh.getRange(1, 1, 1, 5).setValues([['Waktu', 'Tab', 'Kunci', 'Status', 'Data']]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function jurnalNilaiKunci_(v) {
+  if (v instanceof Date) return botWita_(v.getTime(), 'yyyy-MM-dd HH:mm');
+  var m = /^'?(\d{1,2})\/(\d{1,2})\/(\d{4})[ ,]+(\d{1,2})[:.](\d{2})/.exec(String(v == null ? '' : v));
+  if (m) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2) + ' ' + ('0' + m[4]).slice(-2) + ':' + m[5];
+  return String(v == null ? '' : v).replace(/^'/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+function jurnalKunci_(tab, h, row) {
+  return tab + '|' + JURNAL_TAB_[tab].kolom.map(function (k) { return h.idx[k] === undefined ? '' : jurnalNilaiKunci_(row[h.idx[k]]); }).join('|');
+}
+// Baris -> JSON {judul kolom (dinormalkan): isi}; tanggal disimpan sebagai {$d: ms}.
+// dariSheet = baris hasil getValues: teks yang mirip angka/tanggal memang sel teks, jadi saat ditulis lagi diberi ' .
+function jurnalData_(h, row, dariSheet) {
+  var o = dariSheet ? { $s: 1 } : {};
+  Object.keys(h.idx).forEach(function (k) {
+    var v = row[h.idx[k]];
+    if (v === '' || v == null) return;
+    o[k] = v instanceof Date ? { $d: v.getTime() } : v;
+  });
+  return JSON.stringify(o).slice(0, 49000);
+}
+function jurnalBaris_(h, json) {
+  var o = JSON.parse(json), teks = o.$s, row = [];
+  delete o.$s;
+  for (var i = 0; i < h.width; i++) row.push('');
+  Object.keys(o).forEach(function (k) {
+    var c = h.idx[k], v = o[k];
+    if (c === undefined) return;
+    if (v && typeof v === 'object' && v.$d) v = new Date(v.$d);
+    else if (typeof v === 'string' && (/^[=+@]/.test(v) || (teks && /^[\d\/.,:\s+-]+$/.test(v)))) v = "'" + v;   // tetap teks
+    row[c] = v;
+  });
+  return row;
+}
+
+function jurnalCatat_(tab, h, rows) {
+  try {
+    var sh = jurnalSheet_(true), now = new Date();
+    if (sh.getLastRow() < 2 && tab) jurnalAwal_(sh);   // jurnal baru: salin isi yang sudah ada dulu
+    var vals = rows.map(function (r) { return [now, tab, jurnalKunci_(tab, h, r), '', jurnalData_(h, r)]; });
+    if (vals.length) sh.getRange(sh.getLastRow() + 1, 1, vals.length, 5).setValues(vals);
+  } catch (e) { console.error('Jurnal: ' + e); }
+}
+
+// Isi awal jurnal = semua baris yang sekarang ada di kedua tab (supaya baris lama juga bisa dipulihkan).
+function jurnalAwal_(sh) {
+  var now = new Date(), vals = [];
+  Object.keys(JURNAL_TAB_).forEach(function (tab) {
+    var t = JURNAL_TAB_[tab].sheet(), h = sheetHeader_(t), n = t.getLastRow() - 1;
+    if (n < 1) return;
+    t.getRange(2, 1, n, h.width).getValues().forEach(function (r) {
+      if (r.join('') !== '') vals.push([now, tab, jurnalKunci_(tab, h, r), 'awal', jurnalData_(h, r, true)]);
+    });
+  });
+  if (vals.length) sh.getRange(sh.getLastRow() + 1, 1, vals.length, 5).setValues(vals);
+}
+
+// Tandai baris jurnal dengan kunci itu: status 'hapus' (tidak dipulihkan) dan/atau data baru setelah revisi.
+function jurnalTandai_(kunci, status, row, h) {
+  try {
+    var sh = jurnalSheet_(false);
+    if (!sh || sh.getLastRow() < 2) return;
+    var n = sh.getLastRow() - 1, ks = sh.getRange(2, 3, n, 1).getValues();
+    for (var i = n - 1; i >= 0; i--) if (ks[i][0] === kunci) {
+      if (status) sh.getRange(i + 2, 4).setValue(status);
+      if (row && h) { sh.getRange(i + 2, 3, 1, 3).setValues([[jurnalKunci_('DAILY REPORT EMR', h, row), status || '', jurnalData_(h, row, true)]]); }
+      return;
+    }
+  } catch (e) { console.error('Jurnal tandai: ' + e); }
+}
+
+// Cocokkan jurnal dengan spreadsheet Waspang dan tulis lagi baris yang hilang. paksa = dari perintah (selalu menjawab).
+function botPulih_(paksa) {
+  var props = PropertiesService.getScriptProperties(), now = Date.now();
+  if (!paksa && now - Number(props.getProperty('BOT_PULIH_LAST') || 0) < 55 * 60000) return '';
+  props.setProperty('BOT_PULIH_LAST', String(now));
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return paksa ? 'Pemulihan sedang berjalan, coba lagi sebentar.' : '';
+  try {
+    var jsh = jurnalSheet_(true);
+    if (jsh.getLastRow() < 2) { jurnalAwal_(jsh); props.setProperty('BOT_PULIH_INFO', 'jurnal dimulai ' + botWita_(now, 'dd/MM')); return paksa ? '🔧 Jurnal baru dibuat dari isi spreadsheet sekarang. Pengecekan berikutnya akan memulihkan baris yang hilang setelah ini.' : ''; }
+    var n = jsh.getLastRow() - 1, start = Math.max(0, n - 12000), batas = now - JURNAL_HARI_ * 864e5;
+    var jr = jsh.getRange(start + 2, 1, n - start, 4).getValues(), hasil = [], total = 0, ditahan = [];   // kolom Data dibaca hanya untuk yang hilang
+    Object.keys(JURNAL_TAB_).forEach(function (tab) {
+      var t = JURNAL_TAB_[tab].sheet(), h = sheetHeader_(t), ada = {}, last = t.getLastRow();
+      if (last > 1) t.getRange(2, 1, last - 1, h.width).getValues().forEach(function (r) { ada[jurnalKunci_(tab, h, r)] = 1; });
+      var hapus = {}, hilang = [], dilihat = {};
+      jr.forEach(function (j) { if (j[1] === tab && j[3] === 'hapus') hapus[j[2]] = 1; });
+      jr.forEach(function (j, i) {
+        if (j[1] !== tab || !j[2] || hapus[j[2]] || ada[j[2]] || dilihat[j[2]]) return;
+        if (!(j[0] instanceof Date) || j[0].getTime() < batas) return;
+        dilihat[j[2]] = 1; hilang.push({ i: i, j: j });
+      });
+      if (!hilang.length) return;
+      if (!paksa && hilang.length > JURNAL_MAKS_OTOMATIS_) { ditahan.push(hilang.length + ' ' + JURNAL_TAB_[tab].nama); return; }   // terlalu banyak: tunggu admin
+      var rows = hilang.map(function (x) { return jurnalBaris_(h, String(jsh.getRange(start + 2 + x.i, 5).getValue())); });
+      t.getRange(t.getLastRow() + 1, 1, rows.length, h.width).setValues(rows);
+      var tc = h.idx['timestamp'];
+      if (tc !== undefined && t.getLastRow() > 2) t.getRange(2, 1, t.getLastRow() - 1, h.width).sort({ column: tc + 1, ascending: true });
+      if (tab === 'DAILY REPORT EMR') { try { formatDailyRows_(t); } catch (e) {} }
+      var jam = botWita_(now, 'dd/MM HH:mm');
+      hilang.forEach(function (x) { jsh.getRange(start + 2 + x.i, 4).setValue('dipulihkan ' + jam); });
+      total += hilang.length;
+      var contoh = hilang.slice(0, 8).map(function (x) {
+        var k = x.j[2].split('|');
+        return '- ' + (k[2] || '').toUpperCase().slice(0, 60) + (tab === 'LOG FOTO WASPANG' && k[3] ? ' · ' + k[3] : '') + (k[1] ? ' (' + k[1].slice(8, 10) + '/' + k[1].slice(5, 7) + ' ' + k[1].slice(11) + ')' : '');
+      });
+      hasil.push('*' + hilang.length + ' ' + JURNAL_TAB_[tab].nama + '* ditulis lagi:');
+      hasil = hasil.concat(contoh, hilang.length > 8 ? ['- ... ' + (hilang.length - 8) + ' lagi'] : []);
+    });
+    var to = botOwnerJid_(), antre = function (text, id) {
+      if (to && !paksa) props.setProperty(WAQ_PREFIX_ + now + '_' + id, JSON.stringify({ t: now, n: 0, last: 0, files: [], mentions: [], to: to, text: text }));
+    };
+    if (ditahan.length) {
+      var tahan = '⚠️ *IRIS menemukan banyak data hilang*: ' + ditahan.join(', ') + ' (lebih dari ' + JURNAL_MAKS_OTOMATIS_ + ', tidak dipulihkan otomatis supaya aman).\nCek spreadsheet Waspang, lalu ketik ' + waKode_('pulihkan') + ' untuk menulis semuanya lagi.';
+      if (props.getProperty('BOT_PULIH_TAHAN') !== ditahan.join()) { antre(tahan, 'tahan'); props.setProperty('BOT_PULIH_TAHAN', ditahan.join()); }
+    } else props.deleteProperty('BOT_PULIH_TAHAN');
+    props.setProperty('BOT_PULIH_INFO', (total ? total + ' baris dipulihkan ' + botWita_(now, 'dd/MM HH:mm') : ditahan.length ? 'menunggu admin: ' + ditahan.join(', ') + ' hilang' : 'semua lengkap'));
+    if (!total) return paksa ? '✅ Semua Daily Report dan log foto lengkap (dicocokkan dengan jurnal ' + JURNAL_HARI_ + ' hari terakhir).' : '';
+    var text = '🔧 *IRIS memulihkan data yang hilang*\n' + hasil.join('\n') +
+      '\n> Sumber: tab ' + JURNAL_SH_ + ' (spreadsheet LOG ARSIP). Kalau memang sengaja dihapus, hapus lagi lewat ' + waKode_('revisi <site>') + ' lalu ' + waKode_('revisi hapus') + '.';
+    antre(text, 'pulih');
+    return text;
+  } finally {
+    lock.releaseLock();
+  }
 }
