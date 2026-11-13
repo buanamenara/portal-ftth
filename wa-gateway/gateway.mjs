@@ -107,6 +107,37 @@ async function targetJid() {
   return (groupJid = hit.id);
 }
 
+// ---- Grup per region ----
+// Apps Script mengirim daftar grup region lewat WA_PULL ({"Pontianak": "Nama grup WA"}). Laporan dengan job.grup dikirim ke
+// grup itu; perintah dari grup itu diteruskan dengan grup = kunci region supaya jawabannya tersaring ke region tersebut.
+let regionNames = {}, regionJids = {}, regionMissAt = 0;
+function setRegionGroups(map) {
+  if (!map || typeof map !== 'object') return;
+  if (JSON.stringify(map) !== JSON.stringify(regionNames)) { regionNames = map; regionJids = {}; regionMissAt = 0; }
+}
+async function regionJid(key) {
+  if (regionJids[key]) return regionJids[key];
+  const want = String(regionNames[key] || '').trim();
+  if (!want) return null;
+  if (/@g\.us$/.test(want)) return (regionJids[key] = want);
+  if (Date.now() - regionMissAt < 5 * 60000) return null;   // baru saja dicari dan tidak ada: jangan minta daftar grup terus-menerus
+  const groups = await sock.groupFetchAllParticipating();
+  for (const k of Object.keys(regionNames)) {
+    const w = String(regionNames[k] || '').trim().toLowerCase();
+    const hit = Object.values(groups).find(g => String(g.subject || '').trim().toLowerCase() === w);
+    if (hit) regionJids[k] = hit.id;
+  }
+  if (!regionJids[key]) { regionMissAt = Date.now(); log('Grup region', key, '"' + want + '" tidak ditemukan di nomor ini.'); return null; }
+  log('Grup region', key + ':', want, regionJids[key]);
+  return regionJids[key];
+}
+// JID grup -> '' (grup utama), kunci region, atau null (bukan grup IRIS).
+async function groupKeyOf(chat) {
+  if (chat === await targetJid()) return '';
+  for (const k of Object.keys(regionNames)) if (await regionJid(k).catch(() => null) === chat) return k;
+  return null;
+}
+
 async function api(body) {
   const res = await fetch(CFG.url, {
     method: 'POST',
@@ -168,12 +199,13 @@ async function onVote(m, upd) {
   const rec = upd.pollCreationMessageKey && polls[upd.pollCreationMessageKey.id];
   if (!rec || !upd.vote || votesSeen.has(k.id)) return;
   votesSeen.add(k.id); if (votesSeen.size > 500) votesSeen.clear();
-  if (isGroup && chat !== await targetJid()) return;
+  const gk = isGroup ? await groupKeyOf(chat) : '';
+  if (gk === null) return;
   const pilih = readVote(upd, rec, isGroup ? [k.participant, k.participantAlt] : [chat, k.remoteJidAlt]);
   if (pilih === null) { log('Suara polling tidak bisa dibaca:', k.id); return; }
   if (!pilih.length) return;   // pilihan dibatalkan
   const from = isGroup ? await phoneOf(k.participant, k.participantAlt) : await phoneOf(chat, k.remoteJidAlt);
-  const res = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, text: (isGroup ? '!' : '') + 'pilih ' + pilih[0], canPoll: true });
+  const res = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, grup: gk, text: (isGroup ? '!' : '') + 'pilih ' + pilih[0], canPoll: true });
   if (res.poll) await sendMenuPoll(chat, res.poll);
   if (!res.reply) return;
   const siapa = m.pushName || from || 'Anggota';
@@ -202,8 +234,11 @@ async function onMessage(m) {
   else if (isXlsx && Date.now() - (stokwhSender[chat + sender] || 0) < 180000) text = '!stokwh';
   if (doc && !(isXlsx && /^[!\/]?stokwh\b/i.test(text))) return;
   if (!text || text.length > (isGroup ? 300 : 4000)) return;   // chat pribadi boleh panjang (daftar permit)
+  let gk = '';
   if (isGroup) {
-    if (!/^[!\/]/.test(text) || chat !== await targetJid()) return;
+    if (!/^[!\/]/.test(text)) return;
+    gk = await groupKeyOf(chat);
+    if (gk === null) return;   // grup lain yang kebetulan diikuti nomor ini
   }
   let excel;
   if (doc) {
@@ -218,7 +253,7 @@ async function onMessage(m) {
     }
   }
   const from = isGroup ? await phoneOf(k.participant, k.participantAlt) : await phoneOf(chat, k.remoteJidAlt);
-  const { reply, poll: menu } = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, text, excel, canPoll: true });
+  const { reply, poll: menu } = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, grup: gk, text, excel, canPoll: true });
   if (menu) {
     await sendMenuPoll(chat, menu);
     log('Menu polling dikirim', isGroup ? '(grup)' : '(pribadi ' + from + ')');
@@ -251,7 +286,14 @@ async function withMentions(text, nums) {
 // Satu laporan: teks saja, atau file (foto/PDF) dengan keterangan pada file pertama.
 async function sendJob(job) {
   if (FAKE) return;
-  const jid = job.to || await targetJid();   // job.to = pengingat bot ke chat pribadi
+  // job.to = chat pribadi / chat asal perintah; job.grup = grup region. Grup region belum ketemu (nama salah, nomor belum
+  // masuk grup): dikirim ke grup utama dengan catatan, supaya laporan tidak hilang.
+  let jid = job.to;
+  if (!jid && job.grup) {
+    jid = await regionJid(job.grup).catch(() => null);
+    if (!jid) job.text = '⚠️ _Grup region ' + job.grup + ' belum ditemukan, dikirim ke grup ini._\n\n' + (job.text || '');
+  }
+  jid = jid || await targetJid();
   const files = job.files || [];
   if (!files.length) {
     await sock.sendMessage(jid, await withMentions(job.text || '', job.mentions));
@@ -271,7 +313,8 @@ async function poll() {
   if (busy || !ready || paused()) return;
   busy = true;
   try {
-    const { jobs } = await api({ action: 'WA_PULL' });
+    const { jobs, grup } = await api({ action: 'WA_PULL' });
+    setRegionGroups(grup);
     panel.pulled((jobs || []).length);
     for (const job of jobs || []) {
       try {
