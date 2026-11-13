@@ -131,6 +131,21 @@ async function regionJid(key) {
   log('Grup region', key + ':', want, regionJids[key]);
   return regionJids[key];
 }
+// Status tiap grup untuk panel: LED hijau bila WhatsApp tersambung dan grup sudah ditemukan.
+// Grup dicek ulang paling sering tiap 60 detik dari poll() supaya LED berubah sendiri (grup baru dibuat, nomor dikeluarkan).
+let mainRegionName = '', groupCheckAt = 0;
+function groupStatus() {
+  const list = [{ name: mainRegionName || 'Grup utama', grup: String(CFG.group || ''), ok: ready && !!groupJid }];
+  for (const k of Object.keys(regionNames)) list.push({ name: k, grup: String(regionNames[k] || ''), ok: ready && !!regionJids[k] });
+  return list;
+}
+async function checkGroups() {
+  if (!ready || FAKE || Date.now() - groupCheckAt < 60000) return;
+  groupCheckAt = Date.now();
+  await targetJid().catch(() => { groupJid = null; });
+  for (const k of Object.keys(regionNames)) await regionJid(k).catch(() => null);
+}
+
 // JID grup -> '' (grup utama), kunci region, atau null (bukan grup IRIS).
 async function groupKeyOf(chat) {
   if (chat === await targetJid()) return '';
@@ -313,8 +328,10 @@ async function poll() {
   if (busy || !ready || paused()) return;
   busy = true;
   try {
-    const { jobs, grup } = await api({ action: 'WA_PULL' });
+    const { jobs, grup, grupUtama } = await api({ action: 'WA_PULL' });
     setRegionGroups(grup);
+    if (grupUtama) mainRegionName = String(grupUtama);
+    await checkGroups();
     panel.pulled((jobs || []).length);
     for (const job of jobs || []) {
       try {
@@ -349,6 +366,7 @@ await startPanel({
   dataDir: DATA, port: Number(CFG.panelPort) || 8737, lan: CFG.panelLan === true, configured, pollMs: POLL_MS,
   config: { url: CFG.url || '', group: CFG.group || '', hasSecret: !!CFG.secret },
   isReady: () => ready,
+  groups: () => groupStatus(),
   test: async () => {
     if (!ready) throw new Error('WhatsApp belum tersambung.');
     if (!FAKE) await sock.sendMessage(await targetJid(), { text: '✅ Tes IRIS Gateway · ' + new Date().toLocaleString('id-ID') });

@@ -63,6 +63,9 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   lingkaran emas milik pemilik (`IRIS_Asisten_Proyek_BMI_Emblem.png`).
 - **IRIS Gateway jalan di balik layar:** jadwal login dan jaga tidak membuka panel; panel hanya dari shortcut Desktop
   (`IRIS Gateway.vbs /panel`). Instalasi lama: ganti `IRIS Gateway.vbs` + `bin\pasang.ps1`, lalu jalankan `Pasang Otomatis.bat` lagi.
+- **Panel IRIS Gateway: LED per region:** baris ● Banjarmasin / ● Pontianak (nama region saja; nama grup di tooltip).
+  Hijau = WhatsApp tersambung dan grup ditemukan; merah = terputus, Stop, atau grup tidak ditemukan. Gateway mengecek grup
+  tiap 60 dtk (`checkGroups()`); nama region grup utama dari `WA_PULL.grupUtama` (`botGrupNama_('')`).
 - **Gateway WA** jalan di laptop terpisah, bukan di laptop kerja pemilik. Folder `auth` dan `config.json` tidak pernah
   dibagikan atau diunggah.
 
