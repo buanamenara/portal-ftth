@@ -54,6 +54,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Pilihan Region di Portal Waspang (Form.html):** dropdown Region (dari kolom Region DATA BASE) di atas pencarian cluster
   di Daily Report, BOQ Plan, dan Dokumentasi; menyaring daftar site, disimpan per perangkat (`localStorage` `waspang_region_v1`),
   sama untuk ketiga menu. Site tanpa Region hanya muncul di "Semua region". Format teks Daily Report tidak diubah.
+  Laporan Dokumentasi (caption WA, `buildWaspangPhotoCaption_` + Form.html) menambah baris `🌏 *Region*` bila Region site diketahui.
 - **Backup Drive:** hanya backup terbaru yang disimpan. Perintah `backup bersih` membuang yang lama.
 - **Rekap:** `rekap`, `mingguan [ini|lalu]`, `bulanan [bulan|ini]` terbuka untuk semua anggota, bisa disaring SOW dan kota
   (kolom KOTA di DATA BASE), plus ringkasan `sow` / `kota` / `kota sow`. Kalau hari ini belum ada laporan, `rekap`

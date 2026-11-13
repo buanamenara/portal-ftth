@@ -5898,6 +5898,13 @@ ${todayActivity}`;
       });
       return pilih;
     }
+    // Region satu site (nama + SOW) dari DATA BASE; '' bila tidak ada (mis. nama site baru).
+    function regionSite(name, sow) {
+      const n = cleanSiteName(name), so = String(sow || '').toLowerCase();
+      const hit = MASTER_DATABASE_SOW.find(it => cleanSiteName(it.name) === n && String(it.sow || '').toLowerCase() === so)
+        || MASTER_DATABASE_SOW.find(it => cleanSiteName(it.name) === n && it.region);
+      return hit ? String(hit.region || '').trim() : '';
+    }
     function siteDiRegion(reg) {
       const k = String(reg || '').toLowerCase(), set = new Set();
       MASTER_DATABASE_SOW.forEach(it => { if (String(it.region || '').trim().toLowerCase() === k) set.add(cleanSiteName(it.name)); });
@@ -7069,7 +7076,7 @@ ${todayActivity}`;
 `📌 *LAPORAN WASPANG - PT. BUANA MENARA INDONESIA*
 ━━━━━━━━━━━━━━━━━━━━
 🏷️ *Site Name* : \`${site}\`
-📋 *SOW*       : \`${sow}\`
+📋 *SOW*       : \`${sow}\`${regionSite(site, sow) ? `\n🌏 *Region*    : \`${regionSite(site, sow)}\`` : ''}
 🚧 *Progress*  : \`${progText}\`
 👤 *Waspang*   : ${waspang}${notes ? `\n📝 *Catatan*:\n${notes}` : ''}`;
 
