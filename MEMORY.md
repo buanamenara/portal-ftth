@@ -8,7 +8,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 <!-- LIVE:START -->
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
-| waspang | @121 | 2026-11-13 17:50 | e46b17e | Uji deploy lewat GitHub Actions (isi sama dengan @120: menu polling) |
+| waspang | @122 | 2026-11-13 21:21 | 462e158 | Grup WA per region (Pontianak): laporan, jadwal, dan perintah per grup |
 | ftth | @262 | 2026-11-13 21:02 | e4ac434 | Merge pull request #99 from buanamenara/memori-merge |
 | gateway | @22 | 2026-11-05 22:46 | - | Tampilan sesuai mockup (tahap 3 lanjutan) |
 <!-- LIVE:END -->
@@ -60,6 +60,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-13 21:21 · **waspang @122** · 462e158 · Grup WA per region (Pontianak): laporan, jadwal, dan perintah per grup · GitHub Actions
 - 2026-11-13 21:02 · **ftth @262** · e4ac434 · Merge pull request #99 from buanamenara/memori-merge · GitHub Actions
 - 2026-11-13 17:50 · **waspang @121** · e46b17e · Uji deploy lewat GitHub Actions (isi sama dengan @120) · GitHub Actions
 - 2026-11-13 17:23 · **waspang @120** · c7b8cf2 · Menu IRIS lewat polling WhatsApp (`!menu`, `menu admin`) · clasp laptop
