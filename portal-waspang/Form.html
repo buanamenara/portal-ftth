@@ -2027,6 +2027,7 @@
 
           <div class="form-group">
             <label for="dailyClusterSelect">Pilih Cluster / Site Name *</label>
+            <select class="region-pilih" onchange="onRegionPilih(this.value)" aria-label="Region" style="display: none; margin-bottom: 6px; font-weight: 600;"><option value="">🌏 Semua region</option></select>
             <input type="search" id="dailyClusterSearch" class="cluster-search" placeholder="🔍 Ketik nama atau nomor untuk mencari cluster..." oninput="onClusterSearch('dailyClusterSelect')" autocomplete="off" style="margin-bottom: 6px;">
             <select id="dailyClusterSelect" onchange="onDailyClusterChange()" required>
               <option value="">-- Memuat cluster dari DATA BASE... --</option>
@@ -2328,6 +2329,7 @@
 
           <div class="form-group">
             <label for="boqTargetCluster">Pilih Cluster yang Ingin Disesuaikan *</label>
+            <select class="region-pilih" onchange="onRegionPilih(this.value)" aria-label="Region" style="display: none; margin-bottom: 6px; font-weight: 600;"><option value="">🌏 Semua region</option></select>
             <input type="search" id="boqClusterSearch" class="cluster-search" placeholder="🔍 Ketik nama atau nomor untuk mencari cluster..." oninput="onClusterSearch('boqTargetCluster')" autocomplete="off" style="margin-bottom: 6px;">
             <select id="boqTargetCluster" onchange="onBoqClusterChange()" style="font-weight: 600;">
               <option value="">-- Memuat cluster... --</option>
@@ -2401,6 +2403,7 @@
                 Nama site / cluster baru (belum ada di DATA BASE, mis. laporan tim Permit)
               </label>
               <input type="text" id="photoSiteManual" maxlength="100" placeholder="Ketik nama site / cluster baru..." oninput="onPhotoSiteManualInput()" autocomplete="off" style="display: none; font-weight: 600; margin-bottom: 6px;">
+              <select class="region-pilih" onchange="onRegionPilih(this.value)" aria-label="Region" style="display: none; margin-bottom: 6px; font-weight: 600;"><option value="">🌏 Semua region</option></select>
               <input type="search" id="photoSiteSearch" class="cluster-search" placeholder="🔍 Ketik nama atau nomor untuk mencari cluster..." oninput="onClusterSearch('photoSiteSelect')" autocomplete="off" style="margin-bottom: 6px;">
               <select id="photoSiteSelect" onchange="onPhotoSiteChange()" required style="font-weight: 600;">
                 <!-- Populated dynamically from Database -->
@@ -5872,9 +5875,55 @@ ${todayActivity}`;
       }, 300);
     }
 
+    // ---- Region (kolom Region di DATA BASE): pilihan cluster di Daily Report, BOQ Plan, dan Dokumentasi hanya site region
+    // yang dipilih. Pilihan disimpan di perangkat ini dan sama untuk ketiga menu. Site tanpa Region hanya ada di "Semua region".
+    const STORAGE_REGION = 'waspang_region_v1';
+    function regionAktif() { try { return localStorage.getItem(STORAGE_REGION) || ''; } catch (e) { return ''; } }
+    function simpanRegion(v) { try { localStorage.setItem(STORAGE_REGION, v || ''); } catch (e) {} }
+    function daftarRegion() {
+      const seen = {}, out = [];
+      MASTER_DATABASE_SOW.forEach(it => {
+        const r = String(it.region || '').trim(), k = r.toLowerCase();
+        if (r && !seen[k]) { seen[k] = true; out.push(r); }
+      });
+      return out.sort((a, b) => a.localeCompare(b));
+    }
+    function isiPilihanRegion() {
+      const regs = daftarRegion(), cur = regionAktif().toLowerCase();
+      const pilih = regs.find(r => r.toLowerCase() === cur) || '';
+      document.querySelectorAll('.region-pilih').forEach(sel => {
+        sel.innerHTML = '<option value="">🌏 Semua region</option>' + regs.map(r => '<option value="' + escOpt(r) + '">📍 Region ' + escOpt(r) + '</option>').join('');
+        sel.value = pilih;
+        sel.style.display = regs.length > 1 ? '' : 'none';
+      });
+      return pilih;
+    }
+    function siteDiRegion(reg) {
+      const k = String(reg || '').toLowerCase(), set = new Set();
+      MASTER_DATABASE_SOW.forEach(it => { if (String(it.region || '').trim().toLowerCase() === k) set.add(cleanSiteName(it.name)); });
+      return set;
+    }
+    function onRegionPilih(v) {
+      simpanRegion(v);
+      const before = {};
+      ['dailyClusterSelect', 'boqTargetCluster', 'photoSiteSelect'].forEach(id => { const el = document.getElementById(id); before[id] = el ? el.value : ''; });
+      refreshAllClusterDropdowns();
+      ['dailyClusterSelect', 'boqTargetCluster', 'photoSiteSelect'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.value && el.value !== before[id]) el.dispatchEvent(new Event('change'));
+      });
+    }
+
     function refreshAllClusterDropdowns(preferredSelection, onlySelId) {
-      const names = getMasterDatabaseSites();
+      let names = getMasterDatabaseSites();
       const pref = preferredSelection ? { name: boqSiteName(preferredSelection), sow: getSowType(preferredSelection) } : null;
+      const reg = isiPilihanRegion();
+      if (reg) {
+        const inReg = siteDiRegion(reg);
+        // Cluster yang dipilih sistem (mis. hasil impor BOQ) ada di region lain: tampilkan semua region.
+        if (pref && names.includes(pref.name) && !inReg.has(pref.name)) { simpanRegion(''); isiPilihanRegion(); }
+        else names = names.filter(n => inReg.has(n));
+      }
       function fill(selId, sowId) {
         if (onlySelId && onlySelId !== selId) return;
         const sel = document.getElementById(selId);
@@ -5890,7 +5939,7 @@ ${todayActivity}`;
         }
         sel.innerHTML = list.length
           ? list.map(n => '<option value="' + escOpt(n) + '">' + escOpt(n) + '</option>').join('')
-          : '<option value="">' + (names.length ? '-- Tidak ada cluster yang cocok dengan pencarian --' : '-- DATA BASE belum termuat --') + '</option>';
+          : '<option value="">' + (names.length ? '-- Tidak ada cluster yang cocok dengan pencarian --' : reg ? '-- Belum ada site region ' + escOpt(reg) + ' di DATA BASE --' : '-- DATA BASE belum termuat --') + '</option>';
         const want = (pref && list.includes(pref.name)) ? pref.name : prevName;
         sel.value = list.includes(want) ? want : (list[0] || '');
         if (sowSel) fillSowSelect(sowSel, sel.value, (pref && pref.name === sel.value) ? pref.sow : prevSow);
