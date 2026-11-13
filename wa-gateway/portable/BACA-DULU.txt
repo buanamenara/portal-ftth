@@ -13,9 +13,10 @@ PINDAH DARI GATEWAY LAMA (start.bat), di laptop gateway:
    ke folder IRIS-Gateway\data\
    Dengan begitu WhatsApp tidak perlu ditautkan ulang.
 4. Klik dua kali "Pasang Otomatis.bat" (cukup sekali).
-   - IRIS Gateway menyala sendiri setiap laptop dinyalakan/login,
-     setelah laptop bangun dari sleep, dan dicek ulang tiap 15 menit.
-   - Shortcut "IRIS Gateway" muncul di Desktop untuk membuka panel.
+   - IRIS Gateway menyala sendiri DI BALIK LAYAR (tanpa jendela) setiap
+     laptop dinyalakan/login, setelah bangun dari sleep, dan dicek tiap 15 menit.
+   - Panel tidak muncul sendiri. Buka panel dari shortcut "IRIS Gateway"
+     di Desktop; menutup jendela panel tidak menghentikan gateway.
    - Shortcut start.bat lama di folder Startup dibuang otomatis.
 5. Panel terbuka dan meminta "Buat kata sandi admin" (min. 8 karakter).
    Setelah itu panel selalu minta kata sandi ini.
@@ -41,6 +42,10 @@ PANEL (perlu kata sandi admin)
 - Lupa kata sandi: buka data\config.json dengan Notepad, hapus baris
   "panelPass" beserta isinya, simpan. Panel lalu minta kata sandi baru.
 - Panel hanya bisa dibuka dari laptop itu sendiri: http://127.0.0.1:8737
+
+SUDAH TERPASANG VERSI SEBELUMNYA (panel muncul sendiri)?
+- Ganti file "IRIS Gateway.vbs" dan "bin\pasang.ps1" dengan yang baru, lalu
+  klik dua kali "Pasang Otomatis.bat" sekali lagi. Data dan tautan WhatsApp aman.
 
 PERLU DIINGAT
 - Setelah laptop restart, Windows harus login dulu baru gateway menyala.
