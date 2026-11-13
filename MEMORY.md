@@ -1,0 +1,75 @@
+# MEMORY · IRIS / Portal BMI
+
+Memori proyek yang dibaca oleh AI atau developer berikutnya. Aturan menulisnya ada di `AGENTS.md`.
+Bagian bertanda *(otomatis)* diisi workflow deploy. Bagian lain diperbarui oleh siapa pun yang mengubah sistem,
+di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor HP, atau data pribadi.
+
+## Versi live *(otomatis)*
+<!-- LIVE:START -->
+| Project | Versi live | Waktu (WITA) | Commit | Keterangan |
+|---|---|---|---|---|
+| waspang | @121 | 2026-11-13 17:50 | e46b17e | Uji deploy lewat GitHub Actions (isi sama dengan @120: menu polling) |
+| ftth | @261 | 2026-11-13 13:14 | - | FORM ATP unduh langsung + animasi (PR #90). HEAD Apps Script berisi CADANGAN_SIMPAN=1 yang belum di-deploy |
+| gateway | @22 | 2026-11-05 22:46 | - | Tampilan sesuai mockup (tahap 3 lanjutan) |
+<!-- LIVE:END -->
+
+URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Deployment ID ada di
+`.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
+
+## Status & pekerjaan menunggu
+*Terakhir diperbarui 2026-11-13 18:00 WITA.*
+- **Belum di-merge pemilik:** PR #96 (rekap hari terakhir, ikon ✦, teks status), PR #97 (pemulihan otomatis),
+  PR #98 (menu polling + workflow deploy + memori ini). Ketiganya bertumpuk dan **sudah live** di Waspang.
+  `main` masih lebih lama dari yang live. Jangan deploy dari `main` sebelum ketiganya di-merge, karena fitur di atas
+  akan hilang.
+- **IRIS Gateway (laptop baru):** belum dipasang. Paket portable terbaru (menu polling) ada di
+  Drive `IRIS - Asisten Proyek BMI/IRIS-Gateway-Build/IRIS-Gateway-Portable.zip`. Selama gateway lama masih jalan,
+  `!menu` dibalas daftar teks (fallback), bukan polling. Menu polling belum diuji di grup WhatsApp asli.
+- **Data hilang 07/11:** 4 Daily Report + 3 log foto (MF Beruntung, Lawahan, FWA Tapin, FWA HST) hilang karena
+  spreadsheet Waspang dikembalikan ke versi lama (antara 7 dan 8 Nov). Belum dipulihkan. Sumbernya: Riwayat versi
+  spreadsheet atau teks laporan di grup WA. Pemulihan otomatis baru mencatat laporan sejak @119.
+- **Portal FTTH:** sebelum deploy pertama lewat workflow, cocokkan `portal-ftth-gas/Kode.gs` dengan HEAD Apps Script
+  (`Kode.js`). Keduanya beda: HEAD punya `CADANGAN_SIMPAN = 1`.
+- **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
+  `!mandor`, `!selisih`, `!log`.
+
+## Keputusan & aturan
+- **Deploy:** lewat GitHub Actions (push ke `deploy-waspang` / `deploy-ftth` / `deploy-gateway`). Clasp di laptop
+  pemilik hanya cadangan. Web app `executeAs USER_DEPLOYING` memakai akun pemilik, jadi deploy harus memakai kunci clasp
+  akun itu (secret `CLASPRC_JSON`). Deploy dan merge hanya dengan persetujuan pemilik.
+- **Pemulihan otomatis (Waspang @119):** setiap Daily Report dan log foto disalin ke tab `JURNAL WASPANG` di spreadsheet
+  LOG ARSIP. Tiap jam (`cekGatewayBot` → `botPulih_`) baris yang hilang ditulis lagi dan admin diberi DM.
+  Lebih dari 30 baris sekaligus tidak dipulihkan otomatis (tunggu perintah `pulihkan`). Hapus yang disengaja lewat
+  `revisi hapus` ditandai `hapus` di jurnal.
+- **Menu polling (Waspang @120 + gateway baru):** tombol ala Telegram tidak tersedia untuk WhatsApp biasa (Baileys),
+  jadi dipakai polling WhatsApp. Gateway menyimpan kunci polling di `data/menu-polling.json`, mendekripsi suara
+  (`decryptPollVote`, mencoba pasangan JID nomor/LID), lalu mengirim `pilih <label>` ke Apps Script.
+- **Backup Drive:** hanya backup terbaru yang disimpan. Perintah `backup bersih` membuang yang lama.
+- **Rekap:** `rekap`, `mingguan [ini|lalu]`, `bulanan [bulan|ini]` terbuka untuk semua anggota, bisa disaring SOW dan kota
+  (kolom KOTA di DATA BASE), plus ringkasan `sow` / `kota` / `kota sow`. Kalau hari ini belum ada laporan, `rekap`
+  menampilkan hari laporan terakhir.
+- **Format WA:** kotak kode `waKode_()`, daftar `- `, kutipan `> `, awalan balasan `✦ `. Logo IRIS resmi: emblem
+  lingkaran emas milik pemilik (`IRIS_Asisten_Proyek_BMI_Emblem.png`).
+- **Gateway WA** jalan di laptop terpisah, bukan di laptop kerja pemilik. Folder `auth` dan `config.json` tidak pernah
+  dibagikan atau diunggah.
+
+## Lokasi
+- **Kode:** repo ini (`buanamenara/portal-ftth`).
+- **File kerja pemilik:** Google Drive `My Drive/IRIS - Asisten Proyek BMI/`. Isinya cadangan kode per versi
+  (`Waspang_Backup_vNNN_*`, `FTTH_Backup_vNNN_*`), folder clasp `Deploy_Animasi_2026-11-05/cek_head/<project>`,
+  mockup, panduan PDF, dan `IRIS-Gateway-Build`.
+- **Data:** spreadsheet FTTH, Waspang, LOG ARSIP, dan folder foto `DOKUMENTASI FTTH` di Drive akun pemilik
+  (ID di `CONFIG` dalam `Kode.gs`).
+
+## Riwayat deploy *(otomatis, terbaru di atas)*
+<!-- LOG:START -->
+- 2026-11-13 17:50 · **waspang @121** · e46b17e · Uji deploy lewat GitHub Actions (isi sama dengan @120) · GitHub Actions
+- 2026-11-13 17:23 · **waspang @120** · c7b8cf2 · Menu IRIS lewat polling WhatsApp (`!menu`, `menu admin`) · clasp laptop
+- 2026-11-13 17:07 · **waspang @119** · bfb9ecb · Pemulihan otomatis Daily Report & log foto (jurnal) · clasp laptop
+- 2026-11-13 16:54 · **waspang @118** · 75e50ba · Teks status "✅ Tidak ada error hari ini" · clasp laptop
+- 2026-11-13 · **waspang @117** · - · Ikon bot ✦ · clasp laptop
+- 2026-11-13 · **waspang @116** · - · Rekap per kota & SOW, rekap hari terakhir · clasp laptop
+- 2026-11-13 · **waspang @115** · - · Format bot tahap 3 (PR #93) · clasp laptop
+- 2026-11-13 13:14 · **ftth @261** · - · FORM ATP unduh langsung + animasi (PR #90) · editor Apps Script
+- 2026-11-05 22:46 · **gateway @22** · - · Tampilan sesuai mockup · clasp laptop
+<!-- LOG:END -->

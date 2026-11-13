@@ -3,6 +3,7 @@
 #   git push -f origin <commit>:refs/heads/deploy-waspang
 # atau jalankan manual dari tab Actions (workflow_dispatch, setelah file ini ada di main).
 # Kunci login clasp (akun pemilik Apps Script) disimpan di secret repo CLASPRC_JSON.
+# Setelah deploy berhasil, MEMORY.md di main ikut diperbarui (versi live + riwayat deploy), lihat AGENTS.md.
 # Isi project di Apps Script diambil dulu (clasp pull), lalu HANYA kode + Form.html dari repo yang ditimpa,
 # jadi file lain di project (manifest, template BOQ, KopSurat) tidak berubah.
 name: Deploy Apps Script
@@ -22,7 +23,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write   # untuk commit MEMORY.md ke main setelah deploy
 
 jobs:
   deploy:
@@ -73,11 +74,16 @@ jobs:
           echo "Sesudah:"; md5sum * | sed 's/^/  /'
 
       - name: Push + deploy
+        id: d
         working-directory: w
         run: |
           DESC="$(git -C .. log -1 --format=%s | cut -c1-90)"
           clasp push -f
-          clasp deploy -i "${{ steps.p.outputs.dep }}" -d "$DESC"
+          OUT="$(clasp deploy -i "${{ steps.p.outputs.dep }}" -d "$DESC")"
+          echo "$OUT"
+          V="$(echo "$OUT" | grep -o '@[0-9]\+' | tail -1 | tr -d @)"
+          echo "version=$V" >> $GITHUB_OUTPUT
+          echo "desc=$DESC" >> $GITHUB_OUTPUT
 
       - name: Cek web app
         run: |
@@ -87,6 +93,31 @@ jobs:
           CODE=$(curl -s -L -o out.txt -w '%{http_code}' "$URL")
           echo "HTTP $CODE"; head -c 300 out.txt; echo
           [ "$CODE" = 200 ] || exit 1
+
+      - name: Perbarui MEMORY.md di main
+        if: steps.d.outputs.version != ''
+        env:
+          P: ${{ steps.p.outputs.name }}
+          V: ${{ steps.d.outputs.version }}
+          SUBJ: ${{ steps.d.outputs.desc }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --depth=20 origin main
+          git worktree add -q ../mem origin/main
+          cd ../mem
+          # main belum punya file memori (PR belum di-merge): salin dari commit yang di-deploy
+          for f in MEMORY.md AGENTS.md CLAUDE.md GEMINI.md scripts/update-memory.mjs; do
+            [ -f "$f" ] || { mkdir -p "$(dirname "$f")"; cp "$GITHUB_WORKSPACE/$f" "$f"; }
+          done
+          node scripts/update-memory.mjs --project "$P" --version "$V" --commit "$GITHUB_SHA" --subject "$SUBJ" --by "GitHub Actions"
+          git add -A
+          git commit -q -m "memory: $P @$V - $SUBJ"
+          for i in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            sleep 3; git fetch --depth=20 origin main; git rebase origin/main || { git rebase --abort; exit 1; }
+          done
+          exit 1
 
       - name: Hapus kunci login
         if: always()
