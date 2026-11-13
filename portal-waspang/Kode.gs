@@ -631,7 +631,7 @@ function waCmd_(p) {
       out = botStok_(arg); break;
     case 'progres': case 'progress':
       out = botProgres_(arg); break;
-    case 'rekap':
+    case 'rekap': case 'harian':
       out = botRekap_(arg); break;
     case 'site': case 'cari':
       out = botSite_(arg); break;
@@ -656,7 +656,7 @@ function waCmd_(p) {
     case 'stokmin': case 'menipis':
       out = owner ? (botStokMenipis_(true) || 'Tidak ada stok di bawah batas.') : ''; break;
     case 'mingguan':
-      out = owner ? botMingguan_(Date.now()) : ''; break;
+      out = botMingguan_(Date.now(), arg); break;
     case 'wh':
       out = owner ? botTimCmd_(arg, 'BOT_WH') : ''; break;
     case 'mangkrak':
@@ -664,7 +664,7 @@ function waCmd_(p) {
     case 'boq':
       out = !owner ? '' : /^ok\b/i.test(arg) ? botBoqOk_(arg.replace(/^ok\s*/i, '')) : (botBoqLewat_(Date.now()) || 'Tidak ada item yang melebihi Plan BOQ (di luar site yang sudah di-OK).'); break;
     case 'bulanan':
-      out = owner ? botBulanan_(Date.now(), arg) : ''; break;
+      out = botBulanan_(Date.now(), arg); break;
     case 'backup':
       out = !owner ? '' : /^(bersih|hapus|rapikan)\b/i.test(arg) ? botBackupBersih_() : botBackup_(true); break;
     case 'status':
@@ -747,8 +747,13 @@ function botHelp_(owner) {
     '   _contoh:_ ' + K('stok kabel batola'),
     '- ' + K('progres <site>') + ' Total vs Plan material',
     '   _contoh:_ ' + K('progres jati baru rt 04'),
+    '', '📊 *REKAP*',
     '- ' + K('rekap [kemarin | dd/mm] [sow] [kota]') + ' Daily Report hari itu',
-    '   _contoh:_ ' + K('rekap cluster') + ' · ' + K('rekap kemarin pontianak'),
+    '- ' + K('mingguan [ini | lalu] [sow] [kota]') + ' rekap 7 hari terakhir',
+    '- ' + K('bulanan [sow] [kota] [bulan]') + ' rekap bulanan (tanpa bulan = bulan lalu, ' + A('ini') + ' = bulan berjalan)',
+    '   tambah ' + A('sow') + ' / ' + A('kota') + ' / ' + A('kota sow') + ' = ringkasan per SOW / per kota / tiap kota per SOW',
+    '   _contoh:_ ' + K('bulanan fwa hulu sungai') + ' · ' + K('bulanan kota sow') + ' · ' + K('mingguan cluster martapura') + ' · ' + K('rekap kemarin kota'),
+    '', '🔎 *CEK LAIN*',
     '- ' + K('site <kata>') + ' cari nama site',
     '- ' + K('potongan [kabel] [gudang]') + ' haspel utuh + potongan kabel',
     '- ' + K('ba <site>') + ' BA Ambil / Pengembalian + total bersih',
@@ -781,10 +786,7 @@ function botHelp_(owner) {
     '   _isi:_ ' + A('- Nama Site') + ' = site · ' + A('-Pulling Cable') + ' = aktivitas',
     '- ' + A('implementasi buang <nama site>') + ' buang site otomatis',
     '- ' + A('implementasi hapus') + ' kembali ke daftar otomatis',
-    '- ' + A('pagi') + ' ' + A('sore') + ' ' + A('mingguan') + ' ' + A('bulanan') + ' lihat contoh pesan',
-    '- ' + A('bulanan [sow] [kota] [bulan]') + ' rekap bulanan tersaring',
-    '   ' + A('bulanan sow') + ' ringkasan per SOW · ' + A('bulanan kota') + ' ringkasan per kota',
-    '   _contoh:_ ' + A('bulanan cluster') + ' · ' + A('bulanan pontianak ini') + ' · ' + A('bulanan sf bjm 10/2026'),
+    '- ' + A('pagi') + ' ' + A('sore') + ' lihat contoh pesan',
     '- ' + A('sore kirim') + ' kirim pengingat laporan sekarang',
     '', '👥 *TIM*',
     '- ' + A('tim <nama> <nomor>') + ' di-tag jam 17:30 · ' + A('tim hapus <nama>'),
@@ -931,17 +933,21 @@ function botRekap_(arg) {
     else if ((m = w.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/))) day = botDmy_(m[1] + '/' + m[2] + '/' + (m[3] || Utilities.formatDate(now, BOT_TZ_.id, 'yyyy')));
     else lain.push(w);
   });
-  var km = lain.length ? botKotaMap_() : null, f = km ? botFilterSowKota_(lain, km) : { sow: '', kota: '', sisa: [] };
+  var km = lain.length ? botKotaMap_() : null, f = km ? botFilterSowKota_(lain, km) : { sow: '', kota: '', region: '', sisa: [] };
   if (f.sisa.length) return botFilterSalah_('rekap', f.sisa.join(' '), km) + ' ' + waKode_('rekap kemarin fwa');
+  if (f.perSow || f.perKota) {
+    var p = day.split('/'), ms = Date.UTC(+p[2], +p[1] - 1, +p[0]) - 8 * 3600000 + 12 * 3600000;
+    return botRekapPeriode_(ms, ms, '📊 *REKAP HARIAN' + botLabelFilter_(f) + '* ' + day, botOptFilter_(f, km));
+  }
   var sh = dailySheet_(), h = sheetHeader_(sh), last = sh.getLastRow();
   if (last < 2) return 'DAILY REPORT EMR masih kosong.';
   var c = { t: h.idx['tanggal'], n: h.idx['cluster name'], s: h.idx['sow'], p: h.idx['pic'], r: h.idx['ringkasan pencapaian'], a: h.idx['today activity'] };
   var width = Math.max(c.t, c.n, c.s, c.p, c.r, c.a) + 1;
   var rows = sh.getRange(2, 1, last - 1, width).getValues().filter(function (r) {
     return botDmy_(r[c.t]) === day && !/^(saldo awal|koreksi total)/i.test(String(r[c.a] || '')) &&
-      (!f.sow || botRowSow_(r, c) === f.sow) && (!f.kota || botRowKota_(r, c, km) === f.kota);
+      (!km || botRowLolos_(r, c, f, km));
   });
-  var label = [f.sow, f.kota].filter(Boolean).join(' · ');
+  var label = [f.sow, f.kota, f.region && 'Region ' + f.region].filter(Boolean).join(' · ');
   if (!rows.length) return 'Belum ada Daily Report' + (label ? ' ' + label : '') + ' tanggal ' + day + '.';
   return ['*Rekap Daily Report ' + day + '*' + (label ? ' · ' + label : '') + ' (' + rows.length + ' laporan)'].concat(rows.map(function (r, i) {
     return (i + 1) + '. ' + siteName_(r[c.n]) + (r[c.s] ? ' (' + r[c.s] + ')' : '') + (r[c.p] ? ' - ' + r[c.p] : '') +
@@ -1336,6 +1342,11 @@ function botStokMenipis_(semua) {
 // "Gudang Banjarmasin" / "Banjarmasin" -> "Banjarmasin" (sama seperti pengelompokan SALDO GUDANG di Portal FTTH).
 function botGudangKey_(g) { return String(g || '').replace(/^\s*gudang\s+/i, '').replace(/\s+/g, ' ').trim(); }
 
+// Kata bulan harus awalan nama bulan (mar, maret, okt, oktober), supaya "martapura" tidak dibaca Maret.
+function botNamaBulan_(w) {
+  return ['januari', 'februari', 'maret', 'april', 'mei', 'juni', 'juli', 'agustus', 'september', 'oktober', 'november', 'desember',
+    'january', 'february', 'march', 'may', 'june', 'july', 'august', 'october', 'december'].some(function (n) { return n.indexOf(w) === 0; });
+}
 var BOT_BULAN_ = { jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, may: 5, jun: 6, jul: 7, agu: 8, aug: 8, sep: 9, okt: 10, oct: 10, nov: 11, des: 12, dec: 12 };
 
 // BA TRANSAKSI "Tanggal BA" (Date, "24 Okt 2026" atau "24/10/2026") -> 'yyyyMMdd' atau ''.
@@ -1383,8 +1394,30 @@ function botBatasCmd_(arg) {
 }
 
 // ---- Rekap mingguan (Senin pagi, ke grup): Senin-Minggu pekan lalu. ----
-function botMingguan_(now) {
-  return botRekapPeriode_(now - 7 * 864e5, now - 864e5, '📊 *REKAP MINGGUAN* ' + botWita_(now - 7 * 864e5, 'dd/MM') + ' - ' + botWita_(now - 864e5, 'dd/MM/yyyy'));
+// mingguan [ini | lalu] [sow] [kota] [sow | kota]: tanpa kata periode = 7 hari terakhir s.d. kemarin (sama dengan kiriman Senin).
+// ini = Senin minggu ini s.d. hari ini, lalu = Senin-Minggu minggu lalu.
+function botMingguan_(now, arg) {
+  var dari = now - 7 * 864e5, sampai = now - 864e5, lain = [];
+  var hari = Number(botWita_(now, 'u'));   // 1 = Senin
+  String(arg || '').toLowerCase().replace(/[,]/g, ' ').split(/\s+/).filter(Boolean).forEach(function (w) {
+    if (w === 'ini') { dari = now - (hari - 1) * 864e5; sampai = now; }
+    else if (w === 'lalu') { dari = now - (hari + 6) * 864e5; sampai = now - hari * 864e5; }
+    else if (w === 'minggu' || w === 'pekan') { /* "minggu ini" / "minggu lalu" */ }
+    else lain.push(w);
+  });
+  var km = lain.length ? botKotaMap_() : null, f = km ? botFilterSowKota_(lain, km) : null;
+  if (f && f.sisa.length) return botFilterSalah_('mingguan', f.sisa.join(' '), km);
+  return botRekapPeriode_(dari, sampai, '📊 *REKAP MINGGUAN' + (f ? botLabelFilter_(f) : '') + '* ' + botWita_(dari, 'dd/MM') + ' - ' + botWita_(sampai, 'dd/MM/yyyy'),
+    f ? botOptFilter_(f, km) : {});
+}
+// Judul dan opsi rekap dari hasil botFilterSowKota_.
+function botLabelFilter_(f) {
+  var label = [f.sow && f.sow.toUpperCase(), f.kota && f.kota.toUpperCase(), f.region && 'REGION ' + f.region.toUpperCase()].filter(Boolean).join(' · ');
+  var per = f.perKota && f.perSow ? ' PER KOTA & SOW' : f.perKota ? ' PER KOTA' : f.perSow && !f.sow ? ' PER SOW' : '';
+  return (label ? ' · ' + label : '') + per;
+}
+function botOptFilter_(f, km) {
+  return { sow: f.sow, kota: f.kota, region: f.region, km: km, perKota: f.perKota, perSow: f.perSow && (!f.sow || f.perKota) };
 }
 
 // Rekap Daily Report dari hari 'dari' sampai hari 'sampai' (ms, WITA, dua-duanya ikut).
@@ -1397,11 +1430,12 @@ function botRekapPeriode_(dari, sampai, judul, opt) {
   var rows = last < 2 ? [] : sh.getRange(2, 1, last - 1, h.width).getValues().filter(function (r) {
     if (/^(saldo awal|koreksi total)/i.test(String(r[c.a] || ''))) return false;
     var d = botDmy_(r[c.t]) || botDmy_(r[c.ts]), k = d && botDmyKey_(d);
-    return k && k >= startKey && k <= endKey && (!opt.sow || botRowSow_(r, c) === opt.sow) &&
-      (!opt.kota || botRowKota_(r, c, opt.km) === opt.kota);
+    return k && k >= startKey && k <= endKey && (!opt.km ? !opt.sow || botRowSow_(r, c) === opt.sow : botRowLolos_(r, c, opt, opt.km));
   });
   var s = [judul, BOT_GARIS_];
-  if (!rows.length) return s.concat(['Tidak ada Daily Report' + (opt.sow ? ' SOW ' + opt.sow : '') + (opt.kota ? ' kota ' + opt.kota : '') + ' di periode ini.', BOT_GARIS_]).join('\n');
+  if (!rows.length) return s.concat(['Tidak ada Daily Report' + (opt.sow ? ' SOW ' + opt.sow : '') + (opt.kota ? ' kota ' + opt.kota : '') + (opt.region ? ' region ' + opt.region : '') + ' di periode ini.', BOT_GARIS_]).join('\n');
+  var sowKey = function (r) { return botRowSow_(r, c) || 'Lainnya'; };
+  if (opt.perKota && opt.perSow) return botRekapPerSow_(rows, c, mats, s, function (r) { return botRowKota_(r, c, opt.km) || 'Tanpa kota'; }, opt.km.list, 'kota', 'bulanan fwa ' + (opt.km.list[0] || 'banjarmasin').toLowerCase(), sowKey, BOT_SOW_URUT_);
   if (opt.perSow) return botRekapPerSow_(rows, c, mats, s, function (r) { return botRowSow_(r, c) || 'Lainnya'; }, BOT_SOW_URUT_, 'SOW', 'bulanan cluster');
   if (opt.perKota) return botRekapPerSow_(rows, c, mats, s, function (r) { return botRowKota_(r, c, opt.km) || 'Tanpa kota'; }, opt.km.list, 'kota', 'bulanan ' + (opt.km.list[0] || 'banjarmasin').toLowerCase());
   var sites = [], by = {}, all = {};
@@ -1437,16 +1471,39 @@ function botRekapPeriode_(dari, sampai, judul, opt) {
 function botRowSow_(r, c) { return normSow_(r[c.s]) || sowFromId_(r[c.n]); }
 
 // Ringkasan per kelompok (SOW atau kota): jumlah site, laporan dan total pemakaian material tiap kelompok, lalu total semua.
-function botRekapPerSow_(rows, c, mats, s, kunci, urut, nama, contoh) {
+// sub/subUrut (opsional) = rincian kedua di dalam tiap kelompok, mis. kota -> SOW.
+function botRekapPerSow_(rows, c, mats, s, kunci, urut, nama, contoh, sub, subUrut) {
   var by = {}, all = {};
   rows.forEach(function (r) {
-    var k = kunci(r), x = by[k] || (by[k] = { n: 0, site: {}, sum: {} });
+    var k = kunci(r), x = by[k] || (by[k] = { n: 0, site: {}, sum: {}, sub: {} });
     x.n++; x.site[siteName_(r[c.n])] = 1;
+    var y = null;
+    if (sub) { var sk = sub(r); y = x.sub[sk] || (x.sub[sk] = { n: 0, site: {}, sum: {} }); y.n++; y.site[siteName_(r[c.n])] = 1; }
     mats.forEach(function (m) {
       var v = cellNumber_(r[m.idx]);
-      if (v) { x.sum[m.col] = (x.sum[m.col] || 0) + v; all[m.col] = (all[m.col] || 0) + v; }
+      if (v) { x.sum[m.col] = (x.sum[m.col] || 0) + v; all[m.col] = (all[m.col] || 0) + v; if (y) y.sum[m.col] = (y.sum[m.col] || 0) + v; }
     });
   });
+  if (sub) {
+    var kk = urut.filter(function (k) { return by[k]; });
+    Object.keys(by).forEach(function (k) { if (kk.indexOf(k) < 0) kk.push(k); });
+    kk.forEach(function (k) {
+      var x = by[k];
+      s.push('', '📍 *' + k + '* · ' + Object.keys(x.site).length + ' site, ' + x.n + ' laporan');
+      var ss = subUrut.filter(function (q) { return x.sub[q]; });
+      Object.keys(x.sub).forEach(function (q) { if (ss.indexOf(q) < 0) ss.push(q); });
+      ss.forEach(function (q) {
+        var y = x.sub[q], cols = Object.keys(y.sum);
+        s.push('- *' + q + '* · ' + Object.keys(y.site).length + ' site, ' + y.n + ' laporan');
+        s.push('   ' + (cols.length ? cols.map(function (m) { return botMatTitle_(m) + ' ' + botNum_(y.sum[m]); }).join(' · ') : '_tidak ada volume_'));
+      });
+    });
+    var ac = Object.keys(all);
+    if (ac.length) s.push('', '*Total semua ' + nama + '*');
+    ac.forEach(function (m) { s.push('- ' + botMatTitle_(m) + ': ' + botNum_(all[m])); });
+    s.push('', '_Rincian per site:_ ' + waKode_(contoh) + ' dst.', BOT_GARIS_);
+    return s.join('\n');
+  }
   var keys = urut.filter(function (k) { return by[k]; });
   Object.keys(by).forEach(function (k) { if (keys.indexOf(k) < 0) keys.push(k); });   // Lainnya / Tanpa kota di akhir
   keys.forEach(function (k) {
@@ -1841,13 +1898,15 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-11-13-1';
+var BOT_PANDUAN_VERSI_ = '2026-11-13-2';
 // Baris ['#Judul'] = judul kelompok di tabel perintah.
 var BOT_PANDUAN_TIM_ = [
   ['#Cek data proyek'],
   ['!stok [material] [gudang]', 'Saldo gudang. Tanpa kata = semua material yang ada saldonya. Kabel ikut rincian haspel utuh + potongan.', '!stok | !stok kabel | !stok tiang batola'],
   ['!progres &lt;site&gt;', 'Total realisasi dibanding Plan BOQ material satu site.', '!progres jati baru rt 04'],
-  ['!rekap [kemarin | dd/mm] [sow] [kota]', 'Isi Daily Report hari itu. Tanpa kata = hari ini. Bisa disaring SOW (cluster, subfeeder/sf, mainfeeder/mf, hubfeeder/hf, uplink, fwa) dan/atau kota (Region di DATA BASE, mis. banjarmasin/bjm, pontianak/ptk).', '!rekap | !rekap kemarin | !rekap 24/10 cluster | !rekap pontianak'],
+  ['!rekap [kemarin | dd/mm] [sow] [kota]', 'Isi Daily Report hari itu (rekap harian, alias !harian). Tanpa kata = hari ini. Bisa disaring SOW (cluster, subfeeder/sf, mainfeeder/mf, hubfeeder/hf, uplink, fwa) dan/atau kota (kolom KOTA di DATA BASE: banjarmasin/bjm, banjarbaru/bjb, martapura/mtp, barito kuala/batola, hulu sungai tengah/hst, tapin, tanah laut/tala, pontianak/ptk; region: kalsel, kalbar). Tambah <b>sow</b> / <b>kota</b> / <b>kota sow</b> untuk ringkasan.', '!rekap | !rekap kemarin | !rekap 24/10 cluster | !rekap kemarin kota'],
+  ['!mingguan [ini | lalu] [sow] [kota]', 'Rekap 7 hari terakhir sampai kemarin; <b>ini</b> = Senin minggu ini s.d. hari ini, <b>lalu</b> = Senin-Minggu minggu lalu. Filter dan ringkasan sama dengan !bulanan.', '!mingguan | !mingguan ini fwa | !mingguan lalu kota sow'],
+  ['!bulanan [sow] [kota] [bulan]', 'Rekap bulanan, rincian per site + total. Tanpa bulan = bulan lalu, <b>ini</b> = bulan berjalan, atau 10 / 10/2026 / okt. Tambah <b>sow</b> = per SOW, <b>kota</b> = per kota, <b>kota sow</b> = tiap kota dirinci per SOW.', '!bulanan fwa hulu sungai | !bulanan kota sow | !bulanan cluster martapura ini | !bulanan sow kalbar'],
   ['!site &lt;kata&gt;', 'Cari nama site di DATA BASE. Pakai ini kalau !progres atau !ba tidak menemukan site.', '!site jati baru'],
   ['!ba &lt;site&gt; [sow]', 'BA Ambil dan Pengembalian satu site + total bersih per material.', '!ba penggalaman'],
   ['!ok &lt;site&gt; [alasan]', 'Jawab peringatan "Site tanpa laporan" (mis. site berhenti menunggu izin / material). Site tidak diingatkan lagi, juga di daftar Senin, sampai ada Daily Report baru. !ok = daftar, !ok hapus &lt;site&gt; = batalkan. !tunda sama dengan !ok.', '!ok EMR-32739 menunggu izin | !ok | !ok hapus EMR-32739'],
@@ -1905,10 +1964,6 @@ var BOT_PANDUAN_ADMIN_ = [
   ['status', 'Gateway, antrean pesan, jadwal hari ini, Excel WH, backup terakhir, kesehatan spreadsheet dan error hari ini.', 'status'],
   ['backup', 'Backup spreadsheet FTTH + Waspang ke Drive sekarang.', 'backup'],
   ['backup bersih', 'Backup lama di Drive (folder Backup Portal BMI dan BMI-FTTH Backup) dipindah ke Sampah, hanya yang terbaru per spreadsheet disisakan. Otomatis juga tiap kali backup mingguan jalan.', 'backup bersih'],
-  ['mingguan / bulanan', 'Lihat contoh rekap mingguan / bulanan sekarang.', 'mingguan | bulanan'],
-  ['bulanan [sow] [kota] [bulan]', 'Rekap bulanan tersaring SOW (Cluster, Subfeeder/sf, Mainfeeder/mf, Hubfeeder/hf, Uplink, FWA) dan/atau kota (Region di DATA BASE, mis. banjarmasin/bjm, pontianak/ptk), rincian per site + total. ' +
-    '<b>bulanan sow</b> = ringkasan per SOW, <b>bulanan kota</b> = ringkasan per kota (jumlah site, laporan, total material) dalam satu balasan; bisa digabung, mis. bulanan sow pontianak. ' +
-    'Bulan: tanpa bulan = bulan lalu, <b>ini</b> = bulan berjalan sampai hari ini, atau 10 / 10/2026 / okt.', 'bulanan cluster | bulanan pontianak ini | bulanan sf bjm 10/2026 | bulanan sow | bulanan kota'],
   ['panduan lengkap', 'PDF ini, selalu dikirim ke chat pribadi admin.', 'panduan lengkap']
 ];
 var BOT_PANDUAN_JADWAL_ADMIN_ = [
@@ -2644,56 +2699,82 @@ function botWhIngat_(now) {
 }
 
 // 14. Rekap bulanan (tanggal 1 pagi, ke grup): bulan lalu. Isi sama dengan rekap mingguan.
-// Perintah admin: bulanan [sow] [bulan]
+// Perintah (grup dengan !, dan chat admin): bulanan [sow] [kota] [bulan] (juga mingguan, rekap)
 //   sow   = cluster | subfeeder (sf) | mainfeeder (mf) | hubfeeder (hf) | uplink | fwa -> hanya site SOW itu
 //         = sow -> ringkasan per SOW (jumlah site, laporan, total pemakaian per SOW) dalam satu balasan
+//   kota  = kolom KOTA DATA BASE (boleh beberapa kata / singkatan: hulu sungai, hst, batola); kalsel/kalbar = Region
+//         = kota -> ringkasan per kota; kota sow -> tiap kota dirinci per SOW
 //   bulan = ini | lalu | 10 | 10/2026 | okt | okt 2026 (tanpa bulan = bulan lalu, sama dengan kiriman tanggal 1)
 var BOT_SOW_ALIAS_ = { sf: 'Subfeeder', sub: 'Subfeeder', mf: 'Mainfeeder', main: 'Mainfeeder', hf: 'Hubfeeder', hub: 'Hubfeeder',
   cl: 'Cluster', klaster: 'Cluster', ul: 'Uplink' };
 var BOT_SOW_URUT_ = ['Cluster', 'Subfeeder', 'Mainfeeder', 'Hubfeeder', 'Uplink', 'FWA'];
-var BOT_KOTA_ALIAS_ = { bjm: 'banjarmasin', ptk: 'pontianak' };
+// Singkatan kota (kolom KOTA di DATA BASE). Region (wilayah besar) lewat kalsel / kalbar.
+var BOT_KOTA_ALIAS_ = { bjm: 'banjarmasin', banjar: 'banjarmasin', ptk: 'pontianak', bjb: 'banjarbaru', mtp: 'martapura',
+  batola: 'barito kuala', hst: 'hulu sungai tengah', tala: 'tanah laut' };
+var BOT_REGION_ALIAS_ = { kalsel: 'Banjarmasin', kalbar: 'Pontianak' };
+function botJudulKota_(t) { return String(t || '').toLowerCase().replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }); }
 
-// Kota = kolom Region di tab DATA BASE (Portal FTTH). -> {byKey: {'nama|sow': kota}, byName: {'nama': kota}, list: [kota...]}
+// Kota = kolom KOTA di tab DATA BASE (Portal FTTH), bila kosong pakai Region.
+// -> {byKey: {'nama|sow': kota}, byName: {'nama': kota}, regKey/regName: sama untuk Region, list: [kota...]}
 function botKotaMap_() {
-  var r = getSites_(), out = { byKey: {}, byName: {}, list: [] };
+  var r = getSites_(), out = { byKey: {}, byName: {}, regKey: {}, regName: {}, list: [] };
   if (r.status !== 'success') return out;
   r.sites.forEach(function (x) {
-    if (!x.region) return;
-    var n = botNamaKey_(x.name);
-    out.byKey[n + '|' + String(x.sow).toLowerCase()] = x.region;
-    if (!out.byName[n]) out.byName[n] = x.region;
-    if (out.list.indexOf(x.region) < 0) out.list.push(x.region);
+    var kota = botJudulKota_(x.kota || x.region), reg = botJudulKota_(x.region);
+    var n = botNamaKey_(x.name), k = n + '|' + String(x.sow).toLowerCase();
+    if (kota) { out.byKey[k] = kota; if (!out.byName[n]) out.byName[n] = kota; if (out.list.indexOf(kota) < 0) out.list.push(kota); }
+    if (reg) { out.regKey[k] = reg; if (!out.regName[n]) out.regName[n] = reg; }
   });
   out.list.sort();
   return out;
 }
 function botNamaKey_(n) { return String(n || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
 
-// Kota satu baris Daily Report ('' bila site tidak ada di DATA BASE / Region kosong).
+// Kota satu baris Daily Report ('' bila site tidak ada di DATA BASE / KOTA dan Region kosong).
 function botRowKota_(r, c, km) {
   var n = botNamaKey_(siteName_(r[c.n])), sow = botRowSow_(r, c).toLowerCase();
   return km.byKey[n + '|' + sow] || km.byName[n] || '';
 }
+function botRowRegion_(r, c, km) {
+  var n = botNamaKey_(siteName_(r[c.n])), sow = botRowSow_(r, c).toLowerCase();
+  return km.regKey[n + '|' + sow] || km.regName[n] || '';
+}
+// Satu baris lolos filter sow / kota / region?
+function botRowLolos_(r, c, f, km) {
+  return (!f.sow || botRowSow_(r, c) === f.sow) && (!f.kota || botRowKota_(r, c, km) === f.kota) &&
+    (!f.region || botRowRegion_(r, c, km) === f.region);
+}
 
-// Kata -> nama kota yang ada di DATA BASE ('' bila bukan kota). Boleh singkatan bjm/ptk atau awalan 3+ huruf (banjar, ponti).
+// Kata / frasa -> nama kota yang ada di DATA BASE ('' bila bukan kota). Boleh singkatan (bjm, hst, batola) atau awalan
+// 3+ huruf (ponti, hulu sungai). Nama persis didahulukan, lalu awalan yang hanya cocok satu kota.
 function botCariKota_(w, km) {
   w = BOT_KOTA_ALIAS_[w] || w;
   if (w.length < 3) return '';
-  for (var i = 0; i < km.list.length; i++) if (km.list[i].toLowerCase().indexOf(w) === 0) return km.list[i];
-  return '';
+  var cocok = km.list.filter(function (k) { return k.toLowerCase().indexOf(w) === 0; });
+  var persis = cocok.filter(function (k) { return k.toLowerCase() === w; });
+  return persis[0] || (cocok.length === 1 ? cocok[0] : '');
 }
 
-// Kata-kata filter -> {sow, kota, perSow, perKota, sisa: [kata yang tidak dikenali]}. km diisi saat pertama dibutuhkan.
+// Kata-kata filter -> {sow, kota, region, perSow, perKota, sisa: [kata yang tidak dikenali]}.
+// Nama kota boleh beberapa kata (hulu sungai tengah, barito kuala); "kota sow" = per kota, tiap kota dirinci per SOW.
 function botFilterSowKota_(words, km) {
-  var f = { sow: '', kota: '', perSow: false, perKota: false, sisa: [] }, rest = [];
-  words.forEach(function (w) {
-    var k;
-    if (w === 'sow') f.perSow = true;
-    else if (w === 'kota' || w === 'region') f.perKota = true;
-    else if (w === 'per' || w === 'semua') { /* kata sambung */ }
-    else if ((k = botCariKota_(w, km))) f.kota = k;
+  var f = { sow: '', kota: '', region: '', perSow: false, perKota: false, sisa: [] }, rest = [];
+  for (var i = 0; i < words.length; i++) {
+    var w = words[i], k = '', pakai = 1;
+    if (w === 'sow') { f.perSow = true; continue; }
+    if (w === 'kota' || w === 'region') { f.perKota = true; continue; }
+    if (w === 'per' || w === 'semua' || w === 'tiap' || w === 'dan') continue;
+    if (BOT_REGION_ALIAS_[w]) { f.region = BOT_REGION_ALIAS_[w]; continue; }
+    for (var n = Math.min(3, words.length - i); n >= 1 && !k; n--) {
+      var frasa = words.slice(i, i + n).join(' ');
+      if (n === 1 && (BOT_SOW_ALIAS_[frasa] || normSow_(frasa))) break;   // kata SOW bukan kota
+      if ((k = botCariKota_(frasa, km))) pakai = n;
+    }
+    if (k) { f.kota = k; i += pakai - 1; }
+    else if (words[i + 1] === 'feeder' && normSow_(w + 'feeder')) { f.sow = normSow_(w + 'feeder'); i++; }   // "sub feeder"
+    else if (BOT_SOW_ALIAS_[w] || normSow_(w)) f.sow = BOT_SOW_ALIAS_[w] || normSow_(w);
     else rest.push(w);
-  });
+  }
   if (rest.length) {
     f.sow = BOT_SOW_ALIAS_[rest.join(' ')] || normSow_(rest.join(' ')) || normSow_(rest.join(''));
     if (!f.sow) f.sisa = rest;
@@ -2713,7 +2794,7 @@ function botBulanan_(now, arg) {
       bln = Number(t[1]) - 1; thn = t[2] ? (t[2].length === 2 ? 2000 + Number(t[2]) : Number(t[2])) : (bln > m ? y - 1 : y);
     }
     else if (/^\d{4}$/.test(w)) thn = Number(w);
-    else if (BOT_BULAN_[w.slice(0, 3)] && /^[a-z]+$/.test(w) && !normSow_(w) && !BOT_SOW_ALIAS_[w] && !BOT_KOTA_ALIAS_[w]) {
+    else if (BOT_BULAN_[w.slice(0, 3)] && /^[a-z]+$/.test(w) && botNamaBulan_(w) && !normSow_(w) && !BOT_SOW_ALIAS_[w] && !BOT_KOTA_ALIAS_[w]) {
       bln = BOT_BULAN_[w.slice(0, 3)] - 1; thn = bln > m ? y - 1 : y;
     }
     else lain.push(w);
@@ -2722,12 +2803,9 @@ function botBulanan_(now, arg) {
   if (f.sisa.length) return botFilterSalah_('bulanan', f.sisa.join(' '), km);
   var start = Date.UTC(thn, bln, 1) - 8 * 3600000, end = Date.UTC(thn, bln + 1, 1) - 8 * 3600000 - 1;
   if (start > now) return 'Bulan ' + botWita_(start, 'MM/yyyy') + ' belum berjalan.';
-  var label = [f.sow && f.sow.toUpperCase(), f.kota && f.kota.toUpperCase()].filter(Boolean).join(' · ');
-  var per = f.perKota ? ' PER KOTA' : f.perSow && !f.sow ? ' PER SOW' : '';
-  var judul = '📊 *REKAP BULANAN' + (label ? ' · ' + label : '') + per + '* ' + botWita_(start, 'MM/yyyy') +
+  var judul = '📊 *REKAP BULANAN' + botLabelFilter_(f) + '* ' + botWita_(start, 'MM/yyyy') +
     (end > now ? ' _(s.d. ' + botWita_(now, 'dd/MM') + ')_' : '');
-  return botRekapPeriode_(start, Math.min(end, now), judul, { sow: f.sow, kota: f.kota, km: km,
-    perKota: f.perKota, perSow: f.perSow && !f.sow && !f.perKota });
+  return botRekapPeriode_(start, Math.min(end, now), judul, botOptFilter_(f, km));
 }
 
 // Balasan untuk kata filter yang tidak dikenal (bukan SOW, bukan kota).
@@ -3049,18 +3127,18 @@ function sowFromId_(raw) {
 // Hasil disimpan 10 menit, jadi site baru di DATA BASE muncul di portal paling lama 10 menit kemudian.
 
 function getSites_() {
-  var cache = CacheService.getScriptCache(), hit = cache.get('database_sites_v1');
+  var cache = CacheService.getScriptCache(), hit = cache.get('database_sites_v2');
   if (hit) return { status: 'success', sites: JSON.parse(hit) };
   var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('DATA BASE');
   if (!sh) return { status: 'error', message: 'Tab DATA BASE tidak ditemukan.' };
   var last = sh.getLastRow(), width = Math.min(sh.getLastColumn(), 40);
   if (last < 2 || width < 2) return { status: 'error', message: 'Tab DATA BASE kosong.' };
   var vals = sh.getRange(1, 1, last, width).getValues();
-  var hr = -1, cName = -1, cSow = -1, cReg = -1;
+  var hr = -1, cName = -1, cSow = -1, cReg = -1, cKota = -1;
   for (var i = 0; i < Math.min(5, vals.length) && hr < 0; i++) {
     var head = vals[i].map(normHeader_);
     if (head.indexOf('name') >= 0 && head.indexOf('sow') >= 0) {
-      hr = i; cName = head.indexOf('name'); cSow = head.indexOf('sow'); cReg = head.indexOf('region');
+      hr = i; cName = head.indexOf('name'); cSow = head.indexOf('sow'); cReg = head.indexOf('region'); cKota = head.indexOf('kota');
     }
   }
   if (hr < 0) return { status: 'error', message: 'Kolom Name / SOW tidak ditemukan di tab DATA BASE.' };
@@ -3072,10 +3150,10 @@ function getSites_() {
     var sow = normSow_(sowRaw) || sowRaw, k = name.toLowerCase() + '|' + sow.toLowerCase();
     if (seen[k]) continue;
     seen[k] = true;
-    sites.push({ name: name, sow: sow, region: cReg >= 0 ? String(vals[r][cReg] || '').trim() : '' });
+    sites.push({ name: name, sow: sow, region: cReg >= 0 ? String(vals[r][cReg] || '').trim() : '', kota: cKota >= 0 ? String(vals[r][cKota] || '').trim() : '' });
   }
   if (!sites.length) return { status: 'error', message: 'Tab DATA BASE belum berisi site.' };
-  try { var json = JSON.stringify(sites); cache.put('database_sites_v1', json, 600); cache.put('database_sites_page', json, 21600); } catch (e) {}
+  try { var json = JSON.stringify(sites); cache.put('database_sites_v2', json, 600); cache.put('database_sites_page', json, 21600); } catch (e) {}
   return { status: 'success', sites: sites };
 }
 
@@ -3083,7 +3161,7 @@ function getSites_() {
 // Salinan 6 jam boleh sedikit lama: halaman tetap meminta GET_SITES di belakang dan memperbarui daftar bila berubah.
 function withSites_(out) {
   try {
-    var cache = CacheService.getScriptCache(), json = cache.get('database_sites_v1') || cache.get('database_sites_page');
+    var cache = CacheService.getScriptCache(), json = cache.get('database_sites_v2') || cache.get('database_sites_page');
     if (!json) {
       var r = getSites_();
       if (r.status !== 'success') return out;
