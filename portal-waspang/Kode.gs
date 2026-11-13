@@ -2923,7 +2923,7 @@ function botStatus_() {
   var cek = wsHealth_(), err = wsErrHariIni_();
   out.push('', '*Kesehatan web & spreadsheet*');
   out = out.concat(cek.items.map(function (c) { return (c.ok ? '✅ ' : '❌ ') + c.nama + ': ' + c.info; }));
-  out.push('Error Portal Waspang hari ini: ' + (err.n ? err.n + 'x' : 'tidak ada'));
+  out.push(err.n ? '⚠️ Error Portal Waspang hari ini: ' + err.n + 'x (3 terakhir):' : '✅ Tidak ada error hari ini');
   out = out.concat(err.items.slice(-3).map(function (x) { return '- ' + x.jam + ' ' + x.aksi + ': ' + x.pesan; }));
   return out.join('\n');
 }
