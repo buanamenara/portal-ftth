@@ -19,7 +19,7 @@ If Not diam Then
   WScript.Sleep 3000
   edge = sh.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & "\Microsoft\Edge\Application\msedge.exe"
   If Not fso.FileExists(edge) Then edge = sh.ExpandEnvironmentStrings("%ProgramFiles%") & "\Microsoft\Edge\Application\msedge.exe"
-  args = " --app=http://127.0.0.1:8737/ --window-size=740,480 --no-first-run --no-default-browser-check --user-data-dir=""" & d & "\data\panel-browser"""
+  args = " --app=http://127.0.0.1:8737/ --window-size=900,420 --no-first-run --no-default-browser-check --user-data-dir=""" & d & "\data\panel-browser"""
   If fso.FileExists(edge) Then
     sh.Run """" & edge & """" & args, 1, False
   Else

@@ -22,9 +22,10 @@ body{background:var(--bg);color:var(--txt);font-family:Inter,"Segoe UI",system-u
 .p-ok i{animation:pulse 2s infinite}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(91,208,138,.5)}100%{box-shadow:0 0 0 9px rgba(91,208,138,0)}}
 .mut{color:var(--mut)}.small{font-size:13px}
 .btns{display:flex;gap:8px;margin-top:auto;flex-wrap:wrap;justify-content:center}
+.side{padding:22px 14px}.side .btns{flex-wrap:nowrap}
 button{font:inherit;cursor:pointer;height:38px;padding:0 16px;border-radius:999px;font-weight:700;font-size:13px;border:1.5px solid #5a4a24;color:var(--gold);background:transparent}
 button:hover{border-color:var(--gold)}button.pri{background:linear-gradient(#E9C46A,#C9972C);color:#141310;border:0}
-button:disabled{opacity:.5;cursor:default}button.ic{width:38px;padding:0}
+button:disabled{opacity:.5;cursor:default}button.ic{width:38px;padding:0;display:inline-flex;align-items:center;justify-content:center}
 button.stop{border-color:#6b2c24;color:var(--bad)}button.stop:hover{border-color:var(--bad)}
 .menu{display:flex;flex-direction:column;gap:8px}.menu button{width:100%;height:42px}
 .main{display:flex;flex-direction:column;gap:16px;min-width:0}
@@ -39,15 +40,15 @@ button.stop{border-color:#6b2c24;color:var(--bad)}button.stop:hover{border-color
 .k-ok{background:#17301f;color:var(--ok)}.k-err{background:#341a16;color:var(--bad)}.k-bot{background:#2a251b;color:var(--gold)}.k-re{background:#2a251b;color:var(--gold)}
 .log .x{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .full{grid-column:1/-1;display:flex;align-items:center;justify-content:center}
-.center{max-width:380px;width:100%;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
-.qr{width:230px;height:230px;background:#fff;border-radius:16px;padding:10px;display:flex;align-items:center;justify-content:center}
+.center{max-width:380px;width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.qr{width:220px;height:220px;background:#fff;border-radius:16px;padding:10px;display:flex;align-items:center;justify-content:center}
 .qr svg{width:100%;height:100%}.code{font-size:30px;font-weight:800;letter-spacing:.18em;color:var(--gold)}
 input{width:100%;height:42px;border-radius:12px;border:1px solid #3a3326;background:#0f0e0c;color:var(--txt);padding:0 14px;font:inherit}
 label{display:block;text-align:left;font-size:12px;color:var(--mut);margin:0 0 6px 4px}
-.form{width:100%;display:flex;flex-direction:column;gap:12px}.err{color:var(--bad);font-size:13px;min-height:18px}
+.form{width:100%;display:flex;flex-direction:column;gap:10px}.err{color:var(--bad);font-size:13px;min-height:16px}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}.modal.on{display:flex}
 .modal .card{max-width:340px;text-align:center;display:flex;flex-direction:column;gap:14px}
-.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;transition:.3s;background:#1d1b17;border:1px solid #3a3326;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:600}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;transition:.3s;background:#1d1b17;border:1px solid #3a3326;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:600;pointer-events:none}
 .toast.on{opacity:1;transform:translateX(-50%)}
 @media (max-width:480px){.app{grid-template-columns:1fr;height:auto}.stats{gap:10px}.big{font-size:28px}}
 </style></head>
@@ -89,7 +90,7 @@ function gantiSandi(){
   };
 }
 function viewLogin(first){
-  return '<div class="full"><div class="center"><div class="emb warn" style="width:120px;height:120px"><img src="/emblem.png" alt=""></div>' +
+  return '<div class="full"><div class="center"><div class="emb warn" style="width:92px;height:92px"><img src="/emblem.png" alt=""></div>' +
     '<b style="font-size:20px">' + (first ? 'Buat kata sandi admin' : 'IRIS Gateway') + '</b>' +
     (first ? '<div class="mut small">Kata sandi ini dipakai setiap membuka panel.</div>' : '') +
     '<div class="form"><div><label>Kata sandi' + (first ? ' (min. 8 karakter)' : '') + '</label><input id="lP" type="password" autofocus></div>' +
@@ -115,7 +116,7 @@ var TAG = { ok:'✓', err:'✕', bot:'Bot', re:'↻' };
 function viewMain(){
   return '<div class="card side"><div class="emb" id="emb"><img src="/emblem.png" alt="IRIS"></div><span id="pill"></span>' +
     '<div class="mut small" id="poll"></div>' +
-    '<div class="btns" id="bRun"><button class="pri" id="bTest">Tes</button><button id="bRe">Sambung ulang</button><button class="stop" id="bStop">Stop</button></div>' +
+    '<div class="btns" id="bRun"><button class="pri" id="bTest">Tes</button><button id="bRe">Sambung ulang</button><button class="stop ic" id="bStop" title="Stop gateway"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.4 6.6a8 8 0 1 0 11.2 0"/></svg></button></div>' +
     '<div class="btns" id="bIdle" style="display:none"><button class="pri" id="bStart">Jalankan</button></div><button class="more" id="bMore" title="Menu">⋯</button></div>' +
     '<div class="main"><div class="stats">' +
     '<div class="card"><div class="big" id="vPend">0</div><div class="lbl">Menunggu</div></div>' +
@@ -131,7 +132,7 @@ function viewQr(){
 }
 function viewSetup(){
   var c = S.config || {};
-  return '<div class="full"><div class="center"><div class="emb warn" style="width:120px;height:120px"><img src="/emblem.png" alt=""></div>' +
+  return '<div class="full"><div class="center"><div class="emb warn" style="width:80px;height:80px"><img src="/emblem.png" alt=""></div>' +
     '<b style="font-size:20px">Atur IRIS Gateway</b><div class="form">' +
     '<div><label>URL Apps Script Waspang</label><input id="fUrl" value="' + esc(c.url) + '" placeholder="https://script.google.com/macros/s/.../exec"></div>' +
     '<div><label>Kata sandi (sama dengan WA_PC_SECRET)</label><input id="fSec" type="password" placeholder="' + (c.hasSecret ? 'tetap seperti sekarang' : 'min. 16 karakter') + '"></div>' +
@@ -164,7 +165,7 @@ function render(){
   $('vFail').textContent = S.fail; $('vFail').className = 'big ' + (S.fail ? 'badc' : 'okc');
   $('vUp').textContent = S.uptime == null ? '' : String(S.uptime).replace('.', ',') + '%';
   $('beat').innerHTML = S.bars.map(function(b){ return '<i class="' + (b === 0 ? 'd' : b < 0 ? 'n' : '') + '"></i>'; }).join('');
-  $('log').innerHTML = S.events.length ? S.events.slice(0, 6).map(function(e){
+  $('log').innerHTML = S.events.length ? S.events.slice(0, 4).map(function(e){
     return '<div><span class="t">' + hm(e.t) + '</span><span class="tag k-' + e.k + '">' + TAG[e.k] + '</span><span class="x">' + esc(e.x) + '</span></div>';
   }).join('') : '<div class="mut">Belum ada aktivitas</div>';
 }
@@ -184,9 +185,9 @@ function tick(){
     .then(function(){ tick.t = setTimeout(tick, 2000); });
 }
 tick.now = function(){ tick(); };
-// Jendela kecil: tampilan sama persis dengan versi lebar (dirancang 1040x620), hanya diperkecil supaya muat.
+// Jendela kecil: tampilan sama dengan desain A (dirancang 1000x430), diperkecil supaya muat.
 function fit(){
-  var w = innerWidth, h = innerHeight, z = w <= 480 ? 1 : Math.min(1, w / 1040, h / 620);
+  var w = innerWidth, h = innerHeight, z = w <= 480 ? 1 : Math.min(1, w / 1000, h / 430);
   document.body.style.zoom = z;
   $('app').style.height = w <= 480 ? 'auto' : (h / z) + 'px';
 }
