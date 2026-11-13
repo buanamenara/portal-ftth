@@ -1841,7 +1841,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-11-08-2';
+var BOT_PANDUAN_VERSI_ = '2026-11-13-1';
 // Baris ['#Judul'] = judul kelompok di tabel perintah.
 var BOT_PANDUAN_TIM_ = [
   ['#Cek data proyek'],
@@ -1914,7 +1914,7 @@ var BOT_PANDUAN_JADWAL_ADMIN_ = [
   ['07:00', 'Setiap hari', 'Stok yang berkurang dan di bawah standar + perkiraan habis (Senin: daftar lengkap)'],
   ['07:05', 'Senin', 'Item yang melebihi Plan BOQ, kecuali site yang sudah di-OK'],
   ['07:10', 'Setiap hari', 'Peringatan bila Excel stok WH 7 hari tidak dikirim (diulang tiap 3 hari)'],
-  ['22:00', 'Minggu', 'Backup spreadsheet ke Drive (4 terbaru disimpan)'],
+  ['22:00', 'Minggu', 'Backup spreadsheet ke Drive (hanya yang terbaru disimpan)'],
   ['Langsung', 'Saat ada', 'Usulan stok dari Excel !stokwh (balas setuju / batal); email bila laptop gateway mati']
 ];
 
@@ -2737,8 +2737,9 @@ function botFilterSalah_(cmd, kata, km) {
 }
 
 // 19. Backup mingguan (Minggu >= 22:00 WITA): salinan spreadsheet Portal FTTH dan Waspang ke folder Drive
-// "Backup Portal BMI (otomatis)" milik akun yang menjalankan script; 4 salinan terbaru per spreadsheet disimpan,
-// salinan lama hasil backup ini dipindah ke Sampah. Dijalankan dari trigger cekGatewayBot, jadi tidak bergantung laptop.
+// "Backup Portal BMI (otomatis)" milik akun yang menjalankan script; hanya salinan terbaru per spreadsheet disimpan
+// (BOT_BACKUP_SIMPAN), salinan lama hasil backup ini dipindah ke Sampah. Dijalankan dari trigger cekGatewayBot, jadi tidak bergantung laptop.
+var BOT_BACKUP_SIMPAN = 1;   // jumlah backup terbaru per spreadsheet yang disimpan (13 Nov 2026: dari 4)
 function botBackup_(paksa) {
   var props = PropertiesService.getScriptProperties(), now = Date.now(), today = botWita_(now, 'yyyyMMdd');
   if (!paksa && (Number(botWita_(now, 'u')) !== 7 || botWita_(now, 'HH:mm') < '22:00' || props.getProperty('BOT_SENT_BACKUP') === today)) return '';
@@ -2755,11 +2756,11 @@ function botBackup_(paksa) {
       DriveApp.getFileById(x[1]).makeCopy('Backup ' + x[0] + ' ' + tgl, folder);
       var lama = [], it = folder.getFiles();
       while (it.hasNext()) { var f = it.next(); if (f.getName().indexOf('Backup ' + x[0] + ' ') === 0) lama.push(f); }
-      lama.sort(function (a, b) { return b.getName() < a.getName() ? -1 : 1; }).slice(4).forEach(function (f) { f.setTrashed(true); });
+      lama.sort(function (a, b) { return b.getName() < a.getName() ? -1 : 1; }).slice(BOT_BACKUP_SIMPAN).forEach(function (f) { f.setTrashed(true); });
       hasil.push('✅ ' + x[0]);
     } catch (e) { hasil.push('❌ ' + x[0] + ': ' + String(e.message || e).slice(0, 120)); }
   });
-  var text = '💾 *Backup mingguan* ' + tgl + '\n' + hasil.join('\n') + '\nFolder: ' + folder.getUrl() + '\n(4 backup terbaru disimpan per spreadsheet)';
+  var text = '💾 *Backup mingguan* ' + tgl + '\n' + hasil.join('\n') + '\nFolder: ' + folder.getUrl() + '\n(hanya backup terbaru yang disimpan, yang lama ke Sampah)';
   var to = botOwnerJid_();
   if (to && !paksa) props.setProperty(WAQ_PREFIX_ + now + '_backup', JSON.stringify({ t: now, n: 0, last: 0, files: [], mentions: [], to: to, text: text }));
   return text;
