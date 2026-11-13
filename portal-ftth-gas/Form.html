@@ -2676,7 +2676,7 @@
   </div>
   <div class="card wide" id="rpCardAtp" style="display:none">
     <h2>FORM ATP</h2>
-    <p class="desc">Terbitkan = simpan ke Drive &amp; sheet FORM ATP.</p>
+    <p class="desc">Terbitkan = simpan ke Drive &amp; sheet FORM ATP, PDF langsung terunduh.</p>
     <div class="row">
       <div><label for="atpTglAju">Tanggal pengajuan</label><input type="date" id="atpTglAju"></div>
       <div><label for="atpTglAtp">Tanggal ATP</label><input type="date" id="atpTglAtp"></div>
@@ -6399,28 +6399,59 @@
   $("rpTabAtp").addEventListener("click", function () { setRpmTab("atp"); });
   $("atpNom1").addEventListener("input", atpTotal);
   $("atpNom2").addEventListener("input", atpTotal);
+  // Panel proses (kit animasi BMI): langkah berjalan selama server bekerja, lalu centang hijau / silang merah.
+  function atpProc(o) { try { if (window.BMI && BMI.process) BMI.process.open(o); } catch (e) {} }
+  function atpStep(i) { try { if (window.BMI && BMI.process) BMI.process.step(i); } catch (e) {} }
+  function atpDone(t, m) { try { if (window.BMI && BMI.process) BMI.process.done(t, m); } catch (e) {} }
+  function atpFail(t, m) { try { if (window.BMI && BMI.process) BMI.process.fail(t, m); } catch (e) {} }
+  function atpTimers(list) { return list.map(function (x) { return setTimeout(function () { atpStep(x[0]); }, x[1]); }); }
+  // Simpan PDF langsung ke perangkat (seperti Unduh BA); aplikasi Android lewat jembatan BMIApp.
+  function atpDownload(b64, name) {
+    try { if (window.BMIApp && window.BMIApp.saveBase64 && window.BMIApp.saveBase64(b64, name, 'application/pdf')) return true; } catch (e) {}
+    var bin = atob(b64), arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    var url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }));
+    var a = document.createElement('a'); a.href = url; a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1500);
+    return true;
+  }
   $("atpPreview").addEventListener("click", function () {
     atpWarn([]); atpBusy(true, "Membuat pratinjau PDF...");
+    atpProc({ title: 'Membuat pratinjau FORM ATP', msg: 'Belum disimpan ke Drive.', steps: ['Memeriksa isian', 'Menyusun FORM ATP', 'Menampilkan pratinjau'] });
+    var tm = atpTimers([[1, 900]]);
     google.script.run.withSuccessHandler(function (r) {
+      tm.forEach(clearTimeout); atpStep(2);
       atpBusy(false, "Pratinjau siap. Belum disimpan.");
       atpWarn(r.warnings);
       var f = $("atpFrame"); f.srcdoc = r.html; f.style.display = "";
+      atpDone('Pratinjau siap', 'Periksa FORM ATP di panel pratinjau.');
     }).withFailureHandler(function (e) {
-      atpBusy(false, "Gagal: " + ((e && e.message) || e));
+      tm.forEach(clearTimeout);
+      var m = (e && e.message) || String(e);
+      atpBusy(false, "Gagal: " + m); atpFail('Pratinjau gagal', m);
     }).atpPreview(ACCESS, atpForm());
   });
   $("atpSave").addEventListener("click", function () {
     atpWarn([]); atpBusy(true, "Menerbitkan FORM ATP...");
+    atpProc({ title: 'Menerbitkan FORM ATP', msg: $("atpCluster").value.trim(), note: 'Jangan tutup halaman ini',
+      steps: ['Memeriksa isian', 'Membuat PDF FORM ATP', 'Menyimpan ke Drive & sheet FORM ATP', 'Mengunduh PDF'] });
+    var tm = atpTimers([[1, 900], [2, 3500]]);
     google.script.run.withSuccessHandler(function (r) {
+      tm.forEach(clearTimeout); atpStep(3);
       atpBusy(false, "");
       atpWarn(r.warnings);
-      var st = $("atpStatus"); st.textContent = "Tersimpan di Drive. ";
-      var a = document.createElement("a"); a.href = r.url; a.target = "_blank"; a.textContent = "Buka PDF";
+      var st = $("atpStatus"), ok = false;
+      if (r.pdf) { try { ok = atpDownload(r.pdf, r.name || 'FORM ATP.pdf'); } catch (e) { ok = false; } }
+      st.textContent = ok ? "Terbit & terunduh. Salinan di Drive: " : "Tersimpan di Drive. ";
+      var a = document.createElement("a"); a.href = r.url; a.target = "_blank"; a.rel = "noopener"; a.textContent = ok ? "buka di Drive" : "Buka PDF";
       st.appendChild(a);
-      var dl = document.createElement("a"); dl.href = r.downloadUrl;
-      document.body.appendChild(dl); dl.click(); dl.remove();
+      if (!ok) { var dl = document.createElement("a"); dl.href = r.downloadUrl; dl.target = "_blank"; document.body.appendChild(dl); dl.click(); dl.remove(); }
+      setTimeout(function () { atpStep(4); atpDone('FORM ATP terbit', ok ? 'PDF sudah diunduh ke perangkat dan tersimpan di Drive.' : 'Tersimpan di Drive.'); }, 450);
     }).withFailureHandler(function (e) {
-      atpBusy(false, "Gagal: " + ((e && e.message) || e));
+      tm.forEach(clearTimeout);
+      var m = (e && e.message) || String(e);
+      atpBusy(false, "Gagal: " + m); atpFail('FORM ATP gagal diterbitkan', m);
     }).atpCreate(ACCESS, atpForm());
   });
 })();
