@@ -9,7 +9,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
 | waspang | @121 | 2026-11-13 17:50 | e46b17e | Uji deploy lewat GitHub Actions (isi sama dengan @120: menu polling) |
-| ftth | @262 | 2026-11-13 21:02 | e4ac434 | Merge pull request #99 from buanamenara/memori-merge |
+| ftth | @262 | 2026-11-13 21:02 | e4ac434 | Deploy dari main: requireAdmin_ = requireRpm_ (PR #94, perilaku sama) + CADANGAN_SIMPAN=1 |
 | gateway | @22 | 2026-11-05 22:46 | - | Tampilan sesuai mockup (tahap 3 lanjutan) |
 <!-- LIVE:END -->
 
@@ -17,7 +17,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-13 18:10 WITA.*
+*Terakhir diperbarui 2026-11-13 21:05 WITA.*
 - **`main` = yang live (13 Nov 18:01):** PR #96, #97, #98 sudah di-merge. Kode Waspang di `main` sama dengan Waspang @121 (md5 `Kode.gs` 81bb798e). Deploy dari `main` aman.
 - **IRIS Gateway (laptop baru):** belum dipasang. Paket portable terbaru (menu polling) ada di
   Drive `IRIS - Asisten Proyek BMI/IRIS-Gateway-Build/IRIS-Gateway-Portable.zip`. Selama gateway lama masih jalan,
@@ -25,7 +25,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Data hilang 07/11:** 4 Daily Report + 3 log foto (MF Beruntung, Lawahan, FWA Tapin, FWA HST) hilang karena
   spreadsheet Waspang dikembalikan ke versi lama (antara 7 dan 8 Nov). Belum dipulihkan. Sumbernya: Riwayat versi
   spreadsheet atau teks laporan di grup WA. Pemulihan otomatis baru mencatat laporan sejak @119.
-- **Portal FTTH (dicek 13 Nov 18:10):** `main` vs HEAD Apps Script (`Kode.js` md5 4363d75f) hanya beda di `requireAdmin_` (PR #94: memanggil `requireRpm_`, perilaku sama). `CADANGAN_SIMPAN = 1` sudah ada di keduanya; `Form.html` sama (dcfc5c7a). Deploy FTTH lewat workflow aman; template BOQ, `KopSurat.js`, dan manifest tetap dari Apps Script.
+- **Portal FTTH:** deploy pertama lewat workflow sukses (@262, 13 Nov 21:00). Sebelumnya dicek: `main` vs HEAD Apps Script hanya beda di `requireAdmin_` (PR #94, perilaku sama); template BOQ, `KopSurat.js`, dan manifest tetap dari Apps Script.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 
@@ -59,7 +59,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
-- 2026-11-13 21:02 · **ftth @262** · e4ac434 · Merge pull request #99 from buanamenara/memori-merge · GitHub Actions
+- 2026-11-13 21:02 · **ftth @262** · e4ac434 · Deploy dari main: requireAdmin_ = requireRpm_ (PR #94, perilaku sama) + CADANGAN_SIMPAN=1 · GitHub Actions
 - 2026-11-13 17:50 · **waspang @121** · e46b17e · Uji deploy lewat GitHub Actions (isi sama dengan @120) · GitHub Actions
 - 2026-11-13 17:23 · **waspang @120** · c7b8cf2 · Menu IRIS lewat polling WhatsApp (`!menu`, `menu admin`) · clasp laptop
 - 2026-11-13 17:07 · **waspang @119** · bfb9ecb · Pemulihan otomatis Daily Report & log foto (jurnal) · clasp laptop
