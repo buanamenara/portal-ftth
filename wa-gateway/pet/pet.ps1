@@ -50,9 +50,9 @@ if ($Data) { $posFile = Join-Path $Data 'pet-posisi.txt' } else { $posFile = Joi
   <Ellipse Width="50" Height="9" Margin="0,0,0,1" VerticalAlignment="Bottom" HorizontalAlignment="Center" Fill="{StaticResource Bayangan}" IsHitTestVisible="False">
     <Ellipse.RenderTransform><ScaleTransform x:Name="Bayang" CenterX="25" CenterY="4.5" ScaleX="1" ScaleY="1"/></Ellipse.RenderTransform>
   </Ellipse>
-  <Canvas Width="128" Height="148" Margin="6,22,6,0" VerticalAlignment="Top" HorizontalAlignment="Left" RenderTransformOrigin="0.5,0.95">
+  <Canvas Width="128" Height="148" Margin="6,22,6,0" VerticalAlignment="Top" HorizontalAlignment="Left">
     <Canvas.RenderTransform>
-      <TransformGroup><ScaleTransform x:Name="Sq" ScaleX="1" ScaleY="1"/><RotateTransform x:Name="Rot" Angle="0"/><TranslateTransform x:Name="Mv"/></TransformGroup>
+      <TransformGroup><ScaleTransform x:Name="Sq" CenterX="64" CenterY="138" ScaleX="1" ScaleY="1"/><RotateTransform x:Name="Rot" CenterX="64" CenterY="138" Angle="0"/><RotateTransform x:Name="Putaran" CenterX="64" CenterY="78" Angle="0"/><TranslateTransform x:Name="Mv"/></TransformGroup>
     </Canvas.RenderTransform>
 <Canvas><Canvas.RenderTransform><ScaleTransform x:Name="WingL" CenterX="50" CenterY="92" ScaleX="1"/></Canvas.RenderTransform>
 <Path Data="M0,0 C8.50,-8.00 25.50,-7.20 34.00,-1.20 C27.20,4.00 10.20,5.60 0,0 Z" Fill="{StaticResource Bulu}" Stroke="#E7C772" StrokeThickness="0.7"><Path.RenderTransform><TransformGroup><RotateTransform Angle="-38"/><ScaleTransform ScaleX="-1"/><TranslateTransform X="50" Y="90"/></TransformGroup></Path.RenderTransform></Path>
@@ -181,7 +181,7 @@ if ($Data) { $posFile = Join-Path $Data 'pet-posisi.txt' } else { $posFile = Joi
 
 $win = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
 $n = @{}
-foreach ($k in 'Ukuran','Sq','Rot','Mv','Bayang','WingL','WingR','RotL','RotR','RotKL','RotKR','Face','Glow','Kedip','Lirik','EyeL','EyeR','EyeHL','Mouth','Laptop','Ketikan','Bubble','BubbleText','mKecil','mSedang','mBesar','mSembunyi') {
+foreach ($k in 'Ukuran','Sq','Rot','Putaran','Mv','Bayang','WingL','WingR','RotL','RotR','RotKL','RotKR','Face','Glow','Kedip','Lirik','EyeL','EyeR','EyeHL','Mouth','Laptop','Ketikan','Bubble','BubbleText','mKecil','mSedang','mBesar','mSembunyi') {
   $n[$k] = $win.FindName($k)
   if ($null -eq $n[$k]) { throw ('Elemen XAML tidak ditemukan: ' + $k) }
 }
@@ -275,7 +275,7 @@ function Lompat([int]$kali = 1, [double]$tinggi = 14) {
 }
 function Miring([double]$sudut = 7) { Anim $n.Rot $ANG 0 $sudut 230 $true 1 }
 function Gepeng { Anim $n.Sq $SY 1 0.88 110 $true 1; Anim $n.Sq $SX 1 1.07 110 $true 1 }
-function Putar { Anim $n.Rot $ANG 0 360 650 $false 1 }
+function Putar { Anim $n.Putaran $ANG 0 360 650 $false 1 }
 function Kepak([int]$kali = 2) { Anim $n.WingL $SX 1 0.72 140 $true $kali; Anim $n.WingR $SX 1 0.72 140 $true $kali }
 function Lirik([bool]$on) { if ($on) { Anim $n.Lirik $X -2.5 2.5 700 $true 0 } else { $n.Lirik.BeginAnimation($X, $null) } }
 function Tangan([double]$kiri, [double]$kanan, [int]$ms = 260) { Ke $n.RotL $ANG $kiri $ms; Ke $n.RotR $ANG $kanan $ms }

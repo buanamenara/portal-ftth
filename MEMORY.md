@@ -126,9 +126,9 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Panel IRIS Gateway: LED per region:** baris ● Banjarmasin / ● Pontianak (nama region saja; nama grup di tooltip).
   Hijau = WhatsApp tersambung dan grup ditemukan; merah = terputus, Stop, atau grup tidak ditemukan. Gateway mengecek grup
   tiap 60 dtk (`checkGroups()`); nama region grup utama dari `WA_PULL.grupUtama` (`botGrupNama_('')`).
-- **Pet iRIS:** hanya hiasan di laptop gateway, tidak menjawab pertanyaan (pilihan pemilik 14 Nov). Bawaan aktif (`st.pet = true`). Wajah ikut status
+- **Pet iRIS:** hanya hiasan di laptop gateway, tidak menjawab pertanyaan (pilihan pemilik 14 Nov). Bawaan aktif (`st.pet = true`), dijaga tetap hidup oleh `gateway.mjs` selama `st.pet` menyala (`petSeen`), dan dijalankan dengan `spawn(..., { stdio: 'ignore', windowsHide: true })` tanpa `detached: true` (karena `DETACHED_PROCESS` di Windows membuat `powershell.exe` langsung keluar). Wajah ikut status
   (senang = tersambung, kuning = menyambung, X merah = terputus, tidur = Stop). Bergerak hanya saat IRIS ditanya / disebut
-  di grup (`petEvent('dengar')`, `jawab`, `diam` di `onMessage`); klik = bereaksi, klik dua kali = berputar, bisa digeser.
+  di grup (`petEvent('dengar')`, `jawab`, `diam` di `onMessage`); klik = bereaksi, klik dua kali = berputar (`Putaran` berporos di tengah badan `64,78` agar tidak terpotong batas jendela), bisa digeser.
   Tabel geometri/warna di `pet.tpl.ps1` dinamai `$TABEL_MATA`, `$TABEL_MULUT`, `$TABEL_WARNA`, `$TABEL_MOOD`, `$MATA_PENUH` agar tidak tertimpa variabel `$script:mata`, `$script:mood`, atau parameter `$mata`/`$mulut` karena PowerShell bersifat *case-insensitive*.
 - **Gateway WA** jalan di laptop terpisah, bukan di laptop kerja pemilik. Folder `auth` dan `config.json` tidak pernah
   dibagikan atau diunggah.

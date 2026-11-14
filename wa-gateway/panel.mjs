@@ -22,6 +22,7 @@ const st = {
   events: [],  // { t, k: ok|err|bot|re, x }
   sess: {},    // sha256(token) -> kedaluwarsa
   pet: true,   // pet iRIS di desktop laptop gateway (bawaan menyala, bisa dimatikan dari menu panel)
+  petSeen: 0,  // waktu terakhir pet.ps1 membaca /api/pet
   petEv: [], petSeq: 0   // kejadian untuk pet: { id, k: dengar|jawab|diam } (tidak disimpan)
 };
 let file = '', opts = {};
@@ -50,8 +51,10 @@ export const panel = {
   pullFailed(msg) { st.lastPoll = Date.now(); st.lastPollErr = String(msg).slice(0, 120); },
   count(k) { rollDay(); st[k]++; if ((k === 'sent' || k === 'fail') && st.pending > 0) st.pending--; save(); },
   event(k, x) { st.events.unshift({ t: Date.now(), k, x: String(x).slice(0, 80) }); st.events.length = Math.min(st.events.length, 40); save(); },
-  setPet(v) { st.pet = !!v; save(); },
+  setPet(v) { st.pet = !!v; st.petSeen = Date.now(); save(); },
   petOn() { return st.pet; },
+  petSeen() { return st.petSeen; },
+  petTouch() { st.petSeen = Date.now(); },
   petEvent(k) { st.petEv.push({ id: ++st.petSeq, k, t: Date.now() }); if (st.petEv.length > 10) st.petEv.shift(); },
   resumed(gap) { st.lastResume = Date.now(); st.restarts++; panel.event('re', 'Bangun dari sleep (' + Math.round(gap / 60000) + ' mnt)'); }
 };
@@ -132,6 +135,7 @@ export function startPanel(o) {
       const lokal = /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '');
       if (p === '/api/pet' && req.method === 'GET') {
         if (!lokal) return send(res, 404, { ok: false });
+        st.petSeen = Date.now();
         const mood = st.paused ? 'tidur' : st.wa === 'open' ? 'senang' : (st.wa === 'connecting' || st.wa === 'qr') ? 'tunggu' : 'putus';
         return send(res, 200, { ok: true, on: st.pet, mood, ev: st.petEv, seq: st.petSeq });
       }

@@ -386,9 +386,10 @@ const PET_PS1 = path.join(DIR, 'pet', 'pet.ps1');
 const PET_BISA = process.platform === 'win32' && !FAKE && fs.existsSync(PET_PS1);
 function petJalan() {
   if (!PET_BISA || !panel.petOn()) return;
+  panel.petTouch();
   try {
     spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-WindowStyle', 'Hidden', '-File', PET_PS1,
-      '-Port', String(Number(CFG.panelPort) || 8737), '-Data', DATA], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+      '-Port', String(Number(CFG.panelPort) || 8737), '-Data', DATA], { stdio: 'ignore', windowsHide: true }).unref();
   } catch (e) { log('Pet iRIS gagal dibuka:', e.message); }
 }
 
@@ -461,6 +462,7 @@ if (!configured) {
 let lastTick = Date.now(), downSince = 0;
 setInterval(() => {
   const now = Date.now(), gap = now - lastTick; lastTick = now;
+  if (PET_BISA && panel.petOn() && now - panel.petSeen() > 15000) petJalan();
   if (gap > 60000) {
     log('Laptop bangun dari sleep (' + Math.round(gap / 1000) + ' dtk). Menyambung ulang WhatsApp...');
     panel.resumed(gap);

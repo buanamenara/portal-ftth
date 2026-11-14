@@ -121,9 +121,9 @@ def build():
   <Ellipse Width="50" Height="9" Margin="0,0,0,1" VerticalAlignment="Bottom" HorizontalAlignment="Center" Fill="{{StaticResource Bayangan}}" IsHitTestVisible="False">
     <Ellipse.RenderTransform><ScaleTransform x:Name="Bayang" CenterX="25" CenterY="4.5" ScaleX="1" ScaleY="1"/></Ellipse.RenderTransform>
   </Ellipse>
-  <Canvas Width="128" Height="148" Margin="6,{OY},6,0" VerticalAlignment="Top" HorizontalAlignment="Left" RenderTransformOrigin="0.5,0.95">
+  <Canvas Width="128" Height="148" Margin="6,{OY},6,0" VerticalAlignment="Top" HorizontalAlignment="Left">
     <Canvas.RenderTransform>
-      <TransformGroup><ScaleTransform x:Name="Sq" ScaleX="1" ScaleY="1"/><RotateTransform x:Name="Rot" Angle="0"/><TranslateTransform x:Name="Mv"/></TransformGroup>
+      <TransformGroup><ScaleTransform x:Name="Sq" CenterX="64" CenterY="138" ScaleX="1" ScaleY="1"/><RotateTransform x:Name="Rot" CenterX="64" CenterY="138" Angle="0"/><RotateTransform x:Name="Putaran" CenterX="64" CenterY="78" Angle="0"/><TranslateTransform x:Name="Mv"/></TransformGroup>
     </Canvas.RenderTransform>
 {g}  </Canvas>
   <Border x:Name="Bubble" Margin="0,0,2,0" VerticalAlignment="Top" HorizontalAlignment="Right" Background="#FFFFFDF7" BorderBrush="#C9A24A" BorderThickness="1.3"

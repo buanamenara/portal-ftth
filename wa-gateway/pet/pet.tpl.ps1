@@ -24,7 +24,7 @@ __XAML__
 
 $win = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
 $n = @{}
-foreach ($k in 'Ukuran','Sq','Rot','Mv','Bayang','WingL','WingR','RotL','RotR','RotKL','RotKR','Face','Glow','Kedip','Lirik','EyeL','EyeR','EyeHL','Mouth','Laptop','Ketikan','Bubble','BubbleText','mKecil','mSedang','mBesar','mSembunyi') {
+foreach ($k in 'Ukuran','Sq','Rot','Putaran','Mv','Bayang','WingL','WingR','RotL','RotR','RotKL','RotKR','Face','Glow','Kedip','Lirik','EyeL','EyeR','EyeHL','Mouth','Laptop','Ketikan','Bubble','BubbleText','mKecil','mSedang','mBesar','mSembunyi') {
   $n[$k] = $win.FindName($k)
   if ($null -eq $n[$k]) { throw ('Elemen XAML tidak ditemukan: ' + $k) }
 }
@@ -118,7 +118,7 @@ function Lompat([int]$kali = 1, [double]$tinggi = 14) {
 }
 function Miring([double]$sudut = 7) { Anim $n.Rot $ANG 0 $sudut 230 $true 1 }
 function Gepeng { Anim $n.Sq $SY 1 0.88 110 $true 1; Anim $n.Sq $SX 1 1.07 110 $true 1 }
-function Putar { Anim $n.Rot $ANG 0 360 650 $false 1 }
+function Putar { Anim $n.Putaran $ANG 0 360 650 $false 1 }
 function Kepak([int]$kali = 2) { Anim $n.WingL $SX 1 0.72 140 $true $kali; Anim $n.WingR $SX 1 0.72 140 $true $kali }
 function Lirik([bool]$on) { if ($on) { Anim $n.Lirik $X -2.5 2.5 700 $true 0 } else { $n.Lirik.BeginAnimation($X, $null) } }
 function Tangan([double]$kiri, [double]$kanan, [int]$ms = 260) { Ke $n.RotL $ANG $kiri $ms; Ke $n.RotR $ANG $kanan $ms }
