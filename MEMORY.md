@@ -51,8 +51,10 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   `/api/restart` → `restart()` di `wa-gateway/gateway.mjs` keluar dengan kode 1, pelari (`bin\jalankan.bat` / `start.bat`)
   menyalakannya lagi ± 5-10 dtk dengan file terbaru di `app\`. Panel menampilkan "Memulai ulang..." lalu kembali sendiri.
   File `app\` di laptop gateway sudah diganti versi PR ini (14 Nov 12:24); tombol muncul setelah satu kali Tutup program + buka lagi.
-- **Pet iRIS di desktop laptop gateway (PR iris-pet):** `wa-gateway/pet/pet.ps1` (PowerShell + WPF, tanpa instal apa pun) +
-  `pet/iris.png` (badan robot dari stiker "siap", visor dikosongkan; mata & mulut digambar kode). Nyala/mati dari menu ⋯ panel
+- **Pet iRIS di desktop laptop gateway (PR iris-pet):** `wa-gateway/pet/pet.ps1` (PowerShell + WPF, tanpa instal apa pun).
+  Wujud chibi iRIS (permintaan pemilik 14 Nov, contoh: pet robot chibi) digambar vektor XAML: helm putih-emas, daun emas, visor
+  bermata biru, sayap pelangi. `pet.ps1` dibuat oleh `pet/buat-pet.py` dari `pet/pet.tpl.ps1` (jangan edit `pet.ps1` langsung).
+  Pose: diam, lambai (klik), ketik di laptop (ditanya), sorak (menjawab), kaki goyang (digeser). Nyala/mati dari menu ⋯ panel
   (`/api/pet`, `st.pet` di `data/state.json`, bawaan mati). Gateway membuka pet (`petJalan`) saat mulai / dinyalakan; pet membaca
   `GET /api/pet` (hanya 127.0.0.1) tiap 0,8 dtk dan menutup diri bila dimatikan atau gateway tidak menjawab 45 dtk. Klik kanan pet:
   ukuran / Sembunyikan (`/api/pet-mati`). Galat pet ditulis ke `app\pet\pet.log`. Belum diuji di Windows sungguhan.
