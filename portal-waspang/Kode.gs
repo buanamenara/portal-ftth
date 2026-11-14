@@ -2092,12 +2092,14 @@ function botCekDaily_(payload) {
   PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + now + '_cek', JSON.stringify({ t: now, n: 0, last: 0, files: [], mentions: no ? [no] : [], text: text, grup: botGrupSite_(cluster, sow) }));
 }
 
-// ---- BA Ambil dan BA Masuk (Pembelian / Transfer) baru di BA TRANSAKSI (Portal FTTH) diteruskan ke grup. Dicek paling sering
-// tiap 5 menit dari WA_PULL. Baris penyesuaian stok opname (ID BA berisi "-OPN-") tidak diteruskan. ----
+// ---- BA Ambil dan BA Masuk (Pembelian / Transfer) baru di BA TRANSAKSI (Portal FTTH) diteruskan ke grup. Dicek dari WA_PULL
+// (gateway tiap 15 dtk) paling sering tiap BOT_BA_CEK_DTK_ detik (dulu 5 menit, sehingga BA baru bisa menunggu sampai 5 menit;
+// cek ini ringan: buka spreadsheet + getLastRow). Baris penyesuaian stok opname (ID BA berisi "-OPN-") tidak diteruskan. ----
+var BOT_BA_CEK_DTK_ = 30;
 function botBaBaru_() {
   var cache = CacheService.getScriptCache();
   if (cache.get('bot_ba_cek')) return;
-  cache.put('bot_ba_cek', '1', 300);
+  cache.put('bot_ba_cek', '1', BOT_BA_CEK_DTK_);
   var props = PropertiesService.getScriptProperties();
   var sh = SpreadsheetApp.openById(CONFIG.FTTH_SPREADSHEET_ID).getSheetByName('BA TRANSAKSI');
   if (!sh) return;
