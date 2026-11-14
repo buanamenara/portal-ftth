@@ -6627,7 +6627,10 @@ ${todayActivity}`;
       const term = filterText.toLowerCase().trim();
       const filtered = MASTER_DATABASE_SOW.filter(item => {
         if (!term) return true;
-        return (item.name && item.name.toLowerCase().includes(term)) || (item.sow && item.sow.toLowerCase().includes(term));
+        // semua kata harus ada (urutan bebas, tanda baca diabaikan), di nama site atau SOW
+        const teks = (String(item.name || '') + ' ' + String(item.sow || '') + ' ' + String(item.region || '')).toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+        const rapat = teks.replace(/ /g, '');
+        return term.replace(/[^a-z0-9]+/g, ' ').trim().split(' ').every(w => teks.includes(w) || rapat.includes(w));
       });
 
       if (countBadge) {
