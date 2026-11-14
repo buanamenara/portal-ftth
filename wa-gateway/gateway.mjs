@@ -221,11 +221,13 @@ async function onVote(m, upd) {
   if (pilih === null) { log('Suara polling tidak bisa dibaca:', k.id); return; }
   if (!pilih.length) return;   // pilihan dibatalkan
   const from = isGroup ? await phoneOf(k.participant, k.participantAlt) : await phoneOf(chat, k.remoteJidAlt);
+  panel.petEvent('dengar');
   const res = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, grup: gk, text: (isGroup ? '!' : '') + 'pilih ' + pilih[0], canPoll: true });
   if (res.poll) await sendMenuPoll(chat, res.poll);
-  if (!res.reply) return;
+  if (!res.reply) { panel.petEvent(res.poll ? 'jawab' : 'diam'); return; }
   const siapa = m.pushName || from || 'Anggota';
   await sock.sendMessage(chat, { text: '↪️ _' + siapa + ': ' + pilih[0] + '_\n\n' + res.reply });
+  panel.petEvent('jawab');
   log('Menu dijawab:', pilih[0], isGroup ? '(grup)' : '(pribadi ' + from + ')');
   panel.count('cmd'); panel.event('bot', 'Menu: ' + pilih[0].slice(0, 34));
 }
@@ -277,18 +279,17 @@ async function onMessage(m) {
     }
   }
   const from = isGroup ? await phoneOf(k.participant, k.participantAlt) : await phoneOf(chat, k.remoteJidAlt);
-  // Pet iRIS: bergerak hanya saat IRIS ditanya / disebut di grup, lalu saat menjawab.
-  const petTanya = isGroup && (sebut || /^[!\/](iris|tanya)\b/i.test(text));
-  if (petTanya) panel.petEvent('dengar');
+  // Pet iRIS: bergerak saat IRIS memproses perintah / pertanyaan / sapaan (grup maupun chat pribadi), lalu bersorak saat menjawab.
+  panel.petEvent('dengar');
   const { reply, poll: menu } = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, grup: gk, text, excel, canPoll: true, sebut });
   if (menu) {
     await sendMenuPoll(chat, menu);
     log('Menu polling dikirim', isGroup ? '(grup)' : '(pribadi ' + from + ')');
     panel.count('cmd'); panel.event('bot', 'Menu polling');
   }
-  if (!reply) { if (petTanya) panel.petEvent('diam'); return; }
+  if (!reply) { panel.petEvent(menu ? 'jawab' : 'diam'); return; }
   await sock.sendMessage(chat, { text: reply }, { quoted: m });
-  if (petTanya) panel.petEvent('jawab');
+  panel.petEvent('jawab');
   log('Perintah dijawab:', text.split(/\s+/)[0], isGroup ? '(grup)' : '(pribadi ' + from + ')');
   panel.count('cmd'); panel.event('bot', text.split(/\s+/).slice(0, 3).join(' ').slice(0, 40));
 }
@@ -350,6 +351,7 @@ async function poll() {
     if (grupUtama) mainRegionName = String(grupUtama);
     await checkGroups();
     panel.pulled((jobs || []).length);
+    if ((jobs || []).length) panel.petEvent('dengar');
     for (const job of jobs || []) {
       try {
         await sendJob(job);
@@ -363,6 +365,7 @@ async function poll() {
         if (/tidak ditemukan/.test(e.message)) groupJid = null;
       }
     }
+    if ((jobs || []).length) panel.petEvent('jawab');
   } catch (e) {
     log('Antrean belum bisa diambil:', e.message);
     panel.pullFailed(e.message);

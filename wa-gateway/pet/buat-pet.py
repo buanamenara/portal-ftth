@@ -89,6 +89,7 @@ def build():
     <Path x:Name="EyeL" Canvas.Left="49" Canvas.Top="53.5" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
     <Path x:Name="EyeR" Canvas.Left="69" Canvas.Top="53.5" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
     <Canvas x:Name="EyeHL">
+      <Canvas.RenderTransform><TranslateTransform x:Name="KilauMata"/></Canvas.RenderTransform>
       <Ellipse Canvas.Left="50.8" Canvas.Top="55.3" Width="3.2" Height="4.4" Fill="#E9FDFF"/>
       <Ellipse Canvas.Left="70.8" Canvas.Top="55.3" Width="3.2" Height="4.4" Fill="#E9FDFF"/>
     </Canvas>

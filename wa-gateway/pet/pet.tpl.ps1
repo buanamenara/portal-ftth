@@ -14,7 +14,7 @@ trap { try { Add-Content -Path $logFile -Value ((Get-Date -Format 's') + ' ' + $
 $mutex = New-Object System.Threading.Mutex($false, 'Local\IRIS-Gateway-Pet')
 if (-not $mutex.WaitOne(0)) { exit 0 }   # pet sudah tampil
 
-Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 $api = 'http://127.0.0.1:' + $Port + '/api/'
 if ($Data) { $posFile = Join-Path $Data 'pet-posisi.txt' } else { $posFile = Join-Path $env:TEMP 'iris-pet-posisi.txt' }
 
@@ -24,7 +24,7 @@ __XAML__
 
 $win = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
 $n = @{}
-foreach ($k in 'Ukuran','Sq','Rot','Putaran','Mv','Bayang','WingL','WingR','RotL','RotR','RotKL','RotKR','Face','Glow','Kedip','Lirik','EyeL','EyeR','EyeHL','Mouth','Laptop','Ketikan','Bubble','BubbleText','mKecil','mSedang','mBesar','mSembunyi') {
+foreach ($k in 'Ukuran','Sq','Rot','Putaran','Mv','Bayang','WingL','WingR','RotL','RotR','RotKL','RotKR','Face','Glow','Kedip','Lirik','KilauMata','EyeL','EyeR','EyeHL','Mouth','Laptop','Ketikan','Bubble','BubbleText','mKecil','mSedang','mBesar','mSembunyi') {
   $n[$k] = $win.FindName($k)
   if ($null -eq $n[$k]) { throw ('Elemen XAML tidak ditemukan: ' + $k) }
 }
@@ -120,11 +120,55 @@ function Miring([double]$sudut = 7) { Anim $n.Rot $ANG 0 $sudut 230 $true 1 }
 function Gepeng { Anim $n.Sq $SY 1 0.88 110 $true 1; Anim $n.Sq $SX 1 1.07 110 $true 1 }
 function Putar { Anim $n.Putaran $ANG 0 360 650 $false 1 }
 function Kepak([int]$kali = 2) { Anim $n.WingL $SX 1 0.72 140 $true $kali; Anim $n.WingR $SX 1 0.72 140 $true $kali }
-function Lirik([bool]$on) { if ($on) { Anim $n.Lirik $X -2.5 2.5 700 $true 0 } else { $n.Lirik.BeginAnimation($X, $null) } }
+function Lirik([bool]$on) {
+  $script:lirikOto = $on
+  if ($on) { Anim $n.Lirik $X -2.5 2.5 700 $true 0 }
+  else { $n.Lirik.BeginAnimation($X, $null); $n.Lirik.BeginAnimation($Y, $null); $n.Lirik.X = 0; $n.Lirik.Y = 0; $n.KilauMata.X = 0; $n.KilauMata.Y = 0 }
+}
 function Tangan([double]$kiri, [double]$kanan, [int]$ms = 260) { Ke $n.RotL $ANG $kiri $ms; Ke $n.RotR $ANG $kanan $ms }
 function Kaki([bool]$goyang) {
-  if ($goyang) { Anim $n.RotKL $ANG -14 14 260 $true 0; Anim $n.RotKR $ANG 14 -14 260 $true 0 }
+  if ($goyang) { Anim $n.RotKL $ANG -16 16 180 $true 0; Anim $n.RotKR $ANG 16 -16 180 $true 0 }
   else { Ke $n.RotKL $ANG 0 200; Ke $n.RotKR $ANG 0 200 }
+}
+function Angkat {
+  $script:diangkat = $true
+  Lirik $false
+  $n.Rot.BeginAnimation($ANG, $null); $n.Rot.Angle = 0
+  Ke $n.Mv $Y -18 130
+  Ke $n.Sq $SX 0.94 130; Ke $n.Sq $SY 1.07 130
+  Ke $n.Bayang $SX 0.55 130; Ke $n.Bayang $SY 0.55 130
+  Kaki $true
+  Anim $n.RotL $ANG 45 75 160 $true 0
+  Anim $n.RotR $ANG -45 -75 160 $true 0
+  Anim $n.WingL $SX 1 0.65 95 $true 0; Anim $n.WingR $SX 1 0.65 95 $true 0
+  if (-not $script:menunggu) { Wajah 'besar' 'o' 'biru'; Gelembung 'eh!' 900 }
+}
+function Jatuh {
+  $script:diangkat = $false
+  Kaki $false; Tangan 12 -12 220; Kepak 2
+  $bEase = New-Object System.Windows.Media.Animation.BounceEase
+  $bEase.Bounces = 2; $bEase.Bounciness = 2.2
+  $bEase.EasingMode = [System.Windows.Media.Animation.EasingMode]::EaseOut
+  foreach ($pair in @(@($n.Mv, $Y, 0), @($n.Bayang, $SX, 1), @($n.Bayang, $SY, 1))) {
+    $a = New-Object System.Windows.Media.Animation.DoubleAnimation
+    $a.To = $pair[2]
+    $a.Duration = New-Object System.Windows.Duration ([TimeSpan]::FromMilliseconds(420))
+    $a.EasingFunction = $bEase
+    $pair[0].BeginAnimation($pair[1], $a)
+  }
+  Anim $n.Sq $SY 0.85 1 240 $false 1
+  Anim $n.Sq $SX 1.10 1 240 $false 1
+  if (-not $script:menunggu) {
+    Wajah 'senang' 'senyum' 'biru'
+    Gelembung 'hop!' 1100
+    $script:sibuk = [DateTime]::Now.AddMilliseconds(1200)
+  }
+}
+function BatalAngkat {
+  $script:diangkat = $false
+  Kaki $false; Kepak 1
+  Ke $n.Mv $Y 0 120; Ke $n.Sq $SX 1 120; Ke $n.Sq $SY 1 120
+  Ke $n.Bayang $SX 1 120; Ke $n.Bayang $SY 1 120
 }
 
 # Pose: diam (tangan di samping), lambai, ketik (duduk mengetik di laptop), sorak (kedua tangan ke atas).
@@ -171,6 +215,9 @@ $script:gagal = $null
 $script:wajah = ''
 $script:mata = 'bulat'
 $script:pose = 'diam'
+$script:diangkat = $false
+$script:lirikOto = $false
+$script:dekatKursor = $false
 
 function TerapkanMood {
   if ([DateTime]::Now -lt $script:sibuk) { return }
@@ -249,12 +296,12 @@ try {
 $win.Add_MouseLeftButtonDown({
   param($s, $e)
   try {
-    if ($e.ClickCount -ge 2) { Putar; Kepak 2; Wajah 'senang' 'lebar' 'biru'; Gelembung 'wiii!' 1200; $script:sibuk = [DateTime]::Now.AddMilliseconds(1300); return }
+    if ($e.ClickCount -ge 2) { BatalAngkat; Putar; Kepak 2; Wajah 'senang' 'lebar' 'biru'; Gelembung 'wiii!' 1200; $script:sibuk = [DateTime]::Now.AddMilliseconds(1300); return }
     $x0 = $win.Left; $y0 = $win.Top
-    Kaki $true
+    Angkat
     try { $win.DragMove() } catch {}
-    Kaki $false
     if ([Math]::Abs($win.Left - $x0) -lt 3 -and [Math]::Abs($win.Top - $y0) -lt 3) {
+      BatalAngkat
       if ($script:menunggu) { return }
       switch (Get-Random -Maximum 3) {
         0 { Pose 'lambai'; Wajah 'senang' 'senyum' 'biru'; Gelembung 'hai!' 1500 }
@@ -262,7 +309,10 @@ $win.Add_MouseLeftButtonDown({
         default { Miring -8; Kepak 2; Wajah 'senang' 'senyum' 'biru'; Gelembung 'hehe' 1500 }
       }
       $script:sibuk = [DateTime]::Now.AddMilliseconds(1700)
-    } else { SimpanPosisi }
+    } else {
+      Jatuh
+      SimpanPosisi
+    }
   } catch {}
 })
 $n.mKecil.Add_Click({ SetUkuran 0.9 })
@@ -287,10 +337,45 @@ $kedip.Add_Tick({
   } catch {}
 })
 
-$win.Add_Closed({ $poll.Stop(); $kedip.Stop(); try { $mutex.ReleaseMutex() } catch {} })
+$kursor = New-Object System.Windows.Threading.DispatcherTimer
+$kursor.Interval = [TimeSpan]::FromMilliseconds(50)
+$kursor.Add_Tick({
+  try {
+    if ($script:diangkat -or $script:menunggu -or $script:mood -eq 'tidur' -or [DateTime]::Now -lt $script:sibuk) { return }
+    $c = [System.Windows.Forms.Cursor]::Position
+    $pt = $win.PointFromScreen((New-Object System.Windows.Point($c.X, $c.Y)))
+    $dx = $pt.X - ($win.ActualWidth * 0.5)
+    $dy = $pt.Y - ($win.ActualHeight * 0.49)
+    $jarak = [Math]::Sqrt($dx * $dx + $dy * $dy)
+    $batas = 280 * $n.Ukuran.ScaleX
+    if ($jarak -lt $batas) {
+      if ($script:lirikOto) { $n.Lirik.BeginAnimation($X, $null); $script:lirikOto = $false }
+      $script:dekatKursor = $true
+      $f = [Math]::Min(1.0, $jarak / (75.0 * $n.Ukuran.ScaleX))
+      $sudut = [Math]::Atan2($dy, $dx)
+      $tx = [Math]::Cos($sudut) * 4.5 * $f
+      $ty = [Math]::Sin($sudut) * 3.2 * $f
+      $n.Lirik.X += ($tx - $n.Lirik.X) * 0.45
+      $n.Lirik.Y += ($ty - $n.Lirik.Y) * 0.45
+      $n.KilauMata.X = $n.Lirik.X * 0.35
+      $n.KilauMata.Y = $n.Lirik.Y * 0.35
+    } elseif ($script:dekatKursor) {
+      $n.Lirik.X *= 0.65; $n.Lirik.Y *= 0.65
+      $n.KilauMata.X = $n.Lirik.X * 0.35; $n.KilauMata.Y = $n.Lirik.Y * 0.35
+      if ([Math]::Abs($n.Lirik.X) -lt 0.15 -and [Math]::Abs($n.Lirik.Y) -lt 0.15) {
+        $n.Lirik.X = 0; $n.Lirik.Y = 0; $n.KilauMata.X = 0; $n.KilauMata.Y = 0
+        $script:dekatKursor = $false
+        if ($script:mood -eq 'tunggu') { Lirik $true }
+      }
+    }
+  } catch {}
+})
+
+$win.Add_Closed({ $poll.Stop(); $kedip.Stop(); $kursor.Stop(); try { $mutex.ReleaseMutex() } catch {} })
 
 Wajah 'bulat' 'datar' 'kuning'
 try { Tanya } catch {}
 $poll.Start()
 $kedip.Start()
+$kursor.Start()
 [void]$win.ShowDialog()
