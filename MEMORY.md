@@ -39,11 +39,11 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   Sudah terbukti jalan di WhatsApp (14 Nov 10:33, `iris on` aktif). Panduan API untuk pemilik ada di Drive (bukan di repo).
 - **Stiker + sapaan (live Waspang @128):** `app/gateway.mjs` di laptop gateway (`C:\\Users\\p\\IRIS-Gateway`) diganti versi `main` 14 Nov 11:36
   (sebelumnya versi 470de70; panel.* sudah sama). Berlaku setelah program gateway ditutup dan dibuka lagi.
-- **Stiker robot iRIS (14 Nov):** 15 desain baru dari Canva (robot berkarakter Iris Yunani, pose sesuai kata). File asli 2048 px harus
-  diunduh pemilik dari Canva (unduhan Canva diblokir dari sesi cloud), lalu diubah ke webp 512 dan disimpan di folder `IRIS Stiker`
-  dengan nama: perkenalan, halo, siap, mantap, terimakasih, semangat, ingat, hatihati, gaspol, laporanmasuk, izincek, siapkomandan,
-  otw, ngopi, wkwk. Sementara folder masih berisi 6 stiker emblem lama.
-- **Stiker otomatis (PR iris-stiker-jadwal, belum di-merge/deploy):** `BOT_STIKER_ATURAN_` + `botStikerJadwal_` / `botStikerLapor_` /
+- **Stiker robot iRIS (14 Nov):** 15 stiker robot (Iris Yunani) sudah di folder Drive `IRIS Stiker`: perkenalan, halo, siap, mantap,
+  terimakasih, semangat, ingat, hatihati, gaspol, laporanmasuk, izincek, siapkomandan, otw, ngopi, wkwk. terimakasih, semangat,
+  laporanmasuk dari gambar 550 px (link Canva dari pemilik); sisanya dari pratinjau 200 px yang diperbesar (bisa diganti bila pemilik
+  mengirim link 550 px). Stiker emblem lama sudah di Sampah.
+- **Stiker otomatis (live Waspang @129; stiker 12:00/19:00 di PR iris-stiker-siang):** `BOT_STIKER_ATURAN_` + `botStikerJadwal_` / `botStikerLapor_` /
   `botStikerSapa_`.
   Di PR yang sama: jadwal `SIANG` 12:00 dan `MALAM` 19:00 (tag tim yang belum lapor).
   Juga `iris sapa <nama> [| pesan]` (admin): IRIS menyapa anggota (mis. Mahmudi yang menyapa sebelum gateway baru terpasang).
@@ -93,7 +93,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Pengingat Daily Report:** 12:00 (`SIANG`) dan 19:00 (`MALAM`) hanya dikirim bila ada tim yang belum lapor, men-tag yang belum
   (`botSore_(now, 'siang'|'malam')`); 17:30 (`SORE`) tetap seperti dulu. Tim = `BOT_TIM` / per grup `botTimGrup_`.
 - **Stiker otomatis:** setelah Today's Plan (Sen/Sab gaspol, Sel/Kam semangat, Rab/Jum hatihati, Minggu tidak), rekap mingguan/bulanan
-  (mantap), 17:30 (ingat bila ada yang belum lapor; terimakasih bila semua sudah), Daily Report pertama per grup per hari (laporanmasuk,
+  (mantap), 12:00 dan 19:00 (ingat; pesannya sendiri hanya terkirim bila ada yang belum lapor), 17:30 (ingat bila ada yang belum lapor; terimakasih bila semua sudah), Daily Report pertama per grup per hari (laporanmasuk,
   `BOT_STIKER_LAPOR_<GRUP>`), perkenalan (perkenalan, cadangan halo), sapaan (kata di pesan). Stiker yang filenya tidak ada dilewati.
   `BOT_STIKER_OTO = off` mematikan; admin `iris stiker jadwal`, `iris stiker otomatis on|off`. Kunci antrean stiker diberi angka acak
   supaya tidak bertabrakan.

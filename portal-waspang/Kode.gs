@@ -942,6 +942,8 @@ var BOT_STIKER_ATURAN_ = {
   bulanan: 'mantap',                                                     // setelah rekap bulanan tanggal 1
   soreBelum: 'ingat',                                                    // pengingat 17:30 masih ada yang belum lapor
   soreLengkap: 'terimakasih',                                            // 17:30 semua tim sudah lapor
+  siang: 'ingat',                                                        // pengingat 12:00 (hanya terkirim bila ada yang belum lapor)
+  malam: 'ingat',                                                        // pengingat 19:00 (hanya terkirim bila masih ada yang belum)
   lapor: 'laporanmasuk',                                                 // Daily Report pertama hari itu di tiap grup
   sapa: [                                                                // balasan sapaan (pesan yang menyebut IRIS), dicek berurutan
     [/makasih|terima ?kasih|thanks|thank you|\btq\b|tengkyu/i, 'terimakasih'],
@@ -973,6 +975,8 @@ function botStikerJadwal_(id, msg, now, ctx) {
   else if (id === 'MINGGU') nama = a.mingguan;
   else if (id === 'BULAN') nama = a.bulanan;
   else if (id === 'SORE') nama = (msg.mentions || []).length ? a.soreBelum : /semua tim sudah laporan/i.test(msg.text || '') ? a.soreLengkap : '';
+  else if (id === 'SIANG') nama = a.siang;
+  else if (id === 'MALAM') nama = a.malam;
   return botStikerOto_(nama, { grup: ctx || '' }, Date.now() + 500);
 }
 // Daily Report pertama hari itu di grup ini -> stiker "laporan masuk".
@@ -996,6 +1000,7 @@ function botStikerJadwalTeks_() {
   return ['🖼️ *Jadwal stiker otomatis* · ' + (botStikerOtoAktif_() ? '🟢 aktif' : '🔴 mati'),
     '- *07:00* setelah Today\'s Plan: ' + a.pagi.map(function (x, i) { return x ? hari[i] + ' ' + n(x) : ''; }).filter(Boolean).join(' · '),
     '- *Senin 07:00* rekap mingguan: ' + n(a.mingguan) + ' · *tgl 1* rekap bulanan: ' + n(a.bulanan),
+    '- *12:00* pengingat siang: ' + n(a.siang) + ' · *19:00* yang masih belum: ' + n(a.malam),
     '- *17:30* masih ada yang belum lapor: ' + n(a.soreBelum) + ' · semua sudah lapor: ' + n(a.soreLengkap),
     '- *Daily Report pertama* hari itu: ' + n(a.lapor),
     '- *Perkenalan* (iris perkenalan kirim): ' + n(a.kenal),
@@ -2490,7 +2495,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['pulihkan', 'Setiap Daily Report dan log foto juga disalin ke tab JURNAL WASPANG (spreadsheet LOG ARSIP). Tiap jam IRIS mencocokkan jurnal dengan spreadsheet Waspang; baris yang hilang (mis. versi spreadsheet dikembalikan) ditulis lagi otomatis dan admin diberi tahu. Perintah ini menjalankan pengecekan sekarang. Laporan yang memang mau dihapus: pakai revisi &lt;site&gt; lalu revisi hapus.', 'pulihkan'],
   ['iris [on | off | kuota &lt;n&gt; | model &lt;id&gt;]', 'Tanya IRIS (!iris, AI). iris = status dan pemakaian hari ini. iris on butuh Script Property GROQ_API_KEY (kunci dari console.groq.com). Kuota bawaan 500 pertanyaan per hari (batas gratis Groq sekitar 1.000 per hari).', 'iris | iris on | iris off | iris kuota 800'],
   ['iris sapa &lt;nama&gt; [| pesannya]', 'IRIS menyapa anggota grup, mis. yang menyapa IRIS saat gateway belum bisa membaca sapaan. Di grup dibalas di grup itu; di chat pribadi dikirim ke grup utama. Disusul stiker sesuai kata.', 'iris sapa Mahmudi | salam kenal IRIS'],
-  ['iris stiker jadwal / otomatis on|off', 'Stiker otomatis: setelah Today\'s Plan 07:00 (Senin/Sabtu gaspol, Selasa/Kamis semangat, Rabu/Jumat hatihati), rekap mingguan dan bulanan (mantap), 17:30 (ingat bila ada yang belum lapor, terimakasih bila semua sudah), Daily Report pertama tiap grup per hari (laporanmasuk), perkenalan (perkenalan), dan saat IRIS disapa (sesuai kata: makasih, wkwk, ngopi, otw, siap, ...). Stiker yang filenya belum ada dilewati.', 'iris stiker jadwal | iris stiker otomatis off'],
+  ['iris stiker jadwal / otomatis on|off', 'Stiker otomatis: setelah Today\'s Plan 07:00 (Senin/Sabtu gaspol, Selasa/Kamis semangat, Rabu/Jumat hatihati), rekap mingguan dan bulanan (mantap), 12:00 dan 19:00 (ingat, hanya bila ada yang belum lapor), 17:30 (ingat bila ada yang belum lapor, terimakasih bila semua sudah), Daily Report pertama tiap grup per hari (laporanmasuk), perkenalan (perkenalan), dan saat IRIS disapa (sesuai kata: makasih, wkwk, ngopi, otw, siap, ...). Stiker yang filenya belum ada dilewati.', 'iris stiker jadwal | iris stiker otomatis off'],
   ['iris stiker [&lt;nama&gt; [kirim]]', 'Stiker IRIS dari folder Drive IRIS Stiker (file .webp). iris stiker = daftar. Di grup langsung terkirim ke grup itu; di chat pribadi dikirim ke chat itu dulu, tambah kirim untuk ke grup utama dan grup region. Perkenalan (iris perkenalan kirim) otomatis disusul stiker halo bila ada.', 'iris stiker | iris stiker mantap | iris stiker halo kirim'],
   ['iris perkenalan [kirim]', 'IRIS memperkenalkan diri (siapa IRIS, asal nama, apa yang bisa dibantu, cara pakai). Diketik di grup = langsung tampil di grup itu. Di chat pribadi = pratinjau; iris perkenalan kirim = dikirim ke grup utama dan grup region. Hanya admin.', 'iris perkenalan | iris perkenalan kirim'],
   ['backup bersih', 'Backup lama di Drive (folder Backup Portal BMI dan BMI-FTTH Backup) dipindah ke Sampah, hanya yang terbaru per spreadsheet disisakan. Otomatis juga tiap kali backup mingguan jalan.', 'backup bersih'],
