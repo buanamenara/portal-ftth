@@ -723,7 +723,10 @@ function waCmdIsi_(p) {
     case 'pagi':   // pratinjau Today's Plan berikutnya: sesudah 07:00 = besok (memakai Daily Report dan tambahan hari ini)
       out = owner ? botPagi_(botWita_(Date.now(), 'HH:mm') < '07:00' ? Date.now() : Date.now() + 864e5) : ''; break;
     case 'sore':
-      out = owner ? (/^kirim$/i.test(arg) ? botSoreKirim_() : botSore_(Date.now()).text) : ''; break;
+      if (!owner) { out = ''; break; }
+      var soreJ = (arg.match(/\b(siang|malam)\b/i) || [])[1];
+      soreJ = soreJ ? soreJ.toLowerCase() : '';
+      out = /^kirim\b/i.test(arg) ? botSoreKirim_(soreJ) : (botSore_(Date.now(), soreJ).text || 'Semua tim sudah lapor, pengingat ' + soreJ + ' tidak dikirim.'); break;
     default:
       if (owner && /\s+ok$/i.test(text)) { out = botBoqOk_(text.replace(/\s+ok$/i, '').trim()); break; }   // "<site> ok" (BOQ melebihi Plan)
       out = p.chat === 'group' ? '' : 'Perintah "' + cmd + '" belum ada. Ketik \\`bantu\\` untuk daftar perintah.';
@@ -1268,7 +1271,7 @@ function botHelp_(owner) {
     '- ' + A('implementasi buang <nama site>') + ' buang site otomatis',
     '- ' + A('implementasi hapus') + ' kembali ke daftar otomatis',
     '- ' + A('pagi') + ' ' + A('sore') + ' lihat contoh pesan',
-    '- ' + A('sore kirim') + ' kirim pengingat laporan sekarang',
+    '- ' + A('sore kirim') + ' kirim pengingat laporan sekarang (' + A('sore kirim siang') + ' / ' + A('sore kirim malam') + ' = versi 12:00 / 19:00)',
     '', '👥 *TIM*',
     '- ' + A('tim <nama> <nomor>') + ' di-tag jam 17:30 · ' + A('tim hapus <nama>'),
     '- ' + A('wh <nama> <nomor>') + ' tim gudang · ' + A('wh hapus <nama>'),
@@ -1671,13 +1674,27 @@ function botTim_() {
 }
 
 // 17:30: tim yang belum mengirim Daily Report hari ini di-tag; yang sudah disebut namanya.
-// "sore kirim": pengingat laporan dikirim ke grup saat itu juga (tag yang belum lapor), di luar jadwal 17:30.
-function botSoreKirim_() {
-  var now = Date.now(), msg = botSore_(now);
-  PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + now + '_sore', JSON.stringify({
-    t: now, n: 0, last: 0, files: [], to: '', grup: BOT_GRUP_CTX_ || '', mentions: msg.mentions || [], text: waText_(msg.text)
-  }));
-  return 'Pengingat laporan dikirim ke grup' + (msg.mentions.length ? ', ' + msg.mentions.length + ' orang di-tag.' : '. Semua tim sudah lapor, tidak ada yang di-tag.');
+// "sore kirim [siang|malam]": pengingat laporan dikirim saat itu juga, di luar jadwal (tag yang belum lapor),
+// ke grup utama dan tiap grup region, lalu stiker seperti jadwalnya (17:30 / 12:00 / 19:00).
+// siang / malam hanya terkirim ke grup yang masih punya tim belum lapor.
+function botSoreKirim_(jenis) {
+  var now = Date.now(), id = jenis === 'siang' ? 'SIANG' : jenis === 'malam' ? 'MALAM' : 'SORE', hasil = [];
+  var ctxs = botGrupAktif_() ? [''].concat(Object.keys(botGrupMap_())) : [null];
+  ctxs.forEach(function (ctx, i) {
+    BOT_GRUP_CTX_ = ctx;
+    try {
+      var msg = botSore_(now, jenis), nama = ctx || botGrupNama_('') || 'grup';
+      if (!msg.text) { hasil.push('- ' + nama + ': semua sudah lapor, tidak dikirim'); return; }
+      PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + (now + i) + '_sore' + (ctx ? '_' + ctx.toLowerCase().replace(/\W+/g, '') : ''), JSON.stringify({
+        t: now + i, n: 0, last: 0, files: [], to: '', grup: ctx || '', mentions: msg.mentions || [], text: waText_(msg.text)
+      }));
+      try { botStikerJadwal_(id, msg, now, ctx); } catch (e) { console.error('Stiker ' + id + ': ' + e); }
+      hasil.push('- ' + nama + ': terkirim' + (msg.mentions.length ? ', ' + msg.mentions.length + ' orang di-tag' : ', tidak ada yang di-tag'));
+    } finally {
+      BOT_GRUP_CTX_ = null;
+    }
+  });
+  return 'Pengingat ' + (jenis || 'laporan') + ' dikirim:\n' + hasil.join('\n');
 }
 
 // jenis: (kosong) = 17:30 lengkap dengan daftar yang sudah; 'siang' (12:00) dan 'malam' (19:00) = hanya bila ada yang belum lapor.
@@ -2422,7 +2439,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-11-14-1';
+var BOT_PANDUAN_VERSI_ = '2026-11-14-2';
 // Baris ['#Judul'] = judul kelompok di tabel perintah.
 var BOT_PANDUAN_TIM_ = [
   ['#Cek data proyek'],
@@ -2470,7 +2487,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['implementasi buang &lt;site&gt;', 'Site dari Daily Report terakhir tidak dimasukkan ke plan.', 'implementasi buang pemurus'],
   ['implementasi hapus', 'Buang semua tambahan, kembali ke daftar otomatis.', 'implementasi hapus'],
   ['pagi / sore', "Lihat contoh Today's Plan / pengingat 17:30 (tidak dikirim ke grup).", 'pagi | sore'],
-  ['sore kirim', 'Kirim pengingat Daily Report ke grup sekarang.', 'sore kirim'],
+  ['sore kirim [siang|malam]', 'Kirim pengingat Daily Report ke grup sekarang, plus stiker. siang / malam = teks 12:00 / 19:00 (hanya bila ada yang belum lapor).', 'sore kirim siang'],
   ['#Catatan &amp; pengingat'],
   ['catat &lt;teks&gt;', 'Simpan catatan ke sheet CATATAN BOT.', 'catat beli 2 roll cable 24C'],
   ['catatan [kata]', '10 catatan terakhir, bisa disaring kata.', 'catatan | catatan cable'],
@@ -4550,7 +4567,7 @@ function logWaspang_(p, res) {
 function waCmdBaca_(p) {
   var arg = String(p.text || '').trim().replace(/^[!\/]?\S+\s*/, '');
   if (/^(bantu|bantuan|menu|help|\?|stok|stock|saldo|progres|progress|rekap|site|cari|catatan|pengingat|stokmin|menipis|mingguan|mangkrak|bulanan|status|potongan|ba|panduan|pagi)$/.test(p.cmd)) return true;
-  if (p.cmd === 'sore') return !/^kirim$/i.test(arg);
+  if (p.cmd === 'sore') return !/^kirim\b/i.test(arg);
   if (p.cmd === 'boq') return !/^ok\b/i.test(arg);
   if (/^(tim|batas|wh)$/.test(p.cmd)) return !arg;
   return false;

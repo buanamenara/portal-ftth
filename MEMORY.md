@@ -96,6 +96,8 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   `BOT_STIKER_FOLDER`. Stiker baru cukup ditambah ke folder itu (webp 512x512, < 100 KB), tanpa ubah kode.
 - **Pengingat Daily Report:** 12:00 (`SIANG`) dan 19:00 (`MALAM`) hanya dikirim bila ada tim yang belum lapor, men-tag yang belum
   (`botSore_(now, 'siang'|'malam')`); 17:30 (`SORE`) tetap seperti dulu. Tim = `BOT_TIM` / per grup `botTimGrup_`.
+  Kirim manual (admin): `sore kirim [siang|malam]` = teks jadwalnya ke grup utama + grup region, plus stiker (`botSoreKirim_`);
+  `sore [siang|malam]` = pratinjau.
 - **Stiker otomatis:** setelah Today's Plan (Sen/Sab gaspol, Sel/Kam semangat, Rab/Jum hatihati, Minggu tidak), rekap mingguan/bulanan
   (mantap), 12:00 dan 19:00 (ingat; pesannya sendiri hanya terkirim bila ada yang belum lapor), 17:30 (ingat bila ada yang belum lapor; terimakasih bila semua sudah), Daily Report pertama per grup per hari (laporanmasuk,
   `BOT_STIKER_LAPOR_<GRUP>`), perkenalan (perkenalan, cadangan halo), sapaan (kata di pesan). Stiker yang filenya tidak ada dilewati.
