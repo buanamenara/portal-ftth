@@ -806,7 +806,7 @@ function botSapa_(p, text) {
     var hari = botWita_(Date.now(), 'yyyy-MM-dd'), q = {}, kuota = Number(props.getProperty('BOT_AI_KUOTA')) || BOT_AI_KUOTA_;
     try { q = JSON.parse(props.getProperty('BOT_AI_HARI') || '{}') || {}; } catch (e) {}
     if (q.d !== hari) q = { d: hari, n: 0 };
-    if (q.n < kuota) {
+    if (kuota - q.n > botAiCadangan_(kuota)) {   // sisa jatah disimpan untuk pertanyaan proyek
       var res = botAiPanggil_(key, props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_, String(text).slice(0, 300), '',
         'TUGAS KHUSUS: anggota grup' + (nama ? ' bernama ' + nama : '') + ' menyebut namamu dalam obrolan (pesannya di bawah). ' +
         'Balas 1-3 kalimat saja: sopan dan hangat, sapa namanya bila ada, tanggapi isi pesannya dengan wajar, lalu tanyakan ' +
@@ -914,16 +914,47 @@ function botTanya_(p, owner, arg) {
   var hari = botWita_(Date.now(), 'yyyy-MM-dd'), q = {}, kuota = Number(props.getProperty('BOT_AI_KUOTA')) || BOT_AI_KUOTA_;
   try { q = JSON.parse(props.getProperty('BOT_AI_HARI') || '{}') || {}; } catch (e) {}
   if (q.d !== hari) q = { d: hari, n: 0 };
-  if (q.n >= kuota) return '⏸️ *Jatah tanya IRIS hari ini habis* (' + kuota + ' pertanyaan).\n> Coba lagi besok, atau pakai ' + waKode_(g + 'bantu');
-  var data = botAiData_(arg), res = botAiPanggil_(key, props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_, arg, data.teks);
+  var data = botAiData_(arg), sisa = kuota - q.n, cadangan = botAiCadangan_(kuota), proyek = data.sumber.length > 0;
+  // Jatah habis: tetap menjawab seperti rekan kerja, pakai data perintah IRIS apa adanya (tanpa AI).
+  if (sisa <= 0) return botAiTanpaAi_(data, g, 'habis');
+  // Sisa jatah disimpan untuk pertanyaan proyek: pertanyaan umum tidak dijawab AI lagi hari ini.
+  if (!proyek && sisa <= cadangan) return botAiTanpaAi_(data, g, 'umum', cadangan);
+  var res = botAiPanggil_(key, props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_, arg, data.teks);
   if (!res.ok) return res.pesan;
   q.n++;
+  var peringatan = !q.w && kuota - q.n <= cadangan;
+  if (peringatan) q.w = true;
   props.setProperty('BOT_AI_HARI', JSON.stringify(q));
   var tanya = String(arg).replace(/\s+/g, ' ').trim(), cek = data.sites.length ? waKode_(g + 'progres ' + data.sites[0].name.toLowerCase()) : waKode_(g + 'bantu');
   return ['*iRIS*', '> _' + (tanya.length > 120 ? tanya.slice(0, 117) + '...' : tanya).replace(/[_*]/g, '') + '_', '', res.teks, '',
     '━━━━━━━━━━━━━━━━',
     '📎 _' + (data.sumber.length ? 'Sumber: ' + data.sumber.join(' · ') : 'Tanpa data proyek, dari pengetahuan umum AI') + '_'
-  ].concat(data.sumber.length ? ['🔍 _Cek angka:_ ' + cek] : []).join('\n');
+  ].concat(data.sumber.length ? ['🔍 _Cek angka:_ ' + cek] : [])
+    .concat(peringatan ? ['', '⚠️ *Jatah jawaban umum hari ini hampir habis.*', '> Sisa ' + (kuota - q.n) + ' pertanyaan saya simpan untuk soal proyek ' +
+      '(site, progres, stok, BA). Perintah biasa seperti ' + waKode_(g + 'menu') + ', ' + waKode_(g + 'rekap') + ', ' + waKode_(g + 'progres <site>') +
+      ' tetap saya jawab seperti biasa. Besok jatah pulih lagi. 🙏'] : []).join('\n');
+}
+
+// Jatah yang disimpan untuk pertanyaan proyek di akhir hari (bawaan 50; kuota kecil = separuh kuota).
+var BOT_AI_CADANGAN_ = 50;
+function botAiCadangan_(kuota) { return Math.min(BOT_AI_CADANGAN_, Math.floor(kuota / 2)); }
+
+// Jawaban tanpa AI saat jatah habis / disimpan untuk proyek: tetap membantu dengan data dan perintah yang ada.
+function botAiTanpaAi_(data, g, sebab, cadangan) {
+  var perintah = ['- ' + waKode_(g + 'menu') + ' pilihan cepat', '- ' + waKode_(g + 'rekap') + ' · ' + waKode_(g + 'mingguan') + ' · ' + waKode_(g + 'bulanan'),
+    '- ' + waKode_(g + 'progres <site>') + ' · ' + waKode_(g + 'ba <site>') + ' · ' + waKode_(g + 'stok')];
+  if (sebab === 'umum') {
+    return ['*iRIS*', 'Maaf, jatah jawaban umum saya hari ini sudah hampir habis. 🙏 Sisa ' + cadangan + ' pertanyaan saya simpan untuk soal proyek ' +
+      '(site, progres, stok, BA), jadi pertanyaan umum belum bisa saya jawab dulu sampai besok.', '',
+      'Untuk urusan proyek saya tetap siap bantu:'].concat(perintah).join('\n');
+  }
+  var out = ['*iRIS*', 'Jatah AI saya hari ini sudah habis, tapi saya tetap bantu sebisanya. 🙏'];
+  if (data.sumber.length) {
+    out.push('Ini data yang saya temukan untuk pertanyaanmu:', '');
+    var isi = String(data.teks || '').replace(/^### (.+)$/gm, '*$1*');
+    out.push(isi.length > 3500 ? isi.slice(0, 3500) + '\n...(dipotong)' : isi);
+  } else out.push('Pertanyaan umum belum bisa saya jawab sampai besok. Untuk urusan proyek, perintah ini tetap jalan:', '');
+  return out.concat(data.sumber.length ? ['', '_Perintah lain yang tetap jalan:_'] : []).concat(perintah).join('\n');
 }
 
 // Kumpulkan data yang relevan dengan pertanyaan, dari keluaran perintah IRIS yang sudah ada. -> {teks, sumber: [judul]}
@@ -1037,6 +1068,7 @@ function botAiCmd_(arg) {
     '- Kunci Groq: ' + (props.getProperty('GROQ_API_KEY') ? '✅ terisi' : '⚠️ belum diisi'),
     '- Model: ' + (props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_),
     '- Hari ini: *' + (q.d === hari ? q.n : 0) + '* / ' + (Number(props.getProperty('BOT_AI_KUOTA')) || BOT_AI_KUOTA_) + ' pertanyaan',
+    '- ' + botAiCadangan_(Number(props.getProperty('BOT_AI_KUOTA')) || BOT_AI_KUOTA_) + ' terakhir disimpan untuk soal proyek',
     '', '> ' + [aktif ? 'iris off' : 'iris on', 'iris kuota <n>'].map(waKode_).join(' · ')].join('\n');
 }
 

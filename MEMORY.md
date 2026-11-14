@@ -78,6 +78,10 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   stok, BA, potongan) sesuai kata di pertanyaan, membuang nomor HP, lalu AI hanya merangkai jawaban. Bawaan mati (`BOT_AI`),
   kuota `BOT_AI_KUOTA` (bawaan 500/hari; batas gratis Groq sekitar 1.000/hari dan 30/menit; hitungan di `BOT_AI_HARI`, gagal tidak dihitung). Meta AI di WhatsApp tidak dipakai
   karena tidak ada API untuk bot; anggota tetap bisa tag @Meta AI untuk pertanyaan umum.
+- **Jatah AI menipis:** `botAiCadangan_` = 50 terakhir (kuota kecil: separuh kuota) disimpan untuk pertanyaan proyek (ada data).
+  Saat sisa mencapai cadangan, jawaban AI diberi peringatan sekali per hari (`BOT_AI_HARI.w`); pertanyaan umum dijawab tanpa AI
+  (`botAiTanpaAi_`: minta maaf + daftar perintah). Jatah habis: pertanyaan proyek dijawab dengan data mentah dari perintah IRIS.
+  Sapaan memakai teks tetap begitu masuk cadangan.
 - **Sapaan:** gateway meneruskan pesan grup yang memuat kata `iris` (kata utuh) atau men-tag nomor IRIS (`sebut: true`). Apps Script
   menjawab maks sekali per pengirim tiap `BOT_SAPA_JEDA_` (120 dtk, CacheService). Tanya IRIS aktif = AI (1-3 kalimat, memakai kuota),
   mati = teks tetap. Selalu ditutup petunjuk `!menu` (+ `!iris` bila AI aktif).
