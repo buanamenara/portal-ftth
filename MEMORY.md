@@ -17,7 +17,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-14 10:25 WITA.*
+*Terakhir diperbarui 2026-11-14 15:46 WITA.*
 - **`main` = yang live (13 Nov 18:01):** PR #96, #97, #98 sudah di-merge. Kode Waspang di `main` sama dengan Waspang @121 (md5 `Kode.gs` 81bb798e). Deploy dari `main` aman.
 - **IRIS Gateway (laptop baru):** belum dipasang. Paket portable terbaru (menu polling) ada di
   Drive `IRIS - Asisten Proyek BMI/IRIS-Gateway-Build/IRIS-Gateway-Portable.zip`. Selama gateway lama masih jalan,
@@ -58,7 +58,9 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   (`/api/pet`, `st.pet` di `data/state.json`, bawaan menyala `true`). Gateway membuka pet (`petJalan`) saat mulai / dinyalakan; pet membaca
   `GET /api/pet` (hanya 127.0.0.1) tiap 0,8 dtk dan menutup diri bila dimatikan atau gateway tidak menjawab 45 dtk. Klik kanan pet:
   ukuran / Sembunyikan (`/api/pet-mati`). Galat pet ditulis ke `app\pet\pet.log`.
-  Perbaikan bug PowerShell case-insensitive (14 Nov): parameter `$warna` di `Wajah()` menimpa tabel `$WARNA` sehingga `ConvertFromString` gagal saat mulai; diganti `$w` di `pet.tpl.ps1` + `pet.ps1`. Perlu disalin ke `app\pet\pet.ps1` di laptop gateway.
+  Perbaikan bug PowerShell case-insensitive (14 Nov): parameter `$warna` di `Wajah()` menimpa tabel `$WARNA` sehingga `ConvertFromString` gagal saat mulai; diganti `$w` di `pet.tpl.ps1` + `pet.ps1`.
+  File `app\` di laptop gateway (`gateway.mjs`, `panel.mjs`, `panel.html`, `pet\pet.ps1`) sama dengan `main` ee65014 (dicek 14 Nov 15:46, dipasang 15:44).
+  `app\pet\iris.png` di laptop sisa versi lama, tidak dipakai.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 
