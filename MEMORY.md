@@ -34,9 +34,9 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   panduan tim 31 halaman (portal, tampilan HP, 6 alur kerja, spreadsheet). Teks kartu panduan di kedua `Form.html`
   (judul, 31 halaman, ~3 MB, `?v=20261113`) baru tampil setelah deploy FTTH dan Waspang berikutnya. Versi lengkap
   (RPM, FORM ATP, Administration, Log History) hanya di Drive, jangan dipasang di repo publik. Panduan Bot IRIS belum diperbarui.
-- **Tanya IRIS `!iris <pertanyaan>` (alias `!tanya`; live sejak Waspang @125, teks balasan dirapikan di PR iris-teks-rapi):** `botTanya_` / `botAiData_` / `botAiSite_` /
+- **Tanya IRIS `!iris <pertanyaan>` (alias `!tanya`; live sejak Waspang @125):** `botTanya_` / `botAiData_` / `botAiSite_` /
   `botAiPanggil_` / `botAiCmd_` di `portal-waspang/Kode.gs`. Memakai Groq API (gratis, model bawaan `openai/gpt-oss-120b`).
-  Pemilik sudah mengisi `GROQ_API_KEY` (14 Nov); admin tinggal `iris on`. Belum dipastikan jalan dengan Groq sungguhan di grup. Panduan API untuk pemilik dibuat terpisah (bukan di repo).
+  Sudah terbukti jalan di WhatsApp (14 Nov 10:33, `iris on` aktif). Panduan API untuk pemilik ada di Drive (bukan di repo).
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 
@@ -67,7 +67,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   dari data (maks 12 baris), soal umum (istilah, draf pesan, terjemahan, hitungan) dari pengetahuan AI tanpa internet (maks ~30 baris).
   AI tidak menghitung angka proyek. Karakter IRIS (`BOT_IRIS_KARAKTER_`): nama dari Iris, utusan pembawa pesan dalam mitologi
   Yunani + iris mata yang mengamati; sigap, teliti, jujur soal data, ramah, memakai "saya". Dipakai di prompt AI dan perkenalan. Judul jawaban `!iris` = `*iRIS*` (huruf i kecil, permintaan pemilik).
-  `iris perkenalan` (khusus admin): di grup langsung tampil; di chat pribadi pratinjau, `iris perkenalan kirim` = ke grup utama + grup region. IRIS mengambil data dari fungsi perintah yang ada (progres, rekap, mingguan, bulanan,
+  `iris perkenalan` (juga perkenalkan / kenalan / kenalkan, + diri; khusus admin, `BOT_IRIS_KENALAN_`): di grup langsung tampil; di chat pribadi pratinjau, `iris perkenalan kirim` = ke grup utama + grup region. IRIS mengambil data dari fungsi perintah yang ada (progres, rekap, mingguan, bulanan,
   stok, BA, potongan) sesuai kata di pertanyaan, membuang nomor HP, lalu AI hanya merangkai jawaban. Bawaan mati (`BOT_AI`),
   kuota `BOT_AI_KUOTA` (bawaan 500/hari; batas gratis Groq sekitar 1.000/hari dan 30/menit; hitungan di `BOT_AI_HARI`, gagal tidak dihitung). Meta AI di WhatsApp tidak dipakai
   karena tidak ada API untuk bot; anggota tetap bisa tag @Meta AI untuk pertanyaan umum.
