@@ -7254,10 +7254,25 @@ function bagCreate_(data, scope, oleh) {
   }
 }
 
+var BAG_HIST_VER_KEY_ = 'ftthBagHistVer_v1';
+function bagHistVer_() {
+  try { return CacheService.getScriptCache().get(BAG_HIST_VER_KEY_) || '1'; } catch (e) { return '1'; }
+}
+function bagHistCacheReset_() {
+  try { CacheService.getScriptCache().put(BAG_HIST_VER_KEY_, String(Date.now()), 21600); } catch (e) {}
+}
+
 function bagHistory_(scope) {
+  var sk = scope ? regionKey_(scope) : '';
+  var cacheKey = 'ftthBagHist_' + bagHistVer_() + '_' + (sk || 'all');
+  try {
+    var hit = CacheService.getScriptCache().get(cacheKey);
+    if (hit) return JSON.parse(hit);
+  } catch (e) {}
+
   var reg = bagSheet_(bagSs_(), BAG_SH_REG), last = reg.getLastRow();
   if (last < BAG_FIRST) return [];
-  var tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(), sk = scope ? regionKey_(scope) : '', out = [];
+  var tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(), out = [];
   reg.getRange(BAG_FIRST, 1, last - BAG_FIRST + 1, BAG_REG_HEAD.length).getValues().forEach(function (r) {
     if (r[BAG_RC.STATUS - 1] !== 'OK' || !r[BAG_RC.IDBA - 1]) return;
     if (sk && regionKey_(r[BAG_RC.REGION - 1]) !== sk) return;
@@ -7266,7 +7281,9 @@ function bagHistory_(scope) {
       jenis: r[BAG_RC.JENIS - 1], kategori: r[BAG_RC.KAT - 1], region: r[BAG_RC.REGION - 1], site: r[BAG_RC.SITE - 1], sow: r[BAG_RC.SOW - 1], mandor: r[BAG_RC.MANDOR - 1],
       items: r[BAG_RC.N - 1], idBa: r[BAG_RC.IDBA - 1] });
   });
-  return out.reverse(); // semua BA; portal membaginya per halaman
+  var res = out.reverse(); // semua BA; portal membaginya per halaman
+  try { CacheService.getScriptCache().put(cacheKey, JSON.stringify(res), 300); } catch (e) {}
+  return res;
 }
 
 // Kolom "Nomor BA" di ujung kanan BA TRANSAKSI (rumus REKAP BA tidak bergeser). Aman diulang.
@@ -7289,6 +7306,7 @@ function createBaGudang(code, data) {
   requireAccess_(code);
   var scope = scopeOf_(code);
   var res = bagCreate_(data, '', roleOf_(code) === 'rpm' ? 'RPM' : (scope ? 'Region ' + scope : 'Admin'));
+  bagHistCacheReset_();
   logHistory_('Portal', logUser_(code), logRole_(code), 'BA Gudang (' + (res.jenis || '') + ')', (res.site || '') + ' - ' + (res.nomor || ''));
   return res;
 }
@@ -7596,7 +7614,7 @@ function logHistory_(sumber, user, peran, aksi, detail) {
     var vals = [new Date(), sumber, user || '', peran || '', aksi || '', String(detail || '').slice(0, 500)];
     // appendRow: aman bila Portal Waspang atau pemicu edit menulis di saat yang sama (tidak saling menimpa baris).
     if (sh.getLastRow() >= 4) sh.appendRow(vals); else sh.getRange(5, 1, 1, 6).setValues([vals]);
-    ftthDbCacheReset_();
+    if (!/^(BA Gudang|Unduh|Login|Logout|Lihat)/i.test(String(aksi || '').trim())) ftthDbCacheReset_();
     var row = sh.getLastRow(), w = Math.min(10, row - 4);
     // Format 10 baris terakhir saja (baris lain bisa ditulis bersamaan oleh pemicu edit/portal lain).
     sh.getRange(row - w + 1, 1, w, 1).setNumberFormat('dd mmm yyyy HH:mm');
@@ -7787,16 +7805,18 @@ function ensureLogEditTrigger_() {
 function getLogHistory_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName(LOG_SH);
-  if (!sh || sh.getLastRow() < 5) return [];
+  var last = sh ? sh.getLastRow() : 0;
+  if (!sh || last < 5) return [];
   var tz = ss.getSpreadsheetTimeZone();
-  var vals = sh.getRange(5, 1, sh.getLastRow() - 4, 6).getValues();
+  var startRow = Math.max(5, last - 199);
+  var vals = sh.getRange(startRow, 1, last - startRow + 1, 6).getValues();
   var out = [];
   vals.forEach(function (r) {
     if (!r[0]) return;
     var w = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'dd/MM/yyyy HH:mm') : String(r[0]);
     out.push({ waktu: w, ms: r[0] instanceof Date ? r[0].getTime() : 0, sumber: r[1], user: r[2], peran: r[3], aksi: r[4], detail: r[5] });
   });
-  return out.slice(-200).reverse();
+  return out.reverse();
 }
 // =====================================================================
 // CHECKPOINT PROYEK (portal, 28 Sep 2026) -- ringkasan status tiap site dari data yang SUDAH ADA

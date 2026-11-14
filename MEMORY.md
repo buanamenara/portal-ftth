@@ -17,10 +17,10 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-15 01:34 WITA. Tidak ada pekerjaan tertunda yang terbuka.*
-- **Performa & Cache Portal FTTH (`portal-ftth-gas/Kode.gs`):** Menambahkan cache epoch `ftthDbVer_` (`CacheService`, TTL 5 mnt) untuk
-  `baReadDbSites_`, `getCheckpointData_`, dan `buildSCurveData_` (mengurangi pembacaan berulang `DATA BASE` & `LOG HISTORY` saat startup/refresh),
-  menghilangkan duplikasi baca di `bagInit_`, serta auto-invalidation saat `DATA BASE` / `DASHBOARD` diedit atau `logHistory_` dipanggil.
+*Terakhir diperbarui 2026-11-15 01:38 WITA. Tidak ada pekerjaan tertunda yang terbuka.*
+- **Performa & Cache Portal FTTH + Gateway:**
+  - `portal-ftth-gas/Kode.gs`: cache epoch `ftthDbVer_` (`CacheService`, TTL 5 mnt) untuk `baReadDbSites_`, `getCheckpointData_`, dan `buildSCurveData_`; `bagHistory_` di-cache (`ftthBagHistVer_`, TTL 5 mnt, reset saat `createBaGudang`); `getLogHistory_` hanya membaca maks 200 baris terakhir dari bawah; `bagInit_` bebas duplikasi baca; `logHistory_` hanya me-reset cache DB bila aksi bukan `BA Gudang/Unduh/Login/Logout/Lihat`.
+  - `gateway/Kode.gs`: `findUser_` meng-cache peta `USERS` di `CacheService` (`gwUsers_v1`, TTL 5 mnt) dengan fallback refresh otomatis bila username baru belum ada di cache.
 - **Performa Refresh Data & Cache (Waspang @140–@141):** Optimasi kecepatan pemuatan/refresh cluster data (`GET_CLUSTER`).
   Menerapkan CacheService multi-tier (BOQ Plan 10 menit, Totals 5 menit, Legacy totals 6 jam), bounded-range scan
   dan 1-column pre-scan di `clusterRows_`, serta auto-invalidation saat ada daily report, koreksi RPM, atau sinkronisasi BOQ.

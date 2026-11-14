@@ -60,16 +60,36 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function findUser_(username) {
-  var uname = String(username || '').trim().toLowerCase();
+var GW_USERS_CACHE_KEY_ = 'gwUsers_v1';
+function loadUsersMap_(bypassCache) {
+  var cache = CacheService.getScriptCache();
+  if (!bypassCache) {
+    try {
+      var hit = cache.get(GW_USERS_CACHE_KEY_);
+      if (hit) return JSON.parse(hit);
+    } catch (e) {}
+  }
   var sh = SpreadsheetApp.openById(CONFIG.USERS_SPREADSHEET_ID).getSheetByName(CONFIG.USERS_SHEET_NAME);
   if (!sh) throw new Error('Sheet USERS tidak ditemukan. Hubungi admin.');
   var lastRow = sh.getLastRow();
   var rows = lastRow >= 2 ? sh.getRange(2, 1, lastRow - 1, 6).getValues() : [];
+  var map = {};
   for (var i = 0; i < rows.length; i++) {
-    if (String(rows[i][0]).trim().toLowerCase() === uname) return rows[i];
+    var k = String(rows[i][0]).trim().toLowerCase();
+    if (k && !(k in map)) map[k] = rows[i];
   }
-  return null;
+  try { cache.put(GW_USERS_CACHE_KEY_, JSON.stringify(map), 300); } catch (e) {}
+  return map;
+}
+
+function findUser_(username) {
+  var uname = String(username || '').trim().toLowerCase();
+  if (!uname) return null;
+  var map = loadUsersMap_(false);
+  if (map[uname]) return map[uname];
+  // User baru mungkin baru saja ditambahkan ke sheet: segarkan cache sekali
+  map = loadUsersMap_(true);
+  return map[uname] || null;
 }
 
 function randomId_() { return Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, ''); }
