@@ -56,6 +56,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   (`/api/pet`, `st.pet` di `data/state.json`, bawaan mati). Gateway membuka pet (`petJalan`) saat mulai / dinyalakan; pet membaca
   `GET /api/pet` (hanya 127.0.0.1) tiap 0,8 dtk dan menutup diri bila dimatikan atau gateway tidak menjawab 45 dtk. Klik kanan pet:
   ukuran / Sembunyikan (`/api/pet-mati`). Galat pet ditulis ke `app\pet\pet.log`. Belum diuji di Windows sungguhan.
+  File PR ini sudah dipasang di `app\` laptop gateway (14 Nov 12:58); berlaku setelah gateway di-restart.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 
