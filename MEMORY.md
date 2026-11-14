@@ -17,22 +17,23 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-14 15:46 WITA.*
-- **`main` = yang live (13 Nov 18:01):** PR #96, #97, #98 sudah di-merge. Kode Waspang di `main` sama dengan Waspang @121 (md5 `Kode.gs` 81bb798e). Deploy dari `main` aman.
+*Terakhir diperbarui 2026-11-14 19:58 WITA.*
+- **`main` = yang live (14 Nov 19:51):** Waspang @135, FTTH @268, Gateway @23 semuanya dari `main` (9fe0398 / 732cdca). Deploy dari `main` aman.
+  Satu-satunya PR terbuka lama: #100 (catatan 13 Nov, bentrok di MEMORY.md; sebaiknya ditutup).
 - **IRIS Gateway (laptop baru):** belum dipasang. Paket portable terbaru (menu polling) ada di
   Drive `IRIS - Asisten Proyek BMI/IRIS-Gateway-Build/IRIS-Gateway-Portable.zip`. Selama gateway lama masih jalan,
   `!menu` dibalas daftar teks (fallback), bukan polling. Menu polling belum diuji di grup WhatsApp asli.
 - **Data hilang 07/11:** 4 Daily Report + 3 log foto (MF Beruntung, Lawahan, FWA Tapin, FWA HST) hilang karena
   spreadsheet Waspang dikembalikan ke versi lama (antara 7 dan 8 Nov). Belum dipulihkan. Sumbernya: Riwayat versi
   spreadsheet atau teks laporan di grup WA. Pemulihan otomatis baru mencatat laporan sejak @119.
-- **Portal FTTH:** sebelum deploy pertama lewat workflow, cocokkan `portal-ftth-gas/Kode.gs` dengan HEAD Apps Script
-  (`Kode.js`). Keduanya beda: HEAD punya `CADANGAN_SIMPAN = 1`.
-- **Grup region Pontianak (PR grup-region, belum di-deploy):** kode siap (Apps Script + gateway). Setelah deploy: buat grup WA,
-  masukkan nomor IRIS, lalu admin ketik `grup pontianak <nama grup persis>`. Butuh gateway versi baru (paket portable perlu
-  dibangun ulang dari `wa-gateway/`); gateway lama tetap mengirim semuanya ke grup utama.
+- **Grup region Pontianak:** live sejak Waspang @122 (Apps Script) + gateway baru di laptop. Admin set grup dengan `grup pontianak <nama grup persis>`
+  (cek dengan `grup`). Akun area Pontianak (14 Nov): Hosnan (koordinator), Ruslan, Jamal, Welly, Albert (admin), Rio (waspang).
+- **Paket tim Pontianak (14 Nov):** di Drive `IRIS - Asisten Proyek BMI/`: `AKUN PORTAL BMI - AREA PONTIANAK.pdf` (tanpa password) dan
+  `PAKET PORTAL BMI - AREA PONTIANAK.zip` (akun, panduan portal 28 hlm, panduan bot 7 hlm, APK, link portal + Spreadsheet Database).
+  Jangan dimasukkan ke repo (berisi username). Rancangan wujud pet: `CHIBI iRIS - RANCANGAN PET.png` di folder yang sama.
 - **Panduan portal baru (13 Nov):** `Panduan_Portal_FTTH.pdf` di repo (GitHub Pages, tombol "Unduh PDF Panduan") diganti
   panduan tim 31 halaman (portal, tampilan HP, 6 alur kerja, spreadsheet). Teks kartu panduan di kedua `Form.html`
-  (judul, 31 halaman, ~3 MB, `?v=20261113`) baru tampil setelah deploy FTTH dan Waspang berikutnya. Versi lengkap
+  (judul, 31 halaman, ~3 MB, `?v=20261113`) sudah live (FTTH @263 / Waspang @124), sejak @266/@133 bersama tombol APK. Versi lengkap
   (RPM, FORM ATP, Administration, Log History) hanya di Drive, jangan dipasang di repo publik. Panduan Bot IRIS belum diperbarui.
 - **Tanya IRIS `!iris <pertanyaan>` (alias `!tanya`; live sejak Waspang @125):** `botTanya_` / `botAiData_` / `botAiSite_` /
   `botAiPanggil_` / `botAiCmd_` di `portal-waspang/Kode.gs`. Memakai Groq API (gratis, model bawaan `openai/gpt-oss-120b`).
