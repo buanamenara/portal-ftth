@@ -188,7 +188,7 @@ foreach ($k in 'Ukuran','Sq','Rot','Mv','Bayang','WingL','WingR','RotL','RotR','
 
 # ---------- Wajah ----------
 # Kotak mata 10 x 15 (titik kiri atas = Canvas.Left/Top EyeL / EyeR); mulut kotak 12 x 9.
-$MATA = @{
+$TABEL_MATA = @{
   bulat  = 'M0,5 A5,5 0 0 1 10,5 L10,10 A5,5 0 0 1 0,10 Z'
   besar  = 'M-1,5 A6,5.5 0 0 1 11,5 L11,11 A6,5.5 0 0 1 -1,11 Z'
   senang = 'M-1,10.5 Q5,1.5 11,10.5'
@@ -197,7 +197,7 @@ $MATA = @{
   prompt = 'M0,2.5 L8,7.5 L0,12.5'
   garis  = 'M0,9.5 L10,9.5'
 }
-$MULUT = @{
+$TABEL_MULUT = @{
   senyum = 'M0,2 Q6,7 12,2'
   lebar  = 'M0,1 Q6,10 12,1 Z'
   datar  = 'M1,4 L11,4'
@@ -205,28 +205,28 @@ $MULUT = @{
   sedih  = 'M0,7 Q6,1 12,7'
   kosong = ''
 }
-$WARNA = @{ biru = '#5ADCFF'; kuning = '#FFC857'; merah = '#FF6B6B'; redup = '#4F86B0' }
-$MOOD = @{
+$TABEL_WARNA = @{ biru = '#5ADCFF'; kuning = '#FFC857'; merah = '#FF6B6B'; redup = '#4F86B0' }
+$TABEL_MOOD = @{
   senang = @('bulat', 'senyum', 'biru')
   tunggu = @('bulat', 'datar', 'kuning')
   putus  = @('putus', 'sedih', 'merah')
   tidur  = @('tidur', 'datar', 'redup')
 }
-$PENUH = @('bulat', 'besar')
+$MATA_PENUH = @('bulat', 'besar')
 
 function Wajah([string]$mata, [string]$mulut, [string]$w) {
-  $c = [System.Windows.Media.ColorConverter]::ConvertFromString($WARNA[$w])
+  $c = [System.Windows.Media.ColorConverter]::ConvertFromString($TABEL_WARNA[$w])
   $b = New-Object System.Windows.Media.SolidColorBrush $c
   $kanan = $mata
   if ($mata -eq 'prompt') { $kanan = 'garis' }
   $pasang = @(@($n.EyeL, $mata), @($n.EyeR, $kanan))
   foreach ($p in $pasang) {
-    $p[0].Data = [System.Windows.Media.Geometry]::Parse($MATA[$p[1]])
+    $p[0].Data = [System.Windows.Media.Geometry]::Parse($TABEL_MATA[$p[1]])
     $p[0].Stroke = $b
-    if ($PENUH -contains $p[1]) { $p[0].Fill = $b } else { $p[0].Fill = $null }
+    if ($MATA_PENUH -contains $p[1]) { $p[0].Fill = $b } else { $p[0].Fill = $null }
   }
   if ($mata -eq 'bulat') { $n.EyeHL.Visibility = 'Visible' } else { $n.EyeHL.Visibility = 'Collapsed' }
-  if ($MULUT[$mulut]) { $n.Mouth.Data = [System.Windows.Media.Geometry]::Parse($MULUT[$mulut]) } else { $n.Mouth.Data = $null }
+  if ($TABEL_MULUT[$mulut]) { $n.Mouth.Data = [System.Windows.Media.Geometry]::Parse($TABEL_MULUT[$mulut]) } else { $n.Mouth.Data = $null }
   $n.Mouth.Stroke = $b
   if ($mulut -eq 'lebar' -or $mulut -eq 'o') { $n.Mouth.Fill = $b } else { $n.Mouth.Fill = $null }
   $n.Glow.Color = $c
@@ -333,7 +333,7 @@ function TerapkanMood {
   if ([DateTime]::Now -lt $script:sibuk) { return }
   if ($script:menunggu) { $script:menunggu = $false; Lirik $false }
   if ($script:pose -ne 'diam') { Pose 'diam' }
-  $m = $MOOD[$script:mood]
+  $m = $TABEL_MOOD[$script:mood]
   if ($script:wajah -ne ($m[0] + '|' + $m[1] + '|' + $m[2])) {
     Wajah $m[0] $m[1] $m[2]
     Lirik ($script:mood -eq 'tunggu')
@@ -439,7 +439,7 @@ $kedip = New-Object System.Windows.Threading.DispatcherTimer
 $kedip.Interval = [TimeSpan]::FromSeconds(3)
 $kedip.Add_Tick({
   try {
-    if ($PENUH -contains $script:mata) { Anim $n.Kedip $SY 1 0.1 80 $true 1 }
+    if ($MATA_PENUH -contains $script:mata) { Anim $n.Kedip $SY 1 0.1 80 $true 1 }
     $kedip.Interval = [TimeSpan]::FromMilliseconds((Get-Random -Minimum 2500 -Maximum 6500))
   } catch {}
 })
