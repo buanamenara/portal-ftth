@@ -701,6 +701,7 @@ function waCmdIsi_(p) {
     case 'revisi':
       out = botRevisi_(p, owner, arg); break;
     case 'iris': case 'tanya':   // !iris <pertanyaan> = jawaban AI dari data proyek; admin: iris, iris on/off/kuota/model = pengaturan
+      if (cmd === 'iris' && /^perkenalan\b/i.test(arg)) { out = owner ? botPerkenalan_(p, /\bkirim\b/i.test(arg)) : ''; break; }   // khusus admin
       out = owner && BOT_AI_PENGATURAN_.test(arg) ? botAiCmd_(arg) : botTanya_(p, owner, arg); break;
     case 'setuju':
       out = owner && p.chat !== 'group' ? botStokWhSetuju_(p.fromName || p.from) : ''; break;
@@ -784,6 +785,44 @@ var BOT_AI_MODEL_ = 'openai/gpt-oss-120b', BOT_AI_KUOTA_ = 500, BOT_AI_BLOK_MAX_
 var BOT_AI_PENGATURAN_ = /^((on|off|nyala|mati|aktif)|kuota\s+\d+|model\s+\S+)?$/i;
 var BOT_AI_UMUM_ = ['cluster', 'site', 'fwa', 'uplink', 'mainfeeder', 'subfeeder', 'hubfeeder', 'jalan', 'desa', 'kec', 'kel', 'line'];
 
+// ---- Karakter IRIS: dipakai di perkenalan (iris perkenalan, khusus admin) dan sebagai kepribadian jawaban AI. ----
+var BOT_IRIS_KARAKTER_ = [
+  'Namamu IRIS, Asisten Proyek BMI: rekan kerja digital tim proyek FTTH PT Buana Menara Indonesia di grup WhatsApp.',
+  'Asal nama: Iris, utusan pembawa pesan dalam mitologi Yunani yang menjembatani langit dan bumi lewat pelangi, ' +
+    'sekaligus iris mata yang selalu mengamati. Tugasmu sama: jembatan antara tim lapangan dan kantor, dan mata yang menjaga proyek tetap terpantau.',
+  'Sifat: sigap, teliti, jujur soal data (lebih baik bilang tidak tahu daripada mengarang), ramah, rendah hati, sesekali humor ringan. Tidak pernah tidur.',
+  'Gaya bicara: memakai "saya", bahasa Indonesia santai-sopan khas rekan kerja, tidak kaku dan tidak lebay.'
+].join('\n');
+
+// iris perkenalan: di grup = langsung tampil di grup itu; di chat pribadi = pratinjau, "iris perkenalan kirim" = kirim ke semua grup.
+function botPerkenalan_(p, kirim) {
+  var props = PropertiesService.getScriptProperties(), aiAktif = props.getProperty('BOT_AI') === 'on' && props.getProperty('GROQ_API_KEY');
+  var s = ['👋 *Halo semuanya, kenalan dulu ya!*', '',
+    'Saya *IRIS*, Asisten Proyek BMI.',
+    'Nama saya diambil dari *Iris*, utusan pembawa pesan dalam mitologi Yunani yang menjembatani langit dan bumi lewat pelangi, ' +
+      'sekaligus *iris mata* yang selalu mengamati. Tugas saya juga begitu: menjembatani tim lapangan dengan kantor, ' +
+      'dan menjaga proyek tetap terpantau, 24 jam tanpa tidur. 🌈',
+    '', '*Yang bisa saya bantu*',
+    '- 📝 Meneruskan Daily Report dan foto dokumentasi dari Portal Waspang ke grup',
+    '- ⏰ Today\'s Plan jam 07:00, pengingat laporan jam 17:30, rekap mingguan dan bulanan',
+    '- 📦 Cek stok gudang, progres site, BA, dan potongan kabel',
+    '- 🛡️ Menjaga data: laporan yang hilang dari spreadsheet saya pulihkan otomatis'];
+  if (aiAktif) s.push('- 💬 Tanya apa saja, dari progres site sampai bikin draf pesan: ' + waKode_('!iris <pertanyaan>'));
+  s = s.concat(['', '*Cara pakai*',
+    '> Ketik ' + waKode_('!menu') + ' lalu tekan pilihannya, atau ' + waKode_('!bantu') + ' untuk semua perintah.']);
+  if (aiAktif) s.push('> Contoh: ' + waKode_('!iris kenapa progres lawahan lambat minggu ini?'));
+  s = s.concat(['', 'Senang bekerja bareng tim BMI. Kalau saya keliru, tegur saja, saya terus belajar. 🙏', '— *IRIS* ✦']);
+  var teks = s.join('\n');
+  if (p.chat === 'group') return teks;
+  if (!kirim) return teks + '\n\n━━━━━━━━━━━━━━━━\n_Pratinjau. Ketik_ ' + waKode_('iris perkenalan kirim') + ' _untuk mengirim ke grup._';
+  var grup = [''].concat(Object.keys(botGrupMap_())), now = Date.now();
+  grup.forEach(function (g, i) {
+    props.setProperty(WAQ_PREFIX_ + (now + i) + '_kenal' + i, JSON.stringify({ t: now + i, n: 0, last: 0, files: [], to: '', grup: g,
+      mentions: [], text: waText_('✦ ' + teks) }));
+  });
+  return '✅ Perkenalan IRIS dikirim ke ' + grup.map(function (g) { return 'grup ' + botGrupNama_(g); }).join(' dan ') + '.';
+}
+
 function botTanya_(p, owner, arg) {
   var props = PropertiesService.getScriptProperties(), g = p.chat === 'group' ? '!' : '';
   if (!arg) return ['*Tanya IRIS*', 'Tulis pertanyaan setelah ' + waKode_(g + 'iris') + ', bahasa sehari-hari saja.', '',
@@ -865,7 +904,8 @@ function botAiSite_(t) {
 // Panggil Groq. -> {ok: true, teks} atau {ok: false, pesan}
 function botAiPanggil_(key, model, tanya, data) {
   var sistem = [
-    'Kamu IRIS, asisten serba bisa untuk tim proyek FTTH PT Buana Menara Indonesia (BMI) di grup WhatsApp.',
+    BOT_IRIS_KARAKTER_,
+    'Kamu asisten serba bisa untuk tim proyek ini.',
     'Jawab dengan bahasa penanya (bawaan bahasa Indonesia), ramah dan santai-sopan, jelas, tanpa menyapa ulang atau basa-basi penutup.',
     'PERTANYAAN PROYEK (site, progres, laporan, stok, BA, material): maksimal 12 baris. Susunan: (1) satu kalimat jawaban inti; ' +
       '(2) bila perlu, rincian maksimal 5 poin diawali "- "; (3) bila ada, satu saran tindakan diawali "👉 ".',
@@ -1024,6 +1064,7 @@ function botHelp_(owner) {
     '- ' + A('backup') + ' backup spreadsheet sekarang · ' + A('backup bersih') + ' buang backup lama',
     '- ' + A('pulihkan') + ' cek & pulihkan Daily Report / log foto yang hilang (otomatis tiap jam)',
     '- ' + A('iris') + ' status tanya IRIS · ' + A('iris on') + ' ' + A('iris off') + ' · ' + A('iris kuota <n>'),
+    '- ' + A('iris perkenalan') + ' IRIS memperkenalkan diri _(di grup langsung; di chat pribadi pratinjau, lalu_ ' + A('iris perkenalan kirim') + '_)_',
     '- ' + A('grup') + ' grup WA per region · ' + A('grup pontianak <nama grup>') + ' laporan Pontianak ke grup sendiri',
     '- ' + A('panduan lengkap') + ' PDF semua perintah (ke chat pribadi)']);
   return s.join('\n');
@@ -2212,6 +2253,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['grup', 'Grup WhatsApp per region. ' + '<b>grup pontianak &lt;nama grup WA&gt;</b>: laporan, cek, BA, revisi, Today\'s Plan, pengingat 17:30, rekap Senin / tanggal 1, dan site tanpa laporan untuk site region Pontianak dikirim ke grup itu; region lain tetap ke grup utama. Perintah dari grup region (rekap, mingguan, bulanan) otomatis hanya region itu, tambah <b>semua</b> untuk semua region. <b>grup pontianak pic &lt;nama&gt;</b> = PIC Today\'s Plan; <b>grup pontianak tim &lt;nama&gt;</b> = pindahkan anggota tim yang di-tag 17:30 (bawaan: dari site yang paling sering dilaporkan). <b>grup pontianak hapus</b> = kembali satu grup.', 'grup | grup pontianak Report Pontianak'],
   ['pulihkan', 'Setiap Daily Report dan log foto juga disalin ke tab JURNAL WASPANG (spreadsheet LOG ARSIP). Tiap jam IRIS mencocokkan jurnal dengan spreadsheet Waspang; baris yang hilang (mis. versi spreadsheet dikembalikan) ditulis lagi otomatis dan admin diberi tahu. Perintah ini menjalankan pengecekan sekarang. Laporan yang memang mau dihapus: pakai revisi &lt;site&gt; lalu revisi hapus.', 'pulihkan'],
   ['iris [on | off | kuota &lt;n&gt; | model &lt;id&gt;]', 'Tanya IRIS (!iris, AI). iris = status dan pemakaian hari ini. iris on butuh Script Property GROQ_API_KEY (kunci dari console.groq.com). Kuota bawaan 500 pertanyaan per hari (batas gratis Groq sekitar 1.000 per hari).', 'iris | iris on | iris off | iris kuota 800'],
+  ['iris perkenalan [kirim]', 'IRIS memperkenalkan diri (siapa IRIS, asal nama, apa yang bisa dibantu, cara pakai). Diketik di grup = langsung tampil di grup itu. Di chat pribadi = pratinjau; iris perkenalan kirim = dikirim ke grup utama dan grup region. Hanya admin.', 'iris perkenalan | iris perkenalan kirim'],
   ['backup bersih', 'Backup lama di Drive (folder Backup Portal BMI dan BMI-FTTH Backup) dipindah ke Sampah, hanya yang terbaru per spreadsheet disisakan. Otomatis juga tiap kali backup mingguan jalan.', 'backup bersih'],
   ['panduan lengkap', 'PDF ini, selalu dikirim ke chat pribadi admin.', 'panduan lengkap']
 ];
