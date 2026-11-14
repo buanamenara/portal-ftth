@@ -701,6 +701,7 @@ function waCmdIsi_(p) {
     case 'revisi':
       out = botRevisi_(p, owner, arg); break;
     case 'iris': case 'tanya':   // !iris <pertanyaan> = jawaban AI dari data proyek; admin: iris, iris on/off/kuota/model = pengaturan
+      if (cmd === 'iris' && /^perkenalan\b/i.test(arg)) { out = owner ? botPerkenalan_(p, /\bkirim\b/i.test(arg)) : ''; break; }   // khusus admin
       out = owner && BOT_AI_PENGATURAN_.test(arg) ? botAiCmd_(arg) : botTanya_(p, owner, arg); break;
     case 'setuju':
       out = owner && p.chat !== 'group' ? botStokWhSetuju_(p.fromName || p.from) : ''; break;
@@ -780,28 +781,71 @@ function botMenuPilih_(p, owner, label) {
 // Angka tetap dihitung IRIS dengan fungsi perintah yang sudah ada (progres, rekap, stok, BA); AI hanya merangkai jawaban dari
 // data itu. Nomor HP dibuang sebelum data dikirim ke AI. Admin: iris, iris on, iris off, iris kuota <n>, iris model <id>.
 var BOT_AI_URL_ = 'https://api.groq.com/openai/v1/chat/completions';
-var BOT_AI_MODEL_ = 'openai/gpt-oss-120b', BOT_AI_KUOTA_ = 100, BOT_AI_BLOK_MAX_ = 5000, BOT_AI_DATA_MAX_ = 12000;
+var BOT_AI_MODEL_ = 'openai/gpt-oss-120b', BOT_AI_KUOTA_ = 500, BOT_AI_BLOK_MAX_ = 5000, BOT_AI_DATA_MAX_ = 12000;
 var BOT_AI_PENGATURAN_ = /^((on|off|nyala|mati|aktif)|kuota\s+\d+|model\s+\S+)?$/i;
 var BOT_AI_UMUM_ = ['cluster', 'site', 'fwa', 'uplink', 'mainfeeder', 'subfeeder', 'hubfeeder', 'jalan', 'desa', 'kec', 'kel', 'line'];
 
+// ---- Karakter IRIS: dipakai di perkenalan (iris perkenalan, khusus admin) dan sebagai kepribadian jawaban AI. ----
+var BOT_IRIS_KARAKTER_ = [
+  'Namamu IRIS, Asisten Proyek BMI: rekan kerja digital tim proyek FTTH PT Buana Menara Indonesia di grup WhatsApp.',
+  'Asal nama: Iris, utusan pembawa pesan dalam mitologi Yunani yang menjembatani langit dan bumi lewat pelangi, ' +
+    'sekaligus iris mata yang selalu mengamati. Tugasmu sama: jembatan antara tim lapangan dan kantor, dan mata yang menjaga proyek tetap terpantau.',
+  'Sifat: sigap, teliti, jujur soal data (lebih baik bilang tidak tahu daripada mengarang), ramah, rendah hati, sesekali humor ringan. Tidak pernah tidur.',
+  'Gaya bicara: memakai "saya", bahasa Indonesia santai-sopan khas rekan kerja, tidak kaku dan tidak lebay.'
+].join('\n');
+
+// iris perkenalan: di grup = langsung tampil di grup itu; di chat pribadi = pratinjau, "iris perkenalan kirim" = kirim ke semua grup.
+function botPerkenalan_(p, kirim) {
+  var props = PropertiesService.getScriptProperties(), aiAktif = props.getProperty('BOT_AI') === 'on' && props.getProperty('GROQ_API_KEY');
+  var s = ['👋 *Halo semuanya, kenalan dulu ya!*', '',
+    'Saya *IRIS*, Asisten Proyek BMI.',
+    'Nama saya diambil dari *Iris*, utusan pembawa pesan dalam mitologi Yunani yang menjembatani langit dan bumi lewat pelangi, ' +
+      'sekaligus *iris mata* yang selalu mengamati. Tugas saya juga begitu: menjembatani tim lapangan dengan kantor, ' +
+      'dan menjaga proyek tetap terpantau, 24 jam tanpa tidur. 🌈',
+    '', '*Yang bisa saya bantu*',
+    '- 📝 Meneruskan Daily Report dan foto dokumentasi dari Portal Waspang ke grup',
+    '- ⏰ Today\'s Plan jam 07:00, pengingat laporan jam 17:30, rekap mingguan dan bulanan',
+    '- 📦 Cek stok gudang, progres site, BA, dan potongan kabel',
+    '- 🛡️ Menjaga data: laporan yang hilang dari spreadsheet saya pulihkan otomatis'];
+  if (aiAktif) s.push('- 💬 Tanya apa saja, dari progres site sampai bikin draf pesan: ' + waKode_('!iris <pertanyaan>'));
+  s = s.concat(['', '*Cara pakai*',
+    '> Ketik ' + waKode_('!menu') + ' lalu tekan pilihannya, atau ' + waKode_('!bantu') + ' untuk semua perintah.']);
+  if (aiAktif) s.push('> Contoh: ' + waKode_('!iris kenapa progres lawahan lambat minggu ini?'));
+  s = s.concat(['', 'Senang bekerja bareng tim BMI. Kalau saya keliru, tegur saja, saya terus belajar. 🙏', '— *IRIS* ✦']);
+  var teks = s.join('\n');
+  if (p.chat === 'group') return teks;
+  if (!kirim) return teks + '\n\n━━━━━━━━━━━━━━━━\n_Pratinjau. Ketik_ ' + waKode_('iris perkenalan kirim') + ' _untuk mengirim ke grup._';
+  var grup = [''].concat(Object.keys(botGrupMap_())), now = Date.now();
+  grup.forEach(function (g, i) {
+    props.setProperty(WAQ_PREFIX_ + (now + i) + '_kenal' + i, JSON.stringify({ t: now + i, n: 0, last: 0, files: [], to: '', grup: g,
+      mentions: [], text: waText_('✦ ' + teks) }));
+  });
+  return '✅ Perkenalan IRIS dikirim ke ' + grup.map(function (g) { return 'grup ' + botGrupNama_(g); }).join(' dan ') + '.';
+}
+
 function botTanya_(p, owner, arg) {
   var props = PropertiesService.getScriptProperties(), g = p.chat === 'group' ? '!' : '';
-  if (!arg) return 'Tulis pertanyaannya, mis. ' + waKode_(g + 'iris kenapa progres lawahan lambat minggu ini?');
+  if (!arg) return ['*Tanya IRIS*', 'Tulis pertanyaan setelah ' + waKode_(g + 'iris') + ', bahasa sehari-hari saja.', '',
+    '_contoh:_', '- ' + waKode_(g + 'iris kenapa progres lawahan lambat minggu ini?'), '- ' + waKode_(g + 'iris stok kabel 24c cukup?'),
+    '- ' + waKode_(g + 'iris site mana belum lapor hari ini?'), '- ' + waKode_(g + 'iris buatkan pesan sopan untuk mandor yang telat lapor')].join('\n');
   var key = props.getProperty('GROQ_API_KEY');
   if (!key || props.getProperty('BOT_AI') !== 'on') {
-    return owner ? 'Tanya IRIS belum aktif. Isi Script Property ' + waKode_('GROQ_API_KEY') + ', lalu ketik ' + waKode_('iris on') + '.'
-      : 'Tanya IRIS belum diaktifkan admin. Pakai perintah biasa: ' + waKode_(g + 'bantu');
+    return owner ? ['🔒 *Tanya IRIS belum aktif*', '- Isi Script Property ' + waKode_('GROQ_API_KEY'), '- Lalu ketik ' + waKode_('iris on')].join('\n')
+      : '🔒 *Tanya IRIS belum dinyalakan admin.*\n> Sementara pakai perintah biasa: ' + waKode_(g + 'bantu');
   }
   var hari = botWita_(Date.now(), 'yyyy-MM-dd'), q = {}, kuota = Number(props.getProperty('BOT_AI_KUOTA')) || BOT_AI_KUOTA_;
   try { q = JSON.parse(props.getProperty('BOT_AI_HARI') || '{}') || {}; } catch (e) {}
   if (q.d !== hari) q = { d: hari, n: 0 };
-  if (q.n >= kuota) return 'Kuota tanya IRIS hari ini (' + kuota + ' pertanyaan) sudah habis. Coba besok, atau pakai ' + waKode_(g + 'bantu') + '.';
+  if (q.n >= kuota) return '⏸️ *Jatah tanya IRIS hari ini habis* (' + kuota + ' pertanyaan).\n> Coba lagi besok, atau pakai ' + waKode_(g + 'bantu');
   var data = botAiData_(arg), res = botAiPanggil_(key, props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_, arg, data.teks);
   if (!res.ok) return res.pesan;
   q.n++;
   props.setProperty('BOT_AI_HARI', JSON.stringify(q));
-  return res.teks + '\n\n_Dirangkum IRIS (AI)' + (data.sumber.length ? ' dari data: ' + data.sumber.join(', ') : ', tanpa data proyek') +
-    '. Cek angka dengan perintah IRIS._';
+  var tanya = String(arg).replace(/\s+/g, ' ').trim(), cek = data.sites.length ? waKode_(g + 'progres ' + data.sites[0].name.toLowerCase()) : waKode_(g + 'bantu');
+  return ['*IRIS menjawab*', '> _' + (tanya.length > 120 ? tanya.slice(0, 117) + '...' : tanya).replace(/[_*]/g, '') + '_', '', res.teks, '',
+    '━━━━━━━━━━━━━━━━',
+    '📎 _' + (data.sumber.length ? 'Sumber: ' + data.sumber.join(' · ') : 'Tanpa data proyek, dari pengetahuan umum AI') + '_'
+  ].concat(data.sumber.length ? ['🔍 _Cek angka:_ ' + cek] : []).join('\n');
 }
 
 // Kumpulkan data yang relevan dengan pertanyaan, dari keluaran perintah IRIS yang sudah ada. -> {teks, sumber: [judul]}
@@ -826,10 +870,13 @@ function botAiData_(tanya) {
   if (/stok|saldo|gudang|sisa/.test(t)) tambah('stok gudang', function () { return botStok_(''); });
   if (/potongan|haspel/.test(t)) tambah('potongan kabel', function () { return botPotongan_(''); });
   if (/kemarin/.test(t)) tambah('rekap kemarin', function () { return botRekap_('kemarin'); });
-  if (!sites.length && !blok.length || /hari ini|rekap|lapor/.test(t)) tambah('rekap hari ini', function () { return botRekap_(''); });
+  // Rekap hari ini hanya untuk pertanyaan yang berbau proyek; pertanyaan umum (menulis pesan, istilah, hitungan) tanpa data.
+  if (/hari ini|rekap|lapor/.test(t) || !blok.length && /proyek|site|progres|kerja|tim|mandor|waspang|cluster|fwa|feeder|uplink/.test(t)) {
+    tambah('rekap hari ini', function () { return botRekap_(''); });
+  }
   var teks = blok.join('\n\n').replace(/(\+?62|\b0)8\d{7,12}\b/g, '[nomor]');
   if (teks.length > BOT_AI_DATA_MAX_) teks = teks.slice(0, BOT_AI_DATA_MAX_) + '\n...(dipotong)';
-  return { teks: teks, sumber: sumber };
+  return { teks: teks, sumber: sumber, sites: sites };
 }
 
 // Site yang disebut di pertanyaan: nama lengkap ada di kalimat, atau semua kata khas nama (>= 3 huruf, bukan kata umum) ada. Maks 2.
@@ -857,53 +904,61 @@ function botAiSite_(t) {
 // Panggil Groq. -> {ok: true, teks} atau {ok: false, pesan}
 function botAiPanggil_(key, model, tanya, data) {
   var sistem = [
-    'Kamu IRIS, asisten proyek FTTH PT Buana Menara Indonesia (BMI) di grup WhatsApp.',
-    'Jawab dalam bahasa Indonesia, singkat, padat, jelas (maksimal 12 baris).',
-    'Format WhatsApp: *tebal* untuk judul, "- " untuk daftar. Jangan memakai tabel, judul #, atau **.',
-    'Angka dan fakta proyek HANYA boleh dari DATA di bawah. Jangan mengarang angka, tanggal, atau nama.',
-    'Bila DATA tidak memuat jawabannya, katakan itu lalu sarankan perintah IRIS yang cocok: !progres <site>, !rekap, !mingguan, ' +
-      '!bulanan, !stok, !ba <site>, !site <kata>.',
-    'Pertanyaan umum (teknis FTTH, cara kerja) boleh dijawab dari pengetahuan umum; sebut bahwa itu pengetahuan umum.',
+    BOT_IRIS_KARAKTER_,
+    'Kamu asisten serba bisa untuk tim proyek ini.',
+    'Jawab dengan bahasa penanya (bawaan bahasa Indonesia), ramah dan santai-sopan, jelas, tanpa menyapa ulang atau basa-basi penutup.',
+    'PERTANYAAN PROYEK (site, progres, laporan, stok, BA, material): maksimal 12 baris. Susunan: (1) satu kalimat jawaban inti; ' +
+      '(2) bila perlu, rincian maksimal 5 poin diawali "- "; (3) bila ada, satu saran tindakan diawali "👉 ".',
+    'Angka dan fakta proyek HANYA boleh dari DATA di bawah. Jangan mengarang angka, tanggal, atau nama. Bila DATA tidak memuat ' +
+      'jawabannya, katakan itu lalu sarankan perintah IRIS yang cocok: !progres <site>, !rekap, !mingguan, !bulanan, !stok, !ba <site>, !site <kata>.',
+    'PERMINTAAN UMUM (menjelaskan istilah atau teknis FTTH, membuat draf pesan/surat, menerjemahkan, merangkum, menghitung, memberi ide): ' +
+      'bantu sepenuhnya dari pengetahuanmu, panjang secukupnya (maksimal sekitar 30 baris). Untuk draf pesan, langsung tulis drafnya.',
+    'Kamu tidak punya akses internet. Untuk info terkini (berita, cuaca, harga hari ini, kurs, jadwal), katakan itu dan bahwa pengetahuanmu bisa usang.',
+    'Tolak dengan sopan permintaan yang berbahaya, melanggar hukum, atau tidak pantas untuk grup kerja.',
+    'Format WhatsApp: *tebal* (satu bintang) untuk hal penting, "- " untuk daftar. Emoji secukupnya, maksimal 3. ' +
+      'Jangan memakai tabel, judul #, **, atau garis pemisah.',
     '', 'Hari ini: ' + botWita_(Date.now(), 'dd/MM/yyyy') + ' (WITA).', '', 'DATA:', data || '(tidak ada data proyek yang cocok dengan pertanyaan)'
   ].join('\n');
-  var body = { model: model, temperature: 0.2, max_tokens: 1000,
-    messages: [{ role: 'system', content: sistem }, { role: 'user', content: String(tanya).slice(0, 500) }] };
+  var body = { model: model, temperature: 0.3, max_tokens: 1800,
+    messages: [{ role: 'system', content: sistem }, { role: 'user', content: String(tanya).slice(0, 1500) }] };
   if (/^openai\/gpt-oss/.test(model)) { body.reasoning_effort = 'low'; body.include_reasoning = false; }
   var r;
   try {
     r = UrlFetchApp.fetch(BOT_AI_URL_, { method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + key },
       payload: JSON.stringify(body), muteHttpExceptions: true });
-  } catch (e) { return { ok: false, pesan: 'IRIS belum bisa berpikir sekarang (AI tidak terhubung). Coba lagi sebentar.' }; }
+  } catch (e) { return { ok: false, pesan: '📡 *IRIS belum tersambung ke AI.*\n> Coba lagi sebentar lagi.' }; }
   var code = r.getResponseCode(), j = {};
   try { j = JSON.parse(r.getContentText()) || {}; } catch (e) {}
-  if (code === 429) return { ok: false, pesan: 'Batas gratis AI IRIS sedang penuh. Coba lagi beberapa menit lagi.' };
-  if (code === 401 || code === 403) return { ok: false, pesan: 'Kunci AI IRIS ditolak. Admin: periksa Script Property GROQ_API_KEY.' };
+  if (code === 429) return { ok: false, pesan: '⏳ *IRIS sedang ramai.*\n> Batas gratis AI penuh sebentar, coba lagi beberapa menit lagi.' };
+  if (code === 401 || code === 403) return { ok: false, pesan: '🔑 *Kunci AI IRIS ditolak.*\n> Admin: periksa Script Property ' + waKode_('GROQ_API_KEY') };
   var msg = code === 200 && j.choices && j.choices[0] && j.choices[0].message, teks = msg ? String(msg.content || '').trim() : '';
   if (!teks) {
     console.log('AI gagal ' + code + ': ' + String(r.getContentText()).slice(0, 300));
-    return { ok: false, pesan: 'IRIS belum bisa menjawab (kode ' + code + '). Coba lagi, atau pakai perintah biasa.' };
+    return { ok: false, pesan: '⚠️ *IRIS belum bisa menjawab* _(kode ' + code + ')_.\n> Coba lagi, atau pakai perintah biasa: ' + waKode_('!bantu') };
   }
   teks = teks.replace(/\*\*(.+?)\*\*/g, '*$1*').replace(/^#+\s*/gm, '').replace(/`/g, '');
-  return { ok: true, teks: teks.slice(0, 3000) };
+  return { ok: true, teks: teks.slice(0, 6000) };
 }
 
 // Admin: iris | iris on | iris off | iris kuota <n> | iris model <id>
 function botAiCmd_(arg) {
   var props = PropertiesService.getScriptProperties(), a = String(arg || '').trim(), m;
   if (/^(on|nyala|aktif)$/i.test(a)) {
-    if (!props.getProperty('GROQ_API_KEY')) return 'Isi dulu Script Property ' + waKode_('GROQ_API_KEY') + ' (lihat Panduan API IRIS), lalu ketik ' + waKode_('iris on') + '.';
+    if (!props.getProperty('GROQ_API_KEY')) return ['🔑 *Kunci Groq belum diisi*', '- Isi Script Property ' + waKode_('GROQ_API_KEY') + ' _(lihat Panduan API IRIS)_', '- Lalu ketik ' + waKode_('iris on')].join('\n');
     props.setProperty('BOT_AI', 'on');
   } else if (/^(off|mati)$/i.test(a)) props.setProperty('BOT_AI', 'off');
   else if ((m = a.match(/^kuota\s+(\d+)$/i))) props.setProperty('BOT_AI_KUOTA', String(Math.max(1, Number(m[1]))));
   else if ((m = a.match(/^model\s+(\S+)$/i))) props.setProperty('BOT_AI_MODEL', m[1]);
-  else if (a) return 'Pilihan: ' + ['iris', 'iris on', 'iris off', 'iris kuota 100', 'iris model ' + BOT_AI_MODEL_].map(waKode_).join(' · ');
+  else if (a) return '*Pengaturan Tanya IRIS*\n' + ['iris', 'iris on', 'iris off', 'iris kuota 100', 'iris model ' + BOT_AI_MODEL_].map(function (x) { return '- ' + waKode_(x); }).join('\n');
   var q = {}, hari = botWita_(Date.now(), 'yyyy-MM-dd');
   try { q = JSON.parse(props.getProperty('BOT_AI_HARI') || '{}') || {}; } catch (e) {}
-  return ['✦ *Tanya IRIS (AI)*',
-    '- Status: ' + (props.getProperty('BOT_AI') === 'on' && props.getProperty('GROQ_API_KEY') ? 'aktif' : 'mati'),
-    '- Kunci GROQ_API_KEY: ' + (props.getProperty('GROQ_API_KEY') ? 'sudah diisi' : 'belum diisi'),
+  var aktif = props.getProperty('BOT_AI') === 'on' && props.getProperty('GROQ_API_KEY');
+  return ['*Tanya IRIS*',
+    '- Status: ' + (aktif ? '🟢 *aktif*' : '🔴 *mati*'),
+    '- Kunci Groq: ' + (props.getProperty('GROQ_API_KEY') ? '✅ terisi' : '⚠️ belum diisi'),
     '- Model: ' + (props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_),
-    '- Hari ini: ' + (q.d === hari ? q.n : 0) + ' / ' + (Number(props.getProperty('BOT_AI_KUOTA')) || BOT_AI_KUOTA_) + ' pertanyaan'].join('\n');
+    '- Hari ini: *' + (q.d === hari ? q.n : 0) + '* / ' + (Number(props.getProperty('BOT_AI_KUOTA')) || BOT_AI_KUOTA_) + ' pertanyaan',
+    '', '> ' + [aktif ? 'iris off' : 'iris on', 'iris kuota <n>'].map(waKode_).join(' · ')].join('\n');
 }
 
 // Batas panjang pesan. WhatsApp sendiri menerima sampai ~65.000 huruf; balasan langsung dibatasi 20.000 supaya masih nyaman dibaca.
@@ -962,7 +1017,7 @@ function botHelp_(owner) {
     '- ' + K('ok <site> [alasan]') + ' jawab peringatan site tanpa laporan',
     '- ' + K('revisi <site> [dd/mm]') + ' perbaiki Daily Report yang sudah terkirim' + (owner ? '' : ' _(dikonfirmasi admin)_'),
     '- ' + K('hapusba <nomor BA> [alasan]') + ' hapus BA salah input' + (owner ? '' : ' _(dikonfirmasi admin)_'),
-    '- ' + K('iris <pertanyaan>') + ' tanya bebas, IRIS menjawab dari data proyek (AI)',
+    '- ' + K('iris <pertanyaan>') + ' tanya apa saja ke IRIS (AI): data proyek, istilah teknis, bikin pesan',
     '- ' + K('panduan') + ' PDF panduan perintah',
     '- ' + K('menu') + ' menu pilihan (polling, tinggal tekan)' + (owner ? ' · ' + A('menu admin') + ' menu admin' : ''),
     '- ' + K('bantu') + ' daftar ini',
@@ -1009,6 +1064,7 @@ function botHelp_(owner) {
     '- ' + A('backup') + ' backup spreadsheet sekarang · ' + A('backup bersih') + ' buang backup lama',
     '- ' + A('pulihkan') + ' cek & pulihkan Daily Report / log foto yang hilang (otomatis tiap jam)',
     '- ' + A('iris') + ' status tanya IRIS · ' + A('iris on') + ' ' + A('iris off') + ' · ' + A('iris kuota <n>'),
+    '- ' + A('iris perkenalan') + ' IRIS memperkenalkan diri _(di grup langsung; di chat pribadi pratinjau, lalu_ ' + A('iris perkenalan kirim') + '_)_',
     '- ' + A('grup') + ' grup WA per region · ' + A('grup pontianak <nama grup>') + ' laporan Pontianak ke grup sendiri',
     '- ' + A('panduan lengkap') + ' PDF semua perintah (ke chat pribadi)']);
   return s.join('\n');
@@ -2149,7 +2205,7 @@ var BOT_PANDUAN_TIM_ = [
   ['!hapusba &lt;nomor BA&gt; [alasan]', 'Minta hapus BA yang salah input di Portal Warehouse. Bot menampilkan isi BA dan meneruskannya ke admin; BA baru dihapus setelah admin mengonfirmasi. Saldo gudang ikut terkoreksi, lalu input ulang BA yang benar di portal.', '!hapusba HST/2610/001 salah tanggal | !hapusba BA-261026-180847'],
   ['Excel + caption !stokwh', 'Kirim file Excel stok WH (.xlsx). Selisih dengan saldo portal dikirim ke admin untuk disetujui.', '!stokwh | !stokwh batola'],
   ['#Bantuan'],
-  ['!iris &lt;pertanyaan&gt;', 'Tanya bebas dengan bahasa sehari-hari. IRIS mengambil data proyek yang cocok (progres site, rekap, stok, BA) lalu AI merangkai jawabannya. Angka tetap dari data IRIS; cek ulang dengan perintah biasa. Aktif bila admin sudah menyalakan (iris on), ada kuota per hari. !tanya sama dengan !iris.', '!iris kenapa progres lawahan lambat minggu ini? | !iris stok kabel 24c cukup untuk berapa site?'],
+  ['!iris &lt;pertanyaan&gt;', 'Tanya apa saja dengan bahasa sehari-hari. Soal proyek: IRIS mengambil data yang cocok (progres site, rekap, stok, BA) lalu AI merangkai jawabannya; angka tetap dari data IRIS. Soal umum (istilah teknis, draf pesan, terjemahan, hitungan): dijawab dari pengetahuan AI, tanpa internet. Aktif bila admin sudah menyalakan (iris on), ada kuota per hari. !tanya sama dengan !iris.', '!iris kenapa progres lawahan lambat minggu ini? | !iris stok kabel 24c cukup? | !iris buatkan pesan sopan untuk mandor yang telat lapor'],
   ['!menu', 'Kirim polling Menu IRIS. Tekan salah satu pilihan (rekap, stok, potongan, panduan, ...) dan IRIS langsung menjawab; polling yang sama bisa dipakai lagi. Pilihan yang butuh nama site memberi contoh perintah yang perlu diketik. Admin: <b>menu admin</b> untuk status, pulihkan, backup, dll.', '!menu | menu admin'],
   ['!bantu', 'Daftar perintah singkat langsung di WhatsApp.', '!bantu'],
   ['!panduan', 'Kirim PDF panduan ini ke grup.', '!panduan']
@@ -2196,7 +2252,8 @@ var BOT_PANDUAN_ADMIN_ = [
   ['backup', 'Backup spreadsheet FTTH + Waspang ke Drive sekarang.', 'backup'],
   ['grup', 'Grup WhatsApp per region. ' + '<b>grup pontianak &lt;nama grup WA&gt;</b>: laporan, cek, BA, revisi, Today\'s Plan, pengingat 17:30, rekap Senin / tanggal 1, dan site tanpa laporan untuk site region Pontianak dikirim ke grup itu; region lain tetap ke grup utama. Perintah dari grup region (rekap, mingguan, bulanan) otomatis hanya region itu, tambah <b>semua</b> untuk semua region. <b>grup pontianak pic &lt;nama&gt;</b> = PIC Today\'s Plan; <b>grup pontianak tim &lt;nama&gt;</b> = pindahkan anggota tim yang di-tag 17:30 (bawaan: dari site yang paling sering dilaporkan). <b>grup pontianak hapus</b> = kembali satu grup.', 'grup | grup pontianak Report Pontianak'],
   ['pulihkan', 'Setiap Daily Report dan log foto juga disalin ke tab JURNAL WASPANG (spreadsheet LOG ARSIP). Tiap jam IRIS mencocokkan jurnal dengan spreadsheet Waspang; baris yang hilang (mis. versi spreadsheet dikembalikan) ditulis lagi otomatis dan admin diberi tahu. Perintah ini menjalankan pengecekan sekarang. Laporan yang memang mau dihapus: pakai revisi &lt;site&gt; lalu revisi hapus.', 'pulihkan'],
-  ['iris [on | off | kuota &lt;n&gt; | model &lt;id&gt;]', 'Tanya IRIS (!iris, AI). iris = status dan pemakaian hari ini. iris on butuh Script Property GROQ_API_KEY (kunci dari console.groq.com). Kuota bawaan 100 pertanyaan per hari.', 'iris | iris on | iris off | iris kuota 50'],
+  ['iris [on | off | kuota &lt;n&gt; | model &lt;id&gt;]', 'Tanya IRIS (!iris, AI). iris = status dan pemakaian hari ini. iris on butuh Script Property GROQ_API_KEY (kunci dari console.groq.com). Kuota bawaan 500 pertanyaan per hari (batas gratis Groq sekitar 1.000 per hari).', 'iris | iris on | iris off | iris kuota 800'],
+  ['iris perkenalan [kirim]', 'IRIS memperkenalkan diri (siapa IRIS, asal nama, apa yang bisa dibantu, cara pakai). Diketik di grup = langsung tampil di grup itu. Di chat pribadi = pratinjau; iris perkenalan kirim = dikirim ke grup utama dan grup region. Hanya admin.', 'iris perkenalan | iris perkenalan kirim'],
   ['backup bersih', 'Backup lama di Drive (folder Backup Portal BMI dan BMI-FTTH Backup) dipindah ke Sampah, hanya yang terbaru per spreadsheet disisakan. Otomatis juga tiap kali backup mingguan jalan.', 'backup bersih'],
   ['panduan lengkap', 'PDF ini, selalu dikirim ke chat pribadi admin.', 'panduan lengkap']
 ];
