@@ -37,8 +37,8 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Tanya IRIS `!iris <pertanyaan>` (alias `!tanya`; live sejak Waspang @125):** `botTanya_` / `botAiData_` / `botAiSite_` /
   `botAiPanggil_` / `botAiCmd_` di `portal-waspang/Kode.gs`. Memakai Groq API (gratis, model bawaan `openai/gpt-oss-120b`).
   Sudah terbukti jalan di WhatsApp (14 Nov 10:33, `iris on` aktif). Panduan API untuk pemilik ada di Drive (bukan di repo).
-- **Stiker + sapaan (live Waspang @128):** butuh **gateway baru di laptop** (paket `IRIS-Gateway-Update-14Nov.zip` sudah dikirim ke pemilik,
-  belum dipastikan terpasang). Sebelum itu stiker terkirim sebagai gambar dan sapaan tanpa `!` tidak sampai ke Apps Script.
+- **Stiker + sapaan (live Waspang @128):** `app/gateway.mjs` di laptop gateway (`C:\\Users\\p\\IRIS-Gateway`) diganti versi `main` 14 Nov 11:36
+  (sebelumnya versi 470de70; panel.* sudah sama). Berlaku setelah program gateway ditutup dan dibuka lagi.
 - **Stiker robot iRIS (14 Nov):** 15 desain baru dari Canva (robot berkarakter Iris Yunani, pose sesuai kata). File asli 2048 px harus
   diunduh pemilik dari Canva (unduhan Canva diblokir dari sesi cloud), lalu diubah ke webp 512 dan disimpan di folder `IRIS Stiker`
   dengan nama: perkenalan, halo, siap, mantap, terimakasih, semangat, ingat, hatihati, gaspol, laporanmasuk, izincek, siapkomandan,
