@@ -8,7 +8,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 <!-- LIVE:START -->
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
-| waspang | @136 | 2026-11-14 20:41 | 2a5b94b | Merge pull request #123 from buanamenara/total-server-ulang |
+| waspang | @137 | 2026-11-14 21:48 | d54ff9c | Waspang: pulihkan Total 0 dari Teks Laporan/Selesai & cadangan memori tanpa localStorage |
 | ftth | @268 | 2026-11-14 19:51 | 9fe0398 | Merge pull request #121 from buanamenara/cari-semua |
 | gateway | @23 | 2026-11-14 18:45 | 732cdca | Merge pull request #117 from buanamenara/koordinator |
 <!-- LIVE:END -->
@@ -169,6 +169,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-14 21:48 · **waspang @137** · d54ff9c · Waspang: pulihkan Total 0 dari Teks Laporan/Selesai & cadangan memori tanpa localStorage · GitHub Actions
 - 2026-11-14 20:41 · **waspang @136** · 2a5b94b · Merge pull request #123 from buanamenara/total-server-ulang · GitHub Actions
 - 2026-11-14 19:51 · **waspang @135** · 9fe0398 · Merge pull request #121 from buanamenara/cari-semua · GitHub Actions
 - 2026-11-14 19:51 · **ftth @268** · 9fe0398 · Merge pull request #121 from buanamenara/cari-semua · GitHub Actions
