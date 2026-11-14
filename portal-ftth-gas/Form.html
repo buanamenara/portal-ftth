@@ -3134,6 +3134,19 @@ function cocokCari(teks, q) {
       PREFETCH[key] = null;
       return p;
     }
+    // Stale-While-Revalidate (SWR) via sessionStorage per kode akses: tampilkan cache lokal instan (<50ms) sambil menyegarkan di latar.
+    function swrGet_(key, maxAgeMs) {
+      try {
+        var raw = sessionStorage.getItem('ftthSwr_' + key);
+        if (!raw) return null;
+        var o = JSON.parse(raw);
+        if (!o || o.a !== ACCESS || (Date.now() - o.t) > (maxAgeMs || 1800000)) return null;
+        return o.d;
+      } catch (e) { return null; }
+    }
+    function swrSet_(key, val) {
+      try { sessionStorage.setItem('ftthSwr_' + key, JSON.stringify({ a: ACCESS, t: Date.now(), d: val })); } catch (e) { /* abaikan kuota penuh */ }
+    }
 
     // ----- Akses: kode tim (dikirim otomatis pada setiap panggilan server lewat GSR) -----
     var ACCESS = '';
@@ -4672,16 +4685,25 @@ function cocokCari(teks, q) {
       var cls = map[status] ? status : 'pending';
       return '<span class="badge ' + cls + '">' + (map[status] || 'Belum') + '</span>';
     }
-    function applyCheckpoint_(list) { cpData = list || []; renderCheckpoint(); renderHomeStats(); renderCpDashboard(); }
+    function applyCheckpoint_(list, fromCache) {
+      cpData = list || [];
+      if (!fromCache && Array.isArray(list)) swrSet_('cp', list);
+      renderCheckpoint(); renderHomeStats(); renderCpDashboard();
+    }
     function loadCheckpoint() {
+      var cached = !cpData.length ? swrGet_('cp') : null;
+      if (Array.isArray(cached)) applyCheckpoint_(cached, true);
       var pre = takePrefetch_('cp');
-      if (pre) { pre.then(applyCheckpoint_, function () { loadCheckpointDirect_(); }); return; }
+      if (pre) { pre.then(function (list) { applyCheckpoint_(list, false); }, function () { loadCheckpointDirect_(); }); return; }
       loadCheckpointDirect_();
     }
     function loadCheckpointDirect_() {
       GSR
-        .withSuccessHandler(function (list) { cpData = list || []; renderCheckpoint(); renderHomeStats(); renderCpDashboard(); })
-        .withFailureHandler(function (err) { $('cpTable').innerHTML = '<tr><td colspan="9">Gagal memuat: ' + esc(err.message) + '</td></tr>'; $('kpiSite').textContent = '-'; $('kpiPermit').textContent = '-'; $('kpiInstalasi').textContent = '-'; $('kpiBaClosing').textContent = '-'; })
+        .withSuccessHandler(function (list) { applyCheckpoint_(list, false); })
+        .withFailureHandler(function (err) {
+          if (cpData.length) return;
+          $('cpTable').innerHTML = '<tr><td colspan="9">Gagal memuat: ' + esc(err.message) + '</td></tr>'; $('kpiSite').textContent = '-'; $('kpiPermit').textContent = '-'; $('kpiInstalasi').textContent = '-'; $('kpiBaClosing').textContent = '-';
+        })
         .getCheckpointData();
     }
     function renderCheckpoint() {
@@ -6032,12 +6054,18 @@ function cocokCari(teks, q) {
   function note(text) { box.innerHTML = '<div class="scurve-empty">' + esc(text) + '</div>'; }
 
   function load() {
+    var cachedSc = !data ? swrGet_('sc') : null;
+    if (cachedSc && !cachedSc.error) {
+      data = cachedSc;
+      draw();
+      applyAreaPct();
+    }
     loading = true;
     var timer = setTimeout(function () {
       if (!loading) return;
       loading = false;
       failed = true;
-      note('Kurva S belum tersedia: tidak ada respons dari server.');
+      if (!data) note('Kurva S belum tersedia: tidak ada respons dari server.');
       resumeWaitingAlert(false);
     }, 25000);
     var done = function (d) {
@@ -6046,10 +6074,11 @@ function cocokCari(teks, q) {
       if (!d || d.error) {
         failed = true;
         resumeWaitingAlert(false);
-        note('Kurva S belum tersedia' + (d && d.error ? ': ' + d.error : '.'));
+        if (!data) note('Kurva S belum tersedia' + (d && d.error ? ': ' + d.error : '.'));
         return;
       }
       data = d;
+      swrSet_('sc', d);
       loadedAt = Date.now();
       draw();
       applyAreaPct();
@@ -6061,7 +6090,7 @@ function cocokCari(teks, q) {
       failed = true;
       resumeWaitingAlert(false);
       console.error('Kurva S:', e);
-      note('Kurva S belum tersedia: ' + ((e && e.message) || String(e)));
+      if (!data) note('Kurva S belum tersedia: ' + ((e && e.message) || String(e)));
     };
     var callScurve = function () {
       try {
