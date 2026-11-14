@@ -8,7 +8,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 <!-- LIVE:START -->
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
-| waspang | @138 | 2026-11-14 21:54 | d73f8aa | fix(waspang): sum line/FDT keys sharing material col in curAmountFor/salAmountFor |
+| waspang | @139 | 2026-11-14 22:05 | 228abd9 | fix(waspang): subtract split line amounts from unsplit base openBal |
 | ftth | @268 | 2026-11-14 19:51 | 9fe0398 | Merge pull request #121 from buanamenara/cari-semua |
 | gateway | @23 | 2026-11-14 18:45 | 732cdca | Merge pull request #117 from buanamenara/koordinator |
 <!-- LIVE:END -->
@@ -169,6 +169,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-14 22:05 · **waspang @139** · 228abd9 · fix(waspang): subtract split line amounts from unsplit base openBal · GitHub Actions
 - 2026-11-14 21:54 · **waspang @138** · d73f8aa · fix(waspang): sum line/FDT keys sharing material col in curAmountFor/salAmountFor · GitHub Actions
 - 2026-11-14 21:48 · **waspang @137** · d54ff9c · Waspang: pulihkan Total 0 dari Teks Laporan/Selesai & cadangan memori tanpa localStorage · GitHub Actions
 - 2026-11-14 20:41 · **waspang @136** · 2a5b94b · Merge pull request #123 from buanamenara/total-server-ulang · GitHub Actions
