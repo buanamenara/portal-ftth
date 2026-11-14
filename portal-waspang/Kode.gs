@@ -847,7 +847,7 @@ function botPerkenalan_(p, kirim) {
       'dan menjaga proyek tetap terpantau, 24 jam tanpa tidur. 🌈',
     '', '*Yang bisa saya bantu*',
     '- 📝 Meneruskan Daily Report dan foto dokumentasi dari Portal Waspang ke grup',
-    '- ⏰ Today\'s Plan jam 07:00, pengingat laporan jam 17:30, rekap mingguan dan bulanan',
+    '- ⏰ Today\'s Plan jam 07:00, pengingat laporan jam 12:00, 17:30, dan 19:00, rekap mingguan dan bulanan',
     '- 📦 Cek stok gudang, progres site, BA, dan potongan kabel',
     '- 🛡️ Menjaga data: laporan yang hilang dari spreadsheet saya pulihkan otomatis'];
   if (aiAktif) s.push('- 💬 Tanya apa saja, dari progres site sampai bikin draf pesan: ' + waKode_('!iris <pertanyaan>'));
@@ -1220,7 +1220,9 @@ function botHelp_(owner) {
     '', '⏰ *OTOMATIS KE GRUP*',
     '- *07:00* Today\'s Plan _(permit + implementasi)_',
     '- *07:05* site 3 hari tanpa laporan _(sekali; Senin diulang sampai di-!ok)_',
+    '- *12:00* pengingat siang _(hanya bila ada yang belum lapor, di-tag)_',
     '- *17:30* pengingat Daily Report _(tag yang belum lapor)_',
+    '- *19:00* yang masih belum lapor di-tag lagi',
     '- *Senin 07:00* rekap mingguan · *tgl 1* rekap bulanan',
     '- *Senin 08:00* minta Excel stok WH · *tgl 28* persiapan opname',
     '- Daily Report dicek _(tanggal, Total > Plan)_, BA baru diteruskan'];
@@ -1487,7 +1489,9 @@ function botPengingat_(jid) {
 // Nomor WA tim untuk di-tag disimpan lewat perintah "tim <nama> <nomor>" (nama = PIC di Daily Report).
 var BOT_JADWAL_ = [
   { id: 'PAGI', from: '07:00', until: '10:00', perGrup: true, build: function (now) { return { text: botPagi_(now), mentions: [] }; } },
+  { id: 'SIANG', from: '12:00', until: '14:00', perGrup: true, build: function (now) { return botSore_(now, 'siang'); } },   // hanya bila ada yang belum lapor
   { id: 'SORE', from: '17:30', until: '19:30', perGrup: true, build: function (now) { return botSore_(now); } },
+  { id: 'MALAM', from: '19:00', until: '21:00', perGrup: true, build: function (now) { return botSore_(now, 'malam'); } },   // hanya bila masih ada yang belum
   { id: 'STOK', from: '07:00', until: '10:00', build: function (now) { return { text: botStokMenipis_(Number(botWita_(now, 'u')) === 1), to: botOwnerJid_() }; } },   // Senin: daftar lengkap
   { id: 'MINGGU', from: '07:00', until: '10:00', day: 1, perGrup: true, build: function (now) { return { text: botMingguan_(now) }; } },
   { id: 'BULAN', from: '07:00', until: '10:00', date: 1, perGrup: true, build: function (now) { return { text: botBulanan_(now) }; } },
@@ -1650,7 +1654,8 @@ function botSoreKirim_() {
   return 'Pengingat laporan dikirim ke grup' + (msg.mentions.length ? ', ' + msg.mentions.length + ' orang di-tag.' : '. Semua tim sudah lapor, tidak ada yang di-tag.');
 }
 
-function botSore_(now) {
+// jenis: (kosong) = 17:30 lengkap dengan daftar yang sudah; 'siang' (12:00) dan 'malam' (19:00) = hanya bila ada yang belum lapor.
+function botSore_(now, jenis) {
   var day = botWita_(now, 'dd/MM/yyyy'), tim = botTimGrup_(BOT_GRUP_CTX_);
   var pics = botDailyRows_().filter(function (r) { return r.day === day || r.sent === day; })
     .map(function (r) { return r.pic.toLowerCase(); }).filter(Boolean);
@@ -1659,6 +1664,16 @@ function botSore_(now) {
     var k = n.toLowerCase();
     (pics.some(function (p) { return p.indexOf(k) >= 0 || k.indexOf(p) >= 0; }) ? sudah : belum).push(n);
   });
+  if (jenis && !belum.length) return { text: '', mentions: [] };   // siang / malam: semua sudah lapor (atau belum ada tim) = tidak ada pesan
+  if (jenis === 'siang') return { text: ['🕛 *Pengingat Siang* · ' + day,
+    '> Siang tim! Daily Report hari ini belum masuk. Kalau sempat, kirim progres pagi lewat Portal Waspang ya. 🙏', '',
+    '*Belum laporan* (' + belum.length + ')'].concat(belum.map(function (n) { return '- @' + tim[n]; })).join('\n'),
+    mentions: belum.map(function (n) { return tim[n]; }) };
+  if (jenis === 'malam') return { text: ['🕖 *Daily Report Belum Masuk* · ' + day,
+    '> Sudah jam 19:00, laporan berikut belum masuk. Mohon segera dikirim lewat Portal Waspang. 🙏', '',
+    '*Belum laporan* (' + belum.length + ')'].concat(belum.map(function (n) { return '- @' + tim[n]; }),
+    sudah.length ? ['', '*Sudah laporan* (' + sudah.length + '): ' + sudah.join(', ')] : []).join('\n'),
+    mentions: belum.map(function (n) { return tim[n]; }) };
   var s = ['⏰ *Pengingat Laporan Harian* · ' + day, '> Mohon kirim Daily Report hari ini lewat Portal Waspang sebelum pulang.'];
   if (belum.length) s = s.concat(['', '*Belum laporan* (' + belum.length + ')'], belum.map(function (n) { return '- @' + tim[n]; }));
   if (sudah.length) s.push('', '*Sudah laporan* (' + sudah.length + '): ' + sudah.join(', ') + ' 🙏');
@@ -2411,7 +2426,9 @@ var BOT_PANDUAN_TIM_ = [
 var BOT_PANDUAN_JADWAL_ = [
   ['07:00', 'Setiap hari', "Today's Plan (permit + implementasi)"],
   ['07:05', 'Setiap hari', 'Site aktif 3 hari tanpa laporan, PIC di-tag sekali (Senin: diulang untuk yang belum di-!ok)'],
+  ['12:00', 'Setiap hari', 'Pengingat siang, hanya bila ada tim yang belum mengirim Daily Report (di-tag)'],
   ['17:30', 'Setiap hari', 'Pengingat Daily Report, yang belum lapor di-tag'],
+  ['19:00', 'Setiap hari', 'Yang masih belum mengirim Daily Report di-tag lagi (tidak dikirim bila semua sudah)'],
   ['07:00', 'Senin', 'Rekap mingguan'],
   ['08:00', 'Senin', 'Tim WH diminta kirim Excel stok (!stokwh)'],
   ['07:00', 'Tanggal 1', 'Rekap bulanan + tagih file stok opname'],
@@ -3497,7 +3514,7 @@ function botBackupBersih_() {
 // Pasang sekali dari editor Apps Script: jalankan pasangAlarmGateway lalu setujui izin (trigger + kirim email).
 // status [gateway] : ringkasan untuk admin. Balasan ini sendiri lewat laptop gateway, jadi kalau bot menjawab berarti gateway hidup;
 // kalau gateway mati bot diam dan yang memberi tahu adalah email alarm (cekGatewayBot).
-var BOT_JADWAL_NAMA_ = { PAGI: "Today's Plan", SORE: 'Pengingat Daily Report', STOK: 'Stok menipis (admin)', MINGGU: 'Rekap mingguan',
+var BOT_JADWAL_NAMA_ = { PAGI: "Today's Plan", SIANG: 'Pengingat siang (bila ada yang belum)', SORE: 'Pengingat Daily Report', MALAM: 'Tag yang belum lapor 19:00', STOK: 'Stok menipis (admin)', MINGGU: 'Rekap mingguan',
   BULAN: 'Rekap bulanan', MANGKRAK: 'Site tanpa laporan', BOQ: 'BOQ melebihi Plan (admin)', WH: 'Pengingat tim WH', WHBASI: 'Cek Excel WH basi (admin)' };
 
 function botStatus_() {
