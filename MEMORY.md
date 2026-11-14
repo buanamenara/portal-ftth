@@ -8,7 +8,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 <!-- LIVE:START -->
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
-| waspang | @124 | 2026-11-14 05:25 | 2ae7154 | Merge pull request #105 from buanamenara/panduan-baru |
+| waspang | @125 | 2026-11-14 10:14 | 9436e11 | Merge pull request #106 from buanamenara/iris-ai-tanya |
 | ftth | @263 | 2026-11-14 05:24 | 2ae7154 | Merge pull request #105 from buanamenara/panduan-baru |
 | gateway | @22 | 2026-11-05 22:46 | - | Tampilan sesuai mockup (tahap 3 lanjutan) |
 <!-- LIVE:END -->
@@ -92,6 +92,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-14 10:14 · **waspang @125** · 9436e11 · Merge pull request #106 from buanamenara/iris-ai-tanya · GitHub Actions
 - 2026-11-14 05:25 · **waspang @124** · 2ae7154 · Merge pull request #105 from buanamenara/panduan-baru · GitHub Actions
 - 2026-11-14 05:24 · **ftth @263** · 2ae7154 · Merge pull request #105 from buanamenara/panduan-baru · GitHub Actions
 - 2026-11-13 22:15 · **waspang @123** · 470de70 · Panel IRIS Gateway: LED per region (hijau tersambung, merah mati) · GitHub Actions
