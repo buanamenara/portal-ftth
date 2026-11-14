@@ -77,9 +77,12 @@ function menu(){
   var p = S && S.paused;
   openM('<b style="font-size:17px">Menu</b><div class="menu">' +
     '<button id="mRelink"' + (p ? ' disabled' : '') + '>Tautkan ulang WhatsApp</button><button id="mPass">Ganti kata sandi</button>' +
-    '<button class="pri" id="mRestart">Restart gateway</button><button id="mOut">Keluar dari panel</button><button class="stop" id="mQuit">Tutup program</button><button onclick="closeM()">Batal</button></div>');
+    '<button class="pri" id="mRestart">Restart gateway</button>' +
+    (S && S.petBisa ? '<button id="mPet">' + (S.pet ? 'Matikan pet iRIS' : 'Nyalakan pet iRIS') + '</button>' : '') +
+    '<button id="mOut">Keluar dari panel</button><button class="stop" id="mQuit">Tutup program</button><button onclick="closeM()">Batal</button></div>');
   $('mRelink').onclick = function(){ ask('Tautkan ulang?', 'Tautan WhatsApp sekarang dilepas, lalu QR baru muncul untuk di-scan.', 'Tautkan ulang', function(){ act('relink').catch(function(e){ toast(e.message); }); }); };
   $('mRestart').onclick = restart;
+  if ($('mPet')) $('mPet').onclick = function(){ var on = !S.pet; closeM(); act('pet', { on: on }).then(function(){ S.pet = on; toast(on ? 'Pet iRIS muncul di desktop' : 'Pet iRIS disembunyikan'); }).catch(function(e){ toast(e.message); }); };
   $('mPass').onclick = gantiSandi;
   $('mOut').onclick = function(){ closeM(); act('keluar').then(function(){ mode = ''; tick.now(); }); };
   $('mQuit').onclick = function(){ ask('Tutup program?', 'Gateway berhenti total. Buka lagi lewat shortcut IRIS Gateway di Desktop (atau otomatis saat laptop dinyalakan ulang).', 'Tutup program', function(){ act('tutup').then(function(){ toast('Program ditutup'); }).catch(function(e){ toast(e.message); }); }, true); };
