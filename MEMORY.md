@@ -84,6 +84,10 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   di Daily Report, BOQ Plan, dan Dokumentasi; menyaring daftar site, disimpan per perangkat (`localStorage` `waspang_region_v1`),
   sama untuk ketiga menu. Site tanpa Region hanya muncul di "Semua region". Format teks Daily Report tidak diubah.
   Laporan Dokumentasi (caption WA, `buildWaspangPhotoCaption_` + Form.html) menambah baris `🌏 *Region*` bila Region site diketahui.
+- **Pilihan Region di Warehouse – BA Transaksi & Submit BA Transaksi (`portal-ftth-gas/`):** semua peran (Waspang, Admin, RPM) boleh
+  membuat dan mengunggah BA Transaksi lintas region (`getBaGudangInit`, `createBaGudang`, `getBaGudangHistory`, `getBaSiteNames`,
+  `extractBa`, `extractBaText`, `saveBa`, `getBaHistory`, `downloadBaPdf` memakai scope `''`); kolom Area pada akun di sheet `USERS`
+  hanya dijadikan pilihan awal (`defaultRegion`) di dropdown Region BA Transaksi.
 - **Tanya IRIS (AI):** perintah bernama `iris`, bukan `ai` (permintaan pemilik). Admin: `iris` = status, `iris on|off|kuota <n>|model <id>`
   = pengaturan (`BOT_AI_PENGATURAN_`); teks lain setelah `iris` = pertanyaan. IRIS = asisten serba bisa (pilihan pemilik 14 Nov): soal proyek dijawab
   dari data (maks 12 baris), soal umum (istilah, draf pesan, terjemahan, hitungan) dari pengetahuan AI tanpa internet (maks ~30 baris).

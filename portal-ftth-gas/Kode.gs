@@ -5627,19 +5627,20 @@ function saveBoq(code, siteName, keterangan, target, pic, rows) {
   logHistory_('Portal', logUser_(code), logRole_(code), 'Submit BOQ', siteName + ' (' + keterangan + ') -> ' + target);
   return res;
 }
-function getBaSiteNames(code) { requireAccess_(code); return getBaSiteNames_(scopeOf_(code)); }
-function extractBa(code, base64Data, fileName) { requireAccess_(code); return extractBa_(base64Data, fileName, scopeOf_(code)); }
-function extractBaText(code, struct) { requireAccess_(code); return extractBaText_(struct, scopeOf_(code)); }
+// Submit BA Transaksi boleh lintas region untuk semua peran (Waspang, Admin, RPM).
+function getBaSiteNames(code) { requireAccess_(code); return getBaSiteNames_(''); }
+function extractBa(code, base64Data, fileName) { requireAccess_(code); return extractBa_(base64Data, fileName, ''); }
+function extractBaText(code, struct) { requireAccess_(code); return extractBaText_(struct, ''); }
 function saveBa(code, base64Data, fileName, data) {
-  requireAccess_(code); regionCheckSite_(scopeOf_(code), data && data.name);
+  requireAccess_(code);
   var res = saveBa_(base64Data, fileName, data);
   if (res && res.ok) logHistory_('Portal', logUser_(code), logRole_(code), 'Submit BA Transaksi', (data && data.name || '') + ' - ' + (res.idBa || ''));
   return res;
 }
-function getBaHistory(code) { requireAccess_(code); return getBaHistory_(scopeOf_(code)); }
+function getBaHistory(code) { requireAccess_(code); return getBaHistory_(''); }
 function downloadBaPdf(code, idBa) {
   requireAccess_(code);
-  var res = downloadBaPdf_(idBa, scopeOf_(code));
+  var res = downloadBaPdf_(idBa, '');
   logHistory_('Portal', logUser_(code), logRole_(code), 'Unduh PDF BA Transaksi', String(idBa || ''));
   return res;
 }
@@ -7243,16 +7244,16 @@ function setupNomorBa_() {
 }
 
 // ----- Fungsi publik untuk portal (semua memeriksa kode akses dulu) -----
-function getBaGudangInit(code) { requireAccess_(code); return bagInit_(scopeOf_(code)); }
+// BA Transaksi boleh lintas region untuk semua peran (Waspang, Admin, RPM); Area akun (scope) hanya dipakai sebagai pilihan awal di form.
+function getBaGudangInit(code) { requireAccess_(code); var r = bagInit_(''); r.defaultRegion = scopeOf_(code); return r; }
 function createBaGudang(code, data) {
   requireAccess_(code);
   var scope = scopeOf_(code);
-  regionCheckSite_(scope, data && data.site);
-  var res = bagCreate_(data, scope, roleOf_(code) === 'rpm' ? 'RPM' : (scope ? 'Region ' + scope : 'Admin'));
+  var res = bagCreate_(data, '', roleOf_(code) === 'rpm' ? 'RPM' : (scope ? 'Region ' + scope : 'Admin'));
   logHistory_('Portal', logUser_(code), logRole_(code), 'BA Gudang (' + (res.jenis || '') + ')', (res.site || '') + ' - ' + (res.nomor || ''));
   return res;
 }
-function getBaGudangHistory(code) { requireAccess_(code); return bagHistory_(scopeOf_(code)); }
+function getBaGudangHistory(code) { requireAccess_(code); return bagHistory_(''); }
 
 // ----- Fungsi pemilik -----
 function setupBaGudang() { ownerOnly_(); return setupBaGudang_(); }

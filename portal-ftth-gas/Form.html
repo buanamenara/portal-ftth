@@ -5138,8 +5138,11 @@
           }
           $('bgNote').innerHTML = note;
           $('bgMax').textContent = res.maxItems;
-          $('bgRegion').innerHTML = res.regions.filter(function (r) { return r.ready; }).map(function (r) { return '<option value="' + esc(r.key) + '">' + esc(r.region) + ' (' + esc(r.kode) + ')</option>'; }).join('');
-          $('bgRegion').disabled = res.regions.length <= 1;
+          var readyRegions = res.regions.filter(function (r) { return r.ready; });
+          $('bgRegion').innerHTML = readyRegions.map(function (r) { return '<option value="' + esc(r.key) + '">' + esc(r.region) + ' (' + esc(r.kode) + ')</option>'; }).join('');
+          var defRk = regionKeyClient(res.defaultRegion || '');
+          if (defRk && readyRegions.some(function (r) { return r.key === defRk; })) $('bgRegion').value = defRk;
+          $('bgRegion').disabled = readyRegions.length <= 1;
           $('bgTanggal').value = localYmd_();   // tanggal & jam perangkat ini (zona waktu pengguna)
           $('bgJam').value = localHm_();
           if (!$('bgItems').children.length) { for (var i = 0; i < 5; i++) bgAddRow(); }
