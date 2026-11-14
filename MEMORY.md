@@ -10,7 +10,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 |---|---|---|---|---|
 | waspang | @131 | 2026-11-14 12:36 | cc28d18 | Merge pull request #114 from buanamenara/iris-ingat-kirim |
 | ftth | @264 | 2026-11-14 14:56 | f4be9c2 | Warehouse: Waspang & Admin bisa ganti region di BA Transaksi & Submit BA |
-| gateway | @22 | 2026-11-05 22:46 | - | Tampilan sesuai mockup (tahap 3 lanjutan) |
+| gateway | @23 | 2026-11-14 18:45 | 732cdca | Merge pull request #117 from buanamenara/koordinator |
 <!-- LIVE:END -->
 
 URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Deployment ID ada di
@@ -147,6 +147,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-14 18:45 · **gateway @23** · 732cdca · Merge pull request #117 from buanamenara/koordinator · GitHub Actions
 - 2026-11-14 14:56 · **ftth @264** · f4be9c2 · Warehouse: Waspang & Admin bisa ganti region di BA Transaksi & Submit BA · GitHub Actions
 - 2026-11-14 12:36 · **waspang @131** · cc28d18 · Merge pull request #114 from buanamenara/iris-ingat-kirim · GitHub Actions
 - 2026-11-14 12:18 · **waspang @130** · ad96dca · Merge pull request #112 from buanamenara/iris-stiker-siang · GitHub Actions
