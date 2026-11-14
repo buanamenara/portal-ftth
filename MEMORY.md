@@ -37,13 +37,16 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Tanya IRIS `!iris <pertanyaan>` (alias `!tanya`; live sejak Waspang @125):** `botTanya_` / `botAiData_` / `botAiSite_` /
   `botAiPanggil_` / `botAiCmd_` di `portal-waspang/Kode.gs`. Memakai Groq API (gratis, model bawaan `openai/gpt-oss-120b`).
   Sudah terbukti jalan di WhatsApp (14 Nov 10:33, `iris on` aktif). Panduan API untuk pemilik ada di Drive (bukan di repo).
-- **Stiker IRIS (PR iris-stiker, belum di-merge/deploy):** 6 stiker (halo, siap, mantap, terimakasih, semangat, ingat) dibuat dari
-  emblem resmi, .webp 512x512, di Drive `IRIS - Asisten Proyek BMI/IRIS Stiker`. Apps Script: `iris stiker [<nama> [kirim]]` (admin),
-  perkenalan disusul stiker `halo`. Gateway (`sendJob`) mengirim file webp / `stiker: true` sebagai stiker; **paket portable gateway
-  perlu dibangun ulang dan dipasang di laptop**. Gateway lama mengirim stiker sebagai gambar biasa.
-- **Sapaan IRIS (PR iris-sapa, bertumpuk di atas iris-stiker, belum di-merge/deploy):** pesan grup tanpa `!` yang menyebut "iris" atau
-  men-tag nomor IRIS dijawab sopan + ditanya ada yang bisa dibantu (`botSapa_`). Butuh **gateway baru** (gateway lama hanya meneruskan
-  pesan berawalan `!`); paket portable yang sama dengan stiker.
+- **Stiker + sapaan (live Waspang @128):** `app/gateway.mjs` di laptop gateway (`C:\\Users\\p\\IRIS-Gateway`) diganti versi `main` 14 Nov 11:36
+  (sebelumnya versi 470de70; panel.* sudah sama). Berlaku setelah program gateway ditutup dan dibuka lagi.
+- **Stiker robot iRIS (14 Nov):** 15 desain baru dari Canva (robot berkarakter Iris Yunani, pose sesuai kata). File asli 2048 px harus
+  diunduh pemilik dari Canva (unduhan Canva diblokir dari sesi cloud), lalu diubah ke webp 512 dan disimpan di folder `IRIS Stiker`
+  dengan nama: perkenalan, halo, siap, mantap, terimakasih, semangat, ingat, hatihati, gaspol, laporanmasuk, izincek, siapkomandan,
+  otw, ngopi, wkwk. Sementara folder masih berisi 6 stiker emblem lama.
+- **Stiker otomatis (PR iris-stiker-jadwal, belum di-merge/deploy):** `BOT_STIKER_ATURAN_` + `botStikerJadwal_` / `botStikerLapor_` /
+  `botStikerSapa_`.
+  Di PR yang sama: jadwal `SIANG` 12:00 dan `MALAM` 19:00 (tag tim yang belum lapor).
+  Juga `iris sapa <nama> [| pesan]` (admin): IRIS menyapa anggota (mis. Mahmudi yang menyapa sebelum gateway baru terpasang).
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 
@@ -87,6 +90,13 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   mati = teks tetap. Selalu ditutup petunjuk `!menu` (+ `!iris` bila AI aktif).
 - **Stiker:** disimpan di Drive (bukan di repo), nama file = nama stiker. Folder dicari dari nama `IRIS Stiker` atau Script Property
   `BOT_STIKER_FOLDER`. Stiker baru cukup ditambah ke folder itu (webp 512x512, < 100 KB), tanpa ubah kode.
+- **Pengingat Daily Report:** 12:00 (`SIANG`) dan 19:00 (`MALAM`) hanya dikirim bila ada tim yang belum lapor, men-tag yang belum
+  (`botSore_(now, 'siang'|'malam')`); 17:30 (`SORE`) tetap seperti dulu. Tim = `BOT_TIM` / per grup `botTimGrup_`.
+- **Stiker otomatis:** setelah Today's Plan (Sen/Sab gaspol, Sel/Kam semangat, Rab/Jum hatihati, Minggu tidak), rekap mingguan/bulanan
+  (mantap), 17:30 (ingat bila ada yang belum lapor; terimakasih bila semua sudah), Daily Report pertama per grup per hari (laporanmasuk,
+  `BOT_STIKER_LAPOR_<GRUP>`), perkenalan (perkenalan, cadangan halo), sapaan (kata di pesan). Stiker yang filenya tidak ada dilewati.
+  `BOT_STIKER_OTO = off` mematikan; admin `iris stiker jadwal`, `iris stiker otomatis on|off`. Kunci antrean stiker diberi angka acak
+  supaya tidak bertabrakan.
 - **Backup Drive:** hanya backup terbaru yang disimpan. Perintah `backup bersih` membuang yang lama.
 - **Rekap:** `rekap`, `mingguan [ini|lalu]`, `bulanan [bulan|ini]` terbuka untuk semua anggota, bisa disaring SOW dan kota
   (kolom KOTA di DATA BASE), plus ringkasan `sow` / `kota` / `kota sow`. Kalau hari ini belum ada laporan, `rekap`

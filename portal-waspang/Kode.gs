@@ -469,7 +469,11 @@ function sendWaLinks_(wa, caption, saved) {
 }
 
 function sendDailyReportToWhatsApp_(text, grup) {
-  if (waPcMode_()) return waEnqueue_(text, [], grup);
+  if (waPcMode_()) {
+    var ok = waEnqueue_(text, [], grup);
+    if (ok) try { botStikerLapor_(grup); } catch (e) { console.error('Stiker laporan: ' + e); }
+    return ok;
+  }
   var wa = waConfig_();
   return wa ? waSend_(wa, text) : false;
 }
@@ -635,6 +639,7 @@ function waCmdIsi_(p) {
     if (!p.sebut && !/\biris\b/i.test(text)) return { status: 'success', reply: '' };
     var sapa = botSapa_(p, text);
     p.cmd = sapa ? 'sapa' : '';
+    if (sapa && p.jid) try { botStikerOto_(botStikerSapa_(text), { to: p.jid }, Date.now() + 300); } catch (e) { console.error('Stiker sapa: ' + e); }
     return { status: 'success', reply: sapa ? waText_('✦ ' + sapa) : '' };
   }
   var m = text.match(/^(\S+)\s*([\s\S]*)$/);
@@ -708,6 +713,7 @@ function waCmdIsi_(p) {
       out = botRevisi_(p, owner, arg); break;
     case 'iris': case 'tanya':   // !iris <pertanyaan> = jawaban AI dari data proyek; admin: iris, iris on/off/kuota/model = pengaturan
       if (cmd === 'iris' && BOT_IRIS_KENALAN_.test(arg)) { out = owner ? botPerkenalan_(p, /\bkirim\b/i.test(arg)) : ''; break; }   // khusus admin
+      if (cmd === 'iris' && /^sapa\b/i.test(arg)) { out = owner ? botSapaOrang_(p, arg.replace(/^sapa\s*/i, '')) : ''; if (!out) return { status: 'success', reply: '' }; break; }
       if (cmd === 'iris' && /^(stiker|sticker)\b/i.test(arg)) { out = owner ? botStiker_(p, arg.replace(/^\S+\s*/, '')) : ''; if (!out) return { status: 'success', reply: '' }; break; }
       out = owner && BOT_AI_PENGATURAN_.test(arg) ? botAiCmd_(arg) : botTanya_(p, owner, arg); break;
     case 'setuju':
@@ -797,8 +803,10 @@ var BOT_AI_UMUM_ = ['cluster', 'site', 'fwa', 'uplink', 'mainfeeder', 'subfeeder
 var BOT_SAPA_JEDA_ = 120;
 function botSapa_(p, text) {
   var cache = CacheService.getScriptCache(), kunci = 'sapa_' + String(p.from || p.fromName || 'x').replace(/\W/g, '').slice(-20);
-  if (cache.get(kunci)) return '';
-  cache.put(kunci, '1', BOT_SAPA_JEDA_);
+  if (!BOT_SAPA_PAKSA_) {
+    if (cache.get(kunci)) return '';
+    cache.put(kunci, '1', BOT_SAPA_JEDA_);
+  }
   var props = PropertiesService.getScriptProperties(), nama = String(p.fromName || '').split(/\s*\|\s*|\s+[-•]\s+/)[0].replace(/[*_~`]/g, '').trim();
   var bantu = '> Ketik ' + waKode_('!menu') + ' untuk pilihan' + (props.getProperty('BOT_AI') === 'on' && props.getProperty('GROQ_API_KEY') ? ', atau ' + waKode_('!iris <pertanyaan>') + ' untuk tanya apa saja.' : '.');
   var key = props.getProperty('GROQ_API_KEY');
@@ -821,6 +829,23 @@ function botSapa_(p, text) {
   return 'Halo' + (nama ? ' *' + nama + '*' : '') + ', terima kasih sudah menyapa. 🙏 Ada yang bisa saya bantu?\n\n' + bantu;
 }
 
+// Admin: iris sapa <nama> [| pesannya] = IRIS menyapa anggota yang menyapanya saat gateway belum bisa membaca sapaan.
+// Di grup: dibalas di grup itu. Di chat pribadi: dikirim ke grup utama. Disusul stiker sesuai kata (atau halo).
+function botSapaOrang_(p, arg) {
+  var m = String(arg || '').match(/^([^|]+?)(?:\s*\|\s*([\s\S]+))?$/);
+  if (!m) return 'Tulis nama yang mau disapa, mis. ' + waKode_('iris sapa Mahmudi | salam kenal IRIS');
+  var nama = m[1].trim(), pesan = (m[2] || 'salam kenal iris').trim();
+  BOT_SAPA_PAKSA_ = true;
+  var teks;
+  try { teks = botSapa_({ from: 'admin-' + nama, fromName: nama }, pesan); } finally { BOT_SAPA_PAKSA_ = false; }
+  var tujuan = p.chat === 'group' ? { to: p.jid } : { grup: '' }, t = Date.now();
+  PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + t + '_sapa' + Math.floor(Math.random() * 1e6), JSON.stringify({ t: t, n: 0, last: 0,
+    files: [], to: tujuan.to || '', grup: tujuan.grup || '', mentions: [], text: waText_('✦ ' + teks) }));
+  try { botStikerOto_(botStikerSapa_(pesan), tujuan, t + 300); } catch (e) {}
+  return p.chat === 'group' ? '' : '✅ Sapaan untuk *' + nama + '* dikirim ke grup ' + botGrupNama_('') + '.';
+}
+var BOT_SAPA_PAKSA_ = false;   // iris sapa: lewati jeda per pengirim
+
 // iris perkenalan / perkenalkan / kenalan / kenalkan (+ diri) [kirim]
 var BOT_IRIS_KENALAN_ = /^(perkenal(an|kan)|kenal(an|kan))(\s+diri)?(\s+kirim)?\s*$/i;
 // ---- Karakter IRIS: dipakai di perkenalan (iris perkenalan, khusus admin) dan sebagai kepribadian jawaban AI. ----
@@ -842,7 +867,7 @@ function botPerkenalan_(p, kirim) {
       'dan menjaga proyek tetap terpantau, 24 jam tanpa tidur. 🌈',
     '', '*Yang bisa saya bantu*',
     '- 📝 Meneruskan Daily Report dan foto dokumentasi dari Portal Waspang ke grup',
-    '- ⏰ Today\'s Plan jam 07:00, pengingat laporan jam 17:30, rekap mingguan dan bulanan',
+    '- ⏰ Today\'s Plan jam 07:00, pengingat laporan jam 12:00, 17:30, dan 19:00, rekap mingguan dan bulanan',
     '- 📦 Cek stok gudang, progres site, BA, dan potongan kabel',
     '- 🛡️ Menjaga data: laporan yang hilang dari spreadsheet saya pulihkan otomatis'];
   if (aiAktif) s.push('- 💬 Tanya apa saja, dari progres site sampai bikin draf pesan: ' + waKode_('!iris <pertanyaan>'));
@@ -853,11 +878,12 @@ function botPerkenalan_(p, kirim) {
   var teks = s.join('\n');
   if (p.chat === 'group') return teks;
   if (!kirim) return teks + '\n\n━━━━━━━━━━━━━━━━\n_Pratinjau. Ketik_ ' + waKode_('iris perkenalan kirim') + ' _untuk mengirim ke grup._';
-  var grup = [''].concat(Object.keys(botGrupMap_())), now = Date.now(), halo = botStikerDaftar_()['halo'];
+  var grup = [''].concat(Object.keys(botGrupMap_())), now = Date.now(), dft = botStikerDaftar_(),
+    halo = dft[BOT_STIKER_ATURAN_.kenal] ? BOT_STIKER_ATURAN_.kenal : dft.halo ? 'halo' : '';
   grup.forEach(function (g, i) {
     props.setProperty(WAQ_PREFIX_ + (now + i) + '_kenal' + i, JSON.stringify({ t: now + i, n: 0, last: 0, files: [], to: '', grup: g,
       mentions: [], text: waText_('✦ ' + teks) }));
-    if (halo) botStikerAntre_(halo, 'halo', { grup: g }, now + 50 + i);   // stiker "halo" menyusul pesan perkenalan
+    if (halo) botStikerAntre_(dft[halo], halo, { grup: g }, now + 50 + i);   // stiker perkenalan (atau halo) menyusul pesan perkenalan
   });
   return '✅ Perkenalan IRIS dikirim ke ' + grup.map(function (g) { return 'grup ' + botGrupNama_(g); }).join(' dan ') + '.';
 }
@@ -883,15 +909,21 @@ function botStikerDaftar_() {
 // Antrekan satu stiker. tujuan = {to: jid} atau {grup: kunci grup region ('' = grup utama)}.
 function botStikerAntre_(fileId, nama, tujuan, t) {
   t = t || Date.now();
-  PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + t + '_stiker', JSON.stringify({ t: t, n: 0, last: 0,
+  PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + t + '_stiker' + Math.floor(Math.random() * 1e6), JSON.stringify({ t: t, n: 0, last: 0,
     files: [{ id: fileId, name: nama + '.webp', stiker: true }], to: tujuan.to || '', grup: tujuan.grup || '', mentions: [], text: '' }));
 }
 function botStiker_(p, arg) {
+  var o = String(arg || '').toLowerCase().match(/^(jadwal|otomatis|auto)(?:\s+(on|off|nyala|mati))?\s*$/);
+  if (o) {
+    if (o[2]) PropertiesService.getScriptProperties().setProperty('BOT_STIKER_OTO', /^(on|nyala)$/.test(o[2]) ? 'on' : 'off');
+    return botStikerJadwalTeks_();
+  }
   var daftar = botStikerDaftar_(), nama = Object.keys(daftar).sort(), m = String(arg || '').toLowerCase().match(/^(\S+)(\s+kirim)?\s*$/);
   if (!nama.length) return '🖼️ *Stiker IRIS belum ada.*\n> Simpan file .webp 512×512 di folder Drive ' + waKode_(BOT_STIKER_NAMA_FOLDER_) + '.';
   if (!m || !daftar[m[1]]) {
     return ['🖼️ *Stiker IRIS* (' + nama.length + ')'].concat(nama.map(function (n) { return '- ' + waKode_('iris stiker ' + n); }),
-      ['', '> Di grup: langsung terkirim ke grup itu.', '> Di chat pribadi: dikirim ke sini dulu; tambah ' + waKode_('kirim') + ' untuk ke grup.']).join('\n');
+      ['', '> Di grup: langsung terkirim ke grup itu.', '> Di chat pribadi: dikirim ke sini dulu; tambah ' + waKode_('kirim') + ' untuk ke grup.',
+        '> ' + waKode_('iris stiker jadwal') + ' = kapan stiker dikirim otomatis.']).join('\n');
   }
   var id = daftar[m[1]], now = Date.now();
   if (p.chat === 'group') { botStikerAntre_(id, m[1], { to: p.jid }, now); return ''; }
@@ -899,6 +931,78 @@ function botStiker_(p, arg) {
   var grup = [''].concat(Object.keys(botGrupMap_()));
   grup.forEach(function (g, i) { botStikerAntre_(id, m[1], { grup: g }, now + i); });
   return '✅ Stiker *' + m[1] + '* dikirim ke ' + grup.map(function (g) { return 'grup ' + botGrupNama_(g); }).join(' dan ') + '.';
+}
+
+// ---- Stiker otomatis: kapan stiker dikirim tanpa diminta. Script Property BOT_STIKER_OTO = off mematikan semuanya. ----
+// Nama = nama file di folder Drive "IRIS Stiker" (tanpa .webp). Stiker yang belum ada di folder dilewati saja.
+var BOT_STIKER_ATURAN_ = {
+  kenal: 'perkenalan',                                                   // iris perkenalan kirim (cadangan: halo)
+  pagi: ['', 'gaspol', 'semangat', 'hatihati', 'semangat', 'hatihati', 'gaspol'],   // setelah Today's Plan 07:00, indeks = hari (0 = Minggu)
+  mingguan: 'mantap',                                                    // setelah rekap mingguan Senin
+  bulanan: 'mantap',                                                     // setelah rekap bulanan tanggal 1
+  soreBelum: 'ingat',                                                    // pengingat 17:30 masih ada yang belum lapor
+  soreLengkap: 'terimakasih',                                            // 17:30 semua tim sudah lapor
+  lapor: 'laporanmasuk',                                                 // Daily Report pertama hari itu di tiap grup
+  sapa: [                                                                // balasan sapaan (pesan yang menyebut IRIS), dicek berurutan
+    [/makasih|terima ?kasih|thanks|thank you|\btq\b|tengkyu/i, 'terimakasih'],
+    [/wk|haha|hehe|xixi|lucu|ngakak/i, 'wkwk'],
+    [/kopi|ngopi/i, 'ngopi'],
+    [/\botw\b|berangkat|meluncur|on the way/i, 'otw'],
+    [/semangat|gas\b|gaspol/i, 'semangat'],
+    [/siap|oke|\bok\b|laksanakan/i, 'siapkomandan'],
+    [/cek|periksa|tolong lihat/i, 'izincek'],
+    [/hati-hati|hati hati|aman|safety/i, 'hatihati'],
+    [/mantap|keren|bagus|hebat/i, 'mantap'],
+    [/halo|hai|hallo|salam|kenal|pagi|siang|sore|malam|assalam/i, 'halo']
+  ]
+};
+function botStikerOtoAktif_() { return String(PropertiesService.getScriptProperties().getProperty('BOT_STIKER_OTO') || '').toLowerCase() !== 'off'; }
+// Antrekan stiker otomatis bila aktif dan filenya ada. -> true bila masuk antrean.
+function botStikerOto_(nama, tujuan, t, daftar) {
+  if (!nama || !botStikerOtoAktif_()) return false;
+  daftar = daftar || botStikerDaftar_();
+  var id = daftar[nama];
+  if (!id) return false;
+  botStikerAntre_(id, nama, tujuan, t || Date.now() + 200);
+  return true;
+}
+// Setelah pesan jadwal masuk antrean (botJadwal_). msg = hasil build jadwal, ctx = kunci grup (null/'' = grup utama).
+function botStikerJadwal_(id, msg, now, ctx) {
+  var a = BOT_STIKER_ATURAN_, nama = '';
+  if (id === 'PAGI') nama = a.pagi[Number(botWita_(now, 'u')) % 7];
+  else if (id === 'MINGGU') nama = a.mingguan;
+  else if (id === 'BULAN') nama = a.bulanan;
+  else if (id === 'SORE') nama = (msg.mentions || []).length ? a.soreBelum : /semua tim sudah laporan/i.test(msg.text || '') ? a.soreLengkap : '';
+  return botStikerOto_(nama, { grup: ctx || '' }, Date.now() + 500);
+}
+// Daily Report pertama hari itu di grup ini -> stiker "laporan masuk".
+function botStikerLapor_(grup) {
+  if (!botStikerOtoAktif_()) return false;
+  var props = PropertiesService.getScriptProperties(), k = 'BOT_STIKER_LAPOR_' + String(grup || 'utama').replace(/\W+/g, '').toUpperCase(),
+    hari = botWita_(Date.now(), 'yyyyMMdd');
+  if (props.getProperty(k) === hari) return false;
+  props.setProperty(k, hari);
+  return botStikerOto_(BOT_STIKER_ATURAN_.lapor, { grup: grup || '' }, Date.now() + 500);
+}
+// Stiker untuk balasan sapaan, dipilih dari kata di pesan.
+function botStikerSapa_(text) {
+  var hit = BOT_STIKER_ATURAN_.sapa.filter(function (x) { return x[0].test(String(text || '')); })[0];
+  return hit ? hit[1] : 'halo';
+}
+// Admin: iris stiker jadwal (daftar aturan) | iris stiker otomatis on/off
+function botStikerJadwalTeks_() {
+  var a = BOT_STIKER_ATURAN_, d = botStikerDaftar_(), hari = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+  var n = function (x) { return x ? waKode_(x) + (d[x] ? '' : ' ⚠️') : '-'; };
+  return ['🖼️ *Jadwal stiker otomatis* · ' + (botStikerOtoAktif_() ? '🟢 aktif' : '🔴 mati'),
+    '- *07:00* setelah Today\'s Plan: ' + a.pagi.map(function (x, i) { return x ? hari[i] + ' ' + n(x) : ''; }).filter(Boolean).join(' · '),
+    '- *Senin 07:00* rekap mingguan: ' + n(a.mingguan) + ' · *tgl 1* rekap bulanan: ' + n(a.bulanan),
+    '- *17:30* masih ada yang belum lapor: ' + n(a.soreBelum) + ' · semua sudah lapor: ' + n(a.soreLengkap),
+    '- *Daily Report pertama* hari itu: ' + n(a.lapor),
+    '- *Perkenalan* (iris perkenalan kirim): ' + n(a.kenal),
+    '- *Disapa* (pesan menyebut IRIS): sesuai kata, mis. makasih ' + n('terimakasih') + ', wkwk ' + n('wkwk') + ', ngopi ' + n('ngopi') +
+      ', otw ' + n('otw') + ', siap ' + n('siapkomandan') + ', lainnya ' + n('halo'),
+    '', '> ⚠️ = file stiker belum ada di folder Drive ' + waKode_(BOT_STIKER_NAMA_FOLDER_) + ' (dilewati).',
+    '> ' + waKode_('iris stiker otomatis ' + (botStikerOtoAktif_() ? 'off' : 'on')) + ' untuk ' + (botStikerOtoAktif_() ? 'mematikan' : 'menyalakan') + '.'].join('\n');
 }
 
 function botTanya_(p, owner, arg) {
@@ -1136,7 +1240,9 @@ function botHelp_(owner) {
     '', '⏰ *OTOMATIS KE GRUP*',
     '- *07:00* Today\'s Plan _(permit + implementasi)_',
     '- *07:05* site 3 hari tanpa laporan _(sekali; Senin diulang sampai di-!ok)_',
+    '- *12:00* pengingat siang _(hanya bila ada yang belum lapor, di-tag)_',
     '- *17:30* pengingat Daily Report _(tag yang belum lapor)_',
+    '- *19:00* yang masih belum lapor di-tag lagi',
     '- *Senin 07:00* rekap mingguan · *tgl 1* rekap bulanan',
     '- *Senin 08:00* minta Excel stok WH · *tgl 28* persiapan opname',
     '- Daily Report dicek _(tanggal, Total > Plan)_, BA baru diteruskan'];
@@ -1176,6 +1282,8 @@ function botHelp_(owner) {
     '- ' + A('pulihkan') + ' cek & pulihkan Daily Report / log foto yang hilang (otomatis tiap jam)',
     '- ' + A('iris') + ' status tanya IRIS · ' + A('iris on') + ' ' + A('iris off') + ' · ' + A('iris kuota <n>'),
     '- ' + A('iris stiker') + ' daftar stiker IRIS · ' + A('iris stiker <nama> [kirim]') + ' kirim stiker',
+    '- ' + A('iris stiker jadwal') + ' stiker otomatis · ' + A('iris stiker otomatis on/off'),
+    '- ' + A('iris sapa <nama> [| pesannya]') + ' IRIS menyapa anggota (di chat pribadi: ke grup utama)',
     '- ' + A('iris perkenalan') + ' IRIS memperkenalkan diri _(di grup langsung; di chat pribadi pratinjau, lalu_ ' + A('iris perkenalan kirim') + '_)_',
     '- ' + A('grup') + ' grup WA per region · ' + A('grup pontianak <nama grup>') + ' laporan Pontianak ke grup sendiri',
     '- ' + A('panduan lengkap') + ' PDF semua perintah (ke chat pribadi)']);
@@ -1402,7 +1510,9 @@ function botPengingat_(jid) {
 // Nomor WA tim untuk di-tag disimpan lewat perintah "tim <nama> <nomor>" (nama = PIC di Daily Report).
 var BOT_JADWAL_ = [
   { id: 'PAGI', from: '07:00', until: '10:00', perGrup: true, build: function (now) { return { text: botPagi_(now), mentions: [] }; } },
+  { id: 'SIANG', from: '12:00', until: '14:00', perGrup: true, build: function (now) { return botSore_(now, 'siang'); } },   // hanya bila ada yang belum lapor
   { id: 'SORE', from: '17:30', until: '19:30', perGrup: true, build: function (now) { return botSore_(now); } },
+  { id: 'MALAM', from: '19:00', until: '21:00', perGrup: true, build: function (now) { return botSore_(now, 'malam'); } },   // hanya bila masih ada yang belum
   { id: 'STOK', from: '07:00', until: '10:00', build: function (now) { return { text: botStokMenipis_(Number(botWita_(now, 'u')) === 1), to: botOwnerJid_() }; } },   // Senin: daftar lengkap
   { id: 'MINGGU', from: '07:00', until: '10:00', day: 1, perGrup: true, build: function (now) { return { text: botMingguan_(now) }; } },
   { id: 'BULAN', from: '07:00', until: '10:00', date: 1, perGrup: true, build: function (now) { return { text: botBulanan_(now) }; } },
@@ -1437,6 +1547,7 @@ function botJadwal_() {
           if (!msg || !msg.text) return;
           if (ctx) msg.grup = ctx;
           waAntreBagian_(waPecah_(waText_(msg.text)), msg, '_' + j.id.toLowerCase() + (ctx ? '_' + ctx.toLowerCase().replace(/\W+/g, '') : ''));   // pesan panjang (rekap bulanan) jadi beberapa bagian
+          if (!msg.to) try { botStikerJadwal_(j.id, msg, now, ctx); } catch (e) { console.error('Stiker jadwal ' + j.id + ': ' + e); }
         } catch (e) {
           console.error('Jadwal bot ' + j.id + (ctx ? ' (' + ctx + ')' : '') + ': ' + e);
         } finally {
@@ -1564,7 +1675,8 @@ function botSoreKirim_() {
   return 'Pengingat laporan dikirim ke grup' + (msg.mentions.length ? ', ' + msg.mentions.length + ' orang di-tag.' : '. Semua tim sudah lapor, tidak ada yang di-tag.');
 }
 
-function botSore_(now) {
+// jenis: (kosong) = 17:30 lengkap dengan daftar yang sudah; 'siang' (12:00) dan 'malam' (19:00) = hanya bila ada yang belum lapor.
+function botSore_(now, jenis) {
   var day = botWita_(now, 'dd/MM/yyyy'), tim = botTimGrup_(BOT_GRUP_CTX_);
   var pics = botDailyRows_().filter(function (r) { return r.day === day || r.sent === day; })
     .map(function (r) { return r.pic.toLowerCase(); }).filter(Boolean);
@@ -1573,6 +1685,16 @@ function botSore_(now) {
     var k = n.toLowerCase();
     (pics.some(function (p) { return p.indexOf(k) >= 0 || k.indexOf(p) >= 0; }) ? sudah : belum).push(n);
   });
+  if (jenis && !belum.length) return { text: '', mentions: [] };   // siang / malam: semua sudah lapor (atau belum ada tim) = tidak ada pesan
+  if (jenis === 'siang') return { text: ['🕛 *Pengingat Siang* · ' + day,
+    '> Siang tim! Daily Report hari ini belum masuk. Kalau sempat, kirim progres pagi lewat Portal Waspang ya. 🙏', '',
+    '*Belum laporan* (' + belum.length + ')'].concat(belum.map(function (n) { return '- @' + tim[n]; })).join('\n'),
+    mentions: belum.map(function (n) { return tim[n]; }) };
+  if (jenis === 'malam') return { text: ['🕖 *Daily Report Belum Masuk* · ' + day,
+    '> Sudah jam 19:00, laporan berikut belum masuk. Mohon segera dikirim lewat Portal Waspang. 🙏', '',
+    '*Belum laporan* (' + belum.length + ')'].concat(belum.map(function (n) { return '- @' + tim[n]; }),
+    sudah.length ? ['', '*Sudah laporan* (' + sudah.length + '): ' + sudah.join(', ')] : []).join('\n'),
+    mentions: belum.map(function (n) { return tim[n]; }) };
   var s = ['⏰ *Pengingat Laporan Harian* · ' + day, '> Mohon kirim Daily Report hari ini lewat Portal Waspang sebelum pulang.'];
   if (belum.length) s = s.concat(['', '*Belum laporan* (' + belum.length + ')'], belum.map(function (n) { return '- @' + tim[n]; }));
   if (sudah.length) s.push('', '*Sudah laporan* (' + sudah.length + '): ' + sudah.join(', ') + ' 🙏');
@@ -2325,7 +2447,9 @@ var BOT_PANDUAN_TIM_ = [
 var BOT_PANDUAN_JADWAL_ = [
   ['07:00', 'Setiap hari', "Today's Plan (permit + implementasi)"],
   ['07:05', 'Setiap hari', 'Site aktif 3 hari tanpa laporan, PIC di-tag sekali (Senin: diulang untuk yang belum di-!ok)'],
+  ['12:00', 'Setiap hari', 'Pengingat siang, hanya bila ada tim yang belum mengirim Daily Report (di-tag)'],
   ['17:30', 'Setiap hari', 'Pengingat Daily Report, yang belum lapor di-tag'],
+  ['19:00', 'Setiap hari', 'Yang masih belum mengirim Daily Report di-tag lagi (tidak dikirim bila semua sudah)'],
   ['07:00', 'Senin', 'Rekap mingguan'],
   ['08:00', 'Senin', 'Tim WH diminta kirim Excel stok (!stokwh)'],
   ['07:00', 'Tanggal 1', 'Rekap bulanan + tagih file stok opname'],
@@ -2365,6 +2489,8 @@ var BOT_PANDUAN_ADMIN_ = [
   ['grup', 'Grup WhatsApp per region. ' + '<b>grup pontianak &lt;nama grup WA&gt;</b>: laporan, cek, BA, revisi, Today\'s Plan, pengingat 17:30, rekap Senin / tanggal 1, dan site tanpa laporan untuk site region Pontianak dikirim ke grup itu; region lain tetap ke grup utama. Perintah dari grup region (rekap, mingguan, bulanan) otomatis hanya region itu, tambah <b>semua</b> untuk semua region. <b>grup pontianak pic &lt;nama&gt;</b> = PIC Today\'s Plan; <b>grup pontianak tim &lt;nama&gt;</b> = pindahkan anggota tim yang di-tag 17:30 (bawaan: dari site yang paling sering dilaporkan). <b>grup pontianak hapus</b> = kembali satu grup.', 'grup | grup pontianak Report Pontianak'],
   ['pulihkan', 'Setiap Daily Report dan log foto juga disalin ke tab JURNAL WASPANG (spreadsheet LOG ARSIP). Tiap jam IRIS mencocokkan jurnal dengan spreadsheet Waspang; baris yang hilang (mis. versi spreadsheet dikembalikan) ditulis lagi otomatis dan admin diberi tahu. Perintah ini menjalankan pengecekan sekarang. Laporan yang memang mau dihapus: pakai revisi &lt;site&gt; lalu revisi hapus.', 'pulihkan'],
   ['iris [on | off | kuota &lt;n&gt; | model &lt;id&gt;]', 'Tanya IRIS (!iris, AI). iris = status dan pemakaian hari ini. iris on butuh Script Property GROQ_API_KEY (kunci dari console.groq.com). Kuota bawaan 500 pertanyaan per hari (batas gratis Groq sekitar 1.000 per hari).', 'iris | iris on | iris off | iris kuota 800'],
+  ['iris sapa &lt;nama&gt; [| pesannya]', 'IRIS menyapa anggota grup, mis. yang menyapa IRIS saat gateway belum bisa membaca sapaan. Di grup dibalas di grup itu; di chat pribadi dikirim ke grup utama. Disusul stiker sesuai kata.', 'iris sapa Mahmudi | salam kenal IRIS'],
+  ['iris stiker jadwal / otomatis on|off', 'Stiker otomatis: setelah Today\'s Plan 07:00 (Senin/Sabtu gaspol, Selasa/Kamis semangat, Rabu/Jumat hatihati), rekap mingguan dan bulanan (mantap), 17:30 (ingat bila ada yang belum lapor, terimakasih bila semua sudah), Daily Report pertama tiap grup per hari (laporanmasuk), perkenalan (perkenalan), dan saat IRIS disapa (sesuai kata: makasih, wkwk, ngopi, otw, siap, ...). Stiker yang filenya belum ada dilewati.', 'iris stiker jadwal | iris stiker otomatis off'],
   ['iris stiker [&lt;nama&gt; [kirim]]', 'Stiker IRIS dari folder Drive IRIS Stiker (file .webp). iris stiker = daftar. Di grup langsung terkirim ke grup itu; di chat pribadi dikirim ke chat itu dulu, tambah kirim untuk ke grup utama dan grup region. Perkenalan (iris perkenalan kirim) otomatis disusul stiker halo bila ada.', 'iris stiker | iris stiker mantap | iris stiker halo kirim'],
   ['iris perkenalan [kirim]', 'IRIS memperkenalkan diri (siapa IRIS, asal nama, apa yang bisa dibantu, cara pakai). Diketik di grup = langsung tampil di grup itu. Di chat pribadi = pratinjau; iris perkenalan kirim = dikirim ke grup utama dan grup region. Hanya admin.', 'iris perkenalan | iris perkenalan kirim'],
   ['backup bersih', 'Backup lama di Drive (folder Backup Portal BMI dan BMI-FTTH Backup) dipindah ke Sampah, hanya yang terbaru per spreadsheet disisakan. Otomatis juga tiap kali backup mingguan jalan.', 'backup bersih'],
@@ -3410,7 +3536,7 @@ function botBackupBersih_() {
 // Pasang sekali dari editor Apps Script: jalankan pasangAlarmGateway lalu setujui izin (trigger + kirim email).
 // status [gateway] : ringkasan untuk admin. Balasan ini sendiri lewat laptop gateway, jadi kalau bot menjawab berarti gateway hidup;
 // kalau gateway mati bot diam dan yang memberi tahu adalah email alarm (cekGatewayBot).
-var BOT_JADWAL_NAMA_ = { PAGI: "Today's Plan", SORE: 'Pengingat Daily Report', STOK: 'Stok menipis (admin)', MINGGU: 'Rekap mingguan',
+var BOT_JADWAL_NAMA_ = { PAGI: "Today's Plan", SIANG: 'Pengingat siang (bila ada yang belum)', SORE: 'Pengingat Daily Report', MALAM: 'Tag yang belum lapor 19:00', STOK: 'Stok menipis (admin)', MINGGU: 'Rekap mingguan',
   BULAN: 'Rekap bulanan', MANGKRAK: 'Site tanpa laporan', BOQ: 'BOQ melebihi Plan (admin)', WH: 'Pengingat tim WH', WHBASI: 'Cek Excel WH basi (admin)' };
 
 function botStatus_() {
