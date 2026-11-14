@@ -702,6 +702,7 @@ function waCmdIsi_(p) {
       out = botRevisi_(p, owner, arg); break;
     case 'iris': case 'tanya':   // !iris <pertanyaan> = jawaban AI dari data proyek; admin: iris, iris on/off/kuota/model = pengaturan
       if (cmd === 'iris' && BOT_IRIS_KENALAN_.test(arg)) { out = owner ? botPerkenalan_(p, /\bkirim\b/i.test(arg)) : ''; break; }   // khusus admin
+      if (cmd === 'iris' && /^(stiker|sticker)\b/i.test(arg)) { out = owner ? botStiker_(p, arg.replace(/^\S+\s*/, '')) : ''; if (!out) return { status: 'success', reply: '' }; break; }
       out = owner && BOT_AI_PENGATURAN_.test(arg) ? botAiCmd_(arg) : botTanya_(p, owner, arg); break;
     case 'setuju':
       out = owner && p.chat !== 'group' ? botStokWhSetuju_(p.fromName || p.from) : ''; break;
@@ -817,12 +818,52 @@ function botPerkenalan_(p, kirim) {
   var teks = s.join('\n');
   if (p.chat === 'group') return teks;
   if (!kirim) return teks + '\n\n━━━━━━━━━━━━━━━━\n_Pratinjau. Ketik_ ' + waKode_('iris perkenalan kirim') + ' _untuk mengirim ke grup._';
-  var grup = [''].concat(Object.keys(botGrupMap_())), now = Date.now();
+  var grup = [''].concat(Object.keys(botGrupMap_())), now = Date.now(), halo = botStikerDaftar_()['halo'];
   grup.forEach(function (g, i) {
     props.setProperty(WAQ_PREFIX_ + (now + i) + '_kenal' + i, JSON.stringify({ t: now + i, n: 0, last: 0, files: [], to: '', grup: g,
       mentions: [], text: waText_('✦ ' + teks) }));
+    if (halo) botStikerAntre_(halo, 'halo', { grup: g }, now + 50 + i);   // stiker "halo" menyusul pesan perkenalan
   });
   return '✅ Perkenalan IRIS dikirim ke ' + grup.map(function (g) { return 'grup ' + botGrupNama_(g); }).join(' dan ') + '.';
+}
+
+// ---- Stiker IRIS: file .webp (512x512) di folder Drive "IRIS Stiker" (atau Script Property BOT_STIKER_FOLDER = ID folder). ----
+// Nama file tanpa .webp = nama stiker (halo, mantap, terimakasih, ...). Gateway mengirim file webp sebagai stiker WhatsApp;
+// gateway lama mengirimnya sebagai gambar biasa. Admin: iris stiker (daftar), iris stiker <nama> [kirim].
+var BOT_STIKER_NAMA_FOLDER_ = 'IRIS Stiker';
+function botStikerDaftar_() {
+  var out = {}, folder = null, id = PropertiesService.getScriptProperties().getProperty('BOT_STIKER_FOLDER');
+  try {
+    if (id) folder = DriveApp.getFolderById(id);
+    else { var it = DriveApp.getFoldersByName(BOT_STIKER_NAMA_FOLDER_); if (it.hasNext()) folder = it.next(); }
+    if (!folder) return out;
+    var files = folder.getFiles();
+    while (files.hasNext()) {
+      var f = files.next(), n = f.getName();
+      if (/\.webp$/i.test(n)) out[n.replace(/\.webp$/i, '').toLowerCase()] = f.getId();
+    }
+  } catch (e) { console.log('Stiker: ' + e); }
+  return out;
+}
+// Antrekan satu stiker. tujuan = {to: jid} atau {grup: kunci grup region ('' = grup utama)}.
+function botStikerAntre_(fileId, nama, tujuan, t) {
+  t = t || Date.now();
+  PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + t + '_stiker', JSON.stringify({ t: t, n: 0, last: 0,
+    files: [{ id: fileId, name: nama + '.webp', stiker: true }], to: tujuan.to || '', grup: tujuan.grup || '', mentions: [], text: '' }));
+}
+function botStiker_(p, arg) {
+  var daftar = botStikerDaftar_(), nama = Object.keys(daftar).sort(), m = String(arg || '').toLowerCase().match(/^(\S+)(\s+kirim)?\s*$/);
+  if (!nama.length) return '🖼️ *Stiker IRIS belum ada.*\n> Simpan file .webp 512×512 di folder Drive ' + waKode_(BOT_STIKER_NAMA_FOLDER_) + '.';
+  if (!m || !daftar[m[1]]) {
+    return ['🖼️ *Stiker IRIS* (' + nama.length + ')'].concat(nama.map(function (n) { return '- ' + waKode_('iris stiker ' + n); }),
+      ['', '> Di grup: langsung terkirim ke grup itu.', '> Di chat pribadi: dikirim ke sini dulu; tambah ' + waKode_('kirim') + ' untuk ke grup.']).join('\n');
+  }
+  var id = daftar[m[1]], now = Date.now();
+  if (p.chat === 'group') { botStikerAntre_(id, m[1], { to: p.jid }, now); return ''; }
+  if (!m[2]) { botStikerAntre_(id, m[1], { to: p.jid }, now); return '🖼️ Pratinjau stiker *' + m[1] + '* menyusul. Ketik ' + waKode_('iris stiker ' + m[1] + ' kirim') + ' untuk ke grup.'; }
+  var grup = [''].concat(Object.keys(botGrupMap_()));
+  grup.forEach(function (g, i) { botStikerAntre_(id, m[1], { grup: g }, now + i); });
+  return '✅ Stiker *' + m[1] + '* dikirim ke ' + grup.map(function (g) { return 'grup ' + botGrupNama_(g); }).join(' dan ') + '.';
 }
 
 function botTanya_(p, owner, arg) {
@@ -1066,6 +1107,7 @@ function botHelp_(owner) {
     '- ' + A('backup') + ' backup spreadsheet sekarang · ' + A('backup bersih') + ' buang backup lama',
     '- ' + A('pulihkan') + ' cek & pulihkan Daily Report / log foto yang hilang (otomatis tiap jam)',
     '- ' + A('iris') + ' status tanya IRIS · ' + A('iris on') + ' ' + A('iris off') + ' · ' + A('iris kuota <n>'),
+    '- ' + A('iris stiker') + ' daftar stiker IRIS · ' + A('iris stiker <nama> [kirim]') + ' kirim stiker',
     '- ' + A('iris perkenalan') + ' IRIS memperkenalkan diri _(di grup langsung; di chat pribadi pratinjau, lalu_ ' + A('iris perkenalan kirim') + '_)_',
     '- ' + A('grup') + ' grup WA per region · ' + A('grup pontianak <nama grup>') + ' laporan Pontianak ke grup sendiri',
     '- ' + A('panduan lengkap') + ' PDF semua perintah (ke chat pribadi)']);
@@ -2255,6 +2297,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['grup', 'Grup WhatsApp per region. ' + '<b>grup pontianak &lt;nama grup WA&gt;</b>: laporan, cek, BA, revisi, Today\'s Plan, pengingat 17:30, rekap Senin / tanggal 1, dan site tanpa laporan untuk site region Pontianak dikirim ke grup itu; region lain tetap ke grup utama. Perintah dari grup region (rekap, mingguan, bulanan) otomatis hanya region itu, tambah <b>semua</b> untuk semua region. <b>grup pontianak pic &lt;nama&gt;</b> = PIC Today\'s Plan; <b>grup pontianak tim &lt;nama&gt;</b> = pindahkan anggota tim yang di-tag 17:30 (bawaan: dari site yang paling sering dilaporkan). <b>grup pontianak hapus</b> = kembali satu grup.', 'grup | grup pontianak Report Pontianak'],
   ['pulihkan', 'Setiap Daily Report dan log foto juga disalin ke tab JURNAL WASPANG (spreadsheet LOG ARSIP). Tiap jam IRIS mencocokkan jurnal dengan spreadsheet Waspang; baris yang hilang (mis. versi spreadsheet dikembalikan) ditulis lagi otomatis dan admin diberi tahu. Perintah ini menjalankan pengecekan sekarang. Laporan yang memang mau dihapus: pakai revisi &lt;site&gt; lalu revisi hapus.', 'pulihkan'],
   ['iris [on | off | kuota &lt;n&gt; | model &lt;id&gt;]', 'Tanya IRIS (!iris, AI). iris = status dan pemakaian hari ini. iris on butuh Script Property GROQ_API_KEY (kunci dari console.groq.com). Kuota bawaan 500 pertanyaan per hari (batas gratis Groq sekitar 1.000 per hari).', 'iris | iris on | iris off | iris kuota 800'],
+  ['iris stiker [&lt;nama&gt; [kirim]]', 'Stiker IRIS dari folder Drive IRIS Stiker (file .webp). iris stiker = daftar. Di grup langsung terkirim ke grup itu; di chat pribadi dikirim ke chat itu dulu, tambah kirim untuk ke grup utama dan grup region. Perkenalan (iris perkenalan kirim) otomatis disusul stiker halo bila ada.', 'iris stiker | iris stiker mantap | iris stiker halo kirim'],
   ['iris perkenalan [kirim]', 'IRIS memperkenalkan diri (siapa IRIS, asal nama, apa yang bisa dibantu, cara pakai). Diketik di grup = langsung tampil di grup itu. Di chat pribadi = pratinjau; iris perkenalan kirim = dikirim ke grup utama dan grup region. Hanya admin.', 'iris perkenalan | iris perkenalan kirim'],
   ['backup bersih', 'Backup lama di Drive (folder Backup Portal BMI dan BMI-FTTH Backup) dipindah ke Sampah, hanya yang terbaru per spreadsheet disisakan. Otomatis juga tiap kali backup mingguan jalan.', 'backup bersih'],
   ['panduan lengkap', 'PDF ini, selalu dikirim ke chat pribadi admin.', 'panduan lengkap']

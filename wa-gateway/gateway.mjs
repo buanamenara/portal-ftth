@@ -318,7 +318,11 @@ async function sendJob(job) {
     const f = await api({ action: 'WA_FILE', key: job.key, id: files[i].id });
     const buf = Buffer.from(f.base64, 'base64');
     const caption = i === 0 ? (job.text || '') : '';
-    if (/^image\//.test(f.mime)) await sock.sendMessage(jid, { image: buf, caption });
+    // Stiker IRIS (.webp): stiker tidak punya keterangan, jadi teks (bila ada) dikirim dulu sebagai pesan biasa.
+    if (files[i].stiker || f.mime === 'image/webp' || /\.webp$/i.test(f.name || '')) {
+      if (caption) await sock.sendMessage(jid, await withMentions(caption, job.mentions));
+      await sock.sendMessage(jid, { sticker: buf });
+    } else if (/^image\//.test(f.mime)) await sock.sendMessage(jid, { image: buf, caption });
     else await sock.sendMessage(jid, { document: buf, mimetype: f.mime, fileName: f.name, caption });
   }
 }

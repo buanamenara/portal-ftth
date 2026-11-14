@@ -37,6 +37,10 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Tanya IRIS `!iris <pertanyaan>` (alias `!tanya`; live sejak Waspang @125):** `botTanya_` / `botAiData_` / `botAiSite_` /
   `botAiPanggil_` / `botAiCmd_` di `portal-waspang/Kode.gs`. Memakai Groq API (gratis, model bawaan `openai/gpt-oss-120b`).
   Sudah terbukti jalan di WhatsApp (14 Nov 10:33, `iris on` aktif). Panduan API untuk pemilik ada di Drive (bukan di repo).
+- **Stiker IRIS (PR iris-stiker, belum di-merge/deploy):** 6 stiker (halo, siap, mantap, terimakasih, semangat, ingat) dibuat dari
+  emblem resmi, .webp 512x512, di Drive `IRIS - Asisten Proyek BMI/IRIS Stiker`. Apps Script: `iris stiker [<nama> [kirim]]` (admin),
+  perkenalan disusul stiker `halo`. Gateway (`sendJob`) mengirim file webp / `stiker: true` sebagai stiker; **paket portable gateway
+  perlu dibangun ulang dan dipasang di laptop**. Gateway lama mengirim stiker sebagai gambar biasa.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 
@@ -71,6 +75,8 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   stok, BA, potongan) sesuai kata di pertanyaan, membuang nomor HP, lalu AI hanya merangkai jawaban. Bawaan mati (`BOT_AI`),
   kuota `BOT_AI_KUOTA` (bawaan 500/hari; batas gratis Groq sekitar 1.000/hari dan 30/menit; hitungan di `BOT_AI_HARI`, gagal tidak dihitung). Meta AI di WhatsApp tidak dipakai
   karena tidak ada API untuk bot; anggota tetap bisa tag @Meta AI untuk pertanyaan umum.
+- **Stiker:** disimpan di Drive (bukan di repo), nama file = nama stiker. Folder dicari dari nama `IRIS Stiker` atau Script Property
+  `BOT_STIKER_FOLDER`. Stiker baru cukup ditambah ke folder itu (webp 512x512, < 100 KB), tanpa ubah kode.
 - **Backup Drive:** hanya backup terbaru yang disimpan. Perintah `backup bersih` membuang yang lama.
 - **Rekap:** `rekap`, `mingguan [ini|lalu]`, `bulanan [bulan|ini]` terbuka untuk semua anggota, bisa disaring SOW dan kota
   (kolom KOTA di DATA BASE), plus ringkasan `sow` / `kota` / `kota sow`. Kalau hari ini belum ada laporan, `rekap`
