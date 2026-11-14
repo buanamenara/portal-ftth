@@ -4533,6 +4533,15 @@ function clusterTotals_(sh, cluster, keys, sow, optPlan) {
     });
     return sum;
   }
+  function splitLineAmountFor(k) {
+    if (splitItemKey_(k).line) return 0;
+    var sum = 0;
+    Object.keys(amount).forEach(function (x) {
+      var px = splitItemKey_(x);
+      if (px.line && px.base === k) sum += (amount[x] || 0) - (saldoAwal[x] || 0);
+    });
+    return sum;
+  }
 
   rows.forEach(function (r) {
     var act = cAct === undefined ? '' : String(r[cAct] || '').trim();
@@ -4602,7 +4611,7 @@ function clusterTotals_(sh, cluster, keys, sow, optPlan) {
     if (diff > (openBal[k] || 0)) openBal[k] = diff;
   });
   Object.keys(openBal).forEach(function (k) {
-    var extra = corrected[k] ? openBal[k] : Math.max(0, openBal[k] - salAmountFor(k));
+    var extra = corrected[k] ? openBal[k] : Math.max(0, openBal[k] - salAmountFor(k) - splitLineAmountFor(k));
     if (extra) amount[k] = (amount[k] || 0) + extra;
   });
 
