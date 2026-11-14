@@ -61,6 +61,10 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   Perbaikan bug PowerShell case-insensitive (14 Nov): parameter `$warna` di `Wajah()` menimpa tabel `$WARNA` sehingga `ConvertFromString` gagal saat mulai; diganti `$w` di `pet.tpl.ps1` + `pet.ps1`.
   File `app\` di laptop gateway (`gateway.mjs`, `panel.mjs`, `panel.html`, `pet\pet.ps1`) sama dengan `main` ee65014 (dicek 14 Nov 15:46, dipasang 15:44).
   `app\pet\iris.png` di laptop sisa versi lama, tidak dipakai.
+- **Tombol APK di kartu Panduan (PR panduan-apk):** `PortalFTTH.apk` (v1.0, dari pemilik) di akar repo, disajikan GitHub Pages
+  (`https://buanamenara.github.io/portal-ftth/PortalFTTH.apk`). Kartu Panduan di kedua `Form.html` punya tombol "Unduh Aplikasi Android (APK)"
+  (`#guideApk`) di bawah "Unduh PDF Panduan"; disembunyikan bila dibuka dari aplikasi Android (`window.BMIApp`). APK baru: ganti file ini
+  dan naikkan `?v=` di tautan.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 

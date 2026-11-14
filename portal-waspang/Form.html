@@ -1105,6 +1105,12 @@
       background: var(--gold); color: #fff; font-weight: bold; text-decoration: none; font-size: 14.5px;
     }
     #guideDl:hover { background: var(--gold-dark); }
+    #guideApk {
+      display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; padding: 12px 16px;
+      border-radius: 999px; border: 1.5px solid var(--gold); background: #fff; color: var(--gold-dark);
+      font-weight: bold; text-decoration: none; font-size: 14px;
+    }
+    #guideApk:hover { background: #FBF5E6; }
     #guideSheet .hint { font-size: 11.5px; color: #999; text-align: center; margin: 10px 0 0; line-height: 1.4; }
     #guideSheet .glist { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
     #guideSheet .glist li { display: flex; gap: 7px; font-size: 12.5px; color: #555; line-height: 1.4; }
@@ -2711,7 +2717,9 @@
           <p class="desc">Cara memakai Portal FTTH, Portal Waspang, dan spreadsheet, dengan gambar dan alur kerja.</p>
           <div class="meta"><span>31 halaman</span><span>~3 MB</span><span>PDF</span></div>
           <a href="https://buanamenara.github.io/portal-ftth/Panduan_Portal_FTTH.pdf?v=20261113" target="_blank" rel="noopener" id="guideDl">Unduh PDF Panduan</a>
-          <p class="hint">Terbuka di tab baru peramban &mdash; ketuk lama pratinjaunya lalu pilih &ldquo;Simpan ke File&rdquo; bila tidak langsung tersimpan.</p>
+          <a href="https://buanamenara.github.io/portal-ftth/PortalFTTH.apk?v=1.0" target="_blank" rel="noopener" id="guideApk"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/><path d="M12 7v6"/><path d="M9.5 10.5 12 13l2.5-2.5"/></svg>Unduh Aplikasi Android (APK)</a>
+          <script>try { if (window.BMIApp) document.getElementById('guideApk').style.display = 'none'; } catch (e) {}</script>
+          <p class="hint">Terbuka di tab baru peramban &mdash; ketuk lama pratinjaunya lalu pilih &ldquo;Simpan ke File&rdquo; bila tidak langsung tersimpan.<br>Aplikasi Android: izinkan &ldquo;Instal dari sumber tidak dikenal&rdquo; saat memasang.</p>
           <ul class="glist">
             <li>Portal Waspang: Laporan Harian, BOQ Plan dan Dokumentasi, langkah demi langkah.</li>
             <li>Portal FTTH, tampilan di HP, dan alur kerja bergambar.</li>
