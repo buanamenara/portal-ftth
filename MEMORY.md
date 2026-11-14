@@ -9,7 +9,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
 | waspang | @134 | 2026-11-14 19:27 | 7bc6306 | Merge pull request #120 from buanamenara/ba-wa-cepat |
-| ftth | @267 | 2026-11-14 19:22 | f13cb0f | Merge pull request #119 from buanamenara/cari-site |
+| ftth | @268 | 2026-11-14 19:51 | 9fe0398 | Merge pull request #121 from buanamenara/cari-semua |
 | gateway | @23 | 2026-11-14 18:45 | 732cdca | Merge pull request #117 from buanamenara/koordinator |
 <!-- LIVE:END -->
 
@@ -160,6 +160,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-14 19:51 · **ftth @268** · 9fe0398 · Merge pull request #121 from buanamenara/cari-semua · GitHub Actions
 - 2026-11-14 19:27 · **waspang @134** · 7bc6306 · Merge pull request #120 from buanamenara/ba-wa-cepat · GitHub Actions
 - 2026-11-14 19:22 · **ftth @267** · f13cb0f · Merge pull request #119 from buanamenara/cari-site · GitHub Actions
 - 2026-11-14 19:11 · **waspang @133** · 42ac158 · Merge pull request #118 from buanamenara/panduan-apk · GitHub Actions
