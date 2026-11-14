@@ -17,7 +17,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-14 10:30 WITA.*
+*Terakhir diperbarui 2026-11-14 10:25 WITA.*
 - **`main` = yang live (13 Nov 18:01):** PR #96, #97, #98 sudah di-merge. Kode Waspang di `main` sama dengan Waspang @121 (md5 `Kode.gs` 81bb798e). Deploy dari `main` aman.
 - **IRIS Gateway (laptop baru):** belum dipasang. Paket portable terbaru (menu polling) ada di
   Drive `IRIS - Asisten Proyek BMI/IRIS-Gateway-Build/IRIS-Gateway-Portable.zip`. Selama gateway lama masih jalan,
@@ -34,10 +34,9 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   panduan tim 31 halaman (portal, tampilan HP, 6 alur kerja, spreadsheet). Teks kartu panduan di kedua `Form.html`
   (judul, 31 halaman, ~3 MB, `?v=20261113`) baru tampil setelah deploy FTTH dan Waspang berikutnya. Versi lengkap
   (RPM, FORM ATP, Administration, Log History) hanya di Drive, jangan dipasang di repo publik. Panduan Bot IRIS belum diperbarui.
-- **Tanya IRIS `!iris <pertanyaan>` (alias `!tanya`; prototipe PR #106, belum di-merge/deploy):** `botTanya_` / `botAiData_` / `botAiSite_` /
+- **Tanya IRIS `!iris <pertanyaan>` (alias `!tanya`; live sejak Waspang @125, teks balasan dirapikan di PR iris-teks-rapi):** `botTanya_` / `botAiData_` / `botAiSite_` /
   `botAiPanggil_` / `botAiCmd_` di `portal-waspang/Kode.gs`. Memakai Groq API (gratis, model bawaan `openai/gpt-oss-120b`).
-  Setelah deploy: pemilik membuat kunci di console.groq.com, mengisi Script Property `GROQ_API_KEY`, lalu admin ketik `iris on`.
-  Belum diuji dengan Groq sungguhan (hanya tes Node vm dengan stub). Panduan API untuk pemilik dibuat terpisah (bukan di repo).
+  Pemilik sudah mengisi `GROQ_API_KEY` (14 Nov); admin tinggal `iris on`. Belum dipastikan jalan dengan Groq sungguhan di grup. Panduan API untuk pemilik dibuat terpisah (bukan di repo).
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 
@@ -66,7 +65,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Tanya IRIS (AI):** perintah bernama `iris`, bukan `ai` (permintaan pemilik). Admin: `iris` = status, `iris on|off|kuota <n>|model <id>`
   = pengaturan (`BOT_AI_PENGATURAN_`); teks lain setelah `iris` = pertanyaan. AI tidak menghitung angka. IRIS mengambil data dari fungsi perintah yang ada (progres, rekap, mingguan, bulanan,
   stok, BA, potongan) sesuai kata di pertanyaan, membuang nomor HP, lalu AI hanya merangkai jawaban. Bawaan mati (`BOT_AI`),
-  kuota `BOT_AI_KUOTA` (bawaan 100/hari, hitungan di `BOT_AI_HARI`, gagal tidak dihitung). Meta AI di WhatsApp tidak dipakai
+  kuota `BOT_AI_KUOTA` (bawaan 500/hari; batas gratis Groq sekitar 1.000/hari dan 30/menit; hitungan di `BOT_AI_HARI`, gagal tidak dihitung). Meta AI di WhatsApp tidak dipakai
   karena tidak ada API untuk bot; anggota tetap bisa tag @Meta AI untuk pertanyaan umum.
 - **Backup Drive:** hanya backup terbaru yang disimpan. Perintah `backup bersih` membuang yang lama.
 - **Rekap:** `rekap`, `mingguan [ini|lalu]`, `bulanan [bulan|ini]` terbuka untuk semua anggota, bisa disaring SOW dan kota
