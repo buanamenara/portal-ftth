@@ -962,25 +962,59 @@ function siteInRegion_(dbRegion, name, rk, kota) {
   return rk.length >= 4 && regionKey_(name).indexOf(rk) > -1;
 }
 
-function baReadDbSites_(region) {
-  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DATA BASE');
-  if (!sh || sh.getLastRow() < 4) return [];
-  var vals = sh.getRange(4, 1, sh.getLastRow() - 3, 3).getValues(); // A: Region, B: Name, C: SOW
-  // Kolom KOTA (judul di baris 2 atau 3) bila ada: kabupaten/kota site, mis. HULU SUNGAI TENGAH
-  var head = sh.getRange(2, 1, 2, sh.getLastColumn()).getValues(), cK = -1;
-  for (var c = 0; c < head[0].length && cK < 0; c++) {
-    if (normalizeText_(head[0][c]) === 'kota' || normalizeText_(head[1][c]) === 'kota') cK = c + 1;
+var FTTH_DB_VER_KEY_ = 'ftthDbVer_v1';
+var ftthDbSitesMemo_ = null;
+
+function ftthDbVer_() {
+  try {
+    return CacheService.getScriptCache().get(FTTH_DB_VER_KEY_) || '1';
+  } catch (e) {
+    return '1';
   }
-  var kota = cK > 0 ? sh.getRange(4, cK, vals.length, 1).getValues() : null;
-  var out = [], rk = region ? regionKey_(region) : '';
-  vals.forEach(function (r, i) {
-    var n = baClean_(r[1]);
-    if (!n) return;
-    var k = kota ? baClean_(kota[i][0]) : '';
-    if (rk && !siteInRegion_(r[0], n, rk, k)) return;   // kode region: hanya site region itu
-    out.push({ name: n, sow: baClean_(r[2]), region: baClean_(r[0]), kota: k });
-  });
-  return out;
+}
+
+function ftthDbCacheReset_() {
+  ftthDbSitesMemo_ = null;
+  try {
+    var cache = CacheService.getScriptCache();
+    cache.put(FTTH_DB_VER_KEY_, String(Date.now()), 21600);
+    if (typeof SCURVE_BASE_KEY_ !== 'undefined') cache.remove(SCURVE_BASE_KEY_);
+  } catch (e) {}
+}
+
+function baReadDbSites_(region) {
+  var all = ftthDbSitesMemo_;
+  var ver = ftthDbVer_();
+  var cacheKey = 'ftthDbSites_' + ver;
+  if (!all) {
+    try {
+      var hit = CacheService.getScriptCache().get(cacheKey);
+      if (hit) all = JSON.parse(hit);
+    } catch (e) { all = null; }
+  }
+  if (!all) {
+    var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DATA BASE');
+    if (!sh || sh.getLastRow() < 4) return [];
+    var vals = sh.getRange(4, 1, sh.getLastRow() - 3, 3).getValues(); // A: Region, B: Name, C: SOW
+    // Kolom KOTA (judul di baris 2 atau 3) bila ada: kabupaten/kota site, mis. HULU SUNGAI TENGAH
+    var head = sh.getRange(2, 1, 2, sh.getLastColumn()).getValues(), cK = -1;
+    for (var c = 0; c < head[0].length && cK < 0; c++) {
+      if (normalizeText_(head[0][c]) === 'kota' || normalizeText_(head[1][c]) === 'kota') cK = c + 1;
+    }
+    var kota = cK > 0 ? sh.getRange(4, cK, vals.length, 1).getValues() : null;
+    all = [];
+    vals.forEach(function (r, i) {
+      var n = baClean_(r[1]);
+      if (!n) return;
+      var k = kota ? baClean_(kota[i][0]) : '';
+      all.push({ name: n, sow: baClean_(r[2]), region: baClean_(r[0]), kota: k });
+    });
+    try { CacheService.getScriptCache().put(cacheKey, JSON.stringify(all), 300); } catch (e) {}
+  }
+  ftthDbSitesMemo_ = all;
+  var rk = region ? regionKey_(region) : '';
+  if (!rk) return all.slice();
+  return all.filter(function (d) { return siteInRegion_(d.region, d.name, rk, d.kota); });
 }
 
 function baSiteKey_(s) {
@@ -2558,7 +2592,9 @@ function onEdit(e) {
     if (!e || !e.range) return;
     var rg = e.range;
     var sh = rg.getSheet();
-    if (sh.getName() === 'DATA BASE' && rg.getColumn() <= 2) {
+    var shName = sh.getName();
+    if (shName === 'DATA BASE' || shName === 'DASHBOARD') ftthDbCacheReset_();
+    if (shName === 'DATA BASE' && rg.getColumn() <= 2) {
       if (rg.getColumn() <= 1 && rg.getLastRow() >= 5) regSyncChart_();      // kolom Region diubah: sesuaikan jumlah garis Kurva S
       if (rg.getLastColumn() >= 2) dokOnEdit_(sh, rg);
     }
@@ -6964,13 +7000,14 @@ function bagInit_(scope) {
   regions.forEach(function (s) { mandors[s.key] = man[s.key] || []; });
   var known = {};
   all.forEach(function (s) { known[s.key] = true; });
+  var sites = baReadDbSites_(scope);
   var missing = [];
-  baReadDbSites_(scope).forEach(function (d) { var k = regionKey_(d.region); if (k && !known[k] && missing.indexOf(d.region) < 0) missing.push(d.region); });
+  sites.forEach(function (d) { var k = regionKey_(d.region); if (k && !known[k] && missing.indexOf(d.region) < 0) missing.push(d.region); });
   return {
     regions: regions.map(function (s) { return { region: s.region, key: s.key, kode: s.kode, gudang: s.gudang, ready: !!s.kode }; }),
     electric: desig.filter(function (x) { return BAG_ELECTRIC_RE.test(x); }),
     cw: desig.filter(function (x) { return !BAG_ELECTRIC_RE.test(x); }),
-    sites: baReadDbSites_(scope),
+    sites: sites,
     mandors: mandors,
     missingRegions: missing,
     scope: scope || '',
@@ -7559,6 +7596,7 @@ function logHistory_(sumber, user, peran, aksi, detail) {
     var vals = [new Date(), sumber, user || '', peran || '', aksi || '', String(detail || '').slice(0, 500)];
     // appendRow: aman bila Portal Waspang atau pemicu edit menulis di saat yang sama (tidak saling menimpa baris).
     if (sh.getLastRow() >= 4) sh.appendRow(vals); else sh.getRange(5, 1, 1, 6).setValues([vals]);
+    ftthDbCacheReset_();
     var row = sh.getLastRow(), w = Math.min(10, row - 4);
     // Format 10 baris terakhir saja (baris lain bisa ditulis bersamaan oleh pemicu edit/portal lain).
     sh.getRange(row - w + 1, 1, w, 1).setNumberFormat('dd mmm yyyy HH:mm');
@@ -7678,7 +7716,7 @@ function logSheetEdit(e) {
     try {
       var tabName = e.range.getSheet().getName();
       if (label === 'RPM BMI' && tabName === USERS_SHEET_NAME_) usersReset_();   // status/password langsung berlaku
-      if (!label && tabName === 'DASHBOARD') CacheService.getScriptCache().remove(SCURVE_BASE_KEY_);
+      if (!label && (tabName === 'DASHBOARD' || tabName === 'DATA BASE')) ftthDbCacheReset_();
     } catch (x) { /* abaikan */ }
     var who = '';
     try { who = e.user ? e.user.getEmail() : ''; } catch (x) { /* abaikan */ }
@@ -7828,12 +7866,18 @@ function dbFilledCount_(sh, cols) {
   return n;
 }
 function getCheckpointData_(scope) {
+  var rk = scope ? regionKey_(scope) : '';
+  var cpKey = 'ftthCp_' + ftthDbVer_() + '_' + (rk || 'all');
+  try {
+    var cpHit = CacheService.getScriptCache().get(cpKey);
+    if (cpHit) return JSON.parse(cpHit);
+  } catch (e) {}
+
   var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DATA BASE');
   if (!sh || sh.getLastRow() < 5) return [];
   var n = dbFilledCount_(sh, [1, 2]);
   if (!n) return [];
   var vals = sh.getRange(5, 1, n, 32).getValues(); // A..AF
-  var rk = scope ? regionKey_(scope) : '';
   var lastEdit = {};
   var logSh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(LOG_SH);
   if (logSh && logSh.getLastRow() >= 5) {
@@ -7877,6 +7921,7 @@ function getCheckpointData_(scope) {
       }
     });
   });
+  try { CacheService.getScriptCache().put(cpKey, JSON.stringify(out), 300); } catch (e) {}
   return out;
 }
 function getCheckpointData(code) { requireAccess_(code); return getCheckpointData_(scopeOf_(code)); }
@@ -7895,6 +7940,11 @@ var SCURVE_BASE_KEY_ = 'scurveBaseline_v1';
 function buildSCurveData_(code) {
   requireAccess_(code);
   var rkScope = regionKey_(scopeOf_(code));   // akses region: hanya region itu (kosong = semua region)
+  var scKey = 'ftthSc_' + ftthDbVer_() + '_' + (rkScope || 'all');
+  try {
+    var scHit = CacheService.getScriptCache().get(scKey);
+    if (scHit) return JSON.parse(scHit);
+  } catch (e) {}
   var tz = Session.getScriptTimeZone();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var db = ss.getSheetByName('DATA BASE');
@@ -8031,6 +8081,7 @@ function buildSCurveData_(code) {
   }
   res.updated = Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm');
   res.updatedMs = Date.now();   // halaman menampilkannya dengan jam perangkat pengguna
+  try { CacheService.getScriptCache().put(scKey, JSON.stringify(res), 300); } catch (e) {}
   return res;
 }
 // =====================================================================
