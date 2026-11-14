@@ -57,8 +57,8 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   Pose: diam, lambai (klik), ketik di laptop (ditanya), sorak (menjawab), kaki goyang (digeser). Nyala/mati dari menu ⋯ panel
   (`/api/pet`, `st.pet` di `data/state.json`, bawaan mati). Gateway membuka pet (`petJalan`) saat mulai / dinyalakan; pet membaca
   `GET /api/pet` (hanya 127.0.0.1) tiap 0,8 dtk dan menutup diri bila dimatikan atau gateway tidak menjawab 45 dtk. Klik kanan pet:
-  ukuran / Sembunyikan (`/api/pet-mati`). Galat pet ditulis ke `app\pet\pet.log`. Belum diuji di Windows sungguhan.
-  File PR ini sudah dipasang di `app\` laptop gateway (chibi: 14 Nov 13:15; `app\pet\iris.png` lama tidak dipakai lagi); berlaku setelah gateway di-restart.
+  ukuran / Sembunyikan (`/api/pet-mati`). Galat pet ditulis ke `app\pet\pet.log`.
+  Perbaikan bug PowerShell case-insensitive (14 Nov): parameter `$warna` di `Wajah()` menimpa tabel `$WARNA` sehingga `ConvertFromString` gagal saat mulai; diganti `$w` di `pet.tpl.ps1` + `pet.ps1`. Perlu disalin ke `app\pet\pet.ps1` di laptop gateway.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 

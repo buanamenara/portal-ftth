@@ -214,8 +214,8 @@ $MOOD = @{
 }
 $PENUH = @('bulat', 'besar')
 
-function Wajah([string]$mata, [string]$mulut, [string]$warna) {
-  $c = [System.Windows.Media.ColorConverter]::ConvertFromString($WARNA[$warna])
+function Wajah([string]$mata, [string]$mulut, [string]$w) {
+  $c = [System.Windows.Media.ColorConverter]::ConvertFromString($WARNA[$w])
   $b = New-Object System.Windows.Media.SolidColorBrush $c
   $kanan = $mata
   if ($mata -eq 'prompt') { $kanan = 'garis' }
@@ -231,7 +231,7 @@ function Wajah([string]$mata, [string]$mulut, [string]$warna) {
   if ($mulut -eq 'lebar' -or $mulut -eq 'o') { $n.Mouth.Fill = $b } else { $n.Mouth.Fill = $null }
   $n.Glow.Color = $c
   $script:mata = $mata
-  $script:wajah = $mata + '|' + $mulut + '|' + $warna
+  $script:wajah = $mata + '|' + $mulut + '|' + $w
 }
 
 # ---------- Animasi ----------
