@@ -701,7 +701,7 @@ function waCmdIsi_(p) {
     case 'revisi':
       out = botRevisi_(p, owner, arg); break;
     case 'iris': case 'tanya':   // !iris <pertanyaan> = jawaban AI dari data proyek; admin: iris, iris on/off/kuota/model = pengaturan
-      if (cmd === 'iris' && /^perkenalan\b/i.test(arg)) { out = owner ? botPerkenalan_(p, /\bkirim\b/i.test(arg)) : ''; break; }   // khusus admin
+      if (cmd === 'iris' && BOT_IRIS_KENALAN_.test(arg)) { out = owner ? botPerkenalan_(p, /\bkirim\b/i.test(arg)) : ''; break; }   // khusus admin
       out = owner && BOT_AI_PENGATURAN_.test(arg) ? botAiCmd_(arg) : botTanya_(p, owner, arg); break;
     case 'setuju':
       out = owner && p.chat !== 'group' ? botStokWhSetuju_(p.fromName || p.from) : ''; break;
@@ -785,6 +785,8 @@ var BOT_AI_MODEL_ = 'openai/gpt-oss-120b', BOT_AI_KUOTA_ = 500, BOT_AI_BLOK_MAX_
 var BOT_AI_PENGATURAN_ = /^((on|off|nyala|mati|aktif)|kuota\s+\d+|model\s+\S+)?$/i;
 var BOT_AI_UMUM_ = ['cluster', 'site', 'fwa', 'uplink', 'mainfeeder', 'subfeeder', 'hubfeeder', 'jalan', 'desa', 'kec', 'kel', 'line'];
 
+// iris perkenalan / perkenalkan / kenalan / kenalkan (+ diri) [kirim]
+var BOT_IRIS_KENALAN_ = /^(perkenal(an|kan)|kenal(an|kan))(\s+diri)?(\s+kirim)?\s*$/i;
 // ---- Karakter IRIS: dipakai di perkenalan (iris perkenalan, khusus admin) dan sebagai kepribadian jawaban AI. ----
 var BOT_IRIS_KARAKTER_ = [
   'Namamu IRIS, Asisten Proyek BMI: rekan kerja digital tim proyek FTTH PT Buana Menara Indonesia di grup WhatsApp.',
@@ -842,7 +844,7 @@ function botTanya_(p, owner, arg) {
   q.n++;
   props.setProperty('BOT_AI_HARI', JSON.stringify(q));
   var tanya = String(arg).replace(/\s+/g, ' ').trim(), cek = data.sites.length ? waKode_(g + 'progres ' + data.sites[0].name.toLowerCase()) : waKode_(g + 'bantu');
-  return ['*IRIS menjawab*', '> _' + (tanya.length > 120 ? tanya.slice(0, 117) + '...' : tanya).replace(/[_*]/g, '') + '_', '', res.teks, '',
+  return ['*iRIS*', '> _' + (tanya.length > 120 ? tanya.slice(0, 117) + '...' : tanya).replace(/[_*]/g, '') + '_', '', res.teks, '',
     '━━━━━━━━━━━━━━━━',
     '📎 _' + (data.sumber.length ? 'Sumber: ' + data.sumber.join(' · ') : 'Tanpa data proyek, dari pengetahuan umum AI') + '_'
   ].concat(data.sumber.length ? ['🔍 _Cek angka:_ ' + cek] : []).join('\n');
