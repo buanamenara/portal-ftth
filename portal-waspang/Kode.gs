@@ -4436,7 +4436,7 @@ function kirimSaran_(payload) {
   var pesan = String(payload.pesan || '').trim().slice(0, 2000);
   if (!pesan) return { status: 'error', message: 'Pesan belum diisi.' };
   var nama = String(payload.nama || '').trim().slice(0, 80);
-  var peran = (s.role === 'rpm' ? 'RPM' : (s.role === 'waspang' ? 'Waspang' : 'Admin')) + ' (Portal Waspang)';
+  var peran = (s.role === 'rpm' ? 'RPM' : (s.role === 'waspang' ? 'Waspang' : (s.role === 'koordinator' ? 'Koordinator' : 'Admin'))) + ' (Portal Waspang)';
   var plain = function (v) { return /^[=+\-@]/.test(v) ? "'" + v : v; };
   var ss = SpreadsheetApp.openById(CONFIG.SARAN_SPREADSHEET_ID);
   var sh = ss.getSheetByName(CONFIG.SARAN_SHEET_NAME);

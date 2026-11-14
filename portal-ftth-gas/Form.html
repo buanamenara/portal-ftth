@@ -2815,7 +2815,7 @@
           </div>
           <div class="row">
             <div><label for="adminRole">Role</label>
-              <select id="adminRole"><option value="admin">Admin</option><option value="waspang">Waspang</option><option value="rpm">RPM</option></select>
+              <select id="adminRole"><option value="admin">Admin</option><option value="waspang">Waspang</option><option value="koordinator">Koordinator</option><option value="rpm">RPM</option></select>
             </div>
             <div><label for="adminArea">Area <span class="opt">(kosong = semua area)</span></label><input type="text" id="adminArea" autocomplete="off" placeholder="Contoh: Banjarmasin"></div>
           </div>
@@ -3126,7 +3126,7 @@
     var USER_NAME = '';
     var PREFETCH = null;   // data Beranda diminta bersamaan dengan cek akses (lihat startPrefetch_)
     function roleShortLabel() {
-      return (ROLE === 'rpm') ? 'RPM' : (ROLE_RAW === 'waspang' ? 'Waspang' : 'Admin');
+      return (ROLE === 'rpm') ? 'RPM' : (ROLE_RAW === 'waspang' ? 'Waspang' : (ROLE_RAW === 'koordinator' ? 'Koordinator' : 'Admin'));
     }
     function accessGet() { try { return localStorage.getItem('bmiAccess') || ''; } catch (e) { return ''; } }
     function accessSet(v) {
@@ -3189,16 +3189,17 @@
       if (!pending) document.body.classList.remove('entering');
       $('logoutLink').style.display = 'block';
       // Portal Waspang dibuka lewat Gateway (?go=waspang) supaya membawa tiket: Waspang mengenali akun RPM untuk edit Total.
-      $('waspangLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'waspang') ? 'block' : 'none';
+      // Koordinator = Admin + Waspang untuk satu region (kolom Area).
+      $('waspangLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'waspang' || ROLE_RAW === 'koordinator') ? 'block' : 'none';
       // Spreadsheet Database: tab baru, untuk RPM, Admin dan Waspang (spreadsheet hanya terbuka bagi akun Google yang diberi akses).
-      $('sheetLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'admin' || ROLE_RAW === 'waspang') ? 'block' : 'none';
+      $('sheetLink').style.display = (ROLE_RAW === 'rpm' || ROLE_RAW === 'admin' || ROLE_RAW === 'waspang' || ROLE_RAW === 'koordinator') ? 'block' : 'none';
       $('navRpm').style.display = (ROLE === 'rpm') ? '' : 'none';
       $('navAdministration').style.display = '';
       $('navLogHistory').style.display = (ROLE === 'rpm') ? '' : 'none';
       document.querySelector('.topbar').classList.add('with-dash');
       $('userAvatar').textContent = USER_NAME ? USER_NAME.charAt(0).toUpperCase() : ((ROLE === 'rpm') ? 'R' : 'A');
       $('userName').textContent = USER_NAME || ((ROLE === 'rpm') ? 'Tim RPM' : 'Tim Admin');
-      $('userSub').textContent = (ROLE === 'rpm') ? 'Regional Project Manager' : (ROLE_RAW === 'waspang' ? 'Waspang' : 'Admin');
+      $('userSub').textContent = (ROLE === 'rpm') ? 'Regional Project Manager' : roleShortLabel();
       $('dashRole').textContent = (roleShortLabel() + ' ' + (USER_NAME || ((ROLE === 'rpm') ? 'Tim RPM' : 'Tim Admin'))).trim();
       $('adminFullPanel').style.display = (ROLE === 'rpm') ? '' : 'none';
       $('adminDesc').textContent = (ROLE === 'rpm') ? 'Kelola user, password, dan hak akses portal.' : 'Ubah password akun Anda sendiri.';
@@ -3330,7 +3331,7 @@
       }
       tb.innerHTML = rows.map(function (u) {
         var statusBadge = '<span class="badge ' + (u.status === 'nonaktif' ? 'drop' : 'done') + '">' + (u.status === 'nonaktif' ? 'Nonaktif' : 'Aktif') + '</span>';
-        return '<tr><td>' + esc(u.username) + '</td><td>' + esc(u.nama) + '</td><td>' + (u.role === 'rpm' ? 'RPM' : (u.role === 'waspang' ? 'Waspang' : 'Admin')) + '</td><td>' + (u.area ? esc(u.area) : '<span class="opt">Semua area</span>') + '</td><td>' + statusBadge + '</td>' +
+        return '<tr><td>' + esc(u.username) + '</td><td>' + esc(u.nama) + '</td><td>' + (u.role === 'rpm' ? 'RPM' : (u.role === 'waspang' ? 'Waspang' : (u.role === 'koordinator' ? 'Koordinator' : 'Admin'))) + '</td><td>' + (u.area ? esc(u.area) : '<span class="opt">Semua area</span>') + '</td><td>' + statusBadge + '</td>' +
           '<td style="white-space:nowrap"><button type="button" class="small" data-act="edit" data-u="' + esc(u.username) + '">Edit</button> ' +
           '<button type="button" class="small" data-act="reset" data-u="' + esc(u.username) + '">Reset Password</button> ' +
           '<button type="button" class="small" data-act="toggle" data-u="' + esc(u.username) + '">' + (u.status === 'nonaktif' ? 'Aktifkan' : 'Nonaktifkan') + '</button> ' +

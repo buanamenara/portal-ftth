@@ -1467,6 +1467,8 @@ function hashAccess_(code) {
 }
 
 // Peran dari kode: 'rpm' (super admin: semua menu) atau 'admin' (Submit BOQ + BA Transaksi). '' bila salah.
+// Role di sheet USERS: rpm, admin, waspang, koordinator. Di Portal FTTH waspang dan koordinator mendapat menu admin;
+// koordinator = Admin + Waspang untuk satu region (kolom Area), lewat Gateway membuka Portal FTTH dan Portal Waspang.
 // ===== Sistem login per-user (Username & Password), sheet USERS =====
 function ensureUsersSheet_() {
   var ss = rpmSs_();
@@ -4442,7 +4444,7 @@ function adminAddUser(code, data) {
   if (!/^[A-Za-z0-9_.]{3,30}$/.test(username)) throw new Error('Username hanya boleh huruf, angka, titik, underscore (3-30 karakter).');
   var password = String(data.password || '');
   if (password.length < 4) throw new Error('Password minimal 4 karakter.');
-    var role = (data.role === 'rpm') ? 'rpm' : (data.role === 'waspang' ? 'waspang' : 'admin');
+    var role = (data.role === 'rpm') ? 'rpm' : (data.role === 'waspang' ? 'waspang' : (data.role === 'koordinator' ? 'koordinator' : 'admin'));
   var nama = String(data.nama || '').trim() || username;
   var area = String(data.area || '').trim();
   usersReset_();
@@ -4463,7 +4465,7 @@ function adminUpdateUser(code, username, data) {
   var target = users.filter(function (u) { return u.username.toLowerCase() === String(username || '').trim().toLowerCase(); })[0];
   if (!target) throw new Error('User tidak ditemukan.');
   var nama = data.nama != null ? String(data.nama).trim() : target.nama;
-    var role = data.role === 'rpm' ? 'rpm' : (data.role === 'admin' ? 'admin' : (data.role === 'waspang' ? 'waspang' : target.role));
+    var role = /^(rpm|admin|waspang|koordinator)$/.test(String(data.role || '')) ? String(data.role) : target.role;
   var area = data.area != null ? String(data.area).trim() : target.area;
   var status = data.status === 'nonaktif' ? 'nonaktif' : (data.status === 'aktif' ? 'aktif' : target.status);
   sh.getRange(target.row, 3, 1, 4).setValues([[nama, role, area, status]]);

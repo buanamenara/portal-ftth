@@ -4004,7 +4004,7 @@
       if (!isRpmSession()) isOwnerMode = false;
       renderBoqSummaryTable();
       const dbMenu = document.getElementById('dbMenu');
-      if (dbMenu) dbMenu.style.display = (WS_SESSION && (WS_SESSION.role === 'rpm' || WS_SESSION.role === 'waspang')) ? '' : 'none';
+      if (dbMenu) dbMenu.style.display = (WS_SESSION && (WS_SESSION.role === 'rpm' || WS_SESSION.role === 'waspang' || WS_SESSION.role === 'koordinator')) ? '' : 'none';
       const btn = document.getElementById('btnOwnerModeToggle');
       if (btn) {
         btn.style.display = isRpmSession() ? '' : 'none';
