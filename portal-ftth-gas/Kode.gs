@@ -8671,12 +8671,34 @@ function boqGenPutBom_(bom, inp, rows, sow) {
     var key = cell.r + ':' + cell.c;
     put[key] = { r: cell.r, c: cell.c, q: (put[key] ? put[key].q : 0) + x.q };
   });
+  var clearA1 = [], setByCol = {};
   inp.opts.forEach(function (o) {
     o.cells.forEach(function (c) {
       var w = put[c.r + ':' + c.c];
-      bom.getRange(c.r, c.c).setValue(w ? w.q : '');
-      if (w && w.q) filled++;
+      if (!w) {
+        clearA1.push(boqA1_(c.r, c.c));
+      } else {
+        if (!setByCol[c.c]) setByCol[c.c] = [];
+        setByCol[c.c].push({ r: c.r, q: w.q });
+        if (w.q) filled++;
+      }
     });
+  });
+  if (clearA1.length) bom.getRangeList(clearA1).clearContent();
+  Object.keys(setByCol).forEach(function (colKey) {
+    var col = Number(colKey), list = setByCol[colKey].sort(function (a, b) { return a.r - b.r; });
+    for (var i = 0; i < list.length;) {
+      var j = i;
+      while (j + 1 < list.length && list[j + 1].r === list[j].r + 1) j++;
+      if (j === i) {
+        bom.getRange(list[i].r, col).setValue(list[i].q);
+      } else {
+        var vals = [];
+        for (var k = i; k <= j; k++) vals.push([list[k].q]);
+        bom.getRange(list[i].r, col, vals.length, 1).setValues(vals);
+      }
+      i = j + 1;
+    }
   });
   return filled;
 }
