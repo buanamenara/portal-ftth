@@ -17,8 +17,8 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-14 20:50 WITA.*
-- **`main` = yang live (14 Nov 19:51):** Waspang @135, FTTH @268, Gateway @23 semuanya dari `main` (9fe0398 / 732cdca). Deploy dari `main` aman.
+*Terakhir diperbarui 2026-11-14 21:47 WITA.*
+- **`main` = yang live (14 Nov 20:41):** Waspang @136, FTTH @268, Gateway @23 semuanya dari `main`. Deploy dari `main` aman.
   Satu-satunya PR terbuka lama: #100 (catatan 13 Nov, bentrok di MEMORY.md; sebaiknya ditutup).
 - **IRIS Gateway (laptop baru):** belum dipasang. Paket portable terbaru (menu polling) ada di
   Drive `IRIS - Asisten Proyek BMI/IRIS-Gateway-Build/IRIS-Gateway-Portable.zip`. Selama gateway lama masih jalan,
@@ -73,11 +73,14 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Pencarian daftar (PR cari-semua):** kotak cari riwayat/daftar di Portal FTTH (Project Dashboard, riwayat BOQ, BA, Warehouse, RPM,
   Administration, Log History) memakai `cocokCari(teks, q)` (skrip pertama `portal-ftth-gas/Form.html`): semua kata harus ada, urutan
   bebas, tanda baca diabaikan, "jatibaru" = "jati baru". Tabel Database SOW di Portal Waspang sama; cari cluster Waspang sudah begitu.
-- **Total Daily Report dari server (PR total-server-ulang, belum live):** keluhan 14 Nov: Portal Waspang di iPhone (akun Nazar) menampilkan Total 0,
-  padahal server membalas benar (cluster Uplink OLT Pemurus Seg 2: Pole 7/4 65, Digging 82, Cable 24C 4000). Penyebab yang mungkin: `GET_CLUSTER`
-  gagal diam-diam (sinyal / portal ditinggal ke WA), lalu kolom Total memakai angka di HP (0 di HP baru). Perbaikan di `portal-waspang/Form.html`:
-  `fetchClusterData` batas 25 dtk + coba 3 kali; `sharedTotalsStatus` + kotak `#dailyTotalsWarn` (Memuat... / peringatan + Coba lagi); ambil ulang
-  saat portal dibuka lagi (`visibilitychange`) atau sinyal kembali (`online`); `handleDailySubmit` tidak membuka konfirmasi sebelum Total termuat.
+- **Total Daily Report dari server (PR #123 + perbaikan lanjutan 14 Nov):** keluhan 14 Nov: banyak laporan Daily Report menampilkan Total 0.
+  1. Di `portal-waspang/Form.html`: `fetchClusterData` batas 25 dtk + coba 3 kali; `sharedTotalsStatus` + kotak `#dailyTotalsWarn`; penyimpanan
+     memori (`sharedPlanMem`, `sharedDoneMem`, `sharedTotalsMem`) sebagai cadangan bila `localStorage` diblokir/penuh di iframe iPhone Safari / WebView;
+     pencocokan site saat impor BOQ Excel (`findSiteInWorkbook`) menyertakan petunjuk SOW dari nama file agar BOQ Subfeeder/FWA tidak menimpa Cluster.
+  2. Di `portal-waspang/Kode.gs`: `clusterTotals_` ikut memulihkan saldo awal yang tercatat di `Teks Laporan` / `Ringkasan Pencapaian` lama
+     (serta tab lama `PROGRES TOTAL` / `LOG DAILY REPORT` bila ada) dan item bertanda `Selesai` di `MASTER BOQ CLUSTER` yang belum punya angka
+     di kolom material `DAILY REPORT EMR` (selama belum pernah dikoreksi RPM); `addOpeningBalance_` bekerja per item yang belum pernah tercatat;
+     `sendDailyReportEMR_` menjalankan `recordDailyReport_` lebih dulu dan menyelaraskan angka `<Today>/<Total>/<Plan>` sebelum dikirim ke WhatsApp.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 

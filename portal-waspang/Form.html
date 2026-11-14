@@ -3751,6 +3751,9 @@
       return groups;
     }
 
+    // Salinan di memori halaman: dipakai bila localStorage diblokir/penuh (iframe lintas domain di iPhone Safari / WebView).
+    const sharedPlanMem = {}, sharedDoneMem = {}, sharedTotalsMem = {};
+
     function getClusterItems(clusterName) {
       if (!clusterName) return [];
       const cleanKey = normalizeClusterKey(clusterName);
@@ -3758,8 +3761,8 @@
 
       try {
         const raw = localStorage.getItem(STORAGE_BOQ_CUSTOM + '_' + cleanKey);
-        if (raw) {
-          const parsed = JSON.parse(raw);
+        const parsed = raw ? JSON.parse(raw) : (sharedPlanMem[cleanKey] ? JSON.parse(JSON.stringify(sharedPlanMem[cleanKey])) : null);
+        if (parsed) {
           // Format Array of Items [{ key, name, cat, unit, volume }]
           if (Array.isArray(parsed)) {
             const sanitized = [];
@@ -3880,13 +3883,15 @@
     }
 
     function getPreviousCumulative(clusterName, itemKey) {
-      const raw = localStorage.getItem(STORAGE_PREV_PROGRESS + '_' + clusterName.toLowerCase());
-      if (raw) {
-        try {
+      const ck = normalizeClusterKey(clusterName);
+      try {
+        const raw = localStorage.getItem(STORAGE_PREV_PROGRESS + '_' + ck);
+        if (raw) {
           const prev = JSON.parse(raw);
-          if (prev[itemKey] !== undefined) return prev[itemKey];
-        } catch (e) {}
-      }
+          if (prev && prev[itemKey] !== undefined) return prev[itemKey];
+        }
+      } catch (e) {}
+      if (sharedTotalsMem[ck] && sharedTotalsMem[ck][itemKey] !== undefined) return sharedTotalsMem[ck][itemKey];
       return 0;
     }
 
@@ -3895,19 +3900,22 @@
     const STORAGE_COMPLETED_ITEMS = 'waspang_completed_items_v8';
 
     function isItemMarkedCompleted(cluster, itemKey) {
+      const ck = normalizeClusterKey(cluster);
       try {
-        const raw = localStorage.getItem(STORAGE_COMPLETED_ITEMS + '_' + normalizeClusterKey(cluster));
+        const raw = localStorage.getItem(STORAGE_COMPLETED_ITEMS + '_' + ck);
         if (raw) {
           const obj = JSON.parse(raw);
           return !!obj[itemKey];
         }
       } catch (e) {}
-      return false;
+      return !!(sharedDoneMem[ck] && sharedDoneMem[ck][itemKey]);
     }
 
     function setItemMarkedCompleted(cluster, itemKey, isCompleted) {
+      const cleanKey = normalizeClusterKey(cluster);
+      const mem = sharedDoneMem[cleanKey] || (sharedDoneMem[cleanKey] = {});
+      if (isCompleted) mem[itemKey] = true; else delete mem[itemKey];
       try {
-        const cleanKey = normalizeClusterKey(cluster);
         const raw = localStorage.getItem(STORAGE_COMPLETED_ITEMS + '_' + cleanKey);
         const obj = raw ? JSON.parse(raw) : {};
         if (isCompleted) {
@@ -4221,16 +4229,18 @@
           return { key: it.key, name: it.name || m.name || it.key, cat: it.cat || m.cat || 'Lain-lain',
             unit: it.unit || m.unit || 'pcs', volume: Number(it.volume) || 0 };
         });
+        sharedPlanMem[ck] = items;
         try { localStorage.setItem(STORAGE_BOQ_CUSTOM + '_' + ck, JSON.stringify(items)); } catch (e) {}
       }
       if (plan.doneSet) {
         const obj = {};
         (plan.done || []).forEach(k => { obj[k] = true; });
+        sharedDoneMem[ck] = obj;
         try { localStorage.setItem(STORAGE_COMPLETED_ITEMS + '_' + ck, JSON.stringify(obj)); } catch (e) {}
       } else {
         // Kolom Selesai cluster ini masih kosong di sheet: tanda Selesai yang sudah ada di HP ini dicatat sebagai awal.
-        let local = {};
-        try { local = JSON.parse(localStorage.getItem(STORAGE_COMPLETED_ITEMS + '_' + ck) || '{}') || {}; } catch (e) {}
+        let local = sharedDoneMem[ck] || {};
+        try { local = JSON.parse(localStorage.getItem(STORAGE_COMPLETED_ITEMS + '_' + ck) || '{}') || local; } catch (e) {}
         const keys = Object.keys(local).filter(k => local[k]);
         if (keys.length) postDone(cluster, keys, true);
       }
@@ -4261,10 +4271,12 @@
       return out;
     }
     function applySharedTotals(cluster, totals, noRender) {
-      const storeKey = STORAGE_PREV_PROGRESS + '_' + cluster.toLowerCase();
-      let prev = {};
-      try { prev = JSON.parse(localStorage.getItem(storeKey) || '{}') || {}; } catch (e) {}
+      const ck = normalizeClusterKey(cluster);
+      const storeKey = STORAGE_PREV_PROGRESS + '_' + ck;
+      let prev = Object.assign({}, sharedTotalsMem[ck] || {});
+      try { prev = Object.assign(prev, JSON.parse(localStorage.getItem(storeKey) || '{}') || {}); } catch (e) {}
       Object.keys(totals || {}).forEach(k => { prev[k] = Number(totals[k]) || 0; });
+      sharedTotalsMem[ck] = prev;
       try { localStorage.setItem(storeKey, JSON.stringify(prev)); } catch (e) {}
       if (!noRender && getActiveDailyCluster() === cluster) {
         renderDailyTable();
@@ -4297,11 +4309,16 @@
 
     function saveItemTotalCumulative(cluster, itemKey, totalVal) {
       // Kunci sama dengan getPreviousCumulative supaya angka yang diedit benar-benar terbaca lagi.
-      const storeKey = STORAGE_PREV_PROGRESS + '_' + cluster.toLowerCase();
-      const raw = localStorage.getItem(storeKey);
-      const prev = raw ? JSON.parse(raw) : {};
-      prev[itemKey] = totalVal;
-      localStorage.setItem(storeKey, JSON.stringify(prev));
+      const ck = normalizeClusterKey(cluster);
+      const storeKey = STORAGE_PREV_PROGRESS + '_' + ck;
+      const mem = sharedTotalsMem[ck] || (sharedTotalsMem[ck] = {});
+      mem[itemKey] = totalVal;
+      try {
+        const raw = localStorage.getItem(storeKey);
+        const prev = raw ? JSON.parse(raw) : {};
+        prev[itemKey] = totalVal;
+        localStorage.setItem(storeKey, JSON.stringify(prev));
+      } catch (e) {}
     }
 
     let lastDailyTableCluster = null;
@@ -5090,7 +5107,7 @@ ${todayActivity}`;
       const clusters = {};
       const sheetNames = visibleSheetNames(workbook);
       // Nama cluster dari isi file bila di dalamnya ada nama site DATA BASE; nama file hanya cadangan.
-      const cleanFname = findSiteInWorkbook(workbook) || cleanClusterNameFromFilename(filename || 'CLUSTER_EXCEL');
+      const cleanFname = findSiteInWorkbook(workbook, filename) || cleanClusterNameFromFilename(filename || 'CLUSTER_EXCEL');
       const isCluster = isClusterSow(cleanFname);
 
       // 1. Ekstraksi kabel dari Sheet 1 (Primary BOQ Sheet)
@@ -5600,10 +5617,10 @@ ${todayActivity}`;
     // Site DATA BASE yang paling cocok dengan teks: bagian kata/nomor teks yang ada di nama site (angka bobot dua),
     // tambah 0,05 bila SOW sama, 0,02 kali bagian nama site yang ada di teks (RW 41 lawan RW 30 DAN 41) dan 0,01 bila
     // urutan nomornya sama (membedakan EMR-A_TO_EMR-B dari EMR-B_TO_EMR-A).
-    function scoreDatabaseSites(text) {
+    function scoreDatabaseSites(text, sowHint) {
       const want = boqNameTokens(text);
       if (!want.length) return null;
-      const sow = getSowType(text), nums = want.filter(t => /[0-9]/.test(t));
+      const sow = normSow(sowHint) || getSowType(text), nums = want.filter(t => /[0-9]/.test(t));
       const wt = t => /[0-9]/.test(t) ? 2 : 1;
       let best = null;
       databaseSiteTokens().forEach(s => {
@@ -5625,8 +5642,17 @@ ${todayActivity}`;
     // Nama site yang tertulis di dalam file Excel (sel teks di 40 baris pertama tiap lembar). Dipakai lebih dulu
     // daripada nama file, atas permintaan pemilik portal (12-10-2026). Sel diterima bila hampir seluruh isinya nama
     // site, atau bila seluruh nama site (minimal 4 bobot) ada di dalam kalimat yang lebih panjang.
-    function findSiteInWorkbook(wb) {
+    function findSiteInWorkbook(wb, filename) {
       let best = null;
+      let sowHint = normSow(filename || '');
+      if (!sowHint) {
+        const fn = String(filename || '').toLowerCase();
+        if (fn.includes('subfeeder') || fn.includes('sub feeder') || fn.includes('_sf_')) sowHint = 'Subfeeder';
+        else if (fn.includes('mainfeeder') || fn.includes('main feeder') || fn.includes('main_feeder')) sowHint = 'Mainfeeder';
+        else if (fn.includes('hubfeeder') || fn.includes('hub feeder') || fn.includes('hub_feeder')) sowHint = 'Hubfeeder';
+        else if (fn.includes('[fwa]') || fn.includes('fwa ') || fn.includes('fwa_') || fn.includes('fwa-')) sowHint = 'FWA';
+        else if (fn.includes('uplink') || fn.includes('up link')) sowHint = 'Uplink';
+      }
       visibleSheetNames(wb).slice(0, 6).forEach(sn => {
         const sheet = wb.Sheets[sn];
         if (!sheet || !sheet['!ref']) return;
@@ -5636,7 +5662,7 @@ ${todayActivity}`;
           if (typeof v !== 'string' || v.trim().length < 6) return;
           const parts = v.indexOf(':') >= 0 ? [v, v.slice(v.lastIndexOf(':') + 1)] : [v];
           parts.forEach(t => {
-            const m = scoreDatabaseSites(t);
+            const m = scoreDatabaseSites(t, sowHint);
             if (!m || m.tie || m.hit < 3) return;
             if (!(m.coverage >= 0.8 || (m.siteCov === 1 && m.siteTotal >= 4))) return;
             if (!best || m.score > best.score + 1e-9 || (Math.abs(m.score - best.score) < 1e-9 && m.hit > best.hit)) best = m;
@@ -6303,6 +6329,7 @@ ${todayActivity}`;
     // Plan cluster dihapus dari penyimpanan HP ini (dipakai setelah RPM menghapus, juga saat sheet menandai plan dihapus).
     function forgetLocalBoqPlan(cluster) {
       const k = normalizeClusterKey(cluster);
+      delete sharedPlanMem[k];
       try {
         localStorage.removeItem(STORAGE_BOQ_CUSTOM + '_' + k);
         localStorage.removeItem(STORAGE_BOQ_CUSTOM + '_' + String(cluster).toLowerCase());
