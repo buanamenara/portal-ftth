@@ -4513,8 +4513,25 @@ function clusterTotals_(sh, cluster, keys, sow, optPlan) {
   }
   function curAmountFor(k) {
     var col = materialColumn_(k);
-    if (!col || splitItemKey_(k).line) return amount[k] || 0;
-    return (amount[k] || 0) + (amount['#' + col] || 0);
+    if (!col) return amount[k] || 0;
+    var p = splitItemKey_(k);
+    if (p.line) return (amount[k] || 0) + (amount[p.base] || 0) + (amount['#' + col] || 0);
+    var sum = amount['#' + col] || 0;
+    Object.keys(amount).forEach(function (x) {
+      if (x.charAt(0) !== '#' && materialColumn_(x) === col) sum += amount[x] || 0;
+    });
+    return sum;
+  }
+  function salAmountFor(k) {
+    var col = materialColumn_(k);
+    if (!col) return saldoAwal[k] || 0;
+    var p = splitItemKey_(k);
+    if (p.line) return (saldoAwal[k] || 0) + (saldoAwal[p.base] || 0) + (saldoAwal['#' + col] || 0);
+    var sum = saldoAwal['#' + col] || 0;
+    Object.keys(saldoAwal).forEach(function (x) {
+      if (x.charAt(0) !== '#' && materialColumn_(x) === col) sum += saldoAwal[x] || 0;
+    });
+    return sum;
   }
 
   rows.forEach(function (r) {
@@ -4585,9 +4602,7 @@ function clusterTotals_(sh, cluster, keys, sow, optPlan) {
     if (diff > (openBal[k] || 0)) openBal[k] = diff;
   });
   Object.keys(openBal).forEach(function (k) {
-    var col = materialColumn_(k);
-    var sal = (saldoAwal[k] || 0) + (!splitItemKey_(k).line && col ? (saldoAwal['#' + col] || 0) : 0);
-    var extra = corrected[k] ? openBal[k] : Math.max(0, openBal[k] - sal);
+    var extra = corrected[k] ? openBal[k] : Math.max(0, openBal[k] - salAmountFor(k));
     if (extra) amount[k] = (amount[k] || 0) + extra;
   });
 

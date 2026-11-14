@@ -17,7 +17,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-14 21:47 WITA.*
+*Terakhir diperbarui 2026-11-14 21:52 WITA.*
 - **`main` = yang live (14 Nov 20:41):** Waspang @136, FTTH @268, Gateway @23 semuanya dari `main`. Deploy dari `main` aman.
   Satu-satunya PR terbuka lama: #100 (catatan 13 Nov, bentrok di MEMORY.md; sebaiknya ditutup).
 - **IRIS Gateway (laptop baru):** belum dipasang. Paket portable terbaru (menu polling) ada di
