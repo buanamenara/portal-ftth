@@ -65,6 +65,10 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   (`https://buanamenara.github.io/portal-ftth/PortalFTTH.apk`). Kartu Panduan di kedua `Form.html` punya tombol "Unduh Aplikasi Android (APK)"
   (`#guideApk`) di bawah "Unduh PDF Panduan"; disembunyikan bila dibuka dari aplikasi Android (`window.BMIApp`). APK baru: ganti file ini
   dan naikkan `?v=` di tautan.
+- **Pencarian site/mandor di Portal FTTH (PR cari-site):** semua `<input list>` (site Submit BOQ, Buat BOQ, BA, Warehouse, RPM, FORM ATP,
+  mandor) memakai kotak cari sendiri (`.cari-box`, skrip di akhir `portal-ftth-gas/Form.html`): cocok bila semua kata ada di mana saja
+  (nomor site, nama, kota; tanda baca diabaikan), nama panjang tidak terpotong, kata yang cocok ditandai. Isi tetap dari datalist
+  (diisi kode lain). BA Transaksi: bila site ada di region lain, petunjuk menyebut region itu.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 
