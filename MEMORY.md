@@ -63,7 +63,9 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   sama untuk ketiga menu. Site tanpa Region hanya muncul di "Semua region". Format teks Daily Report tidak diubah.
   Laporan Dokumentasi (caption WA, `buildWaspangPhotoCaption_` + Form.html) menambah baris `🌏 *Region*` bila Region site diketahui.
 - **Tanya IRIS (AI):** perintah bernama `iris`, bukan `ai` (permintaan pemilik). Admin: `iris` = status, `iris on|off|kuota <n>|model <id>`
-  = pengaturan (`BOT_AI_PENGATURAN_`); teks lain setelah `iris` = pertanyaan. AI tidak menghitung angka. IRIS mengambil data dari fungsi perintah yang ada (progres, rekap, mingguan, bulanan,
+  = pengaturan (`BOT_AI_PENGATURAN_`); teks lain setelah `iris` = pertanyaan. IRIS = asisten serba bisa (pilihan pemilik 14 Nov): soal proyek dijawab
+  dari data (maks 12 baris), soal umum (istilah, draf pesan, terjemahan, hitungan) dari pengetahuan AI tanpa internet (maks ~30 baris).
+  AI tidak menghitung angka proyek. IRIS mengambil data dari fungsi perintah yang ada (progres, rekap, mingguan, bulanan,
   stok, BA, potongan) sesuai kata di pertanyaan, membuang nomor HP, lalu AI hanya merangkai jawaban. Bawaan mati (`BOT_AI`),
   kuota `BOT_AI_KUOTA` (bawaan 500/hari; batas gratis Groq sekitar 1.000/hari dan 30/menit; hitungan di `BOT_AI_HARI`, gagal tidak dihitung). Meta AI di WhatsApp tidak dipakai
   karena tidak ada API untuk bot; anggota tetap bisa tag @Meta AI untuk pertanyaan umum.
