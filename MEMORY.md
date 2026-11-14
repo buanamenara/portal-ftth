@@ -23,8 +23,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   dan 1-column pre-scan di `clusterRows_`, serta auto-invalidation saat ada daily report, koreksi RPM, atau sinkronisasi BOQ.
   Di client (`Form.html`), menerapkan strategi Stale-While-Revalidate sehingga tabel tampil seketika (0 ms) dari cache lokal
   dan diperbarui secara mulus di latar belakang. Lihat `PERFORMANCE.md`.
-- **`main` = yang live (14 Nov 20:41):** Waspang @139, FTTH @268, Gateway @23 semuanya dari `main`. Deploy dari `main` aman.
-  Satu-satunya PR terbuka lama: #100 (catatan 13 Nov, bentrok di MEMORY.md; sebaiknya ditutup).
+- **`main` = yang live (15 Nov 01:27):** Waspang @141, FTTH @268, Gateway @23 semuanya dari `main`. Deploy dari `main` aman. Tidak ada PR terbuka (PR #100 sudah ditutup).
 - **IRIS Gateway (laptop baru):** belum dipasang. Paket portable terbaru (menu polling) ada di
   Drive `IRIS - Asisten Proyek BMI/IRIS-Gateway-Build/IRIS-Gateway-Portable.zip`. Selama gateway lama masih jalan,
   `!menu` dibalas daftar teks (fallback), bukan polling. Menu polling belum diuji di grup WhatsApp asli.
