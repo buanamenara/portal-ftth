@@ -109,7 +109,85 @@ function doPost(e) {
 
 // Spreadsheet dan judul kolom dibuka/dibaca sekali per permintaan (satu GET_CLUSTER dulu membuka spreadsheet 2x
 // dan membaca baris judul 4x). Variabel global Apps Script mulai kosong lagi di tiap permintaan.
-var wsSsMemo_ = null, wsHeadMemo_ = {};
+var wsSsMemo_ = null, wsHeadMemo_ = {}, wsSheetMemo_ = {}, wsBoqDataMemo_ = null, wsDailyRowsMemo_ = {};
+
+function getSheetCached_(name, header) {
+  if (wsSheetMemo_[name]) return wsSheetMemo_[name];
+  return (wsSheetMemo_[name] = sheetWithHeader_(name, header));
+}
+
+function clusterCacheKey_(prefix, cluster, sow) {
+  var ck = totalsClusterKey_(cluster || '');
+  var sw = (normSow_(sow) || sowFromId_(cluster) || 'cluster').toLowerCase();
+  return prefix + '_' + ck + '_' + sw;
+}
+
+function getCachedBoqPlan_(cluster, sow) {
+  try {
+    var key = clusterCacheKey_('boq_p', cluster, sow);
+    var raw = CacheService.getScriptCache().get(key);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+
+function putCachedBoqPlan_(cluster, sow, plan) {
+  if (!plan) return;
+  try {
+    var key = clusterCacheKey_('boq_p', cluster, sow);
+    CacheService.getScriptCache().put(key, JSON.stringify(plan), 600); // 10 menit
+  } catch (e) {}
+}
+
+function getCachedClusterTotals_(cluster, sow) {
+  try {
+    var key = clusterCacheKey_('cl_tot', cluster, sow);
+    var raw = CacheService.getScriptCache().get(key);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+
+function putCachedClusterTotals_(cluster, sow, t) {
+  if (!t) return;
+  try {
+    var key = clusterCacheKey_('cl_tot', cluster, sow);
+    CacheService.getScriptCache().put(key, JSON.stringify(t), 300); // 5 menit
+  } catch (e) {}
+}
+
+function getCachedLegacyTotals_(cluster, sow) {
+  try {
+    var key = clusterCacheKey_('leg_tot', cluster, sow);
+    var raw = CacheService.getScriptCache().get(key);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+
+function putCachedLegacyTotals_(cluster, sow, leg) {
+  if (!leg) return;
+  try {
+    var key = clusterCacheKey_('leg_tot', cluster, sow);
+    CacheService.getScriptCache().put(key, JSON.stringify(leg), 21600); // 6 jam
+  } catch (e) {}
+}
+
+function invalidateClusterCache_(cluster, sow) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var ck = totalsClusterKey_(cluster || '');
+    var sw = (normSow_(sow) || sowFromId_(cluster) || 'cluster').toLowerCase();
+    cache.remove('cl_tot_' + ck + '_' + sw);
+    cache.remove('cl_tot_' + ck + '_cluster');
+    cache.remove('cl_tot_' + ck + '_');
+    cache.remove('boq_p_' + ck + '_' + sw);
+    cache.remove('boq_p_' + ck + '_cluster');
+    cache.remove('boq_p_' + ck + '_');
+  } catch (e) {}
+  wsBoqDataMemo_ = null;
+  wsDailyRowsMemo_ = {};
+}
 // Zona waktu HP/PC pengirim: tzOff = menit di depan UTC (dikirim halaman). Tanpa tzOff (halaman lama): zona spreadsheet.
 // -> {id: 'GMT+08:00', label: 'WITA'} untuk Utilities.formatDate dan teks yang dicatat.
 var WS_TZ_ = null, TZ_LABELS_ = { '420': 'WIB', '480': 'WITA', '540': 'WIT' };
@@ -3788,6 +3866,8 @@ function recordDailyReport_(payload) {
     if (!cluster) return { status: 'success', syncedText: syncedText };
     var finalTotals = clusterTotals_(sh, cluster, keys, sow, pObj).totals;
     if (payload.text) syncedText = syncReportTextTotals_(payload.text, finalTotals, pObj);
+    invalidateClusterCache_(cluster, sow);
+    putCachedClusterTotals_(cluster, sow, { found: true, totals: finalTotals });
     return { status: 'success', totals: finalTotals, syncedText: syncedText };
   } finally {
     lock.releaseLock();
@@ -3886,12 +3966,13 @@ function withSites_(out) {
 // Semua HP membaca plan dan status dari sini saat cluster dibuka. Angka material boleh diubah langsung di sheet.
 
 function boqSheet_() {
-  return sheetWithHeader_('MASTER BOQ CLUSTER', MASTER_BOQ_HEADER_);
+  return getSheetCached_('MASTER BOQ CLUSTER', MASTER_BOQ_HEADER_);
 }
 
 function boqData_(sh, h) {
+  if (wsBoqDataMemo_) return wsBoqDataMemo_;
   var last = sh.getLastRow();
-  return last >= 2 ? sh.getRange(2, 1, last - 1, h.width).getValues() : [];
+  return (wsBoqDataMemo_ = last >= 2 ? sh.getRange(2, 1, last - 1, h.width).getValues() : []);
 }
 
 // Indeks baris (di data) untuk Cluster Name + SOW, -1 bila belum ada.
@@ -3914,6 +3995,7 @@ function appendBoqRow_(sh, h, data, name, sow) {
   row[h.idx['sow']] = String(sow || 'Cluster').trim();
   data.push(row);
   sh.getRange(data.length + 1, 1, 1, h.width).setValues([row]);
+  wsBoqDataMemo_ = null;
   return data.length - 1;
 }
 
@@ -3929,6 +4011,7 @@ function writeCells_(sh, rowNum, rowData, cells) {
       if (rowData) rowData[cols[k]] = cells[cols[k]];
     }
     sh.getRange(rowNum, cols[i] + 1, 1, vals.length).setValues([vals]);
+    wsBoqDataMemo_ = null;
     i = j + 1;
   }
 }
@@ -4079,6 +4162,7 @@ function syncMasterBoqToSheet_(clusters) {
       mats.forEach(function (m) { cells[m.idx] = byCol[m.col] || ''; });
       if (cRin !== undefined) cells[cRin] = planRincianText_(items);
       writeCells_(sh, r + 2, data[r], cells);
+      invalidateClusterCache_(name, sow);
     });
 
     return { status: 'success' };
@@ -4108,12 +4192,15 @@ function deleteBoqPlan_(payload) {
     if (r === -1) return { status: 'success', found: false, removedRow: false };
     if (!inDb) {
       sh.deleteRow(r + 2);
+      wsBoqDataMemo_ = null;
+      invalidateClusterCache_(name, sow);
       return { status: 'success', found: true, removedRow: true };
     }
     var cells = {};
     materialCols_(h).forEach(function (m) { cells[m.idx] = ''; });
     if (h.idx['rincian item'] !== undefined) cells[h.idx['rincian item']] = '-';
     writeCells_(sh, r + 2, data[r], cells);
+    invalidateClusterCache_(name, sow);
     return { status: 'success', found: true, removedRow: false };
   } finally {
     lock.releaseLock();
@@ -4122,20 +4209,42 @@ function deleteBoqPlan_(payload) {
 
 // Data satu cluster untuk portal: BOQ Plan + item Selesai (MASTER BOQ CLUSTER) dan Total (DAILY REPORT EMR).
 function getClusterData_(payload) {
+  var t0 = new Date().getTime();
   var name = cleanClusterNameForSync_(payload.name || payload.cluster);
   if (!name) return { status: 'error', message: 'Cluster kosong.' };
-  var plan = boqPlanForCluster_(name, payload.sow, payload.local);
+  var sow = payload.sow || sowFromId_(payload.cluster || name);
+  var clusterKey = payload.cluster || name;
+
+  // Jalur cepat dari cache bila tidak dipaksa (force !== true)
+  if (!payload.force) {
+    var cPlan = getCachedBoqPlan_(name, sow);
+    var cTot = getCachedClusterTotals_(clusterKey, sow);
+    if (cPlan && cTot) {
+      return { status: 'success', plan: cPlan, found: cTot.found, totals: cTot.totals, cached: true, durMs: new Date().getTime() - t0 };
+    }
+  }
+
+  var plan = boqPlanForCluster_(name, sow, payload.local);
   var keys = plan.items.map(function (it) { return it.key; }).concat(payload.keys || []);
-  var t = clusterTotals_(dailySheet_(), payload.cluster || name, keys, payload.sow, plan);
-  return { status: 'success', plan: plan, found: t.found, totals: t.totals };
+  var t = clusterTotals_(dailySheet_(), clusterKey, keys, sow, plan);
+
+  putCachedClusterTotals_(clusterKey, sow, { found: t.found, totals: t.totals });
+  return { status: 'success', plan: plan, found: t.found, totals: t.totals, cached: false, durMs: new Date().getTime() - t0 };
 }
 
 function boqPlanForCluster_(clusterOrName, sow, local) {
   var name = siteName_(clusterOrName);
   if (!name) return { found: false, items: [], done: [], doneSet: false };
+  var cached = getCachedBoqPlan_(name, sow);
+  if (cached && (!local || !local.length)) return cached;
+
   var sh = boqSheet_(), h = sheetHeader_(sh), data = boqData_(sh, h);
   var r = boqRowIndex_(data, h, name, sow || sowFromId_(clusterOrName));
-  return r === -1 ? { found: false, items: [], done: [], doneSet: false } : planFromRow_(h, data[r], local);
+  var res = r === -1 ? { found: false, items: [], done: [], doneSet: false } : planFromRow_(h, data[r], local);
+  if (res && res.found) {
+    putCachedBoqPlan_(name, sow, res);
+  }
+  return res;
 }
 
 // Tandai / buka tanda Selesai (keys = satu atau beberapa item) untuk semua HP.
@@ -4158,6 +4267,7 @@ function setDone_(payload) {
     var cells = {};
     cells[cDone] = cur.length ? cur.join('; ') : '-';
     writeCells_(sh, r + 2, data[r], cells);
+    invalidateClusterCache_(name, sow);
     return { status: 'success', done: cur };
   } finally {
     lock.releaseLock();
@@ -4170,7 +4280,7 @@ function setDone_(payload) {
 // Di portal hanya akun RPM (masuk lewat Gateway) yang boleh mengubah Total; perubahannya dicatat sebagai baris koreksi.
 
 function dailySheet_() {
-  return sheetWithHeader_('DAILY REPORT EMR', DAILY_REPORT_HEADER_);
+  return getSheetCached_('DAILY REPORT EMR', DAILY_REPORT_HEADER_);
 }
 
 function totalsClusterKey_(name) {
@@ -4365,11 +4475,42 @@ function clusterRows_(sh, h, cluster, sow) {
   var ck = totalsClusterKey_(cluster), cName = h.idx['cluster name'], cSow = h.idx['sow'], last = sh.getLastRow();
   if (!ck || cName === undefined || last < 2) return [];
   var want = normSow_(sow) || sowFromId_(cluster);
-  return sh.getRange(2, 1, last - 1, h.width).getValues().filter(function (r) {
+  var memoKey = ck + '|' + (want || '*');
+  if (wsDailyRowsMemo_[memoKey]) return wsDailyRowsMemo_[memoKey];
+
+  // Scan cepat kolom Cluster Name (hanya 1 kolom vertikal) untuk menemukan baris yang cocok
+  var namesCol = sh.getRange(2, cName + 1, last - 1, 1).getValues();
+  var matchRowIndices = [];
+  for (var i = 0; i < namesCol.length; i++) {
+    if (totalsClusterKey_(namesCol[i][0]) === ck) {
+      matchRowIndices.push(i + 2); // 1-based row number
+    }
+  }
+
+  // Jika tidak ada baris sama sekali untuk cluster ini, selesai tanpa membaca seluruh sheet
+  if (!matchRowIndices.length) {
+    return (wsDailyRowsMemo_[memoKey] = []);
+  }
+
+  var minRow = matchRowIndices[0];
+  var maxRow = matchRowIndices[matchRowIndices.length - 1];
+  var span = maxRow - minRow + 1;
+
+  var candidateRows = [];
+  // Jika baris yang cocok berada dalam rentang wajar (<= 150 baris), baca hanya range tersebut
+  if (span <= 150) {
+    candidateRows = sh.getRange(minRow, 1, span, h.width).getValues();
+  } else {
+    candidateRows = sh.getRange(2, 1, last - 1, h.width).getValues();
+  }
+
+  var filtered = candidateRows.filter(function (r) {
     if (totalsClusterKey_(r[cName]) !== ck) return false;
     var rowSow = (cSow === undefined ? '' : normSow_(r[cSow])) || sowFromId_(r[cName]);
     return !want || !rowSow || rowSow === want;
   });
+
+  return (wsDailyRowsMemo_[memoKey] = filtered);
 }
 
 // Baca angka <Today>/<Total>/<Plan> dari Teks Laporan atau Ringkasan Pencapaian lama, mis. "- Pole 7/3 : 0/203/203✅".
@@ -4445,6 +4586,8 @@ var wsLegacyMemo_ = null;
 function legacyTotalsForCluster_(cluster, sow) {
   var ck = totalsClusterKey_(cluster), want = normSow_(sow) || sowFromId_(cluster);
   if (!ck) return {};
+  var cached = getCachedLegacyTotals_(cluster, want);
+  if (cached) return cached;
   if (!wsLegacyMemo_) {
     wsLegacyMemo_ = { byCluster: {} };
     try {
@@ -4490,6 +4633,7 @@ function legacyTotalsForCluster_(cluster, sow) {
     var map = wsLegacyMemo_.byCluster[ck + '|' + sw] || {};
     Object.keys(map).forEach(function (k) { if (map[k] > (out[k] || 0)) out[k] = map[k]; });
   });
+  putCachedLegacyTotals_(cluster, want, out);
   return out;
 }
 
@@ -4856,6 +5000,7 @@ function setTotalByRpm_(payload) {
         'Ringkasan Pencapaian': 'Koreksi Total oleh RPM ' + name + ': ' + (payload.itemName || key) + ' dari ' + cur + ' menjadi ' + total,
         'Today Activity': 'Koreksi Total (RPM)'
       }, by, names);
+      invalidateClusterCache_(payload.cluster, sow);
     }
   } finally {
     lock.releaseLock();
