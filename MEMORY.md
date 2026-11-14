@@ -66,7 +66,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   = pengaturan (`BOT_AI_PENGATURAN_`); teks lain setelah `iris` = pertanyaan. IRIS = asisten serba bisa (pilihan pemilik 14 Nov): soal proyek dijawab
   dari data (maks 12 baris), soal umum (istilah, draf pesan, terjemahan, hitungan) dari pengetahuan AI tanpa internet (maks ~30 baris).
   AI tidak menghitung angka proyek. Karakter IRIS (`BOT_IRIS_KARAKTER_`): nama dari Iris, utusan pembawa pesan dalam mitologi
-  Yunani + iris mata yang mengamati; sigap, teliti, jujur soal data, ramah, memakai "saya". Dipakai di prompt AI dan perkenalan.
+  Yunani + iris mata yang mengamati; sigap, teliti, jujur soal data, ramah, memakai "saya". Dipakai di prompt AI dan perkenalan. Judul jawaban `!iris` = `*iRIS*` (huruf i kecil, permintaan pemilik).
   `iris perkenalan` (khusus admin): di grup langsung tampil; di chat pribadi pratinjau, `iris perkenalan kirim` = ke grup utama + grup region. IRIS mengambil data dari fungsi perintah yang ada (progres, rekap, mingguan, bulanan,
   stok, BA, potongan) sesuai kata di pertanyaan, membuang nomor HP, lalu AI hanya merangkai jawaban. Bawaan mati (`BOT_AI`),
   kuota `BOT_AI_KUOTA` (bawaan 500/hari; batas gratis Groq sekitar 1.000/hari dan 30/menit; hitungan di `BOT_AI_HARI`, gagal tidak dihitung). Meta AI di WhatsApp tidak dipakai

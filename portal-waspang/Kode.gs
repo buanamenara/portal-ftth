@@ -842,7 +842,7 @@ function botTanya_(p, owner, arg) {
   q.n++;
   props.setProperty('BOT_AI_HARI', JSON.stringify(q));
   var tanya = String(arg).replace(/\s+/g, ' ').trim(), cek = data.sites.length ? waKode_(g + 'progres ' + data.sites[0].name.toLowerCase()) : waKode_(g + 'bantu');
-  return ['*IRIS menjawab*', '> _' + (tanya.length > 120 ? tanya.slice(0, 117) + '...' : tanya).replace(/[_*]/g, '') + '_', '', res.teks, '',
+  return ['*iRIS*', '> _' + (tanya.length > 120 ? tanya.slice(0, 117) + '...' : tanya).replace(/[_*]/g, '') + '_', '', res.teks, '',
     '━━━━━━━━━━━━━━━━',
     '📎 _' + (data.sumber.length ? 'Sumber: ' + data.sumber.join(' · ') : 'Tanpa data proyek, dari pengetahuan umum AI') + '_'
   ].concat(data.sumber.length ? ['🔍 _Cek angka:_ ' + cek] : []).join('\n');
