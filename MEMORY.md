@@ -128,6 +128,8 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   `BOT_STIKER_LAPOR_<GRUP>`), perkenalan (perkenalan, cadangan halo), sapaan (kata di pesan). Stiker yang filenya tidak ada dilewati.
   `BOT_STIKER_OTO = off` mematikan; admin `iris stiker jadwal`, `iris stiker otomatis on|off`. Kunci antrean stiker diberi angka acak
   supaya tidak bertabrakan.
+- **BA baru ke grup WA:** `botBaBaru_` (Waspang, dari WA_PULL) mengecek BA TRANSAKSI paling sering tiap `BOT_BA_CEK_DTK_` = 30 dtk
+  (dulu 300 dtk, BA bisa menunggu sampai 5 menit). Perkiraan sampai grup: ± 30-60 dtk setelah BA dibuat.
 - **Backup Drive:** hanya backup terbaru yang disimpan. Perintah `backup bersih` membuang yang lama.
 - **Rekap:** `rekap`, `mingguan [ini|lalu]`, `bulanan [bulan|ini]` terbuka untuk semua anggota, bisa disaring SOW dan kota
   (kolom KOTA di DATA BASE), plus ringkasan `sow` / `kota` / `kota sow`. Kalau hari ini belum ada laporan, `rekap`
