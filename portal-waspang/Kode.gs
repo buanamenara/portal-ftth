@@ -700,10 +700,8 @@ function waCmdIsi_(p) {
       out = botHapusBa_(p, owner, arg); break;
     case 'revisi':
       out = botRevisi_(p, owner, arg); break;
-    case 'tanya':   // jawaban AI dari data proyek (bila admin sudah mengaktifkan: ai on)
-      out = botTanya_(p, owner, arg); break;
-    case 'ai':
-      out = owner ? botAiCmd_(arg) : ''; break;
+    case 'iris': case 'tanya':   // !iris <pertanyaan> = jawaban AI dari data proyek; admin: iris, iris on/off/kuota/model = pengaturan
+      out = owner && BOT_AI_PENGATURAN_.test(arg) ? botAiCmd_(arg) : botTanya_(p, owner, arg); break;
     case 'setuju':
       out = owner && p.chat !== 'group' ? botStokWhSetuju_(p.fromName || p.from) : ''; break;
     case 'batal':
@@ -776,32 +774,33 @@ function botMenuPilih_(p, owner, label) {
   return r;
 }
 
-// ---- !tanya <pertanyaan>: jawaban AI dari data proyek (prototipe, Groq API yang kompatibel OpenAI). ----
+// ---- !iris <pertanyaan> (alias !tanya): jawaban AI dari data proyek (prototipe, Groq API yang kompatibel OpenAI). ----
 // Script Property: GROQ_API_KEY (kunci dari console.groq.com, jangan ditulis di repo), BOT_AI = 'on' | 'off' (bawaan mati),
 // BOT_AI_MODEL (bawaan BOT_AI_MODEL_), BOT_AI_KUOTA (pertanyaan per hari, bawaan BOT_AI_KUOTA_). Hitungan harian di BOT_AI_HARI.
 // Angka tetap dihitung IRIS dengan fungsi perintah yang sudah ada (progres, rekap, stok, BA); AI hanya merangkai jawaban dari
-// data itu. Nomor HP dibuang sebelum data dikirim ke AI. Admin: ai, ai on, ai off, ai kuota <n>, ai model <id>.
+// data itu. Nomor HP dibuang sebelum data dikirim ke AI. Admin: iris, iris on, iris off, iris kuota <n>, iris model <id>.
 var BOT_AI_URL_ = 'https://api.groq.com/openai/v1/chat/completions';
 var BOT_AI_MODEL_ = 'openai/gpt-oss-120b', BOT_AI_KUOTA_ = 100, BOT_AI_BLOK_MAX_ = 5000, BOT_AI_DATA_MAX_ = 12000;
+var BOT_AI_PENGATURAN_ = /^((on|off|nyala|mati|aktif)|kuota\s+\d+|model\s+\S+)?$/i;
 var BOT_AI_UMUM_ = ['cluster', 'site', 'fwa', 'uplink', 'mainfeeder', 'subfeeder', 'hubfeeder', 'jalan', 'desa', 'kec', 'kel', 'line'];
 
 function botTanya_(p, owner, arg) {
   var props = PropertiesService.getScriptProperties(), g = p.chat === 'group' ? '!' : '';
-  if (!arg) return 'Tulis pertanyaannya, mis. ' + waKode_(g + 'tanya kenapa progres lawahan lambat minggu ini?');
+  if (!arg) return 'Tulis pertanyaannya, mis. ' + waKode_(g + 'iris kenapa progres lawahan lambat minggu ini?');
   var key = props.getProperty('GROQ_API_KEY');
   if (!key || props.getProperty('BOT_AI') !== 'on') {
-    return owner ? 'Fitur AI belum aktif. Isi Script Property ' + waKode_('GROQ_API_KEY') + ', lalu ketik ' + waKode_('ai on') + '.'
-      : 'Fitur tanya AI belum diaktifkan admin. Pakai perintah biasa: ' + waKode_(g + 'bantu');
+    return owner ? 'Tanya IRIS belum aktif. Isi Script Property ' + waKode_('GROQ_API_KEY') + ', lalu ketik ' + waKode_('iris on') + '.'
+      : 'Tanya IRIS belum diaktifkan admin. Pakai perintah biasa: ' + waKode_(g + 'bantu');
   }
   var hari = botWita_(Date.now(), 'yyyy-MM-dd'), q = {}, kuota = Number(props.getProperty('BOT_AI_KUOTA')) || BOT_AI_KUOTA_;
   try { q = JSON.parse(props.getProperty('BOT_AI_HARI') || '{}') || {}; } catch (e) {}
   if (q.d !== hari) q = { d: hari, n: 0 };
-  if (q.n >= kuota) return 'Kuota tanya AI hari ini (' + kuota + ' pertanyaan) sudah habis. Coba besok, atau pakai ' + waKode_(g + 'bantu') + '.';
+  if (q.n >= kuota) return 'Kuota tanya IRIS hari ini (' + kuota + ' pertanyaan) sudah habis. Coba besok, atau pakai ' + waKode_(g + 'bantu') + '.';
   var data = botAiData_(arg), res = botAiPanggil_(key, props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_, arg, data.teks);
   if (!res.ok) return res.pesan;
   q.n++;
   props.setProperty('BOT_AI_HARI', JSON.stringify(q));
-  return res.teks + '\n\n_Jawaban AI' + (data.sumber.length ? ' dari data: ' + data.sumber.join(', ') : ', tanpa data proyek') +
+  return res.teks + '\n\n_Dirangkum IRIS (AI)' + (data.sumber.length ? ' dari data: ' + data.sumber.join(', ') : ', tanpa data proyek') +
     '. Cek angka dengan perintah IRIS._';
 }
 
@@ -874,33 +873,33 @@ function botAiPanggil_(key, model, tanya, data) {
   try {
     r = UrlFetchApp.fetch(BOT_AI_URL_, { method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + key },
       payload: JSON.stringify(body), muteHttpExceptions: true });
-  } catch (e) { return { ok: false, pesan: 'AI tidak bisa dihubungi sekarang. Coba lagi sebentar.' }; }
+  } catch (e) { return { ok: false, pesan: 'IRIS belum bisa berpikir sekarang (AI tidak terhubung). Coba lagi sebentar.' }; }
   var code = r.getResponseCode(), j = {};
   try { j = JSON.parse(r.getContentText()) || {}; } catch (e) {}
-  if (code === 429) return { ok: false, pesan: 'Batas gratis AI sedang penuh. Coba lagi beberapa menit lagi.' };
-  if (code === 401 || code === 403) return { ok: false, pesan: 'Kunci AI ditolak. Admin: periksa Script Property GROQ_API_KEY.' };
+  if (code === 429) return { ok: false, pesan: 'Batas gratis AI IRIS sedang penuh. Coba lagi beberapa menit lagi.' };
+  if (code === 401 || code === 403) return { ok: false, pesan: 'Kunci AI IRIS ditolak. Admin: periksa Script Property GROQ_API_KEY.' };
   var msg = code === 200 && j.choices && j.choices[0] && j.choices[0].message, teks = msg ? String(msg.content || '').trim() : '';
   if (!teks) {
     console.log('AI gagal ' + code + ': ' + String(r.getContentText()).slice(0, 300));
-    return { ok: false, pesan: 'AI belum bisa menjawab (kode ' + code + '). Coba lagi, atau pakai perintah biasa.' };
+    return { ok: false, pesan: 'IRIS belum bisa menjawab (kode ' + code + '). Coba lagi, atau pakai perintah biasa.' };
   }
   teks = teks.replace(/\*\*(.+?)\*\*/g, '*$1*').replace(/^#+\s*/gm, '').replace(/`/g, '');
   return { ok: true, teks: teks.slice(0, 3000) };
 }
 
-// Admin: ai | ai on | ai off | ai kuota <n> | ai model <id>
+// Admin: iris | iris on | iris off | iris kuota <n> | iris model <id>
 function botAiCmd_(arg) {
   var props = PropertiesService.getScriptProperties(), a = String(arg || '').trim(), m;
   if (/^(on|nyala|aktif)$/i.test(a)) {
-    if (!props.getProperty('GROQ_API_KEY')) return 'Isi dulu Script Property ' + waKode_('GROQ_API_KEY') + ' (lihat Panduan API IRIS), lalu ketik ' + waKode_('ai on') + '.';
+    if (!props.getProperty('GROQ_API_KEY')) return 'Isi dulu Script Property ' + waKode_('GROQ_API_KEY') + ' (lihat Panduan API IRIS), lalu ketik ' + waKode_('iris on') + '.';
     props.setProperty('BOT_AI', 'on');
   } else if (/^(off|mati)$/i.test(a)) props.setProperty('BOT_AI', 'off');
   else if ((m = a.match(/^kuota\s+(\d+)$/i))) props.setProperty('BOT_AI_KUOTA', String(Math.max(1, Number(m[1]))));
   else if ((m = a.match(/^model\s+(\S+)$/i))) props.setProperty('BOT_AI_MODEL', m[1]);
-  else if (a) return 'Pilihan: ' + ['ai', 'ai on', 'ai off', 'ai kuota 100', 'ai model ' + BOT_AI_MODEL_].map(waKode_).join(' · ');
+  else if (a) return 'Pilihan: ' + ['iris', 'iris on', 'iris off', 'iris kuota 100', 'iris model ' + BOT_AI_MODEL_].map(waKode_).join(' · ');
   var q = {}, hari = botWita_(Date.now(), 'yyyy-MM-dd');
   try { q = JSON.parse(props.getProperty('BOT_AI_HARI') || '{}') || {}; } catch (e) {}
-  return ['🤖 *Tanya AI*',
+  return ['✦ *Tanya IRIS (AI)*',
     '- Status: ' + (props.getProperty('BOT_AI') === 'on' && props.getProperty('GROQ_API_KEY') ? 'aktif' : 'mati'),
     '- Kunci GROQ_API_KEY: ' + (props.getProperty('GROQ_API_KEY') ? 'sudah diisi' : 'belum diisi'),
     '- Model: ' + (props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_),
@@ -963,7 +962,7 @@ function botHelp_(owner) {
     '- ' + K('ok <site> [alasan]') + ' jawab peringatan site tanpa laporan',
     '- ' + K('revisi <site> [dd/mm]') + ' perbaiki Daily Report yang sudah terkirim' + (owner ? '' : ' _(dikonfirmasi admin)_'),
     '- ' + K('hapusba <nomor BA> [alasan]') + ' hapus BA salah input' + (owner ? '' : ' _(dikonfirmasi admin)_'),
-    '- ' + K('tanya <pertanyaan>') + ' tanya bebas, dijawab AI dari data proyek' + (owner ? ' · ' + A('ai') + ' status AI' : ''),
+    '- ' + K('iris <pertanyaan>') + ' tanya bebas, IRIS menjawab dari data proyek (AI)',
     '- ' + K('panduan') + ' PDF panduan perintah',
     '- ' + K('menu') + ' menu pilihan (polling, tinggal tekan)' + (owner ? ' · ' + A('menu admin') + ' menu admin' : ''),
     '- ' + K('bantu') + ' daftar ini',
@@ -1009,7 +1008,7 @@ function botHelp_(owner) {
     '- ' + A('status') + ' gateway, antrean, jadwal, error hari ini',
     '- ' + A('backup') + ' backup spreadsheet sekarang · ' + A('backup bersih') + ' buang backup lama',
     '- ' + A('pulihkan') + ' cek & pulihkan Daily Report / log foto yang hilang (otomatis tiap jam)',
-    '- ' + A('ai') + ' status tanya AI · ' + A('ai on') + ' ' + A('ai off') + ' · ' + A('ai kuota <n>'),
+    '- ' + A('iris') + ' status tanya IRIS · ' + A('iris on') + ' ' + A('iris off') + ' · ' + A('iris kuota <n>'),
     '- ' + A('grup') + ' grup WA per region · ' + A('grup pontianak <nama grup>') + ' laporan Pontianak ke grup sendiri',
     '- ' + A('panduan lengkap') + ' PDF semua perintah (ke chat pribadi)']);
   return s.join('\n');
@@ -2150,7 +2149,7 @@ var BOT_PANDUAN_TIM_ = [
   ['!hapusba &lt;nomor BA&gt; [alasan]', 'Minta hapus BA yang salah input di Portal Warehouse. Bot menampilkan isi BA dan meneruskannya ke admin; BA baru dihapus setelah admin mengonfirmasi. Saldo gudang ikut terkoreksi, lalu input ulang BA yang benar di portal.', '!hapusba HST/2610/001 salah tanggal | !hapusba BA-261026-180847'],
   ['Excel + caption !stokwh', 'Kirim file Excel stok WH (.xlsx). Selisih dengan saldo portal dikirim ke admin untuk disetujui.', '!stokwh | !stokwh batola'],
   ['#Bantuan'],
-  ['!tanya &lt;pertanyaan&gt;', 'Tanya bebas dengan bahasa sehari-hari. IRIS mengambil data proyek yang cocok (progres site, rekap, stok, BA) lalu AI merangkai jawabannya. Angka tetap dari data IRIS; cek ulang dengan perintah biasa. Aktif bila admin sudah menyalakan (ai on), ada kuota per hari.', '!tanya kenapa progres lawahan lambat minggu ini? | !tanya stok kabel 24c cukup untuk berapa site?'],
+  ['!iris &lt;pertanyaan&gt;', 'Tanya bebas dengan bahasa sehari-hari. IRIS mengambil data proyek yang cocok (progres site, rekap, stok, BA) lalu AI merangkai jawabannya. Angka tetap dari data IRIS; cek ulang dengan perintah biasa. Aktif bila admin sudah menyalakan (iris on), ada kuota per hari. !tanya sama dengan !iris.', '!iris kenapa progres lawahan lambat minggu ini? | !iris stok kabel 24c cukup untuk berapa site?'],
   ['!menu', 'Kirim polling Menu IRIS. Tekan salah satu pilihan (rekap, stok, potongan, panduan, ...) dan IRIS langsung menjawab; polling yang sama bisa dipakai lagi. Pilihan yang butuh nama site memberi contoh perintah yang perlu diketik. Admin: <b>menu admin</b> untuk status, pulihkan, backup, dll.', '!menu | menu admin'],
   ['!bantu', 'Daftar perintah singkat langsung di WhatsApp.', '!bantu'],
   ['!panduan', 'Kirim PDF panduan ini ke grup.', '!panduan']
@@ -2197,7 +2196,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['backup', 'Backup spreadsheet FTTH + Waspang ke Drive sekarang.', 'backup'],
   ['grup', 'Grup WhatsApp per region. ' + '<b>grup pontianak &lt;nama grup WA&gt;</b>: laporan, cek, BA, revisi, Today\'s Plan, pengingat 17:30, rekap Senin / tanggal 1, dan site tanpa laporan untuk site region Pontianak dikirim ke grup itu; region lain tetap ke grup utama. Perintah dari grup region (rekap, mingguan, bulanan) otomatis hanya region itu, tambah <b>semua</b> untuk semua region. <b>grup pontianak pic &lt;nama&gt;</b> = PIC Today\'s Plan; <b>grup pontianak tim &lt;nama&gt;</b> = pindahkan anggota tim yang di-tag 17:30 (bawaan: dari site yang paling sering dilaporkan). <b>grup pontianak hapus</b> = kembali satu grup.', 'grup | grup pontianak Report Pontianak'],
   ['pulihkan', 'Setiap Daily Report dan log foto juga disalin ke tab JURNAL WASPANG (spreadsheet LOG ARSIP). Tiap jam IRIS mencocokkan jurnal dengan spreadsheet Waspang; baris yang hilang (mis. versi spreadsheet dikembalikan) ditulis lagi otomatis dan admin diberi tahu. Perintah ini menjalankan pengecekan sekarang. Laporan yang memang mau dihapus: pakai revisi &lt;site&gt; lalu revisi hapus.', 'pulihkan'],
-  ['ai [on | off | kuota &lt;n&gt; | model &lt;id&gt;]', 'Tanya AI (!tanya). ai = status dan pemakaian hari ini. ai on butuh Script Property GROQ_API_KEY (kunci dari console.groq.com). Kuota bawaan 100 pertanyaan per hari.', 'ai | ai on | ai off | ai kuota 50'],
+  ['iris [on | off | kuota &lt;n&gt; | model &lt;id&gt;]', 'Tanya IRIS (!iris, AI). iris = status dan pemakaian hari ini. iris on butuh Script Property GROQ_API_KEY (kunci dari console.groq.com). Kuota bawaan 100 pertanyaan per hari.', 'iris | iris on | iris off | iris kuota 50'],
   ['backup bersih', 'Backup lama di Drive (folder Backup Portal BMI dan BMI-FTTH Backup) dipindah ke Sampah, hanya yang terbaru per spreadsheet disisakan. Otomatis juga tiap kali backup mingguan jalan.', 'backup bersih'],
   ['panduan lengkap', 'PDF ini, selalu dikirim ke chat pribadi admin.', 'panduan lengkap']
 ];
