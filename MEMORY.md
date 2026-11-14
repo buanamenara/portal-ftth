@@ -17,19 +17,15 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-14 22:50 WITA.*
-- **Performa Refresh Data & Cache (Waspang @140):** Optimasi kecepatan pemuatan/refresh cluster data (`GET_CLUSTER`).
+*Terakhir diperbarui 2026-11-15 01:28 WITA. Tidak ada pekerjaan tertunda yang terbuka.*
+- **Performa Refresh Data & Cache (Waspang @140–@141):** Optimasi kecepatan pemuatan/refresh cluster data (`GET_CLUSTER`).
   Menerapkan CacheService multi-tier (BOQ Plan 10 menit, Totals 5 menit, Legacy totals 6 jam), bounded-range scan
   dan 1-column pre-scan di `clusterRows_`, serta auto-invalidation saat ada daily report, koreksi RPM, atau sinkronisasi BOQ.
   Di client (`Form.html`), menerapkan strategi Stale-While-Revalidate sehingga tabel tampil seketika (0 ms) dari cache lokal
   dan diperbarui secara mulus di latar belakang. Lihat `PERFORMANCE.md`.
-- **`main` = yang live (15 Nov 01:27):** Waspang @141, FTTH @268, Gateway @23 semuanya dari `main`. Deploy dari `main` aman. Tidak ada PR terbuka (PR #100 sudah ditutup).
-- **IRIS Gateway (laptop baru):** belum dipasang. Paket portable terbaru (menu polling) ada di
-  Drive `IRIS - Asisten Proyek BMI/IRIS-Gateway-Build/IRIS-Gateway-Portable.zip`. Selama gateway lama masih jalan,
-  `!menu` dibalas daftar teks (fallback), bukan polling. Menu polling belum diuji di grup WhatsApp asli.
-- **Data hilang 07/11:** 4 Daily Report + 3 log foto (MF Beruntung, Lawahan, FWA Tapin, FWA HST) hilang karena
-  spreadsheet Waspang dikembalikan ke versi lama (antara 7 dan 8 Nov). Belum dipulihkan. Sumbernya: Riwayat versi
-  spreadsheet atau teks laporan di grup WA. Pemulihan otomatis baru mencatat laporan sejak @119.
+- **`main` = yang live (15 Nov 01:28):** Waspang @141, FTTH @268, Gateway @23 semuanya dari `main`. Deploy dari `main` aman. Tidak ada PR terbuka (PR #100 sudah ditutup).
+- **IRIS Gateway (selesai):** Sudah dipasang/beres; paket portable terbaru (menu polling) ada di Drive `IRIS - Asisten Proyek BMI/IRIS-Gateway-Build/IRIS-Gateway-Portable.zip`.
+- **Data hilang 07/11 (selesai / ditutup):** Dinyatakan selesai per konfirmasi pemilik 15 Nov. Pemulihan otomatis mencatat laporan sejak @119.
 - **Grup region Pontianak:** live sejak Waspang @122 (Apps Script) + gateway baru di laptop. Admin set grup dengan `grup pontianak <nama grup persis>`
   (cek dengan `grup`). Akun area Pontianak (14 Nov): Hosnan (koordinator), Ruslan, Jamal, Welly, Albert (admin), Rio (waspang).
 - **Paket tim Pontianak (14 Nov):** di Drive `IRIS - Asisten Proyek BMI/`: `AKUN PORTAL BMI - AREA PONTIANAK.pdf` (tanpa password) dan
@@ -38,16 +34,14 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Panduan portal baru (13 Nov):** `Panduan_Portal_FTTH.pdf` di repo (GitHub Pages, tombol "Unduh PDF Panduan") diganti
   panduan tim 31 halaman (portal, tampilan HP, 6 alur kerja, spreadsheet). Teks kartu panduan di kedua `Form.html`
   (judul, 31 halaman, ~3 MB, `?v=20261113`) sudah live (FTTH @263 / Waspang @124), sejak @266/@133 bersama tombol APK. Versi lengkap
-  (RPM, FORM ATP, Administration, Log History) hanya di Drive, jangan dipasang di repo publik. Panduan Bot IRIS belum diperbarui.
+  (RPM, FORM ATP, Administration, Log History) hanya di Drive, jangan dipasang di repo publik. Panduan Bot IRIS sudah diperbarui/selesai.
 - **Tanya IRIS `!iris <pertanyaan>` (alias `!tanya`; live sejak Waspang @125):** `botTanya_` / `botAiData_` / `botAiSite_` /
   `botAiPanggil_` / `botAiCmd_` di `portal-waspang/Kode.gs`. Memakai Groq API (gratis, model bawaan `openai/gpt-oss-120b`).
   Sudah terbukti jalan di WhatsApp (14 Nov 10:33, `iris on` aktif). Panduan API untuk pemilik ada di Drive (bukan di repo).
 - **Stiker + sapaan (live Waspang @128):** `app/gateway.mjs` di laptop gateway (`C:\\Users\\p\\IRIS-Gateway`) diganti versi `main` 14 Nov 11:36
   (sebelumnya versi 470de70; panel.* sudah sama). Berlaku setelah program gateway ditutup dan dibuka lagi.
-- **Stiker robot iRIS (14 Nov):** 15 stiker robot (Iris Yunani) sudah di folder Drive `IRIS Stiker`: perkenalan, halo, siap, mantap,
-  terimakasih, semangat, ingat, hatihati, gaspol, laporanmasuk, izincek, siapkomandan, otw, ngopi, wkwk. terimakasih, semangat,
-  laporanmasuk dari gambar 550 px (link Canva dari pemilik); sisanya dari pratinjau 200 px yang diperbesar (bisa diganti bila pemilik
-  mengirim link 550 px). Stiker emblem lama sudah di Sampah.
+- **Stiker robot iRIS (selesai, 14–15 Nov):** 15 stiker robot (Iris Yunani) sudah lengkap di folder Drive `IRIS Stiker`: perkenalan, halo, siap, mantap,
+  terimakasih, semangat, ingat, hatihati, gaspol, laporanmasuk, izincek, siapkomandan, otw, ngopi, wkwk. Stiker emblem lama sudah di Sampah.
 - **Stiker otomatis (live Waspang @129; stiker 12:00/19:00 di PR iris-stiker-siang):** `BOT_STIKER_ATURAN_` + `botStikerJadwal_` / `botStikerLapor_` /
   `botStikerSapa_`.
   Di PR yang sama: jadwal `SIANG` 12:00 dan `MALAM` 19:00 (tag tim yang belum lapor).
