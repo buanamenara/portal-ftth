@@ -69,6 +69,9 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   mandor) memakai kotak cari sendiri (`.cari-box`, skrip di akhir `portal-ftth-gas/Form.html`): cocok bila semua kata ada di mana saja
   (nomor site, nama, kota; tanda baca diabaikan), nama panjang tidak terpotong, kata yang cocok ditandai. Isi tetap dari datalist
   (diisi kode lain). BA Transaksi: bila site ada di region lain, petunjuk menyebut region itu.
+- **Pencarian daftar (PR cari-semua):** kotak cari riwayat/daftar di Portal FTTH (Project Dashboard, riwayat BOQ, BA, Warehouse, RPM,
+  Administration, Log History) memakai `cocokCari(teks, q)` (skrip pertama `portal-ftth-gas/Form.html`): semua kata harus ada, urutan
+  bebas, tanda baca diabaikan, "jatibaru" = "jati baru". Tabel Database SOW di Portal Waspang sama; cari cluster Waspang sudah begitu.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 

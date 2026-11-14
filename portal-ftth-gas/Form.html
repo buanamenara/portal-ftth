@@ -1466,6 +1466,14 @@
 <div id="bmiTop"></div>
 
 <script>
+// Pencarian di semua daftar portal: cocok bila SEMUA kata yang diketik ada di teks, di posisi mana pun dan urutan bebas.
+// Huruf besar/kecil dan tanda baca diabaikan ("jati baru 04" cocok dengan "JATI BARU RT 04", "02206" cocok di tengah nama).
+function cocokCari(teks, q) {
+  q = String(q == null ? '' : q).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  if (!q) return true;
+  var t = ' ' + String(teks == null ? '' : teks).toLowerCase().replace(/[^a-z0-9]+/g, ' ') + ' ', rapat = t.replace(/ /g, '');
+  return q.split(' ').every(function (w) { return t.indexOf(w) > -1 || rapat.indexOf(w) > -1; });
+}
 (function () {
   if (window.BMI) return;
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -3330,7 +3338,7 @@
     }
     function renderAdminUsers() {
       var q = $('adminQ').value.trim().toLowerCase();
-      var rows = adminUsers.filter(function (u) { return !q || u.username.toLowerCase().indexOf(q) >= 0 || u.nama.toLowerCase().indexOf(q) >= 0; });
+      var rows = adminUsers.filter(function (u) { return cocokCari(u.username + ' ' + u.nama + ' ' + u.role + ' ' + (u.area || ''), q); });
       rows = pgSlice('admin', rows, adminUsers, q, 'user');
       var tb = $('adminTable');
       if (!rows.length) {
@@ -4640,7 +4648,7 @@
       var s = $('hfSow').value;
       var rows = baHist.filter(function (h) {
         return (!j || h.jenis === j) && (!s || h.sow === s) &&
-          (!q || (String(h.name) + ' ' + String(h.id) + ' ' + String(h.nomor || '')).toLowerCase().indexOf(q) > -1);
+          cocokCari(String(h.name) + ' ' + String(h.id) + ' ' + String(h.nomor || ''), q);
       });
       rows = pgSlice('hf', rows, baHist, q + '|' + j + '|' + s, 'BA');
       var tb = $('baHistory');
@@ -4684,7 +4692,7 @@
       cpData.forEach(function (s, i) {
         if (sow && s.sow !== sow) return;
         if (st === 'pending' ? s.stages.permit === 'done' : (st && cpCat(s) !== st)) return;
-        if (q && String(s.name).toLowerCase().indexOf(q) === -1) return;
+        if (q && !cocokCari(s.name, q)) return;
         rows.push(i);
       });
       rows = pgSlice('cp', rows, cpData, q + '|' + sow + '|' + st, 'site');
@@ -5230,7 +5238,7 @@
 
     function renderBgHistory() {
       var q = $('bgQ').value.trim().toLowerCase();
-      var rows = bg.hist.filter(function (h) { return !q || (h.nomor + ' ' + h.idBa + ' ' + h.site + ' ' + h.mandor).toLowerCase().indexOf(q) > -1; });
+      var rows = bg.hist.filter(function (h) { return cocokCari(h.nomor + ' ' + h.idBa + ' ' + h.site + ' ' + h.mandor, q); });
       rows = pgSlice('bg', rows, bg.hist, q, 'BA');
       var tb = $('bgHistory');
       if (!rows.length) { tb.innerHTML = '<tr><td colspan="7">' + (bg.hist.length ? 'Tidak ada BA yang cocok dengan pencarian.' : 'Belum ada BA yang dibuat lewat menu ini.') + '</td></tr>'; return; }
@@ -5588,7 +5596,7 @@
 
     function renderBqHistory() {
       var q = $('bqQ').value.trim().toLowerCase();
-      var rows = bq.hist.filter(function (h) { return !q || (h.name + ' ' + h.site).toLowerCase().indexOf(q) > -1; });
+      var rows = bq.hist.filter(function (h) { return cocokCari(h.name + ' ' + h.site, q); });
       rows = pgSlice('bq', rows, bq.hist, q, 'BOQ');
       var tb = $('bqHistory');
       if (!rows.length) { tb.innerHTML = '<tr><td colspan="5">' + (bq.hist.length ? 'Tidak ada BOQ yang cocok dengan pencarian.' : 'Belum ada BOQ yang dibuat lewat menu ini.') + '</td></tr>'; return; }
@@ -5910,7 +5918,7 @@
     function renderRpmHistory() {
       var q = $('rpQ').value.trim().toLowerCase();
       var rows = rp.hist.filter(function (h) {
-        return !q || (String(h.name) + ' ' + String(h.mandor) + ' ' + String(h.id)).toLowerCase().indexOf(q) > -1;
+        return cocokCari(String(h.name) + ' ' + String(h.mandor) + ' ' + String(h.id), q);
       });
       rows = pgSlice('rp', rows, rp.hist, q, 'BA');
       var tb = $('rpHistory');
@@ -5989,7 +5997,7 @@
       var rows = logData.filter(function (r) {
         if (sumber && r.sumber !== sumber) return false;
         if (!q) return true;
-        return (String(r.user) + ' ' + String(r.peran) + ' ' + String(r.aksi) + ' ' + String(r.detail)).toLowerCase().indexOf(q) > -1;
+        return cocokCari(String(r.user) + ' ' + String(r.peran) + ' ' + String(r.aksi) + ' ' + String(r.detail), q);
       });
       rows = pgSlice('log', rows, logData, q + '|' + sumber, 'log');
       var tb = $('logTable');
