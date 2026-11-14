@@ -26,7 +26,8 @@ var CONFIG = {
   ROLE_PORTALS: {
     rpm: ['ftth', 'waspang'],
     admin: ['ftth'],
-    waspang: ['waspang', 'ftth']
+    waspang: ['waspang', 'ftth'],
+    koordinator: ['ftth', 'waspang']   // Admin + Waspang untuk satu region (kolom Area)
   },
   SESSION_TTL: 21600,   // detik; batas maksimal CacheService (6 jam)
   TICKET_TTL: 120       // detik; tiket masuk otomatis ke portal ber-sso, sekali pakai

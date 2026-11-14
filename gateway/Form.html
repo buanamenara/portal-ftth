@@ -772,7 +772,7 @@
   var GO = '';   // portal yang diminta portal lain (?go=): dibuka otomatis sekali setelah menu siap
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-  function roleLabel(r) { return r === 'rpm' ? 'RPM' : (r === 'waspang' ? 'Waspang' : 'Admin'); }
+  function roleLabel(r) { return r === 'rpm' ? 'RPM' : (r === 'waspang' ? 'Waspang' : (r === 'koordinator' ? 'Koordinator' : 'Admin')); }
 
   function saveSession(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }
   function clearSession() { try { localStorage.removeItem(KEY); } catch (e) {} }

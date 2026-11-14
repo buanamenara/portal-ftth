@@ -86,6 +86,9 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   di Daily Report, BOQ Plan, dan Dokumentasi; menyaring daftar site, disimpan per perangkat (`localStorage` `waspang_region_v1`),
   sama untuk ketiga menu. Site tanpa Region hanya muncul di "Semua region". Format teks Daily Report tidak diubah.
   Laporan Dokumentasi (caption WA, `buildWaspangPhotoCaption_` + Form.html) menambah baris `🌏 *Region*` bila Region site diketahui.
+- **Role koordinator (14 Nov, permintaan pemilik):** role ke-4 di sheet USERS = Admin + Waspang untuk satu region (kolom Area).
+  Gateway `ROLE_PORTALS.koordinator = ['ftth', 'waspang']`; Portal FTTH memberi menu admin (seperti waspang: link Portal Waspang +
+  Spreadsheet), Portal Waspang menampilkan menu Database. Bisa dipilih di Administration (tambah/ubah user). Pertama dipakai: Hosnan (Pontianak).
 - **Pilihan Region di Warehouse – BA Transaksi & Submit BA Transaksi (`portal-ftth-gas/`):** semua peran (Waspang, Admin, RPM) boleh
   membuat dan mengunggah BA Transaksi lintas region (`getBaGudangInit`, `createBaGudang`, `getBaGudangHistory`, `getBaSiteNames`,
   `extractBa`, `extractBaText`, `saveBa`, `getBaHistory`, `downloadBaPdf` memakai scope `''`); kolom Area pada akun di sheet `USERS`
