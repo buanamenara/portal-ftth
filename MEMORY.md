@@ -9,7 +9,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
 | waspang | @141 | 2026-11-14 22:56 | 542e7f4 | perf(waspang): cache empty boq plan results to guarantee cache hit on any cluster |
-| ftth | @270 | 2026-11-15 01:38 | d014a6f | perf(ftth,gateway): cache bagHistory, slice getLogHistory read, and cache gateway users |
+| ftth | @271 | 2026-11-15 01:57 | 1a78a37 | perf(ftth): batch clear and column writes in boqGenPutBom_ |
 | gateway | @24 | 2026-11-15 01:39 | d014a6f | perf(ftth,gateway): cache bagHistory, slice getLogHistory read, and cache gateway users |
 <!-- LIVE:END -->
 
@@ -170,6 +170,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-15 01:57 · **ftth @271** · 1a78a37 · perf(ftth): batch clear and column writes in boqGenPutBom_ · GitHub Actions
 - 2026-11-15 01:39 · **gateway @24** · d014a6f · perf(ftth,gateway): cache bagHistory, slice getLogHistory read, and cache gateway users · GitHub Actions
 - 2026-11-15 01:38 · **ftth @270** · d014a6f · perf(ftth,gateway): cache bagHistory, slice getLogHistory read, and cache gateway users · GitHub Actions
 - 2026-11-15 01:35 · **ftth @269** · 7ac7282 · perf(ftth): cache db sites, checkpoint, and scurve with auto-invalidation · GitHub Actions
