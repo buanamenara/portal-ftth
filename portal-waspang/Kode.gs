@@ -700,6 +700,10 @@ function waCmdIsi_(p) {
       out = botHapusBa_(p, owner, arg); break;
     case 'revisi':
       out = botRevisi_(p, owner, arg); break;
+    case 'tanya':   // jawaban AI dari data proyek (bila admin sudah mengaktifkan: ai on)
+      out = botTanya_(p, owner, arg); break;
+    case 'ai':
+      out = owner ? botAiCmd_(arg) : ''; break;
     case 'setuju':
       out = owner && p.chat !== 'group' ? botStokWhSetuju_(p.fromName || p.from) : ''; break;
     case 'batal':
@@ -772,6 +776,137 @@ function botMenuPilih_(p, owner, label) {
   return r;
 }
 
+// ---- !tanya <pertanyaan>: jawaban AI dari data proyek (prototipe, Groq API yang kompatibel OpenAI). ----
+// Script Property: GROQ_API_KEY (kunci dari console.groq.com, jangan ditulis di repo), BOT_AI = 'on' | 'off' (bawaan mati),
+// BOT_AI_MODEL (bawaan BOT_AI_MODEL_), BOT_AI_KUOTA (pertanyaan per hari, bawaan BOT_AI_KUOTA_). Hitungan harian di BOT_AI_HARI.
+// Angka tetap dihitung IRIS dengan fungsi perintah yang sudah ada (progres, rekap, stok, BA); AI hanya merangkai jawaban dari
+// data itu. Nomor HP dibuang sebelum data dikirim ke AI. Admin: ai, ai on, ai off, ai kuota <n>, ai model <id>.
+var BOT_AI_URL_ = 'https://api.groq.com/openai/v1/chat/completions';
+var BOT_AI_MODEL_ = 'openai/gpt-oss-120b', BOT_AI_KUOTA_ = 100, BOT_AI_BLOK_MAX_ = 5000, BOT_AI_DATA_MAX_ = 12000;
+var BOT_AI_UMUM_ = ['cluster', 'site', 'fwa', 'uplink', 'mainfeeder', 'subfeeder', 'hubfeeder', 'jalan', 'desa', 'kec', 'kel', 'line'];
+
+function botTanya_(p, owner, arg) {
+  var props = PropertiesService.getScriptProperties(), g = p.chat === 'group' ? '!' : '';
+  if (!arg) return 'Tulis pertanyaannya, mis. ' + waKode_(g + 'tanya kenapa progres lawahan lambat minggu ini?');
+  var key = props.getProperty('GROQ_API_KEY');
+  if (!key || props.getProperty('BOT_AI') !== 'on') {
+    return owner ? 'Fitur AI belum aktif. Isi Script Property ' + waKode_('GROQ_API_KEY') + ', lalu ketik ' + waKode_('ai on') + '.'
+      : 'Fitur tanya AI belum diaktifkan admin. Pakai perintah biasa: ' + waKode_(g + 'bantu');
+  }
+  var hari = botWita_(Date.now(), 'yyyy-MM-dd'), q = {}, kuota = Number(props.getProperty('BOT_AI_KUOTA')) || BOT_AI_KUOTA_;
+  try { q = JSON.parse(props.getProperty('BOT_AI_HARI') || '{}') || {}; } catch (e) {}
+  if (q.d !== hari) q = { d: hari, n: 0 };
+  if (q.n >= kuota) return 'Kuota tanya AI hari ini (' + kuota + ' pertanyaan) sudah habis. Coba besok, atau pakai ' + waKode_(g + 'bantu') + '.';
+  var data = botAiData_(arg), res = botAiPanggil_(key, props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_, arg, data.teks);
+  if (!res.ok) return res.pesan;
+  q.n++;
+  props.setProperty('BOT_AI_HARI', JSON.stringify(q));
+  return res.teks + '\n\n_Jawaban AI' + (data.sumber.length ? ' dari data: ' + data.sumber.join(', ') : ', tanpa data proyek') +
+    '. Cek angka dengan perintah IRIS._';
+}
+
+// Kumpulkan data yang relevan dengan pertanyaan, dari keluaran perintah IRIS yang sudah ada. -> {teks, sumber: [judul]}
+function botAiData_(tanya) {
+  var t = ' ' + String(tanya).toLowerCase().replace(/[^a-z0-9\/\s-]/g, ' ').replace(/\s+/g, ' ').trim() + ' ', blok = [], sumber = [];
+  function tambah(judul, fn) {
+    try {
+      var isi = waText_(String(fn() || '')).trim();
+      if (!isi) return;
+      if (isi.length > BOT_AI_BLOK_MAX_) isi = isi.slice(0, BOT_AI_BLOK_MAX_) + '\n...(dipotong)';
+      blok.push('### ' + judul + '\n' + isi);
+      sumber.push(judul);
+    } catch (e) { console.log('AI data ' + judul + ': ' + e); }
+  }
+  var sites = botAiSite_(t);
+  sites.forEach(function (s) {
+    tambah('progres ' + s.name, function () { return botProgres_(s.name); });
+    if (/\bba\b|ambil|kembali|material|kabel|tiang/.test(t)) tambah('BA ' + s.name, function () { return botBa_(s.name); });
+  });
+  if (/minggu/.test(t)) tambah('rekap mingguan', function () { return botMingguan_(Date.now(), /lalu/.test(t) ? 'lalu' : 'ini'); });
+  if (/bulan/.test(t)) tambah('rekap bulan ini', function () { return botBulanan_(Date.now(), 'ini'); });
+  if (/stok|saldo|gudang|sisa/.test(t)) tambah('stok gudang', function () { return botStok_(''); });
+  if (/potongan|haspel/.test(t)) tambah('potongan kabel', function () { return botPotongan_(''); });
+  if (/kemarin/.test(t)) tambah('rekap kemarin', function () { return botRekap_('kemarin'); });
+  if (!sites.length && !blok.length || /hari ini|rekap|lapor/.test(t)) tambah('rekap hari ini', function () { return botRekap_(''); });
+  var teks = blok.join('\n\n').replace(/(\+?62|\b0)8\d{7,12}\b/g, '[nomor]');
+  if (teks.length > BOT_AI_DATA_MAX_) teks = teks.slice(0, BOT_AI_DATA_MAX_) + '\n...(dipotong)';
+  return { teks: teks, sumber: sumber };
+}
+
+// Site yang disebut di pertanyaan: nama lengkap ada di kalimat, atau semua kata khas nama (>= 3 huruf, bukan kata umum) ada. Maks 2.
+function botAiSite_(t) {
+  var res = getSites_();
+  if (res.status !== 'success') return [];
+  var kata = t.trim().split(' '), hit = [];
+  res.sites.forEach(function (s) {
+    var n = s.name.toLowerCase().replace(/[^a-z0-9\/\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!n) return;
+    if (t.indexOf(' ' + n + ' ') >= 0) return hit.push({ s: s, skor: 1000 + n.length });
+    var inti = n.split(' ').filter(function (w) { return w.length >= 3 && BOT_AI_UMUM_.indexOf(w) < 0 && !/^\d+$/.test(w); });
+    if (inti.length && inti.every(function (w) { return kata.indexOf(w) >= 0; })) hit.push({ s: s, skor: inti.length * 10 });
+  });
+  hit.sort(function (a, b) { return b.skor - a.skor; });
+  if (hit.length && hit[0].skor >= 1000) hit = hit.filter(function (h) { return h.skor >= 1000; });
+  var out = [], seen = {};
+  hit.forEach(function (h) {
+    var k = h.s.name.toLowerCase();
+    if (!seen[k] && out.length < 2) { seen[k] = true; out.push(h.s); }
+  });
+  return out;
+}
+
+// Panggil Groq. -> {ok: true, teks} atau {ok: false, pesan}
+function botAiPanggil_(key, model, tanya, data) {
+  var sistem = [
+    'Kamu IRIS, asisten proyek FTTH PT Buana Menara Indonesia (BMI) di grup WhatsApp.',
+    'Jawab dalam bahasa Indonesia, singkat, padat, jelas (maksimal 12 baris).',
+    'Format WhatsApp: *tebal* untuk judul, "- " untuk daftar. Jangan memakai tabel, judul #, atau **.',
+    'Angka dan fakta proyek HANYA boleh dari DATA di bawah. Jangan mengarang angka, tanggal, atau nama.',
+    'Bila DATA tidak memuat jawabannya, katakan itu lalu sarankan perintah IRIS yang cocok: !progres <site>, !rekap, !mingguan, ' +
+      '!bulanan, !stok, !ba <site>, !site <kata>.',
+    'Pertanyaan umum (teknis FTTH, cara kerja) boleh dijawab dari pengetahuan umum; sebut bahwa itu pengetahuan umum.',
+    '', 'Hari ini: ' + botWita_(Date.now(), 'dd/MM/yyyy') + ' (WITA).', '', 'DATA:', data || '(tidak ada data proyek yang cocok dengan pertanyaan)'
+  ].join('\n');
+  var body = { model: model, temperature: 0.2, max_tokens: 1000,
+    messages: [{ role: 'system', content: sistem }, { role: 'user', content: String(tanya).slice(0, 500) }] };
+  if (/^openai\/gpt-oss/.test(model)) { body.reasoning_effort = 'low'; body.include_reasoning = false; }
+  var r;
+  try {
+    r = UrlFetchApp.fetch(BOT_AI_URL_, { method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + key },
+      payload: JSON.stringify(body), muteHttpExceptions: true });
+  } catch (e) { return { ok: false, pesan: 'AI tidak bisa dihubungi sekarang. Coba lagi sebentar.' }; }
+  var code = r.getResponseCode(), j = {};
+  try { j = JSON.parse(r.getContentText()) || {}; } catch (e) {}
+  if (code === 429) return { ok: false, pesan: 'Batas gratis AI sedang penuh. Coba lagi beberapa menit lagi.' };
+  if (code === 401 || code === 403) return { ok: false, pesan: 'Kunci AI ditolak. Admin: periksa Script Property GROQ_API_KEY.' };
+  var msg = code === 200 && j.choices && j.choices[0] && j.choices[0].message, teks = msg ? String(msg.content || '').trim() : '';
+  if (!teks) {
+    console.log('AI gagal ' + code + ': ' + String(r.getContentText()).slice(0, 300));
+    return { ok: false, pesan: 'AI belum bisa menjawab (kode ' + code + '). Coba lagi, atau pakai perintah biasa.' };
+  }
+  teks = teks.replace(/\*\*(.+?)\*\*/g, '*$1*').replace(/^#+\s*/gm, '').replace(/`/g, '');
+  return { ok: true, teks: teks.slice(0, 3000) };
+}
+
+// Admin: ai | ai on | ai off | ai kuota <n> | ai model <id>
+function botAiCmd_(arg) {
+  var props = PropertiesService.getScriptProperties(), a = String(arg || '').trim(), m;
+  if (/^(on|nyala|aktif)$/i.test(a)) {
+    if (!props.getProperty('GROQ_API_KEY')) return 'Isi dulu Script Property ' + waKode_('GROQ_API_KEY') + ' (lihat Panduan API IRIS), lalu ketik ' + waKode_('ai on') + '.';
+    props.setProperty('BOT_AI', 'on');
+  } else if (/^(off|mati)$/i.test(a)) props.setProperty('BOT_AI', 'off');
+  else if ((m = a.match(/^kuota\s+(\d+)$/i))) props.setProperty('BOT_AI_KUOTA', String(Math.max(1, Number(m[1]))));
+  else if ((m = a.match(/^model\s+(\S+)$/i))) props.setProperty('BOT_AI_MODEL', m[1]);
+  else if (a) return 'Pilihan: ' + ['ai', 'ai on', 'ai off', 'ai kuota 100', 'ai model ' + BOT_AI_MODEL_].map(waKode_).join(' · ');
+  var q = {}, hari = botWita_(Date.now(), 'yyyy-MM-dd');
+  try { q = JSON.parse(props.getProperty('BOT_AI_HARI') || '{}') || {}; } catch (e) {}
+  return ['🤖 *Tanya AI*',
+    '- Status: ' + (props.getProperty('BOT_AI') === 'on' && props.getProperty('GROQ_API_KEY') ? 'aktif' : 'mati'),
+    '- Kunci GROQ_API_KEY: ' + (props.getProperty('GROQ_API_KEY') ? 'sudah diisi' : 'belum diisi'),
+    '- Model: ' + (props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_),
+    '- Hari ini: ' + (q.d === hari ? q.n : 0) + ' / ' + (Number(props.getProperty('BOT_AI_KUOTA')) || BOT_AI_KUOTA_) + ' pertanyaan'].join('\n');
+}
+
 // Batas panjang pesan. WhatsApp sendiri menerima sampai ~65.000 huruf; balasan langsung dibatasi 20.000 supaya masih nyaman dibaca.
 // Pesan lewat antrean disimpan di Script Properties yang maksimal 9 KB per nilai, jadi maks 6.000 huruf per pesan (sisa ruang untuk
 // huruf multi-byte seperti ≡ dan emoji). Yang lebih panjang tidak dipotong, tapi dipecah jadi beberapa pesan berurutan.
@@ -828,6 +963,7 @@ function botHelp_(owner) {
     '- ' + K('ok <site> [alasan]') + ' jawab peringatan site tanpa laporan',
     '- ' + K('revisi <site> [dd/mm]') + ' perbaiki Daily Report yang sudah terkirim' + (owner ? '' : ' _(dikonfirmasi admin)_'),
     '- ' + K('hapusba <nomor BA> [alasan]') + ' hapus BA salah input' + (owner ? '' : ' _(dikonfirmasi admin)_'),
+    '- ' + K('tanya <pertanyaan>') + ' tanya bebas, dijawab AI dari data proyek' + (owner ? ' · ' + A('ai') + ' status AI' : ''),
     '- ' + K('panduan') + ' PDF panduan perintah',
     '- ' + K('menu') + ' menu pilihan (polling, tinggal tekan)' + (owner ? ' · ' + A('menu admin') + ' menu admin' : ''),
     '- ' + K('bantu') + ' daftar ini',
@@ -873,6 +1009,7 @@ function botHelp_(owner) {
     '- ' + A('status') + ' gateway, antrean, jadwal, error hari ini',
     '- ' + A('backup') + ' backup spreadsheet sekarang · ' + A('backup bersih') + ' buang backup lama',
     '- ' + A('pulihkan') + ' cek & pulihkan Daily Report / log foto yang hilang (otomatis tiap jam)',
+    '- ' + A('ai') + ' status tanya AI · ' + A('ai on') + ' ' + A('ai off') + ' · ' + A('ai kuota <n>'),
     '- ' + A('grup') + ' grup WA per region · ' + A('grup pontianak <nama grup>') + ' laporan Pontianak ke grup sendiri',
     '- ' + A('panduan lengkap') + ' PDF semua perintah (ke chat pribadi)']);
   return s.join('\n');
@@ -1991,7 +2128,7 @@ function botBa_(arg) {
 // panduan lengkap : PDF dengan perintah admin dan jadwal ke admin, hanya untuk WA_OWNER dan selalu ke chat pribadi admin.
 // PDF dibuat sekali dari daftar di bawah lalu disimpan di Drive (BOT_PANDUAN / BOT_PANDUAN_ADMIN); versi baru = BOT_PANDUAN_VERSI_ diganti.
 // Script Property opsional BOT_PANDUAN_FILE = ID file PDF di Drive untuk memakai PDF tim buatan sendiri.
-var BOT_PANDUAN_VERSI_ = '2026-11-13-5';
+var BOT_PANDUAN_VERSI_ = '2026-11-14-1';
 // Baris ['#Judul'] = judul kelompok di tabel perintah.
 var BOT_PANDUAN_TIM_ = [
   ['#Cek data proyek'],
@@ -2013,6 +2150,7 @@ var BOT_PANDUAN_TIM_ = [
   ['!hapusba &lt;nomor BA&gt; [alasan]', 'Minta hapus BA yang salah input di Portal Warehouse. Bot menampilkan isi BA dan meneruskannya ke admin; BA baru dihapus setelah admin mengonfirmasi. Saldo gudang ikut terkoreksi, lalu input ulang BA yang benar di portal.', '!hapusba HST/2610/001 salah tanggal | !hapusba BA-261026-180847'],
   ['Excel + caption !stokwh', 'Kirim file Excel stok WH (.xlsx). Selisih dengan saldo portal dikirim ke admin untuk disetujui.', '!stokwh | !stokwh batola'],
   ['#Bantuan'],
+  ['!tanya &lt;pertanyaan&gt;', 'Tanya bebas dengan bahasa sehari-hari. IRIS mengambil data proyek yang cocok (progres site, rekap, stok, BA) lalu AI merangkai jawabannya. Angka tetap dari data IRIS; cek ulang dengan perintah biasa. Aktif bila admin sudah menyalakan (ai on), ada kuota per hari.', '!tanya kenapa progres lawahan lambat minggu ini? | !tanya stok kabel 24c cukup untuk berapa site?'],
   ['!menu', 'Kirim polling Menu IRIS. Tekan salah satu pilihan (rekap, stok, potongan, panduan, ...) dan IRIS langsung menjawab; polling yang sama bisa dipakai lagi. Pilihan yang butuh nama site memberi contoh perintah yang perlu diketik. Admin: <b>menu admin</b> untuk status, pulihkan, backup, dll.', '!menu | menu admin'],
   ['!bantu', 'Daftar perintah singkat langsung di WhatsApp.', '!bantu'],
   ['!panduan', 'Kirim PDF panduan ini ke grup.', '!panduan']
@@ -2059,6 +2197,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['backup', 'Backup spreadsheet FTTH + Waspang ke Drive sekarang.', 'backup'],
   ['grup', 'Grup WhatsApp per region. ' + '<b>grup pontianak &lt;nama grup WA&gt;</b>: laporan, cek, BA, revisi, Today\'s Plan, pengingat 17:30, rekap Senin / tanggal 1, dan site tanpa laporan untuk site region Pontianak dikirim ke grup itu; region lain tetap ke grup utama. Perintah dari grup region (rekap, mingguan, bulanan) otomatis hanya region itu, tambah <b>semua</b> untuk semua region. <b>grup pontianak pic &lt;nama&gt;</b> = PIC Today\'s Plan; <b>grup pontianak tim &lt;nama&gt;</b> = pindahkan anggota tim yang di-tag 17:30 (bawaan: dari site yang paling sering dilaporkan). <b>grup pontianak hapus</b> = kembali satu grup.', 'grup | grup pontianak Report Pontianak'],
   ['pulihkan', 'Setiap Daily Report dan log foto juga disalin ke tab JURNAL WASPANG (spreadsheet LOG ARSIP). Tiap jam IRIS mencocokkan jurnal dengan spreadsheet Waspang; baris yang hilang (mis. versi spreadsheet dikembalikan) ditulis lagi otomatis dan admin diberi tahu. Perintah ini menjalankan pengecekan sekarang. Laporan yang memang mau dihapus: pakai revisi &lt;site&gt; lalu revisi hapus.', 'pulihkan'],
+  ['ai [on | off | kuota &lt;n&gt; | model &lt;id&gt;]', 'Tanya AI (!tanya). ai = status dan pemakaian hari ini. ai on butuh Script Property GROQ_API_KEY (kunci dari console.groq.com). Kuota bawaan 100 pertanyaan per hari.', 'ai | ai on | ai off | ai kuota 50'],
   ['backup bersih', 'Backup lama di Drive (folder Backup Portal BMI dan BMI-FTTH Backup) dipindah ke Sampah, hanya yang terbaru per spreadsheet disisakan. Otomatis juga tiap kali backup mingguan jalan.', 'backup bersih'],
   ['panduan lengkap', 'PDF ini, selalu dikirim ke chat pribadi admin.', 'panduan lengkap']
 ];
