@@ -151,6 +151,7 @@ export function startPanel(o) {
       else if (p === '/api/relink') await o.relink();
       else if (p === '/api/stop') o.stop();
       else if (p === '/api/start') o.start();
+      else if (p === '/api/restart') o.restart();
       else if (p === '/api/tutup') o.quit();
       else if (p === '/api/setup') {
         if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(String(data.url || o.config.url || ''))) throw new Error('URL Apps Script tidak valid.');

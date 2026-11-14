@@ -47,6 +47,10 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   `botStikerSapa_`.
   Di PR yang sama: jadwal `SIANG` 12:00 dan `MALAM` 19:00 (tag tim yang belum lapor).
   Juga `iris sapa <nama> [| pesan]` (admin): IRIS menyapa anggota (mis. Mahmudi yang menyapa sebelum gateway baru terpasang).
+- **Tombol Restart di panel IRIS Gateway (PR iris-gateway-restart):** ikon ↻ di samping Stop + "Restart gateway" di menu ⋯.
+  `/api/restart` → `restart()` di `wa-gateway/gateway.mjs` keluar dengan kode 1, pelari (`bin\jalankan.bat` / `start.bat`)
+  menyalakannya lagi ± 5-10 dtk dengan file terbaru di `app\`. Panel menampilkan "Memulai ulang..." lalu kembali sendiri.
+  File `app\` di laptop gateway sudah diganti versi PR ini (14 Nov 12:24); tombol muncul setelah satu kali Tutup program + buka lagi.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 

@@ -397,6 +397,13 @@ await startPanel({
     panel.setPaused(false); activeSince = Date.now(); panel.event('ok', 'Gateway dijalankan lagi'); log('Jalankan dari panel.');
     if (configured) connect().catch(e => log('Gagal menyambung:', e.message));
   },
+  restart: () => {
+    // Restart: program keluar (kode 1), pelari (jalankan.bat / start.bat) menyalakannya lagi beberapa detik kemudian
+    // dengan kode terbaru di app\. Status Stop dan sesi panel tetap tersimpan.
+    panel.event('re', 'Restart dari panel'); log('Restart dari panel.');
+    try { sock && sock.end(new Error('restart')); } catch (e) {}
+    setTimeout(() => process.exit(1), 500);
+  },
   quit: () => {
     // Tutup program: pelari berhenti (kode 4) dan jadwal "jaga" tidak menyalakannya lagi sampai dibuka dari shortcut.
     try { fs.writeFileSync(path.join(DATA, 'tutup.flag'), new Date().toISOString()); } catch (e) {}

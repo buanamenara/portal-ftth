@@ -22,7 +22,7 @@ body{background:var(--bg);color:var(--txt);font-family:Inter,"Segoe UI",system-u
 .p-ok i{animation:pulse 2s infinite}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(91,208,138,.5)}100%{box-shadow:0 0 0 9px rgba(91,208,138,0)}}
 .mut{color:var(--mut)}.small{font-size:13px}
 .btns{display:flex;gap:8px;margin-top:auto;flex-wrap:wrap;justify-content:center}
-.side{padding:22px 14px}.side .btns{flex-wrap:nowrap}
+.side{padding:22px 14px}.side .btns{flex-wrap:nowrap;gap:6px}.side .btns button{white-space:nowrap;padding:0 12px}.side .btns button.ic{padding:0;flex:none}
 button{font:inherit;cursor:pointer;height:38px;padding:0 16px;border-radius:999px;font-weight:700;font-size:13px;border:1.5px solid #5a4a24;color:var(--gold);background:transparent}
 button:hover{border-color:var(--gold)}button.pri{background:linear-gradient(#E9C46A,#C9972C);color:#141310;border:0}
 button:disabled{opacity:.5;cursor:default}button.ic{width:38px;padding:0;display:inline-flex;align-items:center;justify-content:center}
@@ -77,11 +77,18 @@ function menu(){
   var p = S && S.paused;
   openM('<b style="font-size:17px">Menu</b><div class="menu">' +
     '<button id="mRelink"' + (p ? ' disabled' : '') + '>Tautkan ulang WhatsApp</button><button id="mPass">Ganti kata sandi</button>' +
-    '<button id="mOut">Keluar dari panel</button><button class="stop" id="mQuit">Tutup program</button><button onclick="closeM()">Batal</button></div>');
+    '<button class="pri" id="mRestart">Restart gateway</button><button id="mOut">Keluar dari panel</button><button class="stop" id="mQuit">Tutup program</button><button onclick="closeM()">Batal</button></div>');
   $('mRelink').onclick = function(){ ask('Tautkan ulang?', 'Tautan WhatsApp sekarang dilepas, lalu QR baru muncul untuk di-scan.', 'Tautkan ulang', function(){ act('relink').catch(function(e){ toast(e.message); }); }); };
+  $('mRestart').onclick = restart;
   $('mPass').onclick = gantiSandi;
   $('mOut').onclick = function(){ closeM(); act('keluar').then(function(){ mode = ''; tick.now(); }); };
   $('mQuit').onclick = function(){ ask('Tutup program?', 'Gateway berhenti total. Buka lagi lewat shortcut IRIS Gateway di Desktop (atau otomatis saat laptop dinyalakan ulang).', 'Tutup program', function(){ act('tutup').then(function(){ toast('Program ditutup'); }).catch(function(e){ toast(e.message); }); }, true); };
+}
+// Restart: program dimuat ulang (kode baru di app\ ikut terbaca) tanpa Tutup program + buka shortcut.
+function restart(){
+  ask('Restart gateway?', 'Program dimuat ulang (sekitar 15 detik), termasuk file gateway terbaru. Pesan yang belum terkirim tetap menunggu di antrean.', 'Restart', function(){
+    act('restart').then(function(){ restart.t = Date.now(); toast('Gateway dimulai ulang...'); }).catch(function(e){ toast(e.message); });
+  });
 }
 function gantiSandi(){
   openM('<b style="font-size:17px">Ganti kata sandi</b><div class="form"><div><label>Kata sandi lama</label><input id="gL" type="password"></div>' +
@@ -119,7 +126,7 @@ var TAG = { ok:'✓', err:'✕', bot:'Bot', re:'↻' };
 function viewMain(){
   return '<div class="card side"><div class="emb" id="emb"><img src="/emblem.png" alt="IRIS"></div><span id="pill"></span>' +
     '<div class="mut small" id="poll"></div>' +
-    '<div class="btns" id="bRun"><button class="pri" id="bTest">Tes</button><button id="bRe">Sambung ulang</button><button class="stop ic" id="bStop" title="Stop gateway"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.4 6.6a8 8 0 1 0 11.2 0"/></svg></button></div>' +
+    '<div class="btns" id="bRun"><button class="pri" id="bTest">Tes</button><button id="bRe">Sambung ulang</button><button class="ic" id="bRestart" title="Restart gateway (muat ulang program)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg></button><button class="stop ic" id="bStop" title="Stop gateway"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.4 6.6a8 8 0 1 0 11.2 0"/></svg></button></div>' +
     '<div class="btns" id="bIdle" style="display:none"><button class="pri" id="bStart">Jalankan</button></div><button class="more" id="bMore" title="Menu">⋯</button></div>' +
     '<div class="main"><div class="stats">' +
     '<div class="card"><div class="big" id="vPend">0</div><div class="lbl">Menunggu</div></div>' +
@@ -149,7 +156,7 @@ function render(){
     mode = m; $('app').innerHTML = m === 'setup' ? viewSetup() : m === 'qr' ? viewQr() : viewMain();
     if (m === 'main') {
       btn('bTest','test','Pesan tes terkirim ke grup'); btn('bRe','reconnect','Menyambung ulang...'); btn('bStart','start','Gateway dijalankan');
-      $('bMore').onclick = menu;
+      $('bMore').onclick = menu; $('bRestart').onclick = restart;
       $('bStop').onclick = function(){ ask('Stop gateway?', 'WhatsApp diputus dan laporan menunggu di portal sampai gateway dijalankan lagi. Tetap Stop walau laptop dinyalakan ulang.', 'Stop', function(){ act('stop').then(function(){ toast('Gateway dihentikan'); }).catch(function(e){ toast(e.message); }); }, true); };
     }
     if (m === 'setup') $('bSave').onclick = function(){
@@ -187,9 +194,11 @@ function tick(){
   clearTimeout(tick.t);
   fetch('/api/status', { cache:'no-store' }).then(function(r){
       if (r.status === 401) return showLogin();
-      return r.json().then(function(j){ S = j; render(); });
+      return r.json().then(function(j){ if (restart.t && j.startedAt > restart.t) { restart.t = 0; toast('Gateway sudah dimulai ulang'); } S = j; render(); });
     })
-    .catch(function(){ if (mode !== 'down') { mode = 'down'; closeM(); $('app').innerHTML = '<div class="full"><div class="center"><span class="pill p-bad"><i></i>Gateway tidak berjalan</span><div class="mut small">Buka lagi lewat shortcut IRIS Gateway di Desktop.</div></div></div>'; } })
+    .catch(function(){
+      if (restart.t && Date.now() - restart.t < 90000) { if (mode !== 'restart') { mode = 'restart'; closeM(); $('app').innerHTML = '<div class="full"><div class="center"><span class="pill p-warn"><i></i>Memulai ulang...</span><div class="mut small">Gateway dimuat ulang, panel kembali sendiri dalam beberapa detik.</div></div></div>'; } return; }
+      if (mode !== 'down') { mode = 'down'; closeM(); $('app').innerHTML = '<div class="full"><div class="center"><span class="pill p-bad"><i></i>Gateway tidak berjalan</span><div class="mut small">Buka lagi lewat shortcut IRIS Gateway di Desktop.</div></div></div>'; } })
     .then(function(){ tick.t = setTimeout(tick, 2000); });
 }
 tick.now = function(){ tick(); };
