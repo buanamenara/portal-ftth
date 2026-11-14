@@ -249,9 +249,17 @@ async function onMessage(m) {
   else if (isXlsx && Date.now() - (stokwhSender[chat + sender] || 0) < 180000) text = '!stokwh';
   if (doc && !(isXlsx && /^[!\/]?stokwh\b/i.test(text))) return;
   if (!text || text.length > (isGroup ? 300 : 4000)) return;   // chat pribadi boleh panjang (daftar permit)
-  let gk = '';
+  let gk = '', sebut = false;
   if (isGroup) {
-    if (!/^[!\/]/.test(text)) return;
+    // Selain perintah "!", pesan yang menyebut IRIS (kata "iris" atau tag nomor IRIS) juga diteruskan supaya IRIS menyapa balik.
+    if (!/^[!\/]/.test(text)) {
+      const ctx = (msg.extendedTextMessage && msg.extendedTextMessage.contextInfo) || {};
+      const me = sock.user || {}, aku = [me.id, me.lid].filter(Boolean).map(j => jidNormalizedUser(j));
+      const ditag = (ctx.mentionedJid || []).some(j => aku.includes(jidNormalizedUser(j)));
+      const dibalas = ctx.participant && aku.includes(jidNormalizedUser(ctx.participant)) && /\biris\b/i.test(text);
+      sebut = ditag || /\biris\b/i.test(text) || dibalas;
+      if (!sebut) return;
+    }
     gk = await groupKeyOf(chat);
     if (gk === null) return;   // grup lain yang kebetulan diikuti nomor ini
   }
@@ -268,7 +276,7 @@ async function onMessage(m) {
     }
   }
   const from = isGroup ? await phoneOf(k.participant, k.participantAlt) : await phoneOf(chat, k.remoteJidAlt);
-  const { reply, poll: menu } = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, grup: gk, text, excel, canPoll: true });
+  const { reply, poll: menu } = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, grup: gk, text, excel, canPoll: true, sebut });
   if (menu) {
     await sendMenuPoll(chat, menu);
     log('Menu polling dikirim', isGroup ? '(grup)' : '(pribadi ' + from + ')');
@@ -318,7 +326,11 @@ async function sendJob(job) {
     const f = await api({ action: 'WA_FILE', key: job.key, id: files[i].id });
     const buf = Buffer.from(f.base64, 'base64');
     const caption = i === 0 ? (job.text || '') : '';
-    if (/^image\//.test(f.mime)) await sock.sendMessage(jid, { image: buf, caption });
+    // Stiker IRIS (.webp): stiker tidak punya keterangan, jadi teks (bila ada) dikirim dulu sebagai pesan biasa.
+    if (files[i].stiker || f.mime === 'image/webp' || /\.webp$/i.test(f.name || '')) {
+      if (caption) await sock.sendMessage(jid, await withMentions(caption, job.mentions));
+      await sock.sendMessage(jid, { sticker: buf });
+    } else if (/^image\//.test(f.mime)) await sock.sendMessage(jid, { image: buf, caption });
     else await sock.sendMessage(jid, { document: buf, mimetype: f.mime, fileName: f.name, caption });
   }
 }

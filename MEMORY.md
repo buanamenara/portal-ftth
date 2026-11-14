@@ -37,6 +37,13 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Tanya IRIS `!iris <pertanyaan>` (alias `!tanya`; live sejak Waspang @125):** `botTanya_` / `botAiData_` / `botAiSite_` /
   `botAiPanggil_` / `botAiCmd_` di `portal-waspang/Kode.gs`. Memakai Groq API (gratis, model bawaan `openai/gpt-oss-120b`).
   Sudah terbukti jalan di WhatsApp (14 Nov 10:33, `iris on` aktif). Panduan API untuk pemilik ada di Drive (bukan di repo).
+- **Stiker IRIS (PR iris-stiker, belum di-merge/deploy):** 6 stiker (halo, siap, mantap, terimakasih, semangat, ingat) dibuat dari
+  emblem resmi, .webp 512x512, di Drive `IRIS - Asisten Proyek BMI/IRIS Stiker`. Apps Script: `iris stiker [<nama> [kirim]]` (admin),
+  perkenalan disusul stiker `halo`. Gateway (`sendJob`) mengirim file webp / `stiker: true` sebagai stiker; **paket portable gateway
+  perlu dibangun ulang dan dipasang di laptop**. Gateway lama mengirim stiker sebagai gambar biasa.
+- **Sapaan IRIS (PR iris-sapa, bertumpuk di atas iris-stiker, belum di-merge/deploy):** pesan grup tanpa `!` yang menyebut "iris" atau
+  men-tag nomor IRIS dijawab sopan + ditanya ada yang bisa dibantu (`botSapa_`). Butuh **gateway baru** (gateway lama hanya meneruskan
+  pesan berawalan `!`); paket portable yang sama dengan stiker.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 
@@ -71,6 +78,15 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   stok, BA, potongan) sesuai kata di pertanyaan, membuang nomor HP, lalu AI hanya merangkai jawaban. Bawaan mati (`BOT_AI`),
   kuota `BOT_AI_KUOTA` (bawaan 500/hari; batas gratis Groq sekitar 1.000/hari dan 30/menit; hitungan di `BOT_AI_HARI`, gagal tidak dihitung). Meta AI di WhatsApp tidak dipakai
   karena tidak ada API untuk bot; anggota tetap bisa tag @Meta AI untuk pertanyaan umum.
+- **Jatah AI menipis:** `botAiCadangan_` = 50 terakhir (kuota kecil: separuh kuota) disimpan untuk pertanyaan proyek (ada data).
+  Saat sisa mencapai cadangan, jawaban AI diberi peringatan sekali per hari (`BOT_AI_HARI.w`); pertanyaan umum dijawab tanpa AI
+  (`botAiTanpaAi_`: minta maaf + daftar perintah). Jatah habis: pertanyaan proyek dijawab dengan data mentah dari perintah IRIS.
+  Sapaan memakai teks tetap begitu masuk cadangan.
+- **Sapaan:** gateway meneruskan pesan grup yang memuat kata `iris` (kata utuh) atau men-tag nomor IRIS (`sebut: true`). Apps Script
+  menjawab maks sekali per pengirim tiap `BOT_SAPA_JEDA_` (120 dtk, CacheService). Tanya IRIS aktif = AI (1-3 kalimat, memakai kuota),
+  mati = teks tetap. Selalu ditutup petunjuk `!menu` (+ `!iris` bila AI aktif).
+- **Stiker:** disimpan di Drive (bukan di repo), nama file = nama stiker. Folder dicari dari nama `IRIS Stiker` atau Script Property
+  `BOT_STIKER_FOLDER`. Stiker baru cukup ditambah ke folder itu (webp 512x512, < 100 KB), tanpa ubah kode.
 - **Backup Drive:** hanya backup terbaru yang disimpan. Perintah `backup bersih` membuang yang lama.
 - **Rekap:** `rekap`, `mingguan [ini|lalu]`, `bulanan [bulan|ini]` terbuka untuk semua anggota, bisa disaring SOW dan kota
   (kolom KOTA di DATA BASE), plus ringkasan `sow` / `kota` / `kota sow`. Kalau hari ini belum ada laporan, `rekap`
