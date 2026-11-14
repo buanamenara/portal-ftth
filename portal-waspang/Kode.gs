@@ -4241,7 +4241,7 @@ function boqPlanForCluster_(clusterOrName, sow, local) {
   var sh = boqSheet_(), h = sheetHeader_(sh), data = boqData_(sh, h);
   var r = boqRowIndex_(data, h, name, sow || sowFromId_(clusterOrName));
   var res = r === -1 ? { found: false, items: [], done: [], doneSet: false } : planFromRow_(h, data[r], local);
-  if (res && res.found) {
+  if (res) {
     putCachedBoqPlan_(name, sow, res);
   }
   return res;
