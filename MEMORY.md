@@ -46,6 +46,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Stiker otomatis (PR iris-stiker-jadwal, belum di-merge/deploy):** `BOT_STIKER_ATURAN_` + `botStikerJadwal_` / `botStikerLapor_` /
   `botStikerSapa_`.
   Di PR yang sama: jadwal `SIANG` 12:00 dan `MALAM` 19:00 (tag tim yang belum lapor).
+  Juga `iris sapa <nama> [| pesan]` (admin): IRIS menyapa anggota (mis. Mahmudi yang menyapa sebelum gateway baru terpasang).
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 

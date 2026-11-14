@@ -713,6 +713,7 @@ function waCmdIsi_(p) {
       out = botRevisi_(p, owner, arg); break;
     case 'iris': case 'tanya':   // !iris <pertanyaan> = jawaban AI dari data proyek; admin: iris, iris on/off/kuota/model = pengaturan
       if (cmd === 'iris' && BOT_IRIS_KENALAN_.test(arg)) { out = owner ? botPerkenalan_(p, /\bkirim\b/i.test(arg)) : ''; break; }   // khusus admin
+      if (cmd === 'iris' && /^sapa\b/i.test(arg)) { out = owner ? botSapaOrang_(p, arg.replace(/^sapa\s*/i, '')) : ''; if (!out) return { status: 'success', reply: '' }; break; }
       if (cmd === 'iris' && /^(stiker|sticker)\b/i.test(arg)) { out = owner ? botStiker_(p, arg.replace(/^\S+\s*/, '')) : ''; if (!out) return { status: 'success', reply: '' }; break; }
       out = owner && BOT_AI_PENGATURAN_.test(arg) ? botAiCmd_(arg) : botTanya_(p, owner, arg); break;
     case 'setuju':
@@ -802,8 +803,10 @@ var BOT_AI_UMUM_ = ['cluster', 'site', 'fwa', 'uplink', 'mainfeeder', 'subfeeder
 var BOT_SAPA_JEDA_ = 120;
 function botSapa_(p, text) {
   var cache = CacheService.getScriptCache(), kunci = 'sapa_' + String(p.from || p.fromName || 'x').replace(/\W/g, '').slice(-20);
-  if (cache.get(kunci)) return '';
-  cache.put(kunci, '1', BOT_SAPA_JEDA_);
+  if (!BOT_SAPA_PAKSA_) {
+    if (cache.get(kunci)) return '';
+    cache.put(kunci, '1', BOT_SAPA_JEDA_);
+  }
   var props = PropertiesService.getScriptProperties(), nama = String(p.fromName || '').split(/\s*\|\s*|\s+[-•]\s+/)[0].replace(/[*_~`]/g, '').trim();
   var bantu = '> Ketik ' + waKode_('!menu') + ' untuk pilihan' + (props.getProperty('BOT_AI') === 'on' && props.getProperty('GROQ_API_KEY') ? ', atau ' + waKode_('!iris <pertanyaan>') + ' untuk tanya apa saja.' : '.');
   var key = props.getProperty('GROQ_API_KEY');
@@ -825,6 +828,23 @@ function botSapa_(p, text) {
   }
   return 'Halo' + (nama ? ' *' + nama + '*' : '') + ', terima kasih sudah menyapa. 🙏 Ada yang bisa saya bantu?\n\n' + bantu;
 }
+
+// Admin: iris sapa <nama> [| pesannya] = IRIS menyapa anggota yang menyapanya saat gateway belum bisa membaca sapaan.
+// Di grup: dibalas di grup itu. Di chat pribadi: dikirim ke grup utama. Disusul stiker sesuai kata (atau halo).
+function botSapaOrang_(p, arg) {
+  var m = String(arg || '').match(/^([^|]+?)(?:\s*\|\s*([\s\S]+))?$/);
+  if (!m) return 'Tulis nama yang mau disapa, mis. ' + waKode_('iris sapa Mahmudi | salam kenal IRIS');
+  var nama = m[1].trim(), pesan = (m[2] || 'salam kenal iris').trim();
+  BOT_SAPA_PAKSA_ = true;
+  var teks;
+  try { teks = botSapa_({ from: 'admin-' + nama, fromName: nama }, pesan); } finally { BOT_SAPA_PAKSA_ = false; }
+  var tujuan = p.chat === 'group' ? { to: p.jid } : { grup: '' }, t = Date.now();
+  PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + t + '_sapa' + Math.floor(Math.random() * 1e6), JSON.stringify({ t: t, n: 0, last: 0,
+    files: [], to: tujuan.to || '', grup: tujuan.grup || '', mentions: [], text: waText_('✦ ' + teks) }));
+  try { botStikerOto_(botStikerSapa_(pesan), tujuan, t + 300); } catch (e) {}
+  return p.chat === 'group' ? '' : '✅ Sapaan untuk *' + nama + '* dikirim ke grup ' + botGrupNama_('') + '.';
+}
+var BOT_SAPA_PAKSA_ = false;   // iris sapa: lewati jeda per pengirim
 
 // iris perkenalan / perkenalkan / kenalan / kenalkan (+ diri) [kirim]
 var BOT_IRIS_KENALAN_ = /^(perkenal(an|kan)|kenal(an|kan))(\s+diri)?(\s+kirim)?\s*$/i;
@@ -1263,6 +1283,7 @@ function botHelp_(owner) {
     '- ' + A('iris') + ' status tanya IRIS · ' + A('iris on') + ' ' + A('iris off') + ' · ' + A('iris kuota <n>'),
     '- ' + A('iris stiker') + ' daftar stiker IRIS · ' + A('iris stiker <nama> [kirim]') + ' kirim stiker',
     '- ' + A('iris stiker jadwal') + ' stiker otomatis · ' + A('iris stiker otomatis on/off'),
+    '- ' + A('iris sapa <nama> [| pesannya]') + ' IRIS menyapa anggota (di chat pribadi: ke grup utama)',
     '- ' + A('iris perkenalan') + ' IRIS memperkenalkan diri _(di grup langsung; di chat pribadi pratinjau, lalu_ ' + A('iris perkenalan kirim') + '_)_',
     '- ' + A('grup') + ' grup WA per region · ' + A('grup pontianak <nama grup>') + ' laporan Pontianak ke grup sendiri',
     '- ' + A('panduan lengkap') + ' PDF semua perintah (ke chat pribadi)']);
@@ -2468,6 +2489,7 @@ var BOT_PANDUAN_ADMIN_ = [
   ['grup', 'Grup WhatsApp per region. ' + '<b>grup pontianak &lt;nama grup WA&gt;</b>: laporan, cek, BA, revisi, Today\'s Plan, pengingat 17:30, rekap Senin / tanggal 1, dan site tanpa laporan untuk site region Pontianak dikirim ke grup itu; region lain tetap ke grup utama. Perintah dari grup region (rekap, mingguan, bulanan) otomatis hanya region itu, tambah <b>semua</b> untuk semua region. <b>grup pontianak pic &lt;nama&gt;</b> = PIC Today\'s Plan; <b>grup pontianak tim &lt;nama&gt;</b> = pindahkan anggota tim yang di-tag 17:30 (bawaan: dari site yang paling sering dilaporkan). <b>grup pontianak hapus</b> = kembali satu grup.', 'grup | grup pontianak Report Pontianak'],
   ['pulihkan', 'Setiap Daily Report dan log foto juga disalin ke tab JURNAL WASPANG (spreadsheet LOG ARSIP). Tiap jam IRIS mencocokkan jurnal dengan spreadsheet Waspang; baris yang hilang (mis. versi spreadsheet dikembalikan) ditulis lagi otomatis dan admin diberi tahu. Perintah ini menjalankan pengecekan sekarang. Laporan yang memang mau dihapus: pakai revisi &lt;site&gt; lalu revisi hapus.', 'pulihkan'],
   ['iris [on | off | kuota &lt;n&gt; | model &lt;id&gt;]', 'Tanya IRIS (!iris, AI). iris = status dan pemakaian hari ini. iris on butuh Script Property GROQ_API_KEY (kunci dari console.groq.com). Kuota bawaan 500 pertanyaan per hari (batas gratis Groq sekitar 1.000 per hari).', 'iris | iris on | iris off | iris kuota 800'],
+  ['iris sapa &lt;nama&gt; [| pesannya]', 'IRIS menyapa anggota grup, mis. yang menyapa IRIS saat gateway belum bisa membaca sapaan. Di grup dibalas di grup itu; di chat pribadi dikirim ke grup utama. Disusul stiker sesuai kata.', 'iris sapa Mahmudi | salam kenal IRIS'],
   ['iris stiker jadwal / otomatis on|off', 'Stiker otomatis: setelah Today\'s Plan 07:00 (Senin/Sabtu gaspol, Selasa/Kamis semangat, Rabu/Jumat hatihati), rekap mingguan dan bulanan (mantap), 17:30 (ingat bila ada yang belum lapor, terimakasih bila semua sudah), Daily Report pertama tiap grup per hari (laporanmasuk), perkenalan (perkenalan), dan saat IRIS disapa (sesuai kata: makasih, wkwk, ngopi, otw, siap, ...). Stiker yang filenya belum ada dilewati.', 'iris stiker jadwal | iris stiker otomatis off'],
   ['iris stiker [&lt;nama&gt; [kirim]]', 'Stiker IRIS dari folder Drive IRIS Stiker (file .webp). iris stiker = daftar. Di grup langsung terkirim ke grup itu; di chat pribadi dikirim ke chat itu dulu, tambah kirim untuk ke grup utama dan grup region. Perkenalan (iris perkenalan kirim) otomatis disusul stiker halo bila ada.', 'iris stiker | iris stiker mantap | iris stiker halo kirim'],
   ['iris perkenalan [kirim]', 'IRIS memperkenalkan diri (siapa IRIS, asal nama, apa yang bisa dibantu, cara pakai). Diketik di grup = langsung tampil di grup itu. Di chat pribadi = pratinjau; iris perkenalan kirim = dikirim ke grup utama dan grup region. Hanya admin.', 'iris perkenalan | iris perkenalan kirim'],
