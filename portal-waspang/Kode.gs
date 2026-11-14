@@ -630,7 +630,13 @@ function waCmdIsi_(p) {
   var owner = waOwner_(p.from), text = String(p.text || '').trim();
   if (p.chat !== 'group' && !owner) return { status: 'success', reply: '' };
   if (text.charAt(0) === '!' || text.charAt(0) === '/') text = text.slice(1).trim();
-  else if (p.chat === 'group') return { status: 'success', reply: '' };
+  else if (p.chat === 'group') {
+    // Pesan grup tanpa "!" yang menyebut IRIS (kata "iris" atau tag nomor IRIS, ditandai gateway): IRIS menyapa balik.
+    if (!p.sebut && !/\biris\b/i.test(text)) return { status: 'success', reply: '' };
+    var sapa = botSapa_(p, text);
+    p.cmd = sapa ? 'sapa' : '';
+    return { status: 'success', reply: sapa ? waText_('✦ ' + sapa) : '' };
+  }
   var m = text.match(/^(\S+)\s*([\s\S]*)$/);
   if (!m) return { status: 'success', reply: '' };
   var cmd = m[1].toLowerCase(), arg = m[2].trim(), out;
@@ -785,6 +791,35 @@ var BOT_AI_URL_ = 'https://api.groq.com/openai/v1/chat/completions';
 var BOT_AI_MODEL_ = 'openai/gpt-oss-120b', BOT_AI_KUOTA_ = 500, BOT_AI_BLOK_MAX_ = 5000, BOT_AI_DATA_MAX_ = 12000;
 var BOT_AI_PENGATURAN_ = /^((on|off|nyala|mati|aktif)|kuota\s+\d+|model\s+\S+)?$/i;
 var BOT_AI_UMUM_ = ['cluster', 'site', 'fwa', 'uplink', 'mainfeeder', 'subfeeder', 'hubfeeder', 'jalan', 'desa', 'kec', 'kel', 'line'];
+
+// ---- Sapaan: pesan grup yang menyebut IRIS tanpa perintah (mis. "salam kenal IRIS") dijawab sopan + tawaran bantuan. ----
+// Jeda per pengirim BOT_SAPA_JEDA_ detik supaya tidak ramai. Tanya IRIS aktif = dijawab AI (memakai kuota), selain itu teks tetap.
+var BOT_SAPA_JEDA_ = 120;
+function botSapa_(p, text) {
+  var cache = CacheService.getScriptCache(), kunci = 'sapa_' + String(p.from || p.fromName || 'x').replace(/\W/g, '').slice(-20);
+  if (cache.get(kunci)) return '';
+  cache.put(kunci, '1', BOT_SAPA_JEDA_);
+  var props = PropertiesService.getScriptProperties(), nama = String(p.fromName || '').split(/\s*\|\s*|\s+[-•]\s+/)[0].replace(/[*_~`]/g, '').trim();
+  var bantu = '> Ketik ' + waKode_('!menu') + ' untuk pilihan' + (props.getProperty('BOT_AI') === 'on' && props.getProperty('GROQ_API_KEY') ? ', atau ' + waKode_('!iris <pertanyaan>') + ' untuk tanya apa saja.' : '.');
+  var key = props.getProperty('GROQ_API_KEY');
+  if (key && props.getProperty('BOT_AI') === 'on') {
+    var hari = botWita_(Date.now(), 'yyyy-MM-dd'), q = {}, kuota = Number(props.getProperty('BOT_AI_KUOTA')) || BOT_AI_KUOTA_;
+    try { q = JSON.parse(props.getProperty('BOT_AI_HARI') || '{}') || {}; } catch (e) {}
+    if (q.d !== hari) q = { d: hari, n: 0 };
+    if (q.n < kuota) {
+      var res = botAiPanggil_(key, props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_, String(text).slice(0, 300), '',
+        'TUGAS KHUSUS: anggota grup' + (nama ? ' bernama ' + nama : '') + ' menyebut namamu dalam obrolan (pesannya di bawah). ' +
+        'Balas 1-3 kalimat saja: sopan dan hangat, sapa namanya bila ada, tanggapi isi pesannya dengan wajar, lalu tanyakan ' +
+        'apakah ada yang bisa kamu bantu. Jangan memberi daftar perintah, jangan memakai poin, jangan memakai catatan sumber.');
+      if (res.ok) {
+        q.n++;
+        props.setProperty('BOT_AI_HARI', JSON.stringify(q));
+        return res.teks.split('\n').slice(0, 4).join('\n') + '\n\n' + bantu;
+      }
+    }
+  }
+  return 'Halo' + (nama ? ' *' + nama + '*' : '') + ', terima kasih sudah menyapa. 🙏 Ada yang bisa saya bantu?\n\n' + bantu;
+}
 
 // iris perkenalan / perkenalkan / kenalan / kenalkan (+ diri) [kirim]
 var BOT_IRIS_KENALAN_ = /^(perkenal(an|kan)|kenal(an|kan))(\s+diri)?(\s+kirim)?\s*$/i;
@@ -945,7 +980,7 @@ function botAiSite_(t) {
 }
 
 // Panggil Groq. -> {ok: true, teks} atau {ok: false, pesan}
-function botAiPanggil_(key, model, tanya, data) {
+function botAiPanggil_(key, model, tanya, data, khusus) {
   var sistem = [
     BOT_IRIS_KARAKTER_,
     'Kamu asisten serba bisa untuk tim proyek ini.',
@@ -960,6 +995,7 @@ function botAiPanggil_(key, model, tanya, data) {
     'Tolak dengan sopan permintaan yang berbahaya, melanggar hukum, atau tidak pantas untuk grup kerja.',
     'Format WhatsApp: *tebal* (satu bintang) untuk hal penting, "- " untuk daftar. Emoji secukupnya, maksimal 3. ' +
       'Jangan memakai tabel, judul #, **, atau garis pemisah.',
+    khusus ? '\n' + khusus : '',
     '', 'Hari ini: ' + botWita_(Date.now(), 'dd/MM/yyyy') + ' (WITA).', '', 'DATA:', data || '(tidak ada data proyek yang cocok dengan pertanyaan)'
   ].join('\n');
   var body = { model: model, temperature: 0.3, max_tokens: 1800,
