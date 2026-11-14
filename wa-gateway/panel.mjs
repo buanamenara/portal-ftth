@@ -21,7 +21,7 @@ const st = {
   beats: {},   // menit (epoch/60000) -> 1 hidup, 0 mati; 24 jam terakhir (menit saat dihentikan tidak dicatat)
   events: [],  // { t, k: ok|err|bot|re, x }
   sess: {},    // sha256(token) -> kedaluwarsa
-  pet: false,  // pet iRIS di desktop laptop gateway (nyala/mati dari menu panel)
+  pet: true,   // pet iRIS di desktop laptop gateway (bawaan menyala, bisa dimatikan dari menu panel)
   petEv: [], petSeq: 0   // kejadian untuk pet: { id, k: dengar|jawab|diam } (tidak disimpan)
 };
 let file = '', opts = {};
@@ -112,7 +112,7 @@ function wrong() { gagal.n++; if (gagal.n >= 5) { gagal.until = Date.now() + 600
 
 export function startPanel(o) {
   opts = o; file = path.join(o.dataDir, 'state.json');
-  try { const old = JSON.parse(fs.readFileSync(file, 'utf8')); Object.assign(st, old); st.sess = st.sess || {}; } catch (e) {}
+  try { const old = JSON.parse(fs.readFileSync(file, 'utf8')); Object.assign(st, old); if (old.pet === undefined) st.pet = true; st.sess = st.sess || {}; } catch (e) {}
   st.petEv = []; st.petSeq = 0;
   rollDay();
   // Denyut tiap menit: hidup = WhatsApp tersambung dan antrean berhasil diambil < 2 menit terakhir.
