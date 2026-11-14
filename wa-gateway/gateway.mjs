@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
+import { spawn } from 'node:child_process';
 import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, DisconnectReason, Browsers, downloadMediaMessage, decryptPollVote, jidNormalizedUser } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
@@ -276,14 +277,18 @@ async function onMessage(m) {
     }
   }
   const from = isGroup ? await phoneOf(k.participant, k.participantAlt) : await phoneOf(chat, k.remoteJidAlt);
+  // Pet iRIS: bergerak hanya saat IRIS ditanya / disebut di grup, lalu saat menjawab.
+  const petTanya = isGroup && (sebut || /^[!\/](iris|tanya)\b/i.test(text));
+  if (petTanya) panel.petEvent('dengar');
   const { reply, poll: menu } = await api({ action: 'WA_CMD', chat: isGroup ? 'group' : 'dm', from, fromName: m.pushName || '', jid: chat, grup: gk, text, excel, canPoll: true, sebut });
   if (menu) {
     await sendMenuPoll(chat, menu);
     log('Menu polling dikirim', isGroup ? '(grup)' : '(pribadi ' + from + ')');
     panel.count('cmd'); panel.event('bot', 'Menu polling');
   }
-  if (!reply) return;
+  if (!reply) { if (petTanya) panel.petEvent('diam'); return; }
   await sock.sendMessage(chat, { text: reply }, { quoted: m });
+  if (petTanya) panel.petEvent('jawab');
   log('Perintah dijawab:', text.split(/\s+/)[0], isGroup ? '(grup)' : '(pribadi ' + from + ')');
   panel.count('cmd'); panel.event('bot', text.split(/\s+/).slice(0, 3).join(' ').slice(0, 40));
 }
@@ -374,6 +379,19 @@ function jobLabel(job) {
 }
 
 // Panel (tampilan) + tombol. Server hanya di 127.0.0.1, kecuali config "panelLan": true.
+// Pet iRIS: robot kecil melayang di desktop laptop gateway (Windows), jendela PowerShell/WPF di pet/pet.ps1.
+// Hanya membaca /api/pet di 127.0.0.1; satu pet per laptop (mutex di pet.ps1), menutup sendiri bila dimatikan
+// atau gateway lama tidak menjawab.
+const PET_PS1 = path.join(DIR, 'pet', 'pet.ps1');
+const PET_BISA = process.platform === 'win32' && !FAKE && fs.existsSync(PET_PS1);
+function petJalan() {
+  if (!PET_BISA || !panel.petOn()) return;
+  try {
+    spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-WindowStyle', 'Hidden', '-File', PET_PS1,
+      '-Port', String(Number(CFG.panelPort) || 8737), '-Data', DATA], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  } catch (e) { log('Pet iRIS gagal dibuka:', e.message); }
+}
+
 await startPanel({
   dataDir: DATA, port: Number(CFG.panelPort) || 8737, lan: CFG.panelLan === true, configured, pollMs: POLL_MS,
   config: { url: CFG.url || '', group: CFG.group || '', hasSecret: !!CFG.secret },
@@ -396,6 +414,11 @@ await startPanel({
     if (!paused()) return;
     panel.setPaused(false); activeSince = Date.now(); panel.event('ok', 'Gateway dijalankan lagi'); log('Jalankan dari panel.');
     if (configured) connect().catch(e => log('Gagal menyambung:', e.message));
+  },
+  petBisa: PET_BISA,
+  pet: (on) => {
+    panel.setPet(on); panel.event('re', on ? 'Pet iRIS dinyalakan' : 'Pet iRIS dimatikan'); log(on ? 'Pet iRIS dinyalakan.' : 'Pet iRIS dimatikan.');
+    if (on) petJalan();   // mati: pet menutup dirinya sendiri saat membaca on = false
   },
   restart: () => {
     // Restart: program keluar (kode 1), pelari (jalankan.bat / start.bat) menyalakannya lagi beberapa detik kemudian
@@ -421,6 +444,7 @@ await startPanel({
   }
 });
 try { fs.rmSync(path.join(DATA, 'tutup.flag'), { force: true }); } catch (e) {}
+petJalan();
 
 if (!configured) {
   log('config belum lengkap (url, secret, group). Isi lewat panel IRIS Gateway atau', CFG_FILE);

@@ -51,6 +51,11 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   `/api/restart` → `restart()` di `wa-gateway/gateway.mjs` keluar dengan kode 1, pelari (`bin\jalankan.bat` / `start.bat`)
   menyalakannya lagi ± 5-10 dtk dengan file terbaru di `app\`. Panel menampilkan "Memulai ulang..." lalu kembali sendiri.
   File `app\` di laptop gateway sudah diganti versi PR ini (14 Nov 12:24); tombol muncul setelah satu kali Tutup program + buka lagi.
+- **Pet iRIS di desktop laptop gateway (PR iris-pet):** `wa-gateway/pet/pet.ps1` (PowerShell + WPF, tanpa instal apa pun) +
+  `pet/iris.png` (badan robot dari stiker "siap", visor dikosongkan; mata & mulut digambar kode). Nyala/mati dari menu ⋯ panel
+  (`/api/pet`, `st.pet` di `data/state.json`, bawaan mati). Gateway membuka pet (`petJalan`) saat mulai / dinyalakan; pet membaca
+  `GET /api/pet` (hanya 127.0.0.1) tiap 0,8 dtk dan menutup diri bila dimatikan atau gateway tidak menjawab 45 dtk. Klik kanan pet:
+  ukuran / Sembunyikan (`/api/pet-mati`). Galat pet ditulis ke `app\pet\pet.log`. Belum diuji di Windows sungguhan.
 - **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
   `!mandor`, `!selisih`, `!log`.
 
@@ -114,6 +119,9 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Panel IRIS Gateway: LED per region:** baris ● Banjarmasin / ● Pontianak (nama region saja; nama grup di tooltip).
   Hijau = WhatsApp tersambung dan grup ditemukan; merah = terputus, Stop, atau grup tidak ditemukan. Gateway mengecek grup
   tiap 60 dtk (`checkGroups()`); nama region grup utama dari `WA_PULL.grupUtama` (`botGrupNama_('')`).
+- **Pet iRIS:** hanya hiasan di laptop gateway, tidak menjawab pertanyaan (pilihan pemilik 14 Nov). Wajah ikut status
+  (senang = tersambung, kuning = menyambung, X merah = terputus, tidur = Stop). Bergerak hanya saat IRIS ditanya / disebut
+  di grup (`petEvent('dengar')`, `jawab`, `diam` di `onMessage`); klik = bereaksi, klik dua kali = berputar, bisa digeser.
 - **Gateway WA** jalan di laptop terpisah, bukan di laptop kerja pemilik. Folder `auth` dan `config.json` tidak pernah
   dibagikan atau diunggah.
 

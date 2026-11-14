@@ -20,12 +20,14 @@ const st = {
   day: DAY(), sent: 0, fail: 0, cmd: 0, restarts: 0, lastResume: 0,
   beats: {},   // menit (epoch/60000) -> 1 hidup, 0 mati; 24 jam terakhir (menit saat dihentikan tidak dicatat)
   events: [],  // { t, k: ok|err|bot|re, x }
-  sess: {}     // sha256(token) -> kedaluwarsa
+  sess: {},    // sha256(token) -> kedaluwarsa
+  pet: false,  // pet iRIS di desktop laptop gateway (nyala/mati dari menu panel)
+  petEv: [], petSeq: 0   // kejadian untuk pet: { id, k: dengar|jawab|diam } (tidak disimpan)
 };
 let file = '', opts = {};
 
 function save() {
-  try { fs.writeFileSync(file, JSON.stringify({ day: st.day, sent: st.sent, fail: st.fail, cmd: st.cmd, restarts: st.restarts, paused: st.paused, beats: st.beats, events: st.events, sess: st.sess })); } catch (e) {}
+  try { fs.writeFileSync(file, JSON.stringify({ day: st.day, sent: st.sent, fail: st.fail, cmd: st.cmd, restarts: st.restarts, paused: st.paused, beats: st.beats, events: st.events, sess: st.sess, pet: st.pet })); } catch (e) {}
 }
 function rollDay() { if (st.day !== DAY()) { st.day = DAY(); st.sent = st.fail = st.cmd = 0; } }
 
@@ -48,6 +50,9 @@ export const panel = {
   pullFailed(msg) { st.lastPoll = Date.now(); st.lastPollErr = String(msg).slice(0, 120); },
   count(k) { rollDay(); st[k]++; if ((k === 'sent' || k === 'fail') && st.pending > 0) st.pending--; save(); },
   event(k, x) { st.events.unshift({ t: Date.now(), k, x: String(x).slice(0, 80) }); st.events.length = Math.min(st.events.length, 40); save(); },
+  setPet(v) { st.pet = !!v; save(); },
+  petOn() { return st.pet; },
+  petEvent(k) { st.petEv.push({ id: ++st.petSeq, k, t: Date.now() }); if (st.petEv.length > 10) st.petEv.shift(); },
   resumed(gap) { st.lastResume = Date.now(); st.restarts++; panel.event('re', 'Bangun dari sleep (' + Math.round(gap / 60000) + ' mnt)'); }
 };
 
@@ -68,7 +73,8 @@ function snapshot() {
     sent: st.sent, fail: st.fail, cmd: st.cmd, restarts: st.restarts, lastResume: st.lastResume,
     uptime: vals.length ? Math.round(up / vals.length * 1000) / 10 : null, bars,
     events: st.events.slice(0, 8), now, host: os.hostname(), startedAt: st.startedAt,
-    groups: opts.groups ? opts.groups() : []
+    groups: opts.groups ? opts.groups() : [],
+    pet: st.pet, petBisa: !!opts.petBisa
   };
 }
 
@@ -107,6 +113,7 @@ function wrong() { gagal.n++; if (gagal.n >= 5) { gagal.until = Date.now() + 600
 export function startPanel(o) {
   opts = o; file = path.join(o.dataDir, 'state.json');
   try { const old = JSON.parse(fs.readFileSync(file, 'utf8')); Object.assign(st, old); st.sess = st.sess || {}; } catch (e) {}
+  st.petEv = []; st.petSeq = 0;
   rollDay();
   // Denyut tiap menit: hidup = WhatsApp tersambung dan antrean berhasil diambil < 2 menit terakhir.
   setInterval(() => {
@@ -121,6 +128,14 @@ export function startPanel(o) {
       const url = new URL(req.url, 'http://x'), p = url.pathname;
       if (req.method === 'GET' && STATIC[p]) return send(res, 200, fs.readFileSync(path.join(DIR, STATIC[p][0])), STATIC[p][1]);
       if (req.method === 'GET' && p === '/api/auth') return send(res, 200, { hasPass: !!o.passGet(), in: loggedIn(req) });
+      // Pet iRIS (pet/pet.ps1) hanya dari laptop ini: membaca suasana + kejadian, atau minta dirinya dimatikan.
+      const lokal = /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '');
+      if (p === '/api/pet' && req.method === 'GET') {
+        if (!lokal) return send(res, 404, { ok: false });
+        const mood = st.paused ? 'tidur' : st.wa === 'open' ? 'senang' : (st.wa === 'connecting' || st.wa === 'qr') ? 'tunggu' : 'putus';
+        return send(res, 200, { ok: true, on: st.pet, mood, ev: st.petEv, seq: st.petSeq });
+      }
+      if (p === '/api/pet-mati' && req.method === 'POST' && lokal && req.headers['x-iris'] === '1') { o.pet(false); return send(res, 200, { ok: true }); }
       if (req.method === 'GET' && p === '/api/status') return loggedIn(req) ? send(res, 200, snapshot()) : send(res, 401, { ok: false, login: true });
       if (req.method !== 'POST' || req.headers['x-iris'] !== '1') return send(res, 404, { ok: false });
       let body = ''; for await (const c of req) { body += c; if (body.length > 10000) throw new Error('terlalu besar'); }
@@ -152,6 +167,7 @@ export function startPanel(o) {
       else if (p === '/api/stop') o.stop();
       else if (p === '/api/start') o.start();
       else if (p === '/api/restart') o.restart();
+      else if (p === '/api/pet') o.pet(!!data.on);
       else if (p === '/api/tutup') o.quit();
       else if (p === '/api/setup') {
         if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(String(data.url || o.config.url || ''))) throw new Error('URL Apps Script tidak valid.');
