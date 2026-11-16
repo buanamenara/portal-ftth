@@ -8,7 +8,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 <!-- LIVE:START -->
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
-| waspang | @141 | 2026-11-14 22:56 | 542e7f4 | perf(waspang): cache empty boq plan results to guarantee cache hit on any cluster |
+| waspang | @142 | 2026-11-16 14:59 | b444f0d | fix(waspang): refresh daily preview and reset activity after report send |
 | ftth | @272 | 2026-11-15 02:03 | 4d4da5a | perf(ftth): add client SWR cache for checkpoint and scurve |
 | gateway | @24 | 2026-11-15 01:39 | d014a6f | perf(ftth,gateway): cache bagHistory, slice getLogHistory read, and cache gateway users |
 <!-- LIVE:END -->
@@ -172,6 +172,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-16 14:59 · **waspang @142** · b444f0d · fix(waspang): refresh daily preview and reset activity after report send · GitHub Actions
 - 2026-11-15 02:03 · **ftth @272** · 4d4da5a · perf(ftth): add client SWR cache for checkpoint and scurve · GitHub Actions
 - 2026-11-15 01:57 · **ftth @271** · 1a78a37 · perf(ftth): batch clear and column writes in boqGenPutBom_ · GitHub Actions
 - 2026-11-15 01:39 · **gateway @24** · d014a6f · perf(ftth,gateway): cache bagHistory, slice getLogHistory read, and cache gateway users · GitHub Actions
