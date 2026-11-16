@@ -10,7 +10,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 |---|---|---|---|---|
 | waspang | @142 | 2026-11-16 14:59 | b444f0d | fix(waspang): refresh daily preview and reset activity after report send |
 | ftth | @272 | 2026-11-15 02:03 | 4d4da5a | perf(ftth): add client SWR cache for checkpoint and scurve |
-| gateway | @24 | 2026-11-15 01:39 | d014a6f | perf(ftth,gateway): cache bagHistory, slice getLogHistory read, and cache gateway users |
+| gateway | @25 | 2026-11-16 17:37 | d2781f7 | feat(gateway,ftth): host UI directly on GitHub Pages with Apps Script JSON RPC |
 <!-- LIVE:END -->
 
 URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Deployment ID ada di
@@ -175,6 +175,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-16 17:37 · **gateway @25** · d2781f7 · feat(gateway,ftth): host UI directly on GitHub Pages with Apps Script JSON RPC · GitHub Actions
 - 2026-11-16 14:59 · **waspang @142** · b444f0d · fix(waspang): refresh daily preview and reset activity after report send · GitHub Actions
 - 2026-11-15 02:03 · **ftth @272** · 4d4da5a · perf(ftth): add client SWR cache for checkpoint and scurve · GitHub Actions
 - 2026-11-15 01:57 · **ftth @271** · 1a78a37 · perf(ftth): batch clear and column writes in boqGenPutBom_ · GitHub Actions
