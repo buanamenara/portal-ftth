@@ -1408,6 +1408,9 @@
   }
   @media (max-width: 680px) {
     .wl-logo, .wl-logo img { height: 34px; } .wl-logo img + img { height: 26px; }
+    #viewDaily .table-responsive, #viewDaily .table-wrap { max-height: 44vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    #dailyPreviewBox { max-height: 220px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    #dailyConfirmModal, #waShareModal { overflow-y: auto; }
     #dailyConfirmModal > div > div:last-child { flex-direction: column-reverse; }
     #dailyConfirmModal > div > div:last-child button { width: 100%; min-height: 48px; }
     #boqDropZone .boq-drop-title { font-size: 0; }
@@ -3712,6 +3715,8 @@
       document.getElementById('waShareTitle').textContent = title;
       document.getElementById('waShareLink').href = waShareUrl(text);
       el.style.display = 'flex';
+      const card = el.firstElementChild;
+      if (card && card.scrollIntoView) setTimeout(() => card.scrollIntoView({ block: 'center', behavior: 'auto' }), 20);
     }
     const STORAGE_BOQ_CUSTOM = 'waspang_custom_boq_v9';
     const STORAGE_PREV_PROGRESS = 'waspang_prev_progress_v9';
@@ -4660,6 +4665,8 @@ ${todayActivity}`;
       }
 
       modal.style.display = 'flex';
+      const card = modal.firstElementChild;
+      if (card && card.scrollIntoView) setTimeout(() => card.scrollIntoView({ block: 'center', behavior: 'auto' }), 20);
     }
 
     function closeDailyConfirmModal() {
@@ -4708,7 +4715,8 @@ ${todayActivity}`;
       };
 
       try {
-        const res = await fetch(cfg.scriptUrl, {
+        const scriptUrl = String(cfg.scriptUrl || '').trim();
+        const res = await fetch(scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
@@ -4726,7 +4734,9 @@ ${todayActivity}`;
             by: (document.getElementById('dailyPic').value || '').trim()
           })
         });
-        const d = await res.json();
+        const raw = await res.text();
+        let d;
+        try { d = JSON.parse(raw); } catch (_) { throw new Error('Respons server tidak valid (HTTP ' + res.status + '). Muat ulang halaman lalu coba lagi.'); }
         if (d.status === 'success') {
           showToast(d.waSent ? "🎉 Daily Report EMR berhasil terkirim ke WhatsApp!" : "⚠️ Daily Report tersimpan, tetapi belum terkirim ke WhatsApp.");
           showWaShare('Daily Report', text);
