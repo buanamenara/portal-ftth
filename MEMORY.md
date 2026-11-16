@@ -17,17 +17,16 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-16 19:33 WITA. Tidak ada pekerjaan tertunda yang terbuka.*
+*Terakhir diperbarui 2026-11-16 19:56 WITA. Tidak ada pekerjaan tertunda yang terbuka.*
 - **Fix UX Mobile & iPhone Daily Report Waspang (`portal-waspang/Form.html`):**
   - Batasi tinggi tabel progres (`44vh`) dan `#dailyPreviewBox` (`220px`) di mobile agar halaman laporan tidak terlalu panjang.
   - `openDailyConfirmModal` & `showWaShare` memanggil `scrollIntoView({ block: 'center' })` pada kartu modal agar user iPhone tidak perlu scroll ke atas untuk menekan tombol konfirmasi.
   - `executeDailyReportSend` men-trim `scriptUrl` dan mem-parse `res.text()` dengan pesan error yang jelas alih-alih error WebKit *"The string did not match the expected pattern"*.
   - `dailyDate` otomatis diisi tanggal hari ini saat portal dibuka (tetap bisa diubah), dan `dailyStartImpl` diingat per cluster/SOW di `localStorage` (`waspang_start_impl_v1`).
   - `handleDailySubmit` kini selalu memaksa `refreshSharedTotals(cluster, true)` dari server sebelum membuka konfirmasi & membentuk teks WA agar angka Total di pesan WA selalu sinkron dengan spreadsheet.
-- **Arsitektur GitHub Pages Langsung (Gateway & Portal FTTH):**
+- **Arsitektur GitHub Pages Langsung (Gateway, Portal FTTH & Portal Waspang):**
   - `gateway/Kode.gs` & `portal-ftth-gas/Kode.gs`: menambahkan endpoint `doPost(e)` JSON RPC dengan `RPC_ALLOWLIST_` eksplisit (menerima `POST text/plain` `{ fn, args }`).
-  - `gateway/Form.html` -> `gateway.html`, `portal-ftth-gas/Form.html` -> `ftth.html`, dan `index.html`: polyfill `google.script.run` / `google.script.url` saat dijalankan langsung di GitHub Pages (`buanamenara.github.io/portal-ftth/`), bebas `<iframe>` lintas-domain, bebas banner Google Apps Script, dan bebas error Google Drive di semua HP.
-  - `portal-waspang` tetap berjalan lewat `<iframe>` di `index.html` (endpoint `POST` Waspang mengembalikan `401` bila dipanggil lintas-origin dari GitHub Pages).
+  - `gateway/Form.html` -> `gateway.html`, `portal-ftth-gas/Form.html` -> `ftth.html`, `portal-waspang/Form.html` -> `waspang.html`, dan `index.html`: seluruh portal berjalan langsung dari GitHub Pages (`buanamenara.github.io/portal-ftth/`), bebas `<iframe>` lintas-domain, bebas banner Google Apps Script, bebas error Google Drive di semua HP, dan memuat HTML cepat dari CDN GitHub Pages.
 - **Fix Refresh Daily Report Waspang (`portal-waspang/Form.html`):** setelah kirim Daily Report berhasil, `dailyTodayActivity` ikut di-reset, `sharedTotalsMem` ikut diperbarui di `saveCurrentProgressAsCumulative()`, dan `renderDailyPreview()` langsung dipanggil ulang setelah kolom `Today` dikosongkan.
 - **Performa & Cache Portal FTTH + Gateway:**
   - `portal-ftth-gas/Kode.gs`: cache epoch `ftthDbVer_` (`CacheService`, TTL 5 mnt) untuk `baReadDbSites_`, `getCheckpointData_`, dan `buildSCurveData_`; `bagHistory_` di-cache (`ftthBagHistVer_`, TTL 5 mnt, reset saat `createBaGudang`); `getLogHistory_` hanya membaca maks 200 baris terakhir dari bawah; `bagInit_` bebas duplikasi baca; `logHistory_` hanya me-reset cache DB bila aksi bukan `BA Gudang/Unduh/Login/Logout/Lihat`; `boqGenPutBom_` menulis sel BoM secara batch (`RangeList.clearContent` + contiguous `setValues`).
