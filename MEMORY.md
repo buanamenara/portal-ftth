@@ -17,7 +17,8 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-15 02:02 WITA. Tidak ada pekerjaan tertunda yang terbuka.*
+*Terakhir diperbarui 2026-11-16 14:58 WITA. Tidak ada pekerjaan tertunda yang terbuka.*
+- **Fix Refresh Daily Report Waspang (`portal-waspang/Form.html`):** setelah kirim Daily Report berhasil, `dailyTodayActivity` ikut di-reset, `sharedTotalsMem` ikut diperbarui di `saveCurrentProgressAsCumulative()`, dan `renderDailyPreview()` langsung dipanggil ulang setelah kolom `Today` dikosongkan.
 - **Performa & Cache Portal FTTH + Gateway:**
   - `portal-ftth-gas/Kode.gs`: cache epoch `ftthDbVer_` (`CacheService`, TTL 5 mnt) untuk `baReadDbSites_`, `getCheckpointData_`, dan `buildSCurveData_`; `bagHistory_` di-cache (`ftthBagHistVer_`, TTL 5 mnt, reset saat `createBaGudang`); `getLogHistory_` hanya membaca maks 200 baris terakhir dari bawah; `bagInit_` bebas duplikasi baca; `logHistory_` hanya me-reset cache DB bila aksi bukan `BA Gudang/Unduh/Login/Logout/Lihat`; `boqGenPutBom_` menulis sel BoM secara batch (`RangeList.clearContent` + contiguous `setValues`).
   - `portal-ftth-gas/Form.html`: Stale-While-Revalidate (`swrGet_`/`swrSet_` via `sessionStorage` per kode akses, TTL 30 mnt) untuk `getCheckpointData` dan `getSCurveData` agar Beranda & Kurva S tampil instan saat dibuka/refresh sambil menyegarkan di latar.

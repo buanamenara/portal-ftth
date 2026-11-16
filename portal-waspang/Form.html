@@ -4714,13 +4714,16 @@ ${todayActivity}`;
           showWaShare('Daily Report', text);
           if (d.totalsError) alert('Laporan sudah terkirim, tetapi belum tercatat di sheet DAILY REPORT EMR (server sedang sibuk). Beri tahu RPM supaya dicatat.');
           if (d.totals) {
-            // Total bersama dari server sudah termasuk Today: simpan, lalu kosongkan Today.
-            applySharedTotals(reportCluster, d.totals);
+            // Total bersama dari server sudah termasuk Today: simpan, lalu kosongkan Today & segarkan pratinjau.
+            applySharedTotals(reportCluster, d.totals, true);
             lastDailyTableCluster = null;
             renderDailyTable();
           } else {
             saveCurrentProgressAsCumulative();
           }
+          const actEl = document.getElementById('dailyTodayActivity');
+          if (actEl) actEl.value = '* \n* ';
+          renderDailyPreview();
         } else {
           alert("Gagal kirim: " + (d.message || 'Unknown error'));
         }
@@ -4734,6 +4737,7 @@ ${todayActivity}`;
 
     function saveCurrentProgressAsCumulative() {
       const cluster = getActiveDailyCluster();
+      const ck = normalizeClusterKey(cluster);
       const cum = {};
       const items = getClusterItems(cluster);
       items.forEach(it => {
@@ -4744,10 +4748,12 @@ ${todayActivity}`;
           cum[it.key] = getPreviousCumulative(cluster, it.key);
         }
       });
-      localStorage.setItem(STORAGE_PREV_PROGRESS + '_' + cluster.toLowerCase(), JSON.stringify(cum));
+      sharedTotalsMem[ck] = cum;
+      try { localStorage.setItem(STORAGE_PREV_PROGRESS + '_' + ck, JSON.stringify(cum)); } catch (e) {}
       // Today sudah masuk akumulasi: kosongkan kolom Today untuk laporan berikutnya
       lastDailyTableCluster = null;
       renderDailyTable();
+      renderDailyPreview();
     }
 
     
