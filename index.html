@@ -24,7 +24,7 @@
 // Semua portal dibuka di dalam bingkai ini supaya banner Google Apps Script tidak muncul.
 // ?p=ftth|waspang memilih portal (tanpa p = Gateway). ?t= tiket sekali pakai dari Gateway (Portal FTTH: masuk otomatis; Portal Waspang: mengenali akun RPM).
 (function () {
-  var V = '49';   // penanda versi supaya perangkat tidak memakai salinan lama
+  var V = '47';   // penanda versi supaya perangkat tidak memakai salinan lama
   var PORTALS = {
     gateway: { title: 'FTTH Project Control Portal', url: 'https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec' },
     ftth: { title: 'Portal FTTH', sso: true, url: 'https://script.google.com/macros/s/AKfycbwO25NZjRNu11QfyZQDGp1ZAPHdR-PwMwrc3U09lGUQ03KH91bNUl178-A7F246fm_djw/exec' },
@@ -34,16 +34,10 @@
   var key = q.get('p');
   if (!Object.prototype.hasOwnProperty.call(PORTALS, key)) key = 'gateway';
   var t = q.get('t') || '';
-  var src = PORTALS[key].url + '?v=' + V + '&authuser=0' + (PORTALS[key].sso && /^[A-Za-z0-9]{32,80}$/.test(t) ? '&sso=' + t : '');
+  var src = PORTALS[key].url + '?v=' + V + (PORTALS[key].sso && /^[A-Za-z0-9]{32,80}$/.test(t) ? '&sso=' + t : '');
   // Gateway: ?logout=1 mengakhiri sesinya, ?go=<portal> langsung kembali ke portal itu bila sesi masih ada.
   var go = q.get('go') || '', logout = q.get('logout') === '1';
   if (key === 'gateway') src += (logout ? '&logout=1' : '') + (go !== 'gateway' && Object.prototype.hasOwnProperty.call(PORTALS, go) ? '&go=' + go : '');
-  // HP/mobile (Android/iOS/APK): browser HP sering memblokir/merusak sesi Google Apps Script di dalam iframe lintas-domain,
-  // sehingga muncul error Drive "Maaf, saat ini tidak dapat membuka file". Di HP, langsung buka URL Apps Script tanpa iframe.
-  if (/Android|iPhone|iPad|iPod|Mobile|PortalFTTH-Android/i.test(navigator.userAgent || '')) {
-    location.replace(src);
-    return;
-  }
   var f = document.getElementById('portal');
   f.title = PORTALS[key].title;
   f.src = src;

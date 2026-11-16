@@ -17,8 +17,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-16 15:42 WITA. Tidak ada pekerjaan tertunda yang terbuka.*
-- **Fix Mobile Google Drive Error (`index.html` `V='49'`):** perangkat mobile/APK (`Android|iPhone|iPad|iPod|Mobile|PortalFTTH-Android`) langsung diarahkan ke URL `script.google.com` via `location.replace(src)` tanpa `<iframe>`, mengatasi error *"Google Drive: Maaf, saat ini tidak dapat membuka file"* akibat pemblokiran sesi Apps Script di dalam iframe lintas-domain; desktop tetap memakai `<iframe>`.
+*Terakhir diperbarui 2026-11-16 15:43 WITA. Tidak ada pekerjaan tertunda yang terbuka.*
 - **Fix Refresh Daily Report Waspang (`portal-waspang/Form.html`):** setelah kirim Daily Report berhasil, `dailyTodayActivity` ikut di-reset, `sharedTotalsMem` ikut diperbarui di `saveCurrentProgressAsCumulative()`, dan `renderDailyPreview()` langsung dipanggil ulang setelah kolom `Today` dikosongkan.
 - **Performa & Cache Portal FTTH + Gateway:**
   - `portal-ftth-gas/Kode.gs`: cache epoch `ftthDbVer_` (`CacheService`, TTL 5 mnt) untuk `baReadDbSites_`, `getCheckpointData_`, dan `buildSCurveData_`; `bagHistory_` di-cache (`ftthBagHistVer_`, TTL 5 mnt, reset saat `createBaGudang`); `getLogHistory_` hanya membaca maks 200 baris terakhir dari bawah; `bagInit_` bebas duplikasi baca; `logHistory_` hanya me-reset cache DB bila aksi bukan `BA Gudang/Unduh/Login/Logout/Lihat`; `boqGenPutBom_` menulis sel BoM secara batch (`RangeList.clearContent` + contiguous `setValues`).
