@@ -4574,12 +4574,12 @@ ${todayActivity}`;
     async function handleDailySubmit(e) {
       e.preventDefault();
       const cluster = getActiveDailyCluster();
-      // Total harus sudah diambil dari server; kalau belum, teks WA akan memakai Total di HP ini (bisa 0).
-      if (cluster && getConfig().scriptUrl && sharedTotalsStatus[cluster] !== 'ok') {
+      // Selalu tarik ulang Total terbaru dari server sebelum membuat pratinjau/teks WA agar tidak memakai cache lama.
+      if (cluster && getConfig().scriptUrl) {
         const btn = document.getElementById('btnSendDailyReport');
         const label = btn ? btn.innerText : '';
-        if (btn) { btn.disabled = true; btn.innerText = '⏳ Memuat Total dari server...'; }
-        const ok = await refreshSharedTotals(cluster);
+        if (btn) { btn.disabled = true; btn.innerText = '⏳ Menyinkronkan Total dari server...'; }
+        const ok = await refreshSharedTotals(cluster, true);
         if (btn) { btn.disabled = false; btn.innerText = label; }
         if (!ok) {
           alert('Total dari server belum bisa dimuat (koneksi). Daily Report belum dikirim supaya Total di laporan tidak salah.\n\nCek sinyal, lalu tekan "Coba lagi" di atas tabel atau kirim ulang.');

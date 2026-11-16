@@ -23,6 +23,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   - `openDailyConfirmModal` & `showWaShare` memanggil `scrollIntoView({ block: 'center' })` pada kartu modal agar user iPhone tidak perlu scroll ke atas untuk menekan tombol konfirmasi.
   - `executeDailyReportSend` men-trim `scriptUrl` dan mem-parse `res.text()` dengan pesan error yang jelas alih-alih error WebKit *"The string did not match the expected pattern"*.
   - `dailyDate` otomatis diisi tanggal hari ini saat portal dibuka (tetap bisa diubah), dan `dailyStartImpl` diingat per cluster/SOW di `localStorage` (`waspang_start_impl_v1`).
+  - `handleDailySubmit` kini selalu memaksa `refreshSharedTotals(cluster, true)` dari server sebelum membuka konfirmasi & membentuk teks WA agar angka Total di pesan WA selalu sinkron dengan spreadsheet.
 - **Arsitektur GitHub Pages Langsung (Gateway & Portal FTTH):**
   - `gateway/Kode.gs` & `portal-ftth-gas/Kode.gs`: menambahkan endpoint `doPost(e)` JSON RPC dengan `RPC_ALLOWLIST_` eksplisit (menerima `POST text/plain` `{ fn, args }`).
   - `gateway/Form.html` -> `gateway.html`, `portal-ftth-gas/Form.html` -> `ftth.html`, dan `index.html`: polyfill `google.script.run` / `google.script.url` saat dijalankan langsung di GitHub Pages (`buanamenara.github.io/portal-ftth/`), bebas `<iframe>` lintas-domain, bebas banner Google Apps Script, dan bebas error Google Drive di semua HP.
