@@ -204,3 +204,24 @@ function portalLinks(sid) {
     return { key: k, title: p.title, desc: p.desc, href: href };
   });
 }
+
+var RPC_ALLOWLIST_ = {
+  loginUser: loginUser,
+  logoutUser: logoutUser,
+  portalLinks: portalLinks
+};
+
+// Endpoint JSON RPC untuk tampilan HTML di GitHub Pages (fetch POST text/plain tanpa CORS preflight).
+function doPost(e) {
+  var out;
+  try {
+    var req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    var fn = req && req.fn && Object.prototype.hasOwnProperty.call(RPC_ALLOWLIST_, req.fn) ? RPC_ALLOWLIST_[req.fn] : null;
+    if (!fn) throw new Error('Fungsi tidak diizinkan: ' + (req && req.fn));
+    var args = Array.isArray(req.args) ? req.args : [];
+    out = { ok: true, result: fn.apply(null, args) };
+  } catch (err) {
+    out = { ok: false, error: (err && err.message) ? err.message : String(err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}

@@ -4,6 +4,31 @@
   <base target="_top">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+  (function () {
+    if (window.google && window.google.script) return;
+    var RPC_URL = 'https://script.google.com/macros/s/AKfycby4nXXb8JKdAJodp6MdrNfdmNODiCdWr4ouZPKOP6w4wz1tDZLCSqe11eeU9oHYgmVxeQ/exec';
+    function mkRun(ok, fail) {
+      return new Proxy({}, {
+        get: function (_, prop) {
+          if (prop === 'withSuccessHandler') return function (fn) { return mkRun(fn, fail); };
+          if (prop === 'withFailureHandler') return function (fn) { return mkRun(ok, fn); };
+          return function () {
+            var args = Array.prototype.slice.call(arguments);
+            fetch(RPC_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn: String(prop), args: args }) })
+              .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+              .then(function (d) { if (!d || !d.ok) throw new Error((d && d.error) || 'Permintaan gagal'); if (typeof ok === 'function') ok(d.result); })
+              .catch(function (err) { if (typeof fail === 'function') fail(err instanceof Error ? err : new Error(String(err))); });
+          };
+        }
+      });
+    }
+    window.google = { script: { run: mkRun(null, null), url: { getLocation: function (cb) {
+      var p = {}; new URLSearchParams(location.search).forEach(function (v, k) { p[k] = v; });
+      if (typeof cb === 'function') cb({ parameter: p, hash: (location.hash || '').replace(/^#/, '') });
+    } } } };
+  })();
+  </script>
   <style>
     :root { --gold: #C9972C; --gold-dark: #A87A1B; --ink: #000000; --bg: #FBF7EE; --muted: #6b6b6b; }
     * { box-sizing: border-box; }
@@ -803,7 +828,10 @@
       var go = list.filter(function (p) { return p.key === GO; })[0];
       GO = '';
       // Aplikasi (PWA) yang pindah halaman; tautan dibuka di dalam bingkainya seperti klik biasa.
-      if (go) { try { window.top.postMessage({ bmi: 'open', href: go.href }, SHELL_ORIGIN); } catch (e) {} }
+      if (go) {
+        if (window.top === window) { location.replace(go.href); return; }
+        try { window.top.postMessage({ bmi: 'open', href: go.href }, SHELL_ORIGIN); } catch (e) {}
+      }
     }
     $('menuGrid').innerHTML = list.map(function (p, i) {
       return '<a class="portal' + (i === 0 ? ' main' : '') + '" href="' + esc(p.href) + '" target="_top">' +
@@ -885,6 +913,7 @@
     p = p || {};
     if (p.logout === '1') logout();
     if (/^[a-z]+$/.test(p.go || '')) GO = p.go;
+    if (window.top === window && (p.logout || p.go) && history.replaceState) history.replaceState(null, '', location.pathname);
     var s = loadSession();
     if (s) showMenu(s); else showLogin('');
   }

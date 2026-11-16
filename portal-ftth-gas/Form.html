@@ -4,6 +4,32 @@
   <base target="_top">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+  (function () {
+    if (window.google && window.google.script) return;
+    var RPC_URL = 'https://script.google.com/macros/s/AKfycbwO25NZjRNu11QfyZQDGp1ZAPHdR-PwMwrc3U09lGUQ03KH91bNUl178-A7F246fm_djw/exec';
+    function mkRun(ok, fail) {
+      return new Proxy({}, {
+        get: function (_, prop) {
+          if (prop === 'withSuccessHandler') return function (fn) { return mkRun(fn, fail); };
+          if (prop === 'withFailureHandler') return function (fn) { return mkRun(ok, fn); };
+          return function () {
+            var args = Array.prototype.slice.call(arguments);
+            fetch(RPC_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn: String(prop), args: args }) })
+              .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+              .then(function (d) { if (!d || !d.ok) throw new Error((d && d.error) || 'Permintaan gagal'); if (typeof ok === 'function') ok(d.result); })
+              .catch(function (err) { if (typeof fail === 'function') fail(err instanceof Error ? err : new Error(String(err))); });
+          };
+        }
+      });
+    }
+    window.google = { script: { run: mkRun(null, null), url: { getLocation: function (cb) {
+      var p = {}; new URLSearchParams(location.search).forEach(function (v, k) { p[k] = v; });
+      if (!p.sso && p.t) p.sso = p.t;
+      if (typeof cb === 'function') cb({ parameter: p, hash: (location.hash || '').replace(/^#/, '') });
+    } } } };
+  })();
+  </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'">
   <style>
@@ -3211,6 +3237,7 @@ function cocokCari(teks, q) {
       $('adminPwOld').value = ''; $('adminPwNew').value = ''; $('adminPwNew2').value = ''; $('adminPwMsg').textContent = '';
       showView('viewLogin');
       if (!auto) return;
+      if (window.top === window) { location.replace('./' + (opts.logout ? '?logout=1' : '?go=ftth')); return; }
       try { window.top.postMessage({ bmi: 'gateway', go: opts.logout ? '' : 'ftth', logout: !!opts.logout }, SHELL_ORIGIN_); } catch (e) { /* abaikan */ }
       setTimeout(function () { if (!ACCESS) $('gatewayLink').style.display = ''; }, 3000);
     }
@@ -3243,6 +3270,7 @@ function cocokCari(teks, q) {
         google.script.url.getLocation(function (loc) {
           var t = loc && loc.parameter ? loc.parameter.sso : '';
           CAME_WITH_SSO_ = !!t;
+          if (t && window.top === window && history.replaceState) history.replaceState(null, '', location.pathname);
           if (t) ssoEnter_(String(t)); else initAccessSaved_();
         });
       } catch (e) { initAccessSaved_(); }

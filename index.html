@@ -33,6 +33,9 @@
   var q = new URLSearchParams(location.search);
   var key = q.get('p');
   if (!Object.prototype.hasOwnProperty.call(PORTALS, key)) key = 'gateway';
+  // Gateway & Portal FTTH langsung dijalankan dari GitHub Pages (tanpa iframe script.google.com, bebas banner & bebas error Drive di HP).
+  if (key === 'gateway') { location.replace('gateway.html' + location.search); return; }
+  if (key === 'ftth') { location.replace('ftth.html' + location.search); return; }
   var t = q.get('t') || '';
   var src = PORTALS[key].url + '?v=' + V + (PORTALS[key].sso && /^[A-Za-z0-9]{32,80}$/.test(t) ? '&sso=' + t : '');
   // Gateway: ?logout=1 mengakhiri sesinya, ?go=<portal> langsung kembali ke portal itu bila sesi masih ada.

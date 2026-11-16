@@ -9241,3 +9241,38 @@ function buatBoqAbd(code, data) {
   logHistory_('Portal', logUser_(code), logRole_(code), 'Buat BOQ ABD', baClean_(data.site) + ' (' + sow + ') -> ' + res.name);
   return res;
 }
+
+var RPC_ALLOWLIST_ = {
+  checkAccess: checkAccess, ssoLogin: ssoLogin,
+  adminListUsers: adminListUsers, adminAddUser: adminAddUser, adminUpdateUser: adminUpdateUser,
+  adminResetPassword: adminResetPassword, adminDeleteUser: adminDeleteUser, changeMyPassword: changeMyPassword,
+  getLogoDataUri: getLogoDataUri, getBoqPicOptions: getBoqPicOptions, checkBoqRow: checkBoqRow,
+  extractOpnamePdf: extractOpnamePdf, extractBoq: extractBoq, saveBoq: saveBoq,
+  getBaSiteNames: getBaSiteNames, extractBa: extractBa, extractBaText: extractBaText,
+  saveBa: saveBa, getBaHistory: getBaHistory, downloadBaPdf: downloadBaPdf,
+  saveMasuk: saveMasuk, getBaDesignators: getBaDesignators,
+  rpmInit: rpmInit, rpmCreate: rpmCreate, rpmHistory: rpmHistory, rpmDownload: rpmDownload,
+  rpmSaveSign: rpmSaveSign, rpmSaveMandorSign: rpmSaveMandorSign,
+  atpPreview: atpPreview, atpCreate: atpCreate,
+  getBaGudangInit: getBaGudangInit, createBaGudang: createBaGudang, getBaGudangHistory: getBaGudangHistory,
+  kirimSaran: kirimSaran, getLogHistory: getLogHistory,
+  getCheckpointData: getCheckpointData, getSCurveData: getSCurveData,
+  getBoqGenInit: getBoqGenInit, buatBoq: buatBoq, getBoqGenHistory: getBoqGenHistory,
+  downloadBoqGen: downloadBoqGen, setBoqTemplate: setBoqTemplate,
+  getBoqAbdInit: getBoqAbdInit, getBoqAbdPlan: getBoqAbdPlan, buatBoqAbd: buatBoqAbd
+};
+
+// Endpoint JSON RPC untuk tampilan HTML di GitHub Pages (fetch POST text/plain tanpa CORS preflight).
+function doPost(e) {
+  var out;
+  try {
+    var req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    var fn = req && req.fn && Object.prototype.hasOwnProperty.call(RPC_ALLOWLIST_, req.fn) ? RPC_ALLOWLIST_[req.fn] : null;
+    if (!fn) throw new Error('Fungsi tidak diizinkan: ' + (req && req.fn));
+    var args = Array.isArray(req.args) ? req.args : [];
+    out = { ok: true, result: fn.apply(null, args) };
+  } catch (err) {
+    out = { ok: false, error: (err && err.message) ? err.message : String(err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
