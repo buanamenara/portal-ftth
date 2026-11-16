@@ -8,7 +8,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 <!-- LIVE:START -->
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
-| waspang | @142 | 2026-11-16 14:59 | b444f0d | fix(waspang): refresh daily preview and reset activity after report send |
+| waspang | @144 | 2026-11-16 19:17 | e295e36 | fix(waspang): compact mobile report layout, center confirm modal, and guard JSON parse |
 | ftth | @273 | 2026-11-16 17:38 | d2781f7 | feat(gateway,ftth): host UI directly on GitHub Pages with Apps Script JSON RPC |
 | gateway | @25 | 2026-11-16 17:37 | d2781f7 | feat(gateway,ftth): host UI directly on GitHub Pages with Apps Script JSON RPC |
 <!-- LIVE:END -->
@@ -180,6 +180,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-16 19:17 · **waspang @144** · e295e36 · fix(waspang): compact mobile report layout, center confirm modal, and guard JSON parse · GitHub Actions
 - 2026-11-16 17:38 · **ftth @273** · d2781f7 · feat(gateway,ftth): host UI directly on GitHub Pages with Apps Script JSON RPC · GitHub Actions
 - 2026-11-16 17:37 · **gateway @25** · d2781f7 · feat(gateway,ftth): host UI directly on GitHub Pages with Apps Script JSON RPC · GitHub Actions
 - 2026-11-16 14:59 · **waspang @142** · b444f0d · fix(waspang): refresh daily preview and reset activity after report send · GitHub Actions
