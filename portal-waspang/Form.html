@@ -4,6 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Portal Waspang & Daily Report EMR - PT. Buana Menara Indonesia</title>
+  <script>
+  (function () {
+    if (window.google && window.google.script) return;
+    window.google = {
+      script: {
+        url: {
+          getLocation: function (cb) {
+            var p = {};
+            new URLSearchParams(location.search).forEach(function (v, k) { p[k] = v; });
+            if (!p.sso && p.t) p.sso = p.t;
+            if (typeof cb === 'function') cb({ parameter: p, hash: (location.hash || '').replace(/^#/, '') });
+          }
+        }
+      }
+    };
+  })();
+  </script>
   <style>
     :root {
       --bmi-gold: #cd9934;
@@ -4099,6 +4116,7 @@
       try {
         ticket = await new Promise(resolve => google.script.url.getLocation(loc => resolve((loc && loc.parameter && loc.parameter.sso) || '')));
       } catch (e) {}
+      if (ticket && window.top === window && history.replaceState) history.replaceState(null, '', location.pathname);
       if (ticket) {
         try {
           const res = await fetch(getConfig().scriptUrl, {
