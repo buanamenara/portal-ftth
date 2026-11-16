@@ -2067,7 +2067,7 @@
             </div>
             <div class="form-group">
               <label for="dailyStartImpl">Start Implementation *</label>
-              <input type="date" id="dailyStartImpl" required onchange="renderDailyPreview()">
+              <input type="date" id="dailyStartImpl" required onchange="onStartImplChange()">
             </div>
           </div>
 
@@ -4858,6 +4858,7 @@ ${todayActivity}`;
       fillSowSelect(sowSel, name, sowSel ? sowSel.value : '');
       const sow = sowSel ? sowSel.value : '';
 
+      loadStartImplForCluster(getActiveDailyCluster());
       renderDailyTable();
       renderDailyPreview();
       refreshSharedTotals(getActiveDailyCluster());
@@ -4883,6 +4884,39 @@ ${todayActivity}`;
     function getActiveDailyCluster() {
       const sowSel = document.getElementById('dailySow');
       return siteId(document.getElementById('dailyClusterSelect').value, sowSel ? sowSel.value : '');
+    }
+
+    const STORAGE_START_IMPL = 'waspang_start_impl_v1';
+    function loadStartImplForCluster(cluster) {
+      const el = document.getElementById('dailyStartImpl');
+      if (!el) return;
+      if (!cluster) { el.value = ''; return; }
+      try {
+        const map = JSON.parse(localStorage.getItem(STORAGE_START_IMPL) || '{}') || {};
+        el.value = map[normalizeClusterKey(cluster)] || '';
+      } catch (e) { el.value = ''; }
+    }
+    function saveStartImplForCluster(cluster, val) {
+      if (!cluster) return;
+      try {
+        const map = JSON.parse(localStorage.getItem(STORAGE_START_IMPL) || '{}') || {};
+        const ck = normalizeClusterKey(cluster);
+        if (val) map[ck] = val; else delete map[ck];
+        localStorage.setItem(STORAGE_START_IMPL, JSON.stringify(map));
+      } catch (e) {}
+    }
+    function onStartImplChange() {
+      const el = document.getElementById('dailyStartImpl');
+      saveStartImplForCluster(getActiveDailyCluster(), el ? el.value : '');
+      renderDailyPreview();
+    }
+    function initDailyDates_() {
+      const dEl = document.getElementById('dailyDate');
+      if (dEl && !dEl.value) {
+        const now = new Date();
+        dEl.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      }
+      loadStartImplForCluster(getActiveDailyCluster());
     }
 
     // ==========================================
@@ -4978,6 +5012,7 @@ ${todayActivity}`;
       }
       });
       // 2. Aktifkan tab Daily dan render tabel
+      wsInitStep('Tanggal laporan', () => initDailyDates_());
       wsInitStep('Tab Daily', () => switchTab('daily'));
       wsInitStep('Tabel SOW', () => renderMasterSowTable());
       wsInitStep('Banner Drive', () => updateDriveConnectionBanner());
