@@ -17,10 +17,11 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-16 18:55 WITA. Tidak ada pekerjaan tertunda yang terbuka.*
-- **Arsitektur GitHub Pages Langsung (Gateway, Portal FTTH & Portal Waspang):**
+*Terakhir diperbarui 2026-11-16 18:59 WITA. Tidak ada pekerjaan tertunda yang terbuka.*
+- **Arsitektur GitHub Pages Langsung (Gateway & Portal FTTH):**
   - `gateway/Kode.gs` & `portal-ftth-gas/Kode.gs`: menambahkan endpoint `doPost(e)` JSON RPC dengan `RPC_ALLOWLIST_` eksplisit (menerima `POST text/plain` `{ fn, args }`).
-  - `gateway/Form.html` -> `gateway.html`, `portal-ftth-gas/Form.html` -> `ftth.html`, `portal-waspang/Form.html` -> `waspang.html`, dan `index.html`: polyfill `google.script.run` / `google.script.url` saat dijalankan langsung di GitHub Pages (`buanamenara.github.io/portal-ftth/`), bebas `<iframe>` lintas-domain, bebas banner Google Apps Script, dan bebas error Google Drive di semua HP.
+  - `gateway/Form.html` -> `gateway.html`, `portal-ftth-gas/Form.html` -> `ftth.html`, dan `index.html`: polyfill `google.script.run` / `google.script.url` saat dijalankan langsung di GitHub Pages (`buanamenara.github.io/portal-ftth/`), bebas `<iframe>` lintas-domain, bebas banner Google Apps Script, dan bebas error Google Drive di semua HP.
+  - `portal-waspang` tetap berjalan lewat `<iframe>` di `index.html` (endpoint `POST` Waspang mengembalikan `401` bila dipanggil lintas-origin dari GitHub Pages).
 - **Fix Refresh Daily Report Waspang (`portal-waspang/Form.html`):** setelah kirim Daily Report berhasil, `dailyTodayActivity` ikut di-reset, `sharedTotalsMem` ikut diperbarui di `saveCurrentProgressAsCumulative()`, dan `renderDailyPreview()` langsung dipanggil ulang setelah kolom `Today` dikosongkan.
 - **Performa & Cache Portal FTTH + Gateway:**
   - `portal-ftth-gas/Kode.gs`: cache epoch `ftthDbVer_` (`CacheService`, TTL 5 mnt) untuk `baReadDbSites_`, `getCheckpointData_`, dan `buildSCurveData_`; `bagHistory_` di-cache (`ftthBagHistVer_`, TTL 5 mnt, reset saat `createBaGudang`); `getLogHistory_` hanya membaca maks 200 baris terakhir dari bawah; `bagInit_` bebas duplikasi baca; `logHistory_` hanya me-reset cache DB bila aksi bukan `BA Gudang/Unduh/Login/Logout/Lihat`; `boqGenPutBom_` menulis sel BoM secara batch (`RangeList.clearContent` + contiguous `setValues`).
