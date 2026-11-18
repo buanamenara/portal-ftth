@@ -8,7 +8,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 <!-- LIVE:START -->
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
-| waspang | @146 | 2026-11-16 19:45 | 013bd38 | fix(waspang): always force-refresh shared totals before generating WA report text |
+| waspang | @147 | 2026-11-18 08:58 | bde20a0 | Merge pull request #124 from buanamenara/total-hari-ini |
 | ftth | @273 | 2026-11-16 17:38 | d2781f7 | feat(gateway,ftth): host UI directly on GitHub Pages with Apps Script JSON RPC |
 | gateway | @25 | 2026-11-16 17:37 | d2781f7 | feat(gateway,ftth): host UI directly on GitHub Pages with Apps Script JSON RPC |
 <!-- LIVE:END -->
@@ -187,6 +187,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-18 08:58 · **waspang @147** · bde20a0 · Merge pull request #124 from buanamenara/total-hari-ini · GitHub Actions
 - 2026-11-16 19:45 · **waspang @146** · 013bd38 · fix(waspang): always force-refresh shared totals before generating WA report text · GitHub Actions
 - 2026-11-16 19:34 · **waspang @145** · 748927c · feat(waspang): default report date to today and remember start implementation per cluster · GitHub Actions
 - 2026-11-16 19:17 · **waspang @144** · e295e36 · fix(waspang): compact mobile report layout, center confirm modal, and guard JSON parse · GitHub Actions
