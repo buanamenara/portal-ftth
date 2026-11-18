@@ -17,33 +17,30 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-18 10:40 WITA.*
-- **Login Gateway pakai cache USERS (PR gateway-login-segar, 18 Nov, belum live):** sejak Gateway @24 `findUser_` memakai cache
-  `gwUsers_v1` 5 menit, jadi setelah password diganti, password baru ditolak dan password lama masih diterima sampai 5 menit.
-  `loginUser` di `gateway/Kode.gs` kini selalu membaca sheet USERS langsung (`findUser_(username, true)`); fungsi lain tetap memakai cache.
-- **Total dobel dari Teks Laporan (PR #125, live Waspang @148, 18 Nov 09:57):** audit data menemukan Lawahan FDT 48 2/1, FAT Line A 18/9,
-  Line B 22/11 dan Sungai Kupang Cable 24C Line B FDT1 6768/1312, Cable 48C Line A FDT1 13427/1659. Penyebab di `clusterTotals_`
-  (`portal-waspang/Kode.gs`): (1) saldo awal dari `Teks Laporan` ikut membaca teks yang ditulis server sendiri sejak @137, jadi Total yang
-  pernah salah terkunci dan naik terus; kini hanya teks sebelum `TEKS_SINKRON_SEJAK_` (14 Nov 21:48 WITA) yang dibaca (`teksDariServer_`);
-  (2) teks lama menulis "Cable 24C Line B" tanpa nomor FDT, dibandingkan tanpa angka `_fdtN` sehingga volume dihitung dua kali; kini
-  memakai `lineFamilyAmount`. (3) `recordDailyReport_`: item Selesai tanpa angka (Total = volume Plan sebagai perkiraan) + Today tidak lagi
-  dijumlah; pengaman `>= sebelum + Today` dari @147 dibuang, Teks Laporan baris baru diselaraskan ke Total akhir dari sheet.
-  `botPulih_` ikut membuang cache Total cluster yang barisnya dipulihkan. Data di sheet tidak diubah.
-  Temuan data yang perlu dicek pemilik (tidak diubah): FWA Tanah Laut EMR-04185→33426 baris 96-98 (13/11 22:33-22:35, Cable 24C 3000
-  tiga kali, dua bertanggal 13/11) kemungkinan kiriman dobel.
-  Verifikasi sesudah @148 (18 Nov): cek web app HTTP 200 + semua spreadsheet terhubung; hitungan dengan sheet + MASTER BOQ asli untuk
-  30 cluster/SOW: hanya Lawahan & Sungai Kupang berubah (kembali = sheet/Plan); simulasi laporan baru di 4 cluster: Total = sebelum + Today;
-  waspang.html (Playwright, layar HP): buka cluster, pratinjau, konfirmasi, kirim, Total sesudah kirim benar, tanpa error JS.
-  Data lama di sheet yang melebihi Plan (bukan bug kode, perlu dicek pemilik): Asman Cable 24C 12083/5814; Rumpiang Cluster Digging 85/5 dan
-  Cable 48C 4804/527 (Plan Cluster sama dengan Subfeeder; baris 43 & 44 30/10 hampir sama); Lawahan Pole 7/4 10/1. Plan BOQ belum ada untuk
-  FWA Tanah Laut 33426→04185 dan 30726→33478.
-- **Bug Total Daily Report tidak bertambah (PR total-hari-ini, 18 Nov):** sejak Waspang @140 (14 Nov 22:53) `clusterRows_` di-memo per eksekusi
-  (`wsDailyRowsMemo_`). `recordDailyReport_` menghitung Total sebelum menulis baris, lalu menghitung `finalTotals` sesudah `appendDailyRow_` dari memo
-  yang sama, jadi Total di teks WA (`syncedText`), balasan ke portal, dan cache `cl_tot` (5 mnt) = Total lama tanpa Today. Baris di sheet dan
-  kolom `Teks Laporan` tetap benar. Perbaikan di `portal-waspang/Kode.gs`: `appendDailyRow_` mengosongkan `wsDailyRowsMemo_` setelah menulis
-  (juga membetulkan Koreksi Total RPM sesudah baris Saldo awal); `recordDailyReport_` membaca ulang baris dan menjaga Total akhir >= Total sebelum + Today;
-  revisi Daily Report (`revisi`) ikut membuang memo + `invalidateClusterCache_`. Laporan WA 15-17 Nov menampilkan Total tanpa angka Today hari itu.
-- **Fix UX Mobile & iPhone Daily Report Waspang (`portal-waspang/Form.html`):**
+*Terakhir diperbarui 2026-11-18 10:35 WITA.*
+- **`main` = yang live (18 Nov 10:05):** Waspang @148 (cafa3a5), FTTH @273 (d2781f7), Gateway @26 (9156bdc). Cadangan Drive terbaru
+  (Waspang v146, FTTH v273, Gateway v25) sama persis dengan commit live-nya waktu itu (dicek 18 Nov; beda hanya akhir baris CRLF).
+  Tidak ada PR terbuka.
+- **Perbaikan Total Daily Report 18 Nov (live, dikonfirmasi pemilik):**
+  1. **Waspang @147 (#124):** sejak @140 (14 Nov 22:53) `clusterRows_` di-memo per eksekusi (`wsDailyRowsMemo_`), sehingga Total sesudah
+     Daily Report = Total sebelum (Today tidak bertambah) di teks WA, balasan portal, dan cache `cl_tot`. `appendDailyRow_` kini mengosongkan memo;
+     revisi Daily Report membuang memo + `invalidateClusterCache_`. Laporan WA 15-17 Nov sudah dibetulkan manual oleh tim.
+  2. **Waspang @148 (#125):** Total dobel di `clusterTotals_`: (a) saldo awal dari `Teks Laporan` hanya dari teks sebelum `TEKS_SINKRON_SEJAK_`
+     (14 Nov 21:48 WITA, `teksDariServer_`), karena teks sesudahnya ditulis server dari Total hitungan sendiri dan mengunci angka yang pernah salah;
+     (b) teks lama "Line B" tanpa nomor FDT dibandingkan dengan jumlah semua `_fdtN` (`lineFamilyAmount`); (c) `recordDailyReport_`: item Selesai
+     tanpa angka + Today tidak dijumlah, Teks Laporan baris baru diselaraskan ke Total akhir dari sheet; (d) `botPulih_` membuang cache Total
+     cluster yang dipulihkan. Hasil: Lawahan FDT 48 2→1, FAT Line A/B 18/22→9/11; Sungai Kupang Cable 24C Line B FDT1 6768→1312,
+     Cable 48C Line A FDT1 13427→1659. Data di sheet tidak diubah.
+  3. **Gateway @26 (#126):** `loginUser` membaca sheet USERS langsung (`findUser_(username, true)`), bukan cache `gwUsers_v1` 5 menit, jadi
+     password baru dan akun nonaktif langsung berlaku. Fungsi lain tetap memakai cache.
+  Verifikasi 18 Nov: cek web app HTTP 200 (Waspang: semua spreadsheet terhubung); hitungan ulang 30 cluster/SOW dengan salinan sheet + MASTER BOQ asli;
+  simulasi laporan baru 4 cluster (Total = sebelum + Today); `waspang.html` di Playwright layar HP tanpa error; jurnal LOG ARSIP cocok
+  (112 baris Daily Report, 254 log foto). Masalah Total 0 di iPhone (akun Nazar, 14 Nov) dinyatakan selesai oleh pemilik 18 Nov.
+- **Data lama yang perlu dicek pemilik (tidak diubah, bukan bug kode):** FWA Tanah Laut EMR-04185→33426 baris 96-98 (13/11 22:33-22:35,
+  Cable 24C 3000 tiga kali) kemungkinan kiriman dobel; Asman Cable 24C 12083/5814; Rumpiang Cluster Digging 85/5 dan Cable 48C 4804/527
+  (Plan Cluster sama dengan Subfeeder; baris 43 & 44 30/10 hampir sama); Lawahan Pole 7/4 10/1; Plan BOQ belum ada untuk FWA Tanah Laut
+  33426→04185 dan 30726→33478. Lawahan & Sungai Kupang lainnya dinyatakan sesuai oleh pemilik.
+- **Fix UX Mobile & iPhone Daily Report Waspang (`portal-waspang/Form.html`, live sejak @144-@146, selesai):**
   - Batasi tinggi tabel progres (`44vh`) dan `#dailyPreviewBox` (`220px`) di mobile agar halaman laporan tidak terlalu panjang.
   - `openDailyConfirmModal` & `showWaShare` memanggil `scrollIntoView({ block: 'center' })` pada kartu modal agar user iPhone tidak perlu scroll ke atas untuk menekan tombol konfirmasi.
   - `executeDailyReportSend` men-trim `scriptUrl` dan mem-parse `res.text()` dengan pesan error yang jelas alih-alih error WebKit *"The string did not match the expected pattern"*.
@@ -56,13 +53,12 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Performa & Cache Portal FTTH + Gateway:**
   - `portal-ftth-gas/Kode.gs`: cache epoch `ftthDbVer_` (`CacheService`, TTL 5 mnt) untuk `baReadDbSites_`, `getCheckpointData_`, dan `buildSCurveData_`; `bagHistory_` di-cache (`ftthBagHistVer_`, TTL 5 mnt, reset saat `createBaGudang`); `getLogHistory_` hanya membaca maks 200 baris terakhir dari bawah; `bagInit_` bebas duplikasi baca; `logHistory_` hanya me-reset cache DB bila aksi bukan `BA Gudang/Unduh/Login/Logout/Lihat`; `boqGenPutBom_` menulis sel BoM secara batch (`RangeList.clearContent` + contiguous `setValues`).
   - `portal-ftth-gas/Form.html`: Stale-While-Revalidate (`swrGet_`/`swrSet_` via `sessionStorage` per kode akses, TTL 30 mnt) untuk `getCheckpointData` dan `getSCurveData` agar Beranda & Kurva S tampil instan saat dibuka/refresh sambil menyegarkan di latar.
-  - `gateway/Kode.gs`: `findUser_` meng-cache peta `USERS` di `CacheService` (`gwUsers_v1`, TTL 5 mnt) dengan fallback refresh otomatis bila username baru belum ada di cache.
+  - `gateway/Kode.gs`: `findUser_` meng-cache peta `USERS` di `CacheService` (`gwUsers_v1`, TTL 5 mnt) dengan fallback refresh otomatis bila username baru belum ada di cache. Sejak @26 login tidak memakai cache ini.
 - **Performa Refresh Data & Cache (Waspang @140–@141):** Optimasi kecepatan pemuatan/refresh cluster data (`GET_CLUSTER`).
   Menerapkan CacheService multi-tier (BOQ Plan 10 menit, Totals 5 menit, Legacy totals 6 jam), bounded-range scan
   dan 1-column pre-scan di `clusterRows_`, serta auto-invalidation saat ada daily report, koreksi RPM, atau sinkronisasi BOQ.
   Di client (`Form.html`), menerapkan strategi Stale-While-Revalidate sehingga tabel tampil seketika (0 ms) dari cache lokal
   dan diperbarui secara mulus di latar belakang. Lihat `PERFORMANCE.md`.
-- **`main` = yang live (15 Nov 01:28):** Waspang @141, FTTH @268, Gateway @23 semuanya dari `main`. Deploy dari `main` aman. Tidak ada PR terbuka (PR #100 sudah ditutup).
 - **IRIS Gateway (selesai):** Sudah dipasang/beres; paket portable terbaru (menu polling) ada di Drive `IRIS - Asisten Proyek BMI/IRIS-Gateway-Build/IRIS-Gateway-Portable.zip`.
 - **Data hilang 07/11 (selesai / ditutup):** Dinyatakan selesai per konfirmasi pemilik 15 Nov. Pemulihan otomatis mencatat laporan sejak @119.
 - **Grup region Pontianak:** live sejak Waspang @122 (Apps Script) + gateway baru di laptop. Admin set grup dengan `grup pontianak <nama grup persis>`
@@ -110,7 +106,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 - **Pencarian daftar (PR cari-semua):** kotak cari riwayat/daftar di Portal FTTH (Project Dashboard, riwayat BOQ, BA, Warehouse, RPM,
   Administration, Log History) memakai `cocokCari(teks, q)` (skrip pertama `portal-ftth-gas/Form.html`): semua kata harus ada, urutan
   bebas, tanda baca diabaikan, "jatibaru" = "jati baru". Tabel Database SOW di Portal Waspang sama; cari cluster Waspang sudah begitu.
-- **Total Daily Report dari server (PR #123 + perbaikan lanjutan 14 Nov):** keluhan 14 Nov: banyak laporan Daily Report menampilkan Total 0.
+- **Total Daily Report dari server (PR #123 + perbaikan lanjutan 14 Nov; diperbaiki lagi 18 Nov, lihat atas):** keluhan 14 Nov: banyak laporan Daily Report menampilkan Total 0.
   1. Di `portal-waspang/Form.html`: `fetchClusterData` batas 25 dtk + coba 3 kali; `sharedTotalsStatus` + kotak `#dailyTotalsWarn`; penyimpanan
      memori (`sharedPlanMem`, `sharedDoneMem`, `sharedTotalsMem`) sebagai cadangan bila `localStorage` diblokir/penuh di iframe iPhone Safari / WebView;
      pencocokan site saat impor BOQ Excel (`findSiteInWorkbook`) menyertakan petunjuk SOW dari nama file agar BOQ Subfeeder/FWA tidak menimpa Cluster.
