@@ -17,8 +17,11 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-18 10:30 WITA.*
-- **Total dobel dari Teks Laporan (PR total-teks-umpan, 18 Nov, belum live):** audit data menemukan Lawahan FDT 48 2/1, FAT Line A 18/9,
+*Terakhir diperbarui 2026-11-18 10:40 WITA.*
+- **Login Gateway pakai cache USERS (PR gateway-login-segar, 18 Nov, belum live):** sejak Gateway @24 `findUser_` memakai cache
+  `gwUsers_v1` 5 menit, jadi setelah password diganti, password baru ditolak dan password lama masih diterima sampai 5 menit.
+  `loginUser` di `gateway/Kode.gs` kini selalu membaca sheet USERS langsung (`findUser_(username, true)`); fungsi lain tetap memakai cache.
+- **Total dobel dari Teks Laporan (PR #125, live Waspang @148, 18 Nov 09:57):** audit data menemukan Lawahan FDT 48 2/1, FAT Line A 18/9,
   Line B 22/11 dan Sungai Kupang Cable 24C Line B FDT1 6768/1312, Cable 48C Line A FDT1 13427/1659. Penyebab di `clusterTotals_`
   (`portal-waspang/Kode.gs`): (1) saldo awal dari `Teks Laporan` ikut membaca teks yang ditulis server sendiri sejak @137, jadi Total yang
   pernah salah terkunci dan naik terus; kini hanya teks sebelum `TEKS_SINKRON_SEJAK_` (14 Nov 21:48 WITA) yang dibaca (`teksDariServer_`);
@@ -28,6 +31,12 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   `botPulih_` ikut membuang cache Total cluster yang barisnya dipulihkan. Data di sheet tidak diubah.
   Temuan data yang perlu dicek pemilik (tidak diubah): FWA Tanah Laut EMR-04185→33426 baris 96-98 (13/11 22:33-22:35, Cable 24C 3000
   tiga kali, dua bertanggal 13/11) kemungkinan kiriman dobel.
+  Verifikasi sesudah @148 (18 Nov): cek web app HTTP 200 + semua spreadsheet terhubung; hitungan dengan sheet + MASTER BOQ asli untuk
+  30 cluster/SOW: hanya Lawahan & Sungai Kupang berubah (kembali = sheet/Plan); simulasi laporan baru di 4 cluster: Total = sebelum + Today;
+  waspang.html (Playwright, layar HP): buka cluster, pratinjau, konfirmasi, kirim, Total sesudah kirim benar, tanpa error JS.
+  Data lama di sheet yang melebihi Plan (bukan bug kode, perlu dicek pemilik): Asman Cable 24C 12083/5814; Rumpiang Cluster Digging 85/5 dan
+  Cable 48C 4804/527 (Plan Cluster sama dengan Subfeeder; baris 43 & 44 30/10 hampir sama); Lawahan Pole 7/4 10/1. Plan BOQ belum ada untuk
+  FWA Tanah Laut 33426→04185 dan 30726→33478.
 - **Bug Total Daily Report tidak bertambah (PR total-hari-ini, 18 Nov):** sejak Waspang @140 (14 Nov 22:53) `clusterRows_` di-memo per eksekusi
   (`wsDailyRowsMemo_`). `recordDailyReport_` menghitung Total sebelum menulis baris, lalu menghitung `finalTotals` sesudah `appendDailyRow_` dari memo
   yang sama, jadi Total di teks WA (`syncedText`), balasan ke portal, dan cache `cl_tot` (5 mnt) = Total lama tanpa Today. Baris di sheet dan
