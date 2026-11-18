@@ -17,7 +17,13 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-16 19:56 WITA. Tidak ada pekerjaan tertunda yang terbuka.*
+*Terakhir diperbarui 2026-11-18 09:20 WITA.*
+- **Bug Total Daily Report tidak bertambah (PR total-hari-ini, 18 Nov):** sejak Waspang @140 (14 Nov 22:53) `clusterRows_` di-memo per eksekusi
+  (`wsDailyRowsMemo_`). `recordDailyReport_` menghitung Total sebelum menulis baris, lalu menghitung `finalTotals` sesudah `appendDailyRow_` dari memo
+  yang sama, jadi Total di teks WA (`syncedText`), balasan ke portal, dan cache `cl_tot` (5 mnt) = Total lama tanpa Today. Baris di sheet dan
+  kolom `Teks Laporan` tetap benar. Perbaikan di `portal-waspang/Kode.gs`: `appendDailyRow_` mengosongkan `wsDailyRowsMemo_` setelah menulis
+  (juga membetulkan Koreksi Total RPM sesudah baris Saldo awal); `recordDailyReport_` membaca ulang baris dan menjaga Total akhir >= Total sebelum + Today;
+  revisi Daily Report (`revisi`) ikut membuang memo + `invalidateClusterCache_`. Laporan WA 15-17 Nov menampilkan Total tanpa angka Today hari itu.
 - **Fix UX Mobile & iPhone Daily Report Waspang (`portal-waspang/Form.html`):**
   - Batasi tinggi tabel progres (`44vh`) dan `#dailyPreviewBox` (`220px`) di mobile agar halaman laporan tidak terlalu panjang.
   - `openDailyConfirmModal` & `showWaShare` memanggil `scrollIntoView({ block: 'center' })` pada kartu modal agar user iPhone tidak perlu scroll ke atas untuk menekan tombol konfirmasi.

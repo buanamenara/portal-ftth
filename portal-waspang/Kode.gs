@@ -3072,6 +3072,11 @@ function botRevisiJalan_(pend, who) {
       grup = '✏️ *Daily Report direvisi*: ' + botRevisiJudul_(s) + '\n' + pend.ubah + '\nTotal site ikut terkoreksi; abaikan angka itu di laporan lama.';
     }
     if (pend.jenis !== 'hapus') { SpreadsheetApp.flush(); jurnalTandai_(kunciLama, '', sh.getRange(x.row, 1, 1, h.width).getValues()[0], h); }
+    // Total site ikut berubah: buang cache Total cluster ini supaya portal langsung menampilkan angka baru.
+    wsDailyRowsMemo_ = {};
+    if (h.idx['cluster name'] !== undefined) {
+      invalidateClusterCache_(full[h.idx['cluster name']], h.idx['sow'] !== undefined ? full[h.idx['sow']] : '');
+    }
     var props = PropertiesService.getScriptProperties(), t = Date.now() + Math.floor(Math.random() * 1000);
     props.setProperty(WAQ_PREFIX_ + t + '_revisi', JSON.stringify({ t: t, n: 0, last: 0, files: [], mentions: [], text: grup, grup: botGrupSite_(s.site, s.sow) }));
     return '✅ ' + jenis + ' disimpan: ' + botRevisiJudul_(s) + '\n' + pend.ubah +
@@ -3864,7 +3869,12 @@ function recordDailyReport_(payload) {
       'Teks Laporan': ringkasanTeks
     }, payload.today, names);
     if (!cluster) return { status: 'success', syncedText: syncedText };
+    wsDailyRowsMemo_ = {};   // baca ulang baris cluster, termasuk baris yang baru ditulis
     var finalTotals = clusterTotals_(sh, cluster, keys, sow, pObj).totals;
+    // Pengaman: Total akhir tidak boleh kurang dari Total sebelum + Today (mis. bila baris baru belum terbaca).
+    Object.keys(expectedTotals).forEach(function (k) {
+      if ((finalTotals[k] || 0) < expectedTotals[k]) finalTotals[k] = expectedTotals[k];
+    });
     if (payload.text) syncedText = syncReportTextTotals_(payload.text, finalTotals, pObj);
     invalidateClusterCache_(cluster, sow);
     putCachedClusterTotals_(cluster, sow, { found: true, totals: finalTotals });
@@ -4417,6 +4427,9 @@ function appendDailyRow_(sh, vals, byKey, names) {
   vals['Rincian Item'] = rincianText_(byKey, names);
   var baris = rowByHeader_(sheetHeader_(sh), vals);
   sh.appendRow(baris);
+  // Baris cluster yang sudah dibaca (memo clusterRows_) tidak memuat baris baru ini: buang supaya Total berikutnya
+  // di eksekusi yang sama ikut menghitungnya (tanpa ini Total sesudah Daily Report = Total sebelum, Today tidak bertambah).
+  wsDailyRowsMemo_ = {};
   jurnalCatat_('DAILY REPORT EMR', sheetHeader_(sh), [baris]);
   try { formatDailyRows_(sh, sh.getLastRow()); } catch (e) { console.error('Format DAILY REPORT EMR: ' + e); }
 }
