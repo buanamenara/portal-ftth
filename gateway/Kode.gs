@@ -82,10 +82,11 @@ function loadUsersMap_(bypassCache) {
   return map;
 }
 
-function findUser_(username) {
+function findUser_(username, segar) {
   var uname = String(username || '').trim().toLowerCase();
   if (!uname) return null;
-  var map = loadUsersMap_(false);
+  var map = loadUsersMap_(!!segar);
+  if (segar) return map[uname] || null;
   if (map[uname]) return map[uname];
   // User baru mungkin baru saja ditambahkan ke sheet: segarkan cache sekali
   map = loadUsersMap_(true);
@@ -99,7 +100,8 @@ function randomId_() { return Utilities.getUuid().replace(/-/g, '') + Utilities.
 function loginUser(username, password) {
   var pass = String(password || '');
   if (!String(username || '').trim() || !pass) throw new Error('Username dan password wajib diisi.');
-  var r = findUser_(username);
+  // Login selalu membaca sheet USERS langsung (bukan cache 5 menit), supaya password baru dan akun nonaktif langsung berlaku.
+  var r = findUser_(username, true);
   var aktif = r && (String(r[5]).trim().toLowerCase() || 'aktif') !== 'nonaktif';
   if (r && String(r[1]) === pass && aktif) {
     var role = String(r[3]).trim().toLowerCase(), name = String(r[2]).trim() || String(r[0]).trim();
