@@ -17,7 +17,17 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-18 09:20 WITA.*
+*Terakhir diperbarui 2026-11-18 10:30 WITA.*
+- **Total dobel dari Teks Laporan (PR total-teks-umpan, 18 Nov, belum live):** audit data menemukan Lawahan FDT 48 2/1, FAT Line A 18/9,
+  Line B 22/11 dan Sungai Kupang Cable 24C Line B FDT1 6768/1312, Cable 48C Line A FDT1 13427/1659. Penyebab di `clusterTotals_`
+  (`portal-waspang/Kode.gs`): (1) saldo awal dari `Teks Laporan` ikut membaca teks yang ditulis server sendiri sejak @137, jadi Total yang
+  pernah salah terkunci dan naik terus; kini hanya teks sebelum `TEKS_SINKRON_SEJAK_` (14 Nov 21:48 WITA) yang dibaca (`teksDariServer_`);
+  (2) teks lama menulis "Cable 24C Line B" tanpa nomor FDT, dibandingkan tanpa angka `_fdtN` sehingga volume dihitung dua kali; kini
+  memakai `lineFamilyAmount`. (3) `recordDailyReport_`: item Selesai tanpa angka (Total = volume Plan sebagai perkiraan) + Today tidak lagi
+  dijumlah; pengaman `>= sebelum + Today` dari @147 dibuang, Teks Laporan baris baru diselaraskan ke Total akhir dari sheet.
+  `botPulih_` ikut membuang cache Total cluster yang barisnya dipulihkan. Data di sheet tidak diubah.
+  Temuan data yang perlu dicek pemilik (tidak diubah): FWA Tanah Laut EMR-04185→33426 baris 96-98 (13/11 22:33-22:35, Cable 24C 3000
+  tiga kali, dua bertanggal 13/11) kemungkinan kiriman dobel.
 - **Bug Total Daily Report tidak bertambah (PR total-hari-ini, 18 Nov):** sejak Waspang @140 (14 Nov 22:53) `clusterRows_` di-memo per eksekusi
   (`wsDailyRowsMemo_`). `recordDailyReport_` menghitung Total sebelum menulis baris, lalu menghitung `finalTotals` sesudah `appendDailyRow_` dari memo
   yang sama, jadi Total di teks WA (`syncedText`), balasan ke portal, dan cache `cl_tot` (5 mnt) = Total lama tanpa Today. Baris di sheet dan
