@@ -17,7 +17,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-18 10:35 WITA.*
+*Terakhir diperbarui 2026-11-18 22:55 WITA.*
 - **`main` = yang live (18 Nov 10:05):** Waspang @148 (cafa3a5), FTTH @273 (d2781f7), Gateway @26 (9156bdc). Cadangan Drive terbaru
   (Waspang v146, FTTH v273, Gateway v25) sama persis dengan commit live-nya waktu itu (dicek 18 Nov; beda hanya akhir baris CRLF).
   Tidak ada PR terbuka.
@@ -114,8 +114,15 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
      (serta tab lama `PROGRES TOTAL` / `LOG DAILY REPORT` bila ada) dan item bertanda `Selesai` di `MASTER BOQ CLUSTER` yang belum punya angka
      di kolom material `DAILY REPORT EMR` (selama belum pernah dikoreksi RPM); `addOpeningBalance_` bekerja per item yang belum pernah tercatat;
      `sendDailyReportEMR_` menjalankan `recordDailyReport_` lebih dulu dan menyelaraskan angka `<Today>/<Total>/<Plan>` sebelum dikirim ke WhatsApp.
-- **Usulan perintah bot (belum dikerjakan):** `!belum`, `!foto <site>`, `!izin <site>`, `!atp <site>`, `!rfs`,
-  `!mandor`, `!selisih`, `!log`.
+- **Perintah bot cek baru (PR bot-perintah-cek, 18 Nov, belum live):** `!belum`, `!foto [site]`, `!izin [site] [sow] [kota]`, `!atp [site]`,
+  `!rfs [sow] [kota]`, `!mandor [nama]`, `!selisih <site>` (semua anggota) dan `log [jumlah] [kata]` (admin), di `portal-waspang/Kode.gs`
+  (`botBelum_`, `botFoto_`, `botIzin_`, `botAtp_`, `botRfs_`, `botMandor_`, `botSelisih_`, `botLog_`). Hanya membaca data: DATA BASE (`botDb_`, judul
+  dua baris, sub judul didahulukan), LOG FOTO WASPANG, BA TRANSAKSI (`botBaRows_`, tanggal `botTglBa_` dipakai juga oleh `botBa_`), LOG HISTORY.
+  Pencarian nama site per bagian nama (`botKataCocok_` / `botPilihNama_`: angka utuh, kata berurutan didahulukan). Saringan `botPisahFilter_`:
+  kata SOW selalu saringan; semua kata kota/region = mode daftar, ada kata lain = mode satu site. Daftar ikut grup region (`botSiteLolos_`).
+  `!belum` tidak men-tag. `!selisih` = BA bersih (Ambil - Pengembalian) vs terpasang (`clusterTotals_`) vs Plan, plus gabungan semua SOW.
+  Terdaftar di `bantu` (bagian STATUS SITE), panduan PDF (`BOT_PANDUAN_VERSI_` 2026-11-18-1), menu polling (`📝 Siapa belum lapor`,
+  admin `📜 Log aktivitas portal`; kedua menu kini 12 pilihan = batas).
 
 ## Keputusan & aturan
 - **Deploy:** lewat GitHub Actions (push ke `deploy-waspang` / `deploy-ftth` / `deploy-gateway`). Clasp di laptop
