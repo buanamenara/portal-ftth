@@ -3871,11 +3871,22 @@ function recordDailyReport_(payload) {
     if (!cluster) return { status: 'success', syncedText: syncedText };
     wsDailyRowsMemo_ = {};   // baca ulang baris cluster, termasuk baris yang baru ditulis
     var finalTotals = clusterTotals_(sh, cluster, keys, sow, pObj).totals;
-    // Pengaman: Total akhir tidak boleh kurang dari Total sebelum + Today (mis. bila baris baru belum terbaca).
-    Object.keys(expectedTotals).forEach(function (k) {
-      if ((finalTotals[k] || 0) < expectedTotals[k]) finalTotals[k] = expectedTotals[k];
-    });
+    // Total "sebelum + Today" bisa terlalu besar bila item ditandai Selesai tanpa angka (Total sebelum = volume Plan sebagai
+    // perkiraan, lalu Today ikut ditambahkan). Total akhir dari sheet yang dipakai; Teks Laporan di baris baru diselaraskan.
     if (payload.text) syncedText = syncReportTextTotals_(payload.text, finalTotals, pObj);
+    if (ringkasanTeks) {
+      var hb = sheetHeader_(sh), cTk = hb.idx['teks laporan'], rowNo = sh.getLastRow();
+      var teksAkhir = syncReportTextTotals_(ringkasanTeks, finalTotals, pObj);
+      if (cTk !== undefined && teksAkhir !== ringkasanTeks) {
+        var baru = sh.getRange(rowNo, 1, 1, hb.width).getValues()[0];
+        if (totalsClusterKey_(baru[hb.idx['cluster name']]) === totalsClusterKey_(cluster)) {
+          var kunci = jurnalKunci_('DAILY REPORT EMR', hb, baru);
+          sh.getRange(rowNo, cTk + 1).setValue(teksAkhir);
+          baru[cTk] = teksAkhir;
+          try { jurnalTandai_(kunci, '', baru, hb); } catch (e) { console.error('Jurnal teks akhir: ' + e); }
+        }
+      }
+    }
     invalidateClusterCache_(cluster, sow);
     putCachedClusterTotals_(cluster, sow, { found: true, totals: finalTotals });
     return { status: 'success', totals: finalTotals, syncedText: syncedText };
@@ -4654,9 +4665,20 @@ function legacyTotalsForCluster_(cluster, sow) {
 // di Rincian Item (mis. diubah langsung di sheet) masuk ke item pertama di HP untuk material itu.
 // Juga memulihkan saldo awal yang tercatat di Teks Laporan / Ringkasan Pencapaian lama atau item bertanda Selesai.
 // -> {found, raw: {key: jumlah apa adanya}, totals: {key: jumlah, minimal 0}, touched: {key: bool}}
+// Sejak Waspang @137 (14 Nov 2026 21:48 WITA) angka Total di Teks Laporan ditulis server (recordDailyReport_), bukan HP.
+var TEKS_SINKRON_SEJAK_ = new Date('2026-11-14T21:48:00+08:00').getTime();
+function teksDariServer_(ts) {
+  var t = ts instanceof Date ? ts.getTime() : NaN;
+  if (isNaN(t)) {
+    var m = String(ts || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
+    if (m) t = new Date(m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2) + 'T' + ('0' + m[4]).slice(-2) + ':' + m[5] + ':00+08:00').getTime();
+  }
+  return !isNaN(t) && t >= TEKS_SINKRON_SEJAK_;
+}
+
 function clusterTotals_(sh, cluster, keys, sow, optPlan) {
   var h = sheetHeader_(sh), rows = clusterRows_(sh, h, cluster, sow), cRin = h.idx['rincian item'];
-  var cAct = h.idx['today activity'], cRinP = h.idx['ringkasan pencapaian'], cTeks = h.idx['teks laporan'];
+  var cAct = h.idx['today activity'], cRinP = h.idx['ringkasan pencapaian'], cTeks = h.idx['teks laporan'], cTs = h.idx['timestamp'];
   var plan = optPlan === undefined ? boqPlanForCluster_(cluster, sow) : optPlan;
   var planKeys = (plan && plan.items ? plan.items.map(function (it) { return it.key; }) : []);
   var mats = materialCols_(h), baseKey = {};
@@ -4696,6 +4718,18 @@ function clusterTotals_(sh, cluster, keys, sow, optPlan) {
     Object.keys(amount).forEach(function (x) {
       var px = splitItemKey_(x);
       if (px.line && px.base === k) sum += (amount[x] || 0) - (saldoAwal[x] || 0);
+    });
+    return sum;
+  }
+
+  // Jumlah semua varian FDT dari satu line (mis. cable_48c_line_a_fdt1 + _fdt2) untuk key line tanpa nomor FDT.
+  function lineFamilyAmount(k) {
+    var p = splitItemKey_(k);
+    if (!p.line || p.fdt) return 0;
+    var sum = 0;
+    Object.keys(amount).forEach(function (x) {
+      var px = splitItemKey_(x);
+      if (px.fdt && px.base === p.base && px.line === p.line) sum += amount[x] || 0;
     });
     return sum;
   }
@@ -4744,7 +4778,9 @@ function clusterTotals_(sh, cluster, keys, sow, optPlan) {
         if (col) corrected['#' + col] = true;
         delete openBal[k];
       });
-    } else if (!isSaldo) {
+    } else if (!isSaldo && !teksDariServer_(cTs === undefined ? '' : r[cTs])) {
+      // Saldo awal dari Teks Laporan hanya untuk laporan lama (Total ditulis HP). Teks laporan sejak TEKS_SINKRON_SEJAK_
+      // ditulis server dari Total hasil hitungan ini sendiri: membacanya lagi membuat angka yang pernah salah terkunci selamanya.
       var teks = (cTeks !== undefined && r[cTeks]) ? String(r[cTeks]) : rinP;
       var lap = parseLaporanTotals_(teks);
       Object.keys(lap).forEach(function (k) {
@@ -4752,7 +4788,8 @@ function clusterTotals_(sh, cluster, keys, sow, optPlan) {
         if (!(totVal > 0) || totVal < todayVal) return;
         var col = materialColumn_(k);
         if (corrected[k] || (col && corrected['#' + col])) return;
-        var cum = curAmountFor(k);
+        // Teks laporan lama menulis "Cable 24C Line B" tanpa nomor FDT, sedangkan baris baru mencatat "..._fdt1": hitung semua FDT.
+        var cum = curAmountFor(k) + lineFamilyAmount(k);
         if (totVal > cum) {
           var diff = totVal - cum;
           if (diff > (openBal[k] || 0)) openBal[k] = diff;
@@ -5142,7 +5179,12 @@ function botPulih_(paksa) {
       t.getRange(t.getLastRow() + 1, 1, rows.length, h.width).setValues(rows);
       var tc = h.idx['timestamp'];
       if (tc !== undefined && t.getLastRow() > 2) t.getRange(2, 1, t.getLastRow() - 1, h.width).sort({ column: tc + 1, ascending: true });
-      if (tab === 'DAILY REPORT EMR') { try { formatDailyRows_(t); } catch (e) {} }
+      if (tab === 'DAILY REPORT EMR') {
+        try { formatDailyRows_(t); } catch (e) {}
+        // Total cluster yang barisnya dipulihkan berubah: buang cache supaya portal langsung memakai angka baru.
+        wsDailyRowsMemo_ = {};
+        hilang.forEach(function (x) { var k = String(x.j[2] || '').split('|'); if (k[2]) invalidateClusterCache_(k[2], k[3] || ''); });
+      }
       var jam = botWita_(now, 'dd/MM HH:mm');
       hilang.forEach(function (x) { jsh.getRange(start + 2 + x.i, 4).setValue('dipulihkan ' + jam); });
       total += hilang.length;
