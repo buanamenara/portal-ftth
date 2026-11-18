@@ -10,7 +10,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 |---|---|---|---|---|
 | waspang | @148 | 2026-11-18 09:57 | cafa3a5 | Merge pull request #125 from buanamenara/total-teks-umpan |
 | ftth | @273 | 2026-11-16 17:38 | d2781f7 | feat(gateway,ftth): host UI directly on GitHub Pages with Apps Script JSON RPC |
-| gateway | @25 | 2026-11-16 17:37 | d2781f7 | feat(gateway,ftth): host UI directly on GitHub Pages with Apps Script JSON RPC |
+| gateway | @26 | 2026-11-18 10:05 | 9156bdc | Merge pull request #126 from buanamenara/gateway-login-segar |
 <!-- LIVE:END -->
 
 URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Deployment ID ada di
@@ -206,6 +206,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-18 10:05 · **gateway @26** · 9156bdc · Merge pull request #126 from buanamenara/gateway-login-segar · GitHub Actions
 - 2026-11-18 09:57 · **waspang @148** · cafa3a5 · Merge pull request #125 from buanamenara/total-teks-umpan · GitHub Actions
 - 2026-11-18 08:58 · **waspang @147** · bde20a0 · Merge pull request #124 from buanamenara/total-hari-ini · GitHub Actions
 - 2026-11-16 19:45 · **waspang @146** · 013bd38 · fix(waspang): always force-refresh shared totals before generating WA report text · GitHub Actions
