@@ -17,10 +17,10 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-18 22:55 WITA.*
-- **`main` = yang live (18 Nov 10:05):** Waspang @148 (cafa3a5), FTTH @273 (d2781f7), Gateway @26 (9156bdc). Cadangan Drive terbaru
+*Terakhir diperbarui 2026-11-19 15:10 WITA.*
+- **`main` = yang live (19 Nov 14:36):** Waspang @149 (be2d66e, #128), FTTH @273 (d2781f7), Gateway @26 (9156bdc). Cadangan Drive terbaru
   (Waspang v146, FTTH v273, Gateway v25) sama persis dengan commit live-nya waktu itu (dicek 18 Nov; beda hanya akhir baris CRLF).
-  Tidak ada PR terbuka.
+  PR terbuka: revisi-mudah (Waspang, menunggu persetujuan pemilik).
 - **Perbaikan Total Daily Report 18 Nov (live, dikonfirmasi pemilik):**
   1. **Waspang @147 (#124):** sejak @140 (14 Nov 22:53) `clusterRows_` di-memo per eksekusi (`wsDailyRowsMemo_`), sehingga Total sesudah
      Daily Report = Total sebelum (Today tidak bertambah) di teks WA, balasan portal, dan cache `cl_tot`. `appendDailyRow_` kini mengosongkan memo;
@@ -36,6 +36,22 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   Verifikasi 18 Nov: cek web app HTTP 200 (Waspang: semua spreadsheet terhubung); hitungan ulang 30 cluster/SOW dengan salinan sheet + MASTER BOQ asli;
   simulasi laporan baru 4 cluster (Total = sebelum + Today); `waspang.html` di Playwright layar HP tanpa error; jurnal LOG ARSIP cocok
   (112 baris Daily Report, 254 log foto). Masalah Total 0 di iPhone (akun Nazar, 14 Nov) dinyatakan selesai oleh pemilik 18 Nov.
+- **Revisi Daily Report dipermudah (PR revisi-mudah, 19 Nov, belum live):** keluhan tim 19 Nov: laporan FWA HST EMR-24498→32739
+  terkirim dobel (19/11 14:24 & 14:25 WITA, tanggal 25/10, Cable 24C 2040 dua kali → Total 4080 / Plan 2040), tim mencoba `!revisi fwa 32789 4/2040`,
+  `1050=2040`, `!revisi cable 24c 1050=2040`, `!revisi cable 24c`, semua ditolak bot. Perubahan di `portal-waspang/Kode.gs`, persetujuan admin tetap wajib
+  (pilihan pemilik):
+  1. `botRevisiCari_(arg, g, maxK)`: nama site cukup sebagian (mis. `lawahan`, nomor EMR `24498 32739`), kata SOW memilih SOW (`BOT_REVISI_SOW_`,
+     `botRevisiCocok_`), kata dari belakang dibuang sampai site ketemu dan sisanya = perubahan, jadi pilih + ubah bisa satu pesan
+     (`!revisi 24498 32739 hapus dobel`, `!revisi lawahan 31/10 cable 24c=150`). Nomor EMR salah satu angka → saran site mirip. Banyak site/SOW cocok →
+     daftar pilihan dengan nama pendek (`botRevisiPendek_`).
+  2. `botRevisiUbah_` (ganti blok parsing lama di `botRevisi_`): `150` (laporan satu item / item yang baru ditanyakan), `1=150`, `cable 24c=150`,
+     `cable 24c 150`, `2040 jadi 1050` / `1050=2040` / `2040 1050` (angka yang sama dengan isi laporan = angka lama), `cable 24c` tanpa angka → bot bertanya
+     (`sel.fokus`). Kalau sisa pesan gagal dibaca, nama site dicoba lebih pendek (mis. "3" yang ikut cocok dengan "SAMPAI 03").
+  3. Dobel: `botRevisiDobel_` (site, SOW, tanggal laporan, dan angka Today sama). Daftar revisi menandai dan menyarankan `!revisi hapus dobel`;
+     `botCekDaily_` menambah temuan dobel dan petunjuk `!revisi <nama pendek> hapus dobel` (dulu nama site lengkap). Usulan hapus menggantikan usulan
+     lain untuk laporan yang sama. Balasan ke tim kini menampilkan perubahan yang diteruskan ke admin.
+  Teks `!bantu`, menu `✏️ Revisi Daily Report`, dan panduan PDF (`BOT_PANDUAN_VERSI_` 2026-11-19-1) ikut diperbarui. Laporan dobel HST 24498→32739
+  belum dihapus (menunggu tim/admin lewat `!revisi 24498 32739 hapus dobel` + `revisi ya`).
 - **Data lama yang perlu dicek pemilik (tidak diubah, bukan bug kode):** FWA Tanah Laut EMR-04185→33426 baris 96-98 (13/11 22:33-22:35,
   Cable 24C 3000 tiga kali) kemungkinan kiriman dobel; Asman Cable 24C 12083/5814; Rumpiang Cluster Digging 85/5 dan Cable 48C 4804/527
   (Plan Cluster sama dengan Subfeeder; baris 43 & 44 30/10 hampir sama); Lawahan Pole 7/4 10/1; Plan BOQ belum ada untuk FWA Tanah Laut
@@ -114,7 +130,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
      (serta tab lama `PROGRES TOTAL` / `LOG DAILY REPORT` bila ada) dan item bertanda `Selesai` di `MASTER BOQ CLUSTER` yang belum punya angka
      di kolom material `DAILY REPORT EMR` (selama belum pernah dikoreksi RPM); `addOpeningBalance_` bekerja per item yang belum pernah tercatat;
      `sendDailyReportEMR_` menjalankan `recordDailyReport_` lebih dulu dan menyelaraskan angka `<Today>/<Total>/<Plan>` sebelum dikirim ke WhatsApp.
-- **Perintah bot cek baru (PR bot-perintah-cek, 18 Nov, belum live):** `!belum`, `!foto [site]`, `!izin [site] [sow] [kota]`, `!atp [site]`,
+- **Perintah bot cek baru (#128, live Waspang @149 sejak 19 Nov 14:36):** `!belum`, `!foto [site]`, `!izin [site] [sow] [kota]`, `!atp [site]`,
   `!rfs [sow] [kota]`, `!mandor [nama]`, `!selisih <site>` (semua anggota) dan `log [jumlah] [kata]` (admin), di `portal-waspang/Kode.gs`
   (`botBelum_`, `botFoto_`, `botIzin_`, `botAtp_`, `botRfs_`, `botMandor_`, `botSelisih_`, `botLog_`). Hanya membaca data: DATA BASE (`botDb_`, judul
   dua baris, sub judul didahulukan), LOG FOTO WASPANG, BA TRANSAKSI (`botBaRows_`, tanggal `botTglBa_` dipakai juga oleh `botBa_`), LOG HISTORY.
