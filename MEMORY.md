@@ -8,7 +8,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 <!-- LIVE:START -->
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
-| waspang | @152 | 2026-11-19 20:47 | e09736f | fix(waspang): keep botAiData site/stok priority before owner billing context |
+| waspang | @153 | 2026-11-19 20:51 | 9bb06d9 | fix(waspang): silence iRIS completely for non-owner mandor billing queries |
 | ftth | @273 | 2026-11-16 17:38 | d2781f7 | feat(gateway,ftth): host UI directly on GitHub Pages with Apps Script JSON RPC |
 | gateway | @26 | 2026-11-18 10:05 | 9156bdc | Merge pull request #126 from buanamenara/gateway-login-segar |
 <!-- LIVE:END -->
@@ -229,6 +229,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-19 20:51 · **waspang @153** · 9bb06d9 · fix(waspang): silence iRIS completely for non-owner mandor billing queries · GitHub Actions
 - 2026-11-19 20:47 · **waspang @152** · e09736f · fix(waspang): keep botAiData site/stok priority before owner billing context · GitHub Actions
 - 2026-11-19 20:42 · **waspang @151** · 3597b00 · feat(waspang): proactive mandor billing and BA Pekerjaan reminders for owner · GitHub Actions
 - 2026-11-19 18:46 · **waspang @150** · 14f0d48 · Merge pull request #129 from buanamenara/revisi-mudah · GitHub Actions
