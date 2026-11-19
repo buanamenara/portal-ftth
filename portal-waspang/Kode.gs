@@ -793,6 +793,10 @@ function waCmdIsi_(p) {
       out = botRfs_(arg); break;
     case 'mandor':
       out = botMandor_(arg); break;
+    case 'tagihan': case 'bapekerjaan': case 'tagihanmandor':
+      out = (owner && p.chat !== 'group') ? botTagihanMandor_(arg, false) : ''; break;
+    case 'mandorkey':
+      out = (owner && p.chat !== 'group') ? botMandorKeyCmd_(arg) : ''; break;
     case 'selisih':
       out = botSelisih_(arg); break;
     case 'log':
@@ -1123,7 +1127,7 @@ function botTanya_(p, owner, arg) {
   var hari = botWita_(Date.now(), 'yyyy-MM-dd'), q = {}, kuota = Number(props.getProperty('BOT_AI_KUOTA')) || BOT_AI_KUOTA_;
   try { q = JSON.parse(props.getProperty('BOT_AI_HARI') || '{}') || {}; } catch (e) {}
   if (q.d !== hari) q = { d: hari, n: 0 };
-  var data = botAiData_(arg), sisa = kuota - q.n, cadangan = botAiCadangan_(kuota), proyek = data.sumber.length > 0;
+  var data = botAiData_(arg, owner && p.chat !== 'group'), sisa = kuota - q.n, cadangan = botAiCadangan_(kuota), proyek = data.sumber.length > 0;
   // Jatah habis: tetap menjawab seperti rekan kerja, pakai data perintah IRIS apa adanya (tanpa AI).
   if (sisa <= 0) return botAiTanpaAi_(data, g, 'habis');
   // Sisa jatah disimpan untuk pertanyaan proyek: pertanyaan umum tidak dijawab AI lagi hari ini.
@@ -1167,7 +1171,7 @@ function botAiTanpaAi_(data, g, sebab, cadangan) {
 }
 
 // Kumpulkan data yang relevan dengan pertanyaan, dari keluaran perintah IRIS yang sudah ada. -> {teks, sumber: [judul]}
-function botAiData_(tanya) {
+function botAiData_(tanya, isOwnerPrivate) {
   var t = ' ' + String(tanya).toLowerCase().replace(/[^a-z0-9\/\s-]/g, ' ').replace(/\s+/g, ' ').trim() + ' ', blok = [], sumber = [];
   function tambah(judul, fn) {
     try {
@@ -1177,6 +1181,9 @@ function botAiData_(tanya) {
       blok.push('### ' + judul + '\n' + isi);
       sumber.push(judul);
     } catch (e) { console.log('AI data ' + judul + ': ' + e); }
+  }
+  if (isOwnerPrivate && /tagihan|ba pekerjaan|bapekerjaan|spk|termin|kasbon|retensi|mandor|bayar/.test(t)) {
+    tambah('tagihan & BA Pekerjaan mandor', function () { return botTagihanMandor_('', false); });
   }
   var sites = botAiSite_(t);
   sites.forEach(function (s) {
@@ -1365,6 +1372,7 @@ function botHelp_(owner) {
     '- *07:00* stok di bawah standar _(+ perkiraan habis)_',
     '- *Senin 07:05* item melebihi Plan BOQ',
     '- *07:10* Excel stok WH 7 hari belum dikirim',
+    '- *Senin & Kamis 07:15* pengingat tagihan & BA Pekerjaan mandor',
     '- *Minggu 22:00* backup spreadsheet · email bila gateway mati',
     '', '📝 *CATATAN & PENGINGAT*',
     '- ' + A('catat <teks>') + ' simpan catatan',
@@ -1372,6 +1380,8 @@ function botHelp_(owner) {
     '- ' + A('ingatkan 14:30 <teks>') + ' · ' + A('besok 08:00 <teks>') + ' · ' + A('30m <teks>'),
     '- ' + A('pengingat') + ' daftar pengingat',
     '- ' + A('log [jumlah] [kata]') + ' aktivitas portal terakhir (LOG HISTORY)',
+    '- ' + A('tagihan [mandor/site]') + ' cek BA Pekerjaan RPM (sudah terbit vs belum dibuat) & tagihan mandor',
+    '- ' + A('mandorkey [key]') + ' hubungkan SPK/Termin/Kasbon Supabase Database-mandor',
     '', '📋 *TODAY\'S PLAN*',
     '- ' + A('permit <daftar>') + ' permit besok · ' + A('permit hapus'),
     '- ' + A('implementasi <daftar>') + ' tambah site/aktivitas besok',
@@ -1636,7 +1646,8 @@ var BOT_JADWAL_ = [
   { id: 'MANGKRAK', from: '07:05', until: '10:00', perGrup: true, build: function (now) { return botMangkrak_(now, Number(botWita_(now, 'u')) === 1 ? 'senin' : false); } },
   { id: 'BOQ', from: '07:05', until: '10:00', day: 1, build: function (now) { return { text: botBoqLewat_(now), to: botOwnerJid_() }; } },   // Senin saja
   { id: 'WH', from: '08:00', until: '11:00', build: function (now) { return botWhIngat_(now); } },   // Senin, tanggal 28 dan tanggal 1
-  { id: 'WHBASI', from: '07:10', until: '10:00', build: function (now) { return { text: botWhBasi_(now), to: botOwnerJid_() }; } }
+  { id: 'WHBASI', from: '07:10', until: '10:00', build: function (now) { return { text: botWhBasi_(now), to: botOwnerJid_() }; } },
+  { id: 'TAGIHAN', from: '07:15', until: '10:30', days: [1, 4], build: function (now) { return { text: botTagihanMandor_('', true), to: botOwnerJid_() }; } }   // Senin & Kamis ke pribadi pemilik
 ];
 var BOT_GARIS_ = new Array(38).join('≡');
 
@@ -1649,6 +1660,7 @@ function botJadwal_() {
   BOT_JADWAL_.forEach(function (j) {
     if (hm < j.from || hm >= j.until || props.getProperty('BOT_SENT_' + j.id) === today) return;
     if (j.day && Number(botWita_(now, 'u')) !== j.day) return;   // u: 1 = Senin
+    if (j.days && j.days.indexOf(Number(botWita_(now, 'u'))) < 0) return;   // beberapa hari dalam seminggu (mis. [1, 4] = Senin & Kamis)
     if (j.date && Number(botWita_(now, 'd')) !== j.date) return;   // tanggal dalam bulan
     var lock = LockService.getScriptLock();
     if (!lock.tryLock(5000)) return;
@@ -2892,6 +2904,330 @@ function botMandor_(arg) {
       return '- ' + k + ': BA terakhir ' + botTglPendek_(y.last) + (st ? ' · ' + st : '');
     }), 20)).join('\n');
   }).join('\n\n');
+}
+
+// ===================== TAGIHAN MANDOR & BA PEKERJAAN RPM (KHUSUS PEMILIK / WA_OWNER) =====================
+var MANDOR_SUPABASE_DEFAULT_URL_ = 'https://vcjlfdrenrznctklbdvk.supabase.co';
+
+function botMandorKeyCmd_(arg) {
+  var props = PropertiesService.getScriptProperties();
+  var v = String(arg || '').trim();
+  if (!v) {
+    var cur = String(props.getProperty('MANDOR_SUPABASE_KEY') || '').trim();
+    return ['🔐 *Koneksi Database Mandor (Supabase)*',
+      'Status: ' + (cur ? '🟢 Terhubung (' + cur.slice(0, 10) + '...)' : '⚪ Belum diisi'),
+      'URL: ' + (props.getProperty('MANDOR_SUPABASE_URL') || MANDOR_SUPABASE_DEFAULT_URL_),
+      '',
+      '> Isi/ganti key: ' + waKode_('mandorkey <service_role_key>'),
+      '> Hapus key: ' + waKode_('mandorkey hapus'),
+      '> Cek tagihan & BA Pekerjaan: ' + waKode_('tagihan')].join('\n');
+  }
+  if (/^(hapus|reset|clear)$/i.test(v)) {
+    props.deleteProperty('MANDOR_SUPABASE_KEY');
+    return '🗑️ Key Supabase Database Mandor dihapus dari Script Properties.';
+  }
+  props.setProperty('MANDOR_SUPABASE_KEY', v);
+  var sb = botMandorSupabase_();
+  if (!sb.ok) {
+    return '⚠️ Key disimpan, tetapi uji baca ke Supabase belum berhasil: ' + (sb.error || sb.reason || 'gagal') +
+      '\nPastikan menggunakan key `service_role` / `sb_secret_...` dari proyek Supabase Database-mandor.';
+  }
+  return '✅ *Database Mandor terhubung!*\nTerbaca *' + sb.spk.length + ' SPK* dan *' + sb.kasbon.length + ' data kasbon mandor*. Ketik ' + waKode_('tagihan') + ' untuk melihat rekap lengkap.';
+}
+
+function botMandorSupabase_() {
+  var props = PropertiesService.getScriptProperties();
+  var key = String(props.getProperty('MANDOR_SUPABASE_KEY') || '').trim();
+  if (!key) return { ok: false, reason: 'no_key', spk: [], kasbon: [] };
+  var url = String(props.getProperty('MANDOR_SUPABASE_URL') || MANDOR_SUPABASE_DEFAULT_URL_).replace(/\/+$/, '');
+  var headers = { apikey: key, Authorization: 'Bearer ' + key };
+  try {
+    var rSpk = UrlFetchApp.fetch(url + '/rest/v1/v_spk?select=id,no_spk,tanggal,lokasi,status,segmen1,segmen2,mandor,nilai_mandor,dibayar,kasbon,sisa_tagihan,tgl_mulai,tgl_selesai,tgl_dibayar&order=id.desc', { method: 'get', headers: headers, muteHttpExceptions: true });
+    if (rSpk.getResponseCode() >= 300) return { ok: false, error: 'HTTP ' + rSpk.getResponseCode(), spk: [], kasbon: [] };
+    var spk = JSON.parse(rSpk.getContentText() || '[]') || [];
+    var baMap = {};
+    try {
+      var rBa = UrlFetchApp.fetch(url + '/rest/v1/spk?select=id,ba_dibuat,ba_keterangan', { method: 'get', headers: headers, muteHttpExceptions: true });
+      if (rBa.getResponseCode() < 300) {
+        (JSON.parse(rBa.getContentText() || '[]') || []).forEach(function (x) { baMap[x.id] = x; });
+      }
+    } catch (e2) {}
+    spk.forEach(function (s) {
+      var b = baMap[s.id];
+      s.ba_dibuat = b ? !!b.ba_dibuat : false;
+      s.ba_keterangan = b && b.ba_keterangan ? String(b.ba_keterangan) : '';
+    });
+    var kasbon = [];
+    try {
+      var rKb = UrlFetchApp.fetch(url + '/rest/v1/v_kasbon_mandor?select=mandor,kasbon_diberi,kasbon_dipotong,saldo_kasbon&order=mandor.asc', { method: 'get', headers: headers, muteHttpExceptions: true });
+      if (rKb.getResponseCode() < 300) kasbon = JSON.parse(rKb.getContentText() || '[]') || [];
+    } catch (e3) {}
+    return { ok: true, spk: spk, kasbon: kasbon };
+  } catch (e) {
+    return { ok: false, error: String(e && e.message || e), spk: [], kasbon: [] };
+  }
+}
+
+// Baca sheet BA PEKERJAAN dari spreadsheet "RPM BMI - BA Pekerjaan" (CONFIG.SARAN_SPREADSHEET_ID).
+function botBaPekerjaanRows_() {
+  var out = { rows: [], bySite: {}, byMandor: {} };
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SARAN_SPREADSHEET_ID);
+    var sh = ss.getSheetByName('BA PEKERJAAN');
+    if (!sh || sh.getLastRow() < 5) return out;
+    var vals = sh.getRange(5, 1, sh.getLastRow() - 4, Math.min(sh.getLastColumn(), 15)).getValues();
+    vals.forEach(function (r) {
+      var id = String(r[0] || '').trim(), site = siteName_(r[2]);
+      if (!id && !site) return;
+      var tgl = botTglBa_(r[1]);
+      var sow = normSow_(r[3]) || String(r[3] || '').trim() || 'Cluster';
+      var jenis = String(r[4] || '').trim() || 'Instalasi';
+      var judul = String(r[5] || '').trim();
+      var pRaw = r[6];
+      var prog = typeof pRaw === 'number'
+        ? (pRaw > 0 && pRaw <= 1 ? Math.round(pRaw * 100) : Math.round(pRaw))
+        : Math.round(Number(String(pRaw || '').replace(/[^0-9.]/g, '')) || 0);
+      var mandor = String(r[7] || '').trim().replace(/\s+/g, ' ') || '-';
+      var item = { id: id, tgl: tgl, site: site, sow: sow, jenis: jenis, judul: judul, prog: prog, mandor: mandor };
+      out.rows.push(item);
+      var sk = site.toLowerCase() + '|' + sow;
+      var sObj = out.bySite[sk] || (out.bySite[sk] = { name: site, sow: sow, maxProg: 0, lastTgl: '', lastId: '', mandor: mandor, count: 0, byJenis: {}, items: [] });
+      sObj.count++;
+      sObj.items.push(item);
+      if (prog >= sObj.maxProg) sObj.maxProg = prog;
+      if (tgl >= sObj.lastTgl) { sObj.lastTgl = tgl; sObj.lastId = id; if (mandor && mandor !== '-') sObj.mandor = mandor; }
+      var jObj = sObj.byJenis[jenis] || (sObj.byJenis[jenis] = { maxProg: 0, lastTgl: '', mandor: mandor, count: 0 });
+      jObj.count++;
+      if (prog >= jObj.maxProg) jObj.maxProg = prog;
+      if (tgl >= jObj.lastTgl) { jObj.lastTgl = tgl; if (mandor && mandor !== '-') jObj.mandor = mandor; }
+      if (mandor && mandor !== '-') {
+        var mObj = out.byMandor[mandor] || (out.byMandor[mandor] = { mandor: mandor, sites: {}, count: 0, lastTgl: '' });
+        mObj.count++;
+        if (tgl > mObj.lastTgl) mObj.lastTgl = tgl;
+        var ms = mObj.sites[sk] || (mObj.sites[sk] = { name: site, sow: sow, maxProg: 0, lastTgl: '', count: 0 });
+        ms.count++;
+        if (prog > ms.maxProg) ms.maxProg = prog;
+        if (tgl > ms.lastTgl) ms.lastTgl = tgl;
+      }
+    });
+  } catch (e) { console.error('botBaPekerjaanRows_: ' + e); }
+  return out;
+}
+
+// Peta progres fisik lapangan (MASTER BOQ CLUSTER + DAILY REPORT EMR), status DATA BASE, dan mandor dari BA TRANSAKSI.
+function botFieldProgressMap_() {
+  var map = {};
+  function entry(name, sow) {
+    sow = normSow_(sow) || String(sow || '').trim() || 'Cluster';
+    var k = String(name || '').trim().toLowerCase() + '|' + sow;
+    return map[k] || (map[k] = { key: k, name: String(name || '').trim(), sow: sow, pct: 0, planItems: 0, hasReport: false, lastReport: '', impl: '', atp: '', opname: '', closing: '', mandorBa: '', lastBaMat: '' });
+  }
+  try {
+    var db = botDb_();
+    if (db.ok) db.rows.forEach(function (x) {
+      var e = entry(x.name, x.sow);
+      e.impl = botDbTeks_(botDbV_(db, x, 'implementation status'));
+      e.atp = botDbTeks_(botDbV_(db, x, 'atp status'));
+      e.opname = botDbTeks_(botDbV_(db, x, 'opname'));
+      e.closing = botDbTeks_(botDbV_(db, x, 'ba closing'));
+    });
+  } catch (e) {}
+  try {
+    var ba = botBaRows_();
+    if (ba) {
+      var c = ba.c;
+      ba.rows.forEach(function (r) {
+        var nm = String(r[c.n] || '').trim(), sw = normSow_(r[c.s]) || String(r[c.s] || '').trim() || 'Cluster';
+        if (!nm) return;
+        var e = entry(nm, sw), m = String(r[c.m] || '').trim().replace(/\s+/g, ' '), t = botTglBa_(r[c.t]);
+        if (m && m !== '-' && t >= e.lastBaMat) { e.mandorBa = m; e.lastBaMat = t; }
+      });
+    }
+  } catch (e) {}
+  try {
+    var bsh = boqSheet_(), bh = sheetHeader_(bsh), bdata = boqData_(bsh, bh), bmats = materialCols_(bh);
+    var dsh = dailySheet_(), dh = sheetHeader_(dsh), dmats = materialCols_(dh), last = dsh.getLastRow(), tot = {};
+    var cN = dh.idx['cluster name'], cS = dh.idx['sow'], cD = dh.idx['date'] !== undefined ? dh.idx['date'] : dh.idx['tanggal'];
+    if (last >= 2) dsh.getRange(2, 1, last - 1, dh.width).getValues().forEach(function (r) {
+      var nm = siteName_(r[cN]), sw = (cS === undefined ? '' : normSow_(r[cS])) || sowFromId_(r[cN]) || 'Cluster';
+      if (!nm) return;
+      var e = entry(nm, sw), k = e.key;
+      e.hasReport = true;
+      if (cD !== undefined && r[cD]) {
+        var dk = botTglBa_(r[cD]);
+        if (dk > e.lastReport) e.lastReport = dk;
+      }
+      var t = tot[k] = tot[k] || {};
+      dmats.forEach(function (m) { var v = cellNumber_(r[m.idx]); if (v) t[m.col] = (t[m.col] || 0) + v; });
+    });
+    var bN = bh.idx['cluster name'], bS = bh.idx['sow'];
+    bdata.forEach(function (row) {
+      var nm = siteName_(row[bN]), sw = normSow_(row[bS]) || 'Cluster';
+      if (!nm) return;
+      var e = entry(nm, sw), t = tot[e.key] || {}, sumR = 0, cnt = 0;
+      bmats.forEach(function (m) {
+        if (/^(digging|casting) pole$/i.test(m.col)) return;
+        var p = cellNumber_(row[m.idx]);
+        if (p > 0) { cnt++; sumR += Math.min(1, Math.max(0, (t[m.col] || 0) / p)); }
+      });
+      e.planItems = cnt;
+      if (cnt > 0) e.pct = Math.round(sumR / cnt * 100);
+    });
+  } catch (e) { console.error('botFieldProgressMap_: ' + e); }
+  return map;
+}
+
+// Pengingat & cek Tagihan Mandor + BA Pekerjaan RPM + Progres Lapangan + Supabase Database-mandor.
+function botTagihanMandor_(arg, isScheduled) {
+  var now = Date.now(), todayHari = botHari_(botWita_(now, 'yyyyMMdd'));
+  var bap = botBaPekerjaanRows_(), fp = botFieldProgressMap_(), sb = botMandorSupabase_();
+  var km = botKotaMap_(), pf = botPisahFilter_(arg || '', km), kata = pf.kata;
+  function cocokFilter(name, sow, mandor) {
+    if (!botSiteLolos_(name, sow, pf.f, km)) return false;
+    if (!kata.length) return true;
+    var gab = (String(name || '') + ' ' + String(sow || '') + ' ' + String(mandor || '')).toLowerCase();
+    return kata.every(function (w) { return gab.indexOf(w) >= 0; });
+  }
+
+  // Petakan SPK Supabase ke site bila ada, untuk melengkapi nama mandor & status bayar.
+  var spkBySite = {};
+  if (sb.ok) {
+    sb.spk.forEach(function (s) {
+      if (s.status === 'BATAL') return;
+      var lk = siteName_(s.lokasi).toLowerCase(), sw = normSow_(s.segmen1) || 'Cluster';
+      spkBySite[lk + '|' + sw] = s;
+      if (!spkBySite[lk]) spkBySite[lk] = s;
+    });
+  }
+  function findSpk(name, sow) {
+    var lk = String(name || '').toLowerCase();
+    return spkBySite[lk + '|' + sow] || spkBySite[lk] || null;
+  }
+
+  // 1. Pekerjaan lapangan sudah jalan (>=50%) atau RFS, tapi BA Pekerjaan RPM belum dibuat / belum 100%.
+  var belum100Rfs = [], belum50Ongoing = [];
+  Object.keys(fp).sort().forEach(function (k) {
+    var e = fp[k], b = bap.bySite[k], sp = findSpk(e.name, e.sow);
+    if (/^drop$/i.test(e.impl)) return;
+    var mandor = (b && b.mandor !== '-' ? b.mandor : '') || e.mandorBa || (sp && sp.mandor) || '';
+    if (!cocokFilter(e.name, e.sow, mandor)) return;
+    var isRfs = /^rfs$/i.test(e.impl) || e.pct >= 95;
+    var curBa = b ? b.maxProg : 0;
+    var mLabel = mandor ? ' · Mandor: *' + mandor + '*' : '';
+    if (isRfs && curBa < 100) {
+      var stLap = /^rfs$/i.test(e.impl) ? 'RFS' : ('Fisik ' + e.pct + '%');
+      var stBa = b ? ('BA baru *' + curBa + '%* (' + botTglPendek_(b.lastTgl) + ')') : '*Belum ada BA Pekerjaan*';
+      belum100Rfs.push('- ' + e.name + ' (' + e.sow + ')' + mLabel + ' → ' + stLap + ', ' + stBa);
+    } else if (!isRfs && e.pct >= 50 && curBa === 0 && (e.hasReport || e.mandorBa)) {
+      belum50Ongoing.push('- ' + e.name + ' (' + e.sow + ')' + mLabel + ' → Fisik *' + e.pct + '%*, belum ada BA 50%');
+    }
+  });
+
+  // 2. BA Pekerjaan yang sudah terbit tapi masih menggantung (< 100%).
+  var gantung = [];
+  Object.keys(bap.bySite).sort().forEach(function (k) {
+    var b = bap.bySite[k], e = fp[k];
+    if (b.maxProg >= 100) return;
+    if (!cocokFilter(b.name, b.sow, b.mandor)) return;
+    var hr = b.lastTgl ? (todayHari - botHari_(b.lastTgl.replace(/-/g, ''))) : 0;
+    var lap = e ? (/^rfs$/i.test(e.impl) ? ' · Lapangan: *RFS*' : (e.pct ? ' · Fisik ' + e.pct + '%' : '')) : '';
+    gantung.push({
+      hr: hr,
+      line: '- ' + b.name + ' (' + b.sow + ') · *' + b.mandor + '*: BA *' + b.maxProg + '%* (' + botTglPendek_(b.lastTgl) + (hr > 0 ? ', ' + hr + ' hr lalu' : '') + ')' + lap
+    });
+  });
+  gantung.sort(function (a, b) { return b.hr - a.hr; });
+
+  // 3. BA Pekerjaan yang sudah terbit (rekap per Mandor).
+  var mandorLines = [];
+  Object.keys(bap.byMandor).sort().forEach(function (m) {
+    var mo = bap.byMandor[m], sks = Object.keys(mo.sites).filter(function (k) {
+      var s = mo.sites[k]; return cocokFilter(s.name, s.sow, m);
+    });
+    if (!sks.length) return;
+    var s100 = 0, sKurang = 0;
+    sks.sort(function (a, b) { return mo.sites[b].lastTgl < mo.sites[a].lastTgl ? -1 : 1; });
+    var rincian = sks.map(function (k) {
+      var s = mo.sites[k], sp = findSpk(s.name, s.sow);
+      if (s.maxProg >= 100) s100++; else sKurang++;
+      var infoSpk = '';
+      if (sp) {
+        infoSpk = ' · SPK ' + sp.status + (Number(sp.sisa_tagihan) > 0 ? ' (sisa Rp' + botNum_(Math.round(Number(sp.sisa_tagihan))) + ')' : ' (Lunas)');
+      }
+      return '  • ' + s.name + ' (' + s.sow + '): BA *' + s.maxProg + '%* (' + botTglPendek_(s.lastTgl) + ')' + infoSpk;
+    });
+    mandorLines.push('👷 *' + m + '* — ' + sks.length + ' site (' + s100 + ' selesai 100%, ' + sKurang + ' bertahap)\n' + botDaftar_(rincian, 10).join('\n'));
+  });
+
+  // 4. Data SPK, Termin & Kasbon dari Supabase Database-mandor (bila terhubung).
+  var spkTagihan = [], kasbonAktif = [];
+  if (sb.ok) {
+    sb.spk.forEach(function (s) {
+      if (s.status === 'BATAL' || s.status === 'DRAFT') return;
+      if (!cocokFilter(s.lokasi, s.segmen1, s.mandor)) return;
+      var sisa = Math.round(Number(s.sisa_tagihan) || 0), nilai = Math.round(Number(s.nilai_mandor) || 0), byr = Math.round(Number(s.dibayar) || 0);
+      var lk = siteName_(s.lokasi).toLowerCase(), sw = normSow_(s.segmen1) || 'Cluster';
+      var b = bap.bySite[lk + '|' + sw];
+      if (sisa > 0 || (b && !s.ba_dibuat)) {
+        var baInfo = b ? ('BA RPM *' + b.maxProg + '%*') : (s.ba_dibuat ? 'BA SPK ✓' : 'Belum ada BA RPM');
+        spkTagihan.push('- *' + s.mandor + '* · ' + s.lokasi + ' (' + s.no_spk + ', ' + s.status + '): ' + baInfo +
+          (!s.ba_dibuat && b ? ' ⚠️ _belum centang BA di SPK_' : '') +
+          ' · Nilai Rp' + botNum_(nilai) + ' · Dibayar Rp' + botNum_(byr) + ' · *Sisa Rp' + botNum_(sisa) + '*');
+      }
+    });
+    sb.kasbon.forEach(function (k) {
+      var saldo = Math.round(Number(k.saldo_kasbon) || 0);
+      if (saldo <= 0) return;
+      if (kata.length && !kata.every(function (w) { return String(k.mandor || '').toLowerCase().indexOf(w) >= 0; })) return;
+      kasbonAktif.push('- *' + k.mandor + '*: Saldo kasbon *Rp' + botNum_(saldo) + '* (diberi Rp' + botNum_(Math.round(Number(k.kasbon_diberi) || 0)) + ', dipotong Rp' + botNum_(Math.round(Number(k.kasbon_dipotong) || 0)) + ')');
+    });
+  }
+
+  var head = ['📋 *PENGINGAT TAGIHAN & BA PEKERJAAN MANDOR* · ' + botWita_(now, 'dd/MM/yyyy') + botFilterLabel_(pf.f), BOT_GARIS_];
+  var body = [];
+
+  if (belum100Rfs.length || belum50Ongoing.length) {
+    body.push('🚨 *Perlu Dibuat / Di-update BA Pekerjaan RPM* (' + (belum100Rfs.length + belum50Ongoing.length) + ' site)');
+    if (belum100Rfs.length) {
+      body.push('_Sudah RFS / Fisik >=95% tapi BA belum 100%:_');
+      body = body.concat(botDaftar_(belum100Rfs, 15));
+    }
+    if (belum50Ongoing.length) {
+      if (belum100Rfs.length) body.push('');
+      body.push('_Progres fisik >=50% tapi belum ada BA Pekerjaan:_');
+      body = body.concat(botDaftar_(belum50Ongoing, 12));
+    }
+  } else {
+    body.push('✅ *Progres vs BA Pekerjaan:* Semua site RFS / progres >=50% sudah memiliki BA Pekerjaan yang sesuai.');
+  }
+
+  if (gantung.length) {
+    body.push('', '⏳ *BA Pekerjaan Masih Bertahap / < 100%* (' + gantung.length + ' site)');
+    body = body.concat(botDaftar_(gantung.map(function (g) { return g.line; }), 12));
+  }
+
+  if (mandorLines.length) {
+    body.push('', '✅ *BA Pekerjaan Sudah Terbit per Mandor* (' + bap.rows.length + ' BA)');
+    body.push(mandorLines.join('\n\n'));
+  } else {
+    body.push('', '_Belum ada BA Pekerjaan yang tercatat di sheet BA PEKERJAAN (RPM BMI)._');
+  }
+
+  if (sb.ok) {
+    if (spkTagihan.length) {
+      body.push('', '💰 *Tagihan SPK Aktif / Belum Lunas (Database Mandor)* (' + spkTagihan.length + ' SPK)');
+      body = body.concat(botDaftar_(spkTagihan, 15));
+    }
+    if (kasbonAktif.length) {
+      body.push('', '🧾 *Saldo Kasbon Mandor (Ingat Potong Saat Bayar)*');
+      body = body.concat(kasbonAktif);
+    }
+  } else if (!isScheduled) {
+    body.push('', '> 💡 _Sandingkan otomatis dengan SPK, Termin & Kasbon Database-mandor: kirim_ ' + waKode_('mandorkey <service_role_key>') + ' _di chat pribadi ini._');
+  }
+
+  body.push('', '> Filter: ' + waKode_('tagihan <nama mandor/site/kota>'));
+  return head.concat(body).join('\n');
 }
 
 // selisih <site> [sow] : material per site = BA bersih (Ambil - Pengembalian) dibanding terpasang (Total Daily Report)
@@ -4278,7 +4614,7 @@ function botBackupBersih_() {
 // status [gateway] : ringkasan untuk admin. Balasan ini sendiri lewat laptop gateway, jadi kalau bot menjawab berarti gateway hidup;
 // kalau gateway mati bot diam dan yang memberi tahu adalah email alarm (cekGatewayBot).
 var BOT_JADWAL_NAMA_ = { PAGI: "Today's Plan", SIANG: 'Pengingat siang (bila ada yang belum)', SORE: 'Pengingat Daily Report', MALAM: 'Tag yang belum lapor 19:00', STOK: 'Stok menipis (admin)', MINGGU: 'Rekap mingguan',
-  BULAN: 'Rekap bulanan', MANGKRAK: 'Site tanpa laporan', BOQ: 'BOQ melebihi Plan (admin)', WH: 'Pengingat tim WH', WHBASI: 'Cek Excel WH basi (admin)' };
+  BULAN: 'Rekap bulanan', MANGKRAK: 'Site tanpa laporan', BOQ: 'BOQ melebihi Plan (admin)', WH: 'Pengingat tim WH', WHBASI: 'Cek Excel WH basi (admin)', TAGIHAN: 'Pengingat tagihan & BA Pekerjaan mandor (admin)' };
 
 function botStatus_() {
   var props = PropertiesService.getScriptProperties(), all = props.getProperties(), now = Date.now();
@@ -4302,7 +4638,7 @@ function botStatus_() {
   out.push('Antrean: ' + tunggu + ' pesan menunggu kirim' + (gagal ? ' (' + gagal + ' gagal, dicoba ulang; dibuang setelah ' + WAQ_MAX_TRY_ + 'x)' : '') +
     (tertua ? ', tertua ' + lalu(tertua) : '') + '; ' + nanti + ' pengingat terjadwal.');
   var jadwal = BOT_JADWAL_.filter(function (j) {
-    return (!j.day || Number(botWita_(now, 'u')) === j.day) && (!j.date || Number(botWita_(now, 'd')) === j.date);
+    return (!j.day || Number(botWita_(now, 'u')) === j.day) && (!j.days || j.days.indexOf(Number(botWita_(now, 'u'))) >= 0) && (!j.date || Number(botWita_(now, 'd')) === j.date);
   }).sort(function (a, b) { return a.from < b.from ? -1 : a.from > b.from ? 1 : 0; }).map(function (j) {
     var done = all['BOT_SENT_' + j.id] === today;
     return (done ? '✅ ' : hm >= j.until ? '❌ ' : '⏳ ') + j.from + ' ' + (BOT_JADWAL_NAMA_[j.id] || j.id) +
@@ -5642,7 +5978,7 @@ function logWaspang_(p, res) {
 // Perintah bot yang hanya membaca/menampilkan data (tidak mengubah Script Properties, sheet atau mengirim ke grup).
 function waCmdBaca_(p) {
   var arg = String(p.text || '').trim().replace(/^[!\/]?\S+\s*/, '');
-  if (/^(bantu|bantuan|menu|help|\?|stok|stock|saldo|progres|progress|rekap|site|cari|catatan|pengingat|stokmin|menipis|mingguan|mangkrak|bulanan|status|potongan|ba|panduan|pagi)$/.test(p.cmd)) return true;
+  if (/^(bantu|bantuan|menu|help|\?|stok|stock|saldo|progres|progress|rekap|site|cari|catatan|pengingat|stokmin|menipis|mingguan|mangkrak|bulanan|status|potongan|ba|panduan|pagi|tagihan|bapekerjaan|tagihanmandor|mandorkey)$/.test(p.cmd)) return true;
   if (p.cmd === 'sore') return !/^kirim\b/i.test(arg);
   if (p.cmd === 'boq') return !/^ok\b/i.test(arg);
   if (/^(tim|batas|wh)$/.test(p.cmd)) return !arg;
