@@ -8,7 +8,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 <!-- LIVE:START -->
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
-| waspang | @154 | 2026-11-19 20:58 | 2b2bbd9 | fix(waspang): exclude 100% BA from billing reminder and delete Sungai Kupang 100% BA row |
+| waspang | @155 | 2026-11-19 21:05 | 0c81054 | feat(waspang): real-time owner alerts on Waspang 50%/100% milestones and new BA Pekerjaan |
 | ftth | @273 | 2026-11-16 17:38 | d2781f7 | feat(gateway,ftth): host UI directly on GitHub Pages with Apps Script JSON RPC |
 | gateway | @26 | 2026-11-18 10:05 | 9156bdc | Merge pull request #126 from buanamenara/gateway-login-segar |
 <!-- LIVE:END -->
@@ -229,6 +229,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-19 21:05 · **waspang @155** · 0c81054 · feat(waspang): real-time owner alerts on Waspang 50%/100% milestones and new BA Pekerjaan · GitHub Actions
 - 2026-11-19 20:58 · **waspang @154** · 2b2bbd9 · fix(waspang): exclude 100% BA from billing reminder and delete Sungai Kupang 100% BA row · GitHub Actions
 - 2026-11-19 20:51 · **waspang @153** · 9bb06d9 · fix(waspang): silence iRIS completely for non-owner mandor billing queries · GitHub Actions
 - 2026-11-19 20:47 · **waspang @152** · e09736f · fix(waspang): keep botAiData site/stok priority before owner billing context · GitHub Actions
