@@ -1182,9 +1182,6 @@ function botAiData_(tanya, isOwnerPrivate) {
       sumber.push(judul);
     } catch (e) { console.log('AI data ' + judul + ': ' + e); }
   }
-  if (isOwnerPrivate && /tagihan|ba pekerjaan|bapekerjaan|spk|termin|kasbon|retensi|mandor|bayar/.test(t)) {
-    tambah('tagihan & BA Pekerjaan mandor', function () { return botTagihanMandor_('', false); });
-  }
   var sites = botAiSite_(t);
   sites.forEach(function (s) {
     tambah('progres ' + s.name, function () { return botProgres_(s.name); });
@@ -1195,6 +1192,9 @@ function botAiData_(tanya, isOwnerPrivate) {
   if (/stok|saldo|gudang|sisa/.test(t)) tambah('stok gudang', function () { return botStok_(''); });
   if (/potongan|haspel/.test(t)) tambah('potongan kabel', function () { return botPotongan_(''); });
   if (/kemarin/.test(t)) tambah('rekap kemarin', function () { return botRekap_('kemarin'); });
+  if (isOwnerPrivate && /tagihan|ba pekerjaan|bapekerjaan|spk|termin|kasbon|retensi|bayar/.test(t)) {
+    tambah('tagihan & BA Pekerjaan mandor', function () { return botTagihanMandor_('', false); });
+  }
   // Rekap hari ini hanya untuk pertanyaan yang berbau proyek; pertanyaan umum (menulis pesan, istilah, hitungan) tanpa data.
   if (/hari ini|rekap|lapor/.test(t) || !blok.length && /proyek|site|progres|kerja|tim|mandor|waspang|cluster|fwa|feeder|uplink/.test(t)) {
     tambah('rekap hari ini', function () { return botRekap_(''); });

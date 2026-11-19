@@ -17,9 +17,9 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-19 20:41 WITA.*
+*Terakhir diperbarui 2026-11-19 20:46 WITA.*
 - **Pengingat Aktif Tagihan Mandor & BA Pekerjaan RPM (`portal-waspang/Kode.gs`, khusus `WA_OWNER`):**
-  - Jadwal otomatis `TAGIHAN` setiap **Senin & Kamis pukul 07:15 WITA** ke chat pribadi pemilik (`botOwnerJid_()`) + perintah chat pribadi `tagihan [mandor/site/kota]` (alias `bapekerjaan`, `tagihanmandor`) & integrasi `!iris` khusus di chat pribadi pemilik.
+  - Jadwal otomatis `TAGIHAN` setiap **Senin & Kamis pukul 07:15 WITA** ke chat pribadi pemilik (`botOwnerJid_()`) + perintah chat pribadi `tagihan [mandor/site/kota]` (alias `bapekerjaan`, `tagihanmandor`) & integrasi `!iris` khusus di chat pribadi pemilik (ditempatkan setelah konteks site/progres/stok agar tidak menggeser kuota konteks perintah lain, 100% read-only tanpa mengubah sheet/data).
   - Menyilangkan sheet `BA PEKERJAAN` (`RPM BMI - BA Pekerjaan`), `DATA BASE` (`RFS`/`On Going`), `BA TRANSAKSI` (mandor pengambil material), dan progres fisik `DAILY REPORT EMR` vs `MASTER BOQ CLUSTER`: mengingatkan (1) site RFS / fisik `>=95%` yang BA Pekerjaan-nya belum `100%` atau belum dibuat, (2) site `On Going` fisik `>=50%` yang belum dibuatkan BA Pekerjaan tahap 50%, (3) BA Pekerjaan yang masih menggantung `<100%`, dan (4) rekap BA Pekerjaan yang sudah terbit per Mandor.
   - Mendukung sinkronisasi langsung dengan Supabase `Database-mandor` (`v_spk`, `spk.ba_dibuat`, `v_kasbon_mandor`) lewat Script Property `MANDOR_SUPABASE_KEY` (diisi via perintah pribadi `mandorkey <service_role_key>`, tanpa pernah diekspos di Gateway atau ke Waspang/Admin).
 - **`main` = yang live (19 Nov 18:46):** Waspang @150 (14f0d48, #129), FTTH @273 (d2781f7), Gateway @26 (9156bdc). Cadangan Drive terbaru
