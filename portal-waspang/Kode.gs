@@ -2969,11 +2969,74 @@ function botMandorSupabase_() {
   }
 }
 
+// Hapus sekali baris BA Pekerjaan Sungai Kupang yang terlanjur 100% (seharusnya masih 50%), sesuai permintaan pemilik 19 Nov.
+function botBersihkanSungaiKupangBa100_(ssOpt) {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('DEL_BA100_SUNGAI_KUPANG') === '1') return 0;
+  try {
+    var ss = ssOpt || SpreadsheetApp.openById(CONFIG.SARAN_SPREADSHEET_ID);
+    var sh = ss.getSheetByName('BA PEKERJAAN');
+    if (!sh || sh.getLastRow() < 5) { props.setProperty('DEL_BA100_SUNGAI_KUPANG', '1'); return 0; }
+    var vals = sh.getRange(5, 1, sh.getLastRow() - 4, Math.min(sh.getLastColumn(), 15)).getValues();
+    var removed = 0;
+    for (var i = vals.length - 1; i >= 0; i--) {
+      var site = String(vals[i][2] || '').toLowerCase();
+      var pRaw = vals[i][6];
+      var prog = typeof pRaw === 'number'
+        ? (pRaw > 0 && pRaw <= 1 ? Math.round(pRaw * 100) : Math.round(pRaw))
+        : Math.round(Number(String(pRaw || '').replace(/[^0-9.]/g, '')) || 0);
+      if (site.indexOf('sungai kupang') >= 0 && prog >= 100) {
+        sh.deleteRow(i + 5);
+        removed++;
+      }
+    }
+    props.setProperty('DEL_BA100_SUNGAI_KUPANG', '1');
+    return removed;
+  } catch (e) { console.error('botBersihkanSungaiKupangBa100_: ' + e); return 0; }
+}
+
+// Hapus baris BA PEKERJAAN lewat perintah pemilik: tagihan hapus <id_ba | nama site> [progres%]
+function botTagihanHapusBa_(arg) {
+  var q = String(arg || '').trim();
+  if (!q) return 'Format: ' + waKode_('tagihan hapus <ID BA atau nama site> [progres%]') + '\nContoh: ' + waKode_('tagihan hapus sungai kupang 100');
+  var ss = SpreadsheetApp.openById(CONFIG.SARAN_SPREADSHEET_ID);
+  var sh = ss.getSheetByName('BA PEKERJAAN');
+  if (!sh || sh.getLastRow() < 5) return 'Sheet BA PEKERJAAN masih kosong.';
+  var vals = sh.getRange(5, 1, sh.getLastRow() - 4, Math.min(sh.getLastColumn(), 15)).getValues();
+  var mProg = q.match(/\b(\d{1,3})%?\s*$/), wantProg = mProg ? Number(mProg[1]) : null;
+  var kata = (mProg ? q.slice(0, mProg.index) : q).toLowerCase().split(/\s+/).filter(Boolean);
+  var matches = [];
+  for (var i = vals.length - 1; i >= 0; i--) {
+    var r = vals[i], id = String(r[0] || '').trim(), site = siteName_(r[2]), sow = normSow_(r[3]) || String(r[3] || '').trim() || 'Cluster';
+    if (!id && !site) continue;
+    var pRaw = r[6];
+    var prog = typeof pRaw === 'number'
+      ? (pRaw > 0 && pRaw <= 1 ? Math.round(pRaw * 100) : Math.round(pRaw))
+      : Math.round(Number(String(pRaw || '').replace(/[^0-9.]/g, '')) || 0);
+    if (wantProg !== null && prog !== wantProg) continue;
+    var gab = (id + ' ' + site + ' ' + sow + ' ' + String(r[7] || '')).toLowerCase();
+    if (kata.every(function (w) { return gab.indexOf(w) >= 0; })) {
+      matches.push({ row: i + 5, id: id, site: site, sow: sow, prog: prog, mandor: String(r[7] || '').trim() });
+    }
+  }
+  if (!matches.length) return 'Tidak ditemukan baris BA PEKERJAAN yang cocok dengan "' + q + '".';
+  if (matches.length > 1 && wantProg === null && !/^ba-/i.test(q)) {
+    return ['Ada *' + matches.length + ' baris BA PEKERJAAN* yang cocok, sebutkan ID BA atau persennya:'].concat(matches.map(function (x) {
+      return '- ' + waKode_('tagihan hapus ' + (x.id || (x.site.toLowerCase() + ' ' + x.prog))) + ' → ' + x.site + ' (' + x.sow + ') *' + x.prog + '%* · ' + x.mandor;
+    })).join('\n');
+  }
+  matches.forEach(function (x) { sh.deleteRow(x.row); });
+  return '🗑️ Dihapus dari sheet *BA PEKERJAAN*:\n' + matches.map(function (x) {
+    return '- ' + (x.id ? x.id + ' · ' : '') + x.site + ' (' + x.sow + ') *' + x.prog + '%* · ' + x.mandor;
+  }).join('\n');
+}
+
 // Baca sheet BA PEKERJAAN dari spreadsheet "RPM BMI - BA Pekerjaan" (CONFIG.SARAN_SPREADSHEET_ID).
 function botBaPekerjaanRows_() {
   var out = { rows: [], bySite: {}, byMandor: {} };
   try {
     var ss = SpreadsheetApp.openById(CONFIG.SARAN_SPREADSHEET_ID);
+    botBersihkanSungaiKupangBa100_(ss);
     var sh = ss.getSheetByName('BA PEKERJAAN');
     if (!sh || sh.getLastRow() < 5) return out;
     var vals = sh.getRange(5, 1, sh.getLastRow() - 4, Math.min(sh.getLastColumn(), 15)).getValues();
@@ -3079,10 +3142,17 @@ function botFieldProgressMap_() {
 }
 
 // Pengingat & cek Tagihan Mandor + BA Pekerjaan RPM + Progres Lapangan + Supabase Database-mandor.
+// Site yang BA Pekerjaan-nya sudah 100% TIDAK dimasukkan lagi ke pengingat (kecuali "tagihan semua").
 function botTagihanMandor_(arg, isScheduled) {
+  var rawArg = String(arg || '').trim();
+  if (!isScheduled && /^hapus\b/i.test(rawArg)) {
+    return botTagihanHapusBa_(rawArg.replace(/^hapus\s*/i, ''));
+  }
+  var tampilSemua = !isScheduled && /\b(semua|100|selesai)\b/i.test(rawArg);
+  var cleanArg = rawArg.replace(/\b(semua|100|selesai)\b/gi, '').replace(/\s+/g, ' ').trim();
   var now = Date.now(), todayHari = botHari_(botWita_(now, 'yyyyMMdd'));
   var bap = botBaPekerjaanRows_(), fp = botFieldProgressMap_(), sb = botMandorSupabase_();
-  var km = botKotaMap_(), pf = botPisahFilter_(arg || '', km), kata = pf.kata;
+  var km = botKotaMap_(), pf = botPisahFilter_(cleanArg, km), kata = pf.kata;
   function cocokFilter(name, sow, mandor) {
     if (!botSiteLolos_(name, sow, pf.f, km)) return false;
     if (!kata.length) return true;
@@ -3110,57 +3180,43 @@ function botTagihanMandor_(arg, isScheduled) {
   Object.keys(fp).sort().forEach(function (k) {
     var e = fp[k], b = bap.bySite[k], sp = findSpk(e.name, e.sow);
     if (/^drop$/i.test(e.impl)) return;
+    var curBa = b ? b.maxProg : 0;
+    if (curBa >= 100) return;   // sudah BA 100%: tidak perlu diingatkan lagi
     var mandor = (b && b.mandor !== '-' ? b.mandor : '') || e.mandorBa || (sp && sp.mandor) || '';
     if (!cocokFilter(e.name, e.sow, mandor)) return;
     var isRfs = /^rfs$/i.test(e.impl) || e.pct >= 95;
-    var curBa = b ? b.maxProg : 0;
     var mLabel = mandor ? ' · Mandor: *' + mandor + '*' : '';
-    if (isRfs && curBa < 100) {
+    if (isRfs) {
       var stLap = /^rfs$/i.test(e.impl) ? 'RFS' : ('Fisik ' + e.pct + '%');
       var stBa = b ? ('BA baru *' + curBa + '%* (' + botTglPendek_(b.lastTgl) + ')') : '*Belum ada BA Pekerjaan*';
       belum100Rfs.push('- ' + e.name + ' (' + e.sow + ')' + mLabel + ' → ' + stLap + ', ' + stBa);
-    } else if (!isRfs && e.pct >= 50 && curBa === 0 && (e.hasReport || e.mandorBa)) {
+    } else if (e.pct >= 50 && curBa === 0 && (e.hasReport || e.mandorBa)) {
       belum50Ongoing.push('- ' + e.name + ' (' + e.sow + ')' + mLabel + ' → Fisik *' + e.pct + '%*, belum ada BA 50%');
     }
   });
 
-  // 2. BA Pekerjaan yang sudah terbit tapi masih menggantung (< 100%).
-  var gantung = [];
-  Object.keys(bap.bySite).sort().forEach(function (k) {
-    var b = bap.bySite[k], e = fp[k];
-    if (b.maxProg >= 100) return;
-    if (!cocokFilter(b.name, b.sow, b.mandor)) return;
-    var hr = b.lastTgl ? (todayHari - botHari_(b.lastTgl.replace(/-/g, ''))) : 0;
-    var lap = e ? (/^rfs$/i.test(e.impl) ? ' · Lapangan: *RFS*' : (e.pct ? ' · Fisik ' + e.pct + '%' : '')) : '';
-    gantung.push({
-      hr: hr,
-      line: '- ' + b.name + ' (' + b.sow + ') · *' + b.mandor + '*: BA *' + b.maxProg + '%* (' + botTglPendek_(b.lastTgl) + (hr > 0 ? ', ' + hr + ' hr lalu' : '') + ')' + lap
-    });
-  });
-  gantung.sort(function (a, b) { return b.hr - a.hr; });
-
-  // 3. BA Pekerjaan yang sudah terbit (rekap per Mandor).
-  var mandorLines = [];
+  // 2. BA Pekerjaan yang masih bertahap (< 100%) per Mandor (yang sudah 100% tidak dimasukkan ke pengingat).
+  var mandorLines = [], totalAktif = 0;
   Object.keys(bap.byMandor).sort().forEach(function (m) {
     var mo = bap.byMandor[m], sks = Object.keys(mo.sites).filter(function (k) {
-      var s = mo.sites[k]; return cocokFilter(s.name, s.sow, m);
+      var s = mo.sites[k];
+      if (!tampilSemua && s.maxProg >= 100) return false;
+      return cocokFilter(s.name, s.sow, m);
     });
     if (!sks.length) return;
-    var s100 = 0, sKurang = 0;
     sks.sort(function (a, b) { return mo.sites[b].lastTgl < mo.sites[a].lastTgl ? -1 : 1; });
     var rincian = sks.map(function (k) {
-      var s = mo.sites[k], sp = findSpk(s.name, s.sow);
-      if (s.maxProg >= 100) s100++; else sKurang++;
-      var infoSpk = '';
-      if (sp) {
-        infoSpk = ' · SPK ' + sp.status + (Number(sp.sisa_tagihan) > 0 ? ' (sisa Rp' + botNum_(Math.round(Number(sp.sisa_tagihan))) + ')' : ' (Lunas)');
-      }
-      return '  • ' + s.name + ' (' + s.sow + '): BA *' + s.maxProg + '%* (' + botTglPendek_(s.lastTgl) + ')' + infoSpk;
+      var s = mo.sites[k], e = fp[k], sp = findSpk(s.name, s.sow);
+      totalAktif++;
+      var hr = s.lastTgl ? (todayHari - botHari_(s.lastTgl.replace(/-/g, ''))) : 0;
+      var lap = e ? (/^rfs$/i.test(e.impl) ? ' · Lapangan: *RFS*' : (e.pct ? ' · Fisik ' + e.pct + '%' : '')) : '';
+      var infoSpk = sp ? (' · SPK ' + sp.status + (Number(sp.sisa_tagihan) > 0 ? ' (sisa Rp' + botNum_(Math.round(Number(sp.sisa_tagihan))) + ')' : ' (Lunas)')) : '';
+      return '  • ' + s.name + ' (' + s.sow + '): BA *' + s.maxProg + '%* (' + botTglPendek_(s.lastTgl) + (hr > 0 ? ', ' + hr + ' hr lalu' : '') + ')' + lap + infoSpk;
     });
-    mandorLines.push('👷 *' + m + '* — ' + sks.length + ' site (' + s100 + ' selesai 100%, ' + sKurang + ' bertahap)\n' + botDaftar_(rincian, 10).join('\n'));
+    mandorLines.push('👷 *' + m + '* (' + sks.length + ' site)\n' + botDaftar_(rincian, 12).join('\n'));
   });
 
-  // 4. Data SPK, Termin & Kasbon dari Supabase Database-mandor (bila terhubung).
+  // 3. Data SPK, Termin & Kasbon dari Supabase Database-mandor (bila terhubung; lewati yang BA sudah 100% & lunas).
   var spkTagihan = [], kasbonAktif = [];
   if (sb.ok) {
     sb.spk.forEach(function (s) {
@@ -3169,7 +3225,8 @@ function botTagihanMandor_(arg, isScheduled) {
       var sisa = Math.round(Number(s.sisa_tagihan) || 0), nilai = Math.round(Number(s.nilai_mandor) || 0), byr = Math.round(Number(s.dibayar) || 0);
       var lk = siteName_(s.lokasi).toLowerCase(), sw = normSow_(s.segmen1) || 'Cluster';
       var b = bap.bySite[lk + '|' + sw];
-      if (sisa > 0 || (b && !s.ba_dibuat)) {
+      if (!tampilSemua && b && b.maxProg >= 100 && sisa <= 0) return;
+      if (sisa > 0 || (b && b.maxProg < 100 && !s.ba_dibuat)) {
         var baInfo = b ? ('BA RPM *' + b.maxProg + '%*') : (s.ba_dibuat ? 'BA SPK ✓' : 'Belum ada BA RPM');
         spkTagihan.push('- *' + s.mandor + '* · ' + s.lokasi + ' (' + s.no_spk + ', ' + s.status + '): ' + baInfo +
           (!s.ba_dibuat && b ? ' ⚠️ _belum centang BA di SPK_' : '') +
@@ -3199,19 +3256,14 @@ function botTagihanMandor_(arg, isScheduled) {
       body = body.concat(botDaftar_(belum50Ongoing, 12));
     }
   } else {
-    body.push('✅ *Progres vs BA Pekerjaan:* Semua site RFS / progres >=50% sudah memiliki BA Pekerjaan yang sesuai.');
-  }
-
-  if (gantung.length) {
-    body.push('', '⏳ *BA Pekerjaan Masih Bertahap / < 100%* (' + gantung.length + ' site)');
-    body = body.concat(botDaftar_(gantung.map(function (g) { return g.line; }), 12));
+    body.push('✅ *Progres vs BA Pekerjaan:* Tidak ada site RFS / progres >=50% yang tertinggal BA Pekerjaan-nya.');
   }
 
   if (mandorLines.length) {
-    body.push('', '✅ *BA Pekerjaan Sudah Terbit per Mandor* (' + bap.rows.length + ' BA)');
+    body.push('', (tampilSemua ? '📂 *Daftar BA Pekerjaan per Mandor*' : '⏳ *BA Pekerjaan Masih Bertahap / Belum 100%*') + ' (' + totalAktif + ' site)');
     body.push(mandorLines.join('\n\n'));
   } else {
-    body.push('', '_Belum ada BA Pekerjaan yang tercatat di sheet BA PEKERJAAN (RPM BMI)._');
+    body.push('', '✅ *BA Pekerjaan Bertahap:* Tidak ada BA Pekerjaan yang menggantung di bawah 100%._');
   }
 
   if (sb.ok) {
@@ -3227,7 +3279,7 @@ function botTagihanMandor_(arg, isScheduled) {
     body.push('', '> 💡 _Sandingkan otomatis dengan SPK, Termin & Kasbon Database-mandor: kirim_ ' + waKode_('mandorkey <service_role_key>') + ' _di chat pribadi ini._');
   }
 
-  body.push('', '> Filter: ' + waKode_('tagihan <nama mandor/site/kota>'));
+  body.push('', '> Filter: ' + waKode_('tagihan <mandor/site>') + ' · Lihat termasuk yang 100%: ' + waKode_('tagihan semua') + ' · Hapus baris BA: ' + waKode_('tagihan hapus <site> <progres%>'));
   return head.concat(body).join('\n');
 }
 
@@ -4691,6 +4743,7 @@ function wsHealth_() {
   });
   cek('Spreadsheet RPM BMI', function () {
     var ss = SpreadsheetApp.openById(CONFIG.SARAN_SPREADSHEET_ID);
+    botBersihkanSungaiKupangBa100_(ss);
     var n = tab(ss, 'USERS').getLastRow() - 1;
     tab(ss, CONFIG.SARAN_SHEET_NAME);
     return n + ' akun login';
