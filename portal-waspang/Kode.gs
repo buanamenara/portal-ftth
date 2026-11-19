@@ -1115,6 +1115,7 @@ function botStikerJadwalTeks_() {
 }
 
 function botTanya_(p, owner, arg) {
+  if (!owner && /\b(tagihan|ba\s*pekerjaan|bapekerjaan|tagihanmandor|spk|termin|kasbon|retensi|mandorkey)\b/i.test(String(arg || ''))) return '';
   var props = PropertiesService.getScriptProperties(), g = p.chat === 'group' ? '!' : '';
   if (!arg) return ['*Tanya IRIS*', 'Tulis pertanyaan setelah ' + waKode_(g + 'iris') + ', bahasa sehari-hari saja.', '',
     '_contoh:_', '- ' + waKode_(g + 'iris kenapa progres lawahan lambat minggu ini?'), '- ' + waKode_(g + 'iris stok kabel 24c cukup?'),
