@@ -17,10 +17,10 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 `.github/workflows/deploy-apps-script.yml`. Waspang punya health check `?api=json`.
 
 ## Status & pekerjaan menunggu
-*Terakhir diperbarui 2026-11-19 15:10 WITA.*
-- **`main` = yang live (19 Nov 14:36):** Waspang @149 (be2d66e, #128), FTTH @273 (d2781f7), Gateway @26 (9156bdc). Cadangan Drive terbaru
+*Terakhir diperbarui 2026-11-19 18:50 WITA.*
+- **`main` = yang live (19 Nov 18:46):** Waspang @150 (14f0d48, #129), FTTH @273 (d2781f7), Gateway @26 (9156bdc). Cadangan Drive terbaru
   (Waspang v146, FTTH v273, Gateway v25) sama persis dengan commit live-nya waktu itu (dicek 18 Nov; beda hanya akhir baris CRLF).
-  PR terbuka: revisi-mudah (Waspang, menunggu persetujuan pemilik).
+  Tidak ada PR kode terbuka.
 - **Perbaikan Total Daily Report 18 Nov (live, dikonfirmasi pemilik):**
   1. **Waspang @147 (#124):** sejak @140 (14 Nov 22:53) `clusterRows_` di-memo per eksekusi (`wsDailyRowsMemo_`), sehingga Total sesudah
      Daily Report = Total sebelum (Today tidak bertambah) di teks WA, balasan portal, dan cache `cl_tot`. `appendDailyRow_` kini mengosongkan memo;
@@ -36,7 +36,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
   Verifikasi 18 Nov: cek web app HTTP 200 (Waspang: semua spreadsheet terhubung); hitungan ulang 30 cluster/SOW dengan salinan sheet + MASTER BOQ asli;
   simulasi laporan baru 4 cluster (Total = sebelum + Today); `waspang.html` di Playwright layar HP tanpa error; jurnal LOG ARSIP cocok
   (112 baris Daily Report, 254 log foto). Masalah Total 0 di iPhone (akun Nazar, 14 Nov) dinyatakan selesai oleh pemilik 18 Nov.
-- **Revisi Daily Report dipermudah (PR revisi-mudah, 19 Nov, belum live):** keluhan tim 19 Nov: laporan FWA HST EMR-24498→32739
+- **Revisi Daily Report dipermudah (#129, live Waspang @150 sejak 19 Nov 18:46):** keluhan tim 19 Nov: laporan FWA HST EMR-24498→32739
   terkirim dobel (19/11 14:24 & 14:25 WITA, tanggal 25/10, Cable 24C 2040 dua kali → Total 4080 / Plan 2040), tim mencoba `!revisi fwa 32789 4/2040`,
   `1050=2040`, `!revisi cable 24c 1050=2040`, `!revisi cable 24c`, semua ditolak bot. Perubahan di `portal-waspang/Kode.gs`, persetujuan admin tetap wajib
   (pilihan pemilik):
