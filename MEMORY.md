@@ -18,9 +18,9 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Status & pekerjaan menunggu
 *Terakhir diperbarui 2026-11-19 15:10 WITA.*
-- **`main` = yang live (18 Nov 10:05):** Waspang @148 (cafa3a5), FTTH @273 (d2781f7), Gateway @26 (9156bdc). Cadangan Drive terbaru
+- **`main` = yang live (19 Nov 14:36):** Waspang @149 (be2d66e, #128), FTTH @273 (d2781f7), Gateway @26 (9156bdc). Cadangan Drive terbaru
   (Waspang v146, FTTH v273, Gateway v25) sama persis dengan commit live-nya waktu itu (dicek 18 Nov; beda hanya akhir baris CRLF).
-  Tidak ada PR terbuka.
+  PR terbuka: revisi-mudah (Waspang, menunggu persetujuan pemilik).
 - **Perbaikan Total Daily Report 18 Nov (live, dikonfirmasi pemilik):**
   1. **Waspang @147 (#124):** sejak @140 (14 Nov 22:53) `clusterRows_` di-memo per eksekusi (`wsDailyRowsMemo_`), sehingga Total sesudah
      Daily Report = Total sebelum (Today tidak bertambah) di teks WA, balasan portal, dan cache `cl_tot`. `appendDailyRow_` kini mengosongkan memo;
