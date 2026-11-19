@@ -2214,6 +2214,7 @@ function botCekDaily_(payload) {
   } catch (e) { console.error('Cek dobel: ' + e); }
   if (dobel.length) cek.push('Laporan ini sama persis dengan yang sudah dikirim ' +
     dobel.map(function (o) { return o.ts ? botWita_(o.ts, 'dd/MM HH:mm') : 'baris ' + o.row; }).join(', ') + ' (tanggal & angka sama): kemungkinan terkirim dobel.');
+  try { botCekTagihanSaatDaily_(name, sow, String(r.pic || payload.by || '').trim(), now); } catch (e) { console.error('Cek tagihan daily: ' + e); }
   if (!cek.length) return;
   var pic = String(r.pic || payload.by || '').trim(), tim = botTim_(), no = '';
   Object.keys(tim).forEach(function (n) {
@@ -2232,6 +2233,7 @@ function botCekDaily_(payload) {
 // cek ini ringan: buka spreadsheet + getLastRow). Baris penyesuaian stok opname (ID BA berisi "-OPN-") tidak diteruskan. ----
 var BOT_BA_CEK_DTK_ = 30;
 function botBaBaru_() {
+  try { botBaPekerjaanBaru_(); } catch (e) { console.error('Cek BA Pekerjaan baru: ' + e); }
   var cache = CacheService.getScriptCache();
   if (cache.get('bot_ba_cek')) return;
   cache.put('bot_ba_cek', '1', BOT_BA_CEK_DTK_);
@@ -3078,13 +3080,13 @@ function botBaPekerjaanRows_() {
   return out;
 }
 
-// Peta progres fisik lapangan (MASTER BOQ CLUSTER + DAILY REPORT EMR), status DATA BASE, dan mandor dari BA TRANSAKSI.
+// Peta progres fisik lapangan (MASTER BOQ CLUSTER + DAILY REPORT EMR), foto Waspang (LOG FOTO WASPANG), status DATA BASE, dan mandor dari BA TRANSAKSI.
 function botFieldProgressMap_() {
   var map = {};
   function entry(name, sow) {
     sow = normSow_(sow) || String(sow || '').trim() || 'Cluster';
     var k = String(name || '').trim().toLowerCase() + '|' + sow;
-    return map[k] || (map[k] = { key: k, name: String(name || '').trim(), sow: sow, pct: 0, planItems: 0, hasReport: false, lastReport: '', impl: '', atp: '', opname: '', closing: '', mandorBa: '', lastBaMat: '' });
+    return map[k] || (map[k] = { key: k, name: String(name || '').trim(), sow: sow, pct: 0, planItems: 0, hasReport: false, lastReport: '', pic: '', foto: 0, impl: '', atp: '', opname: '', closing: '', mandorBa: '', lastBaMat: '' });
   }
   try {
     var db = botDb_();
@@ -3109,17 +3111,32 @@ function botFieldProgressMap_() {
     }
   } catch (e) {}
   try {
+    var fsh = getWaspangSpreadsheet_().getSheetByName('LOG FOTO WASPANG');
+    if (fsh && fsh.getLastRow() >= 2) {
+      var fh = sheetHeader_(fsh), fN = fh.idx['site name'], fS = fh.idx['sow'];
+      if (fN !== undefined) {
+        fsh.getRange(2, 1, fsh.getLastRow() - 1, fh.width).getValues().forEach(function (r) {
+          var nm = siteName_(r[fN]), sw = (fS !== undefined ? normSow_(r[fS]) : '') || 'Cluster';
+          if (nm) entry(nm, sw).foto++;
+        });
+      }
+    }
+  } catch (e) {}
+  try {
     var bsh = boqSheet_(), bh = sheetHeader_(bsh), bdata = boqData_(bsh, bh), bmats = materialCols_(bh);
     var dsh = dailySheet_(), dh = sheetHeader_(dsh), dmats = materialCols_(dh), last = dsh.getLastRow(), tot = {};
-    var cN = dh.idx['cluster name'], cS = dh.idx['sow'], cD = dh.idx['date'] !== undefined ? dh.idx['date'] : dh.idx['tanggal'];
+    var cN = dh.idx['cluster name'], cS = dh.idx['sow'], cD = dh.idx['date'] !== undefined ? dh.idx['date'] : dh.idx['tanggal'], cP = dh.idx['pic'];
     if (last >= 2) dsh.getRange(2, 1, last - 1, dh.width).getValues().forEach(function (r) {
       var nm = siteName_(r[cN]), sw = (cS === undefined ? '' : normSow_(r[cS])) || sowFromId_(r[cN]) || 'Cluster';
       if (!nm) return;
       var e = entry(nm, sw), k = e.key;
       e.hasReport = true;
+      var pName = cP !== undefined ? String(r[cP] || '').trim() : '';
       if (cD !== undefined && r[cD]) {
         var dk = botTglBa_(r[cD]);
-        if (dk > e.lastReport) e.lastReport = dk;
+        if (dk >= e.lastReport) { e.lastReport = dk; if (pName) e.pic = pName; }
+      } else if (pName) {
+        e.pic = pName;
       }
       var t = tot[k] = tot[k] || {};
       dmats.forEach(function (m) { var v = cellNumber_(r[m.idx]); if (v) t[m.col] = (t[m.col] || 0) + v; });
@@ -3139,6 +3156,100 @@ function botFieldProgressMap_() {
     });
   } catch (e) { console.error('botFieldProgressMap_: ' + e); }
   return map;
+}
+
+function botWaspangInfoRingkas_(e, todayHari) {
+  if (!e) return '';
+  var parts = [];
+  if (e.pic || e.lastReport) {
+    var hr = e.lastReport ? (todayHari - botHari_(e.lastReport.replace(/-/g, ''))) : 0;
+    parts.push('Waspang: ' + (e.pic || '-') + (e.lastReport ? ' (' + botTglPendek_(e.lastReport) + (hr >= 3 ? ', ⚠️ ' + hr + ' hr belum lapor' : '') + ')' : ''));
+  } else {
+    parts.push('⚠️ Belum ada Daily Report Waspang');
+  }
+  parts.push(e.foto > 0 ? ('📷 ' + e.foto + ' foto') : '⚠️ 0 foto');
+  return ' · ' + parts.join(' · ');
+}
+
+// Notifikasi real-time ke pribadi pemilik (WA_OWNER) saat Daily Report Waspang membuat progres site mencapai tahap BA 50% / 100%.
+function botCekTagihanSaatDaily_(name, sow, pic, now) {
+  var ownerJid = botOwnerJid_();
+  if (!ownerJid || !name) return;
+  var sw = normSow_(sow) || 'Cluster', sk = name.toLowerCase() + '|' + sw;
+  var fp = botFieldProgressMap_(), e = fp[sk];
+  if (!e || /^drop$/i.test(e.impl)) return;
+  var bap = botBaPekerjaanRows_(), b = bap.bySite[sk], curBa = b ? b.maxProg : 0;
+  if (curBa >= 100) return;
+  var isRfs = /^rfs$/i.test(e.impl) || e.pct >= 95;
+  var tahap = isRfs ? 100 : (e.pct >= 50 && curBa === 0 ? 50 : 0);
+  if (!tahap) return;
+  var cache = CacheService.getScriptCache(), cKey = 'bap_rt_' + sk + '_' + tahap;
+  if (cache.get(cKey)) return;
+  cache.put(cKey, '1', 21600);
+  var mandor = (b && b.mandor !== '-' ? b.mandor : '') || e.mandorBa || '-';
+  var stBa = b ? ('BA Pekerjaan baru *' + curBa + '%* (' + botTglPendek_(b.lastTgl) + ')') : '*Belum ada BA Pekerjaan*';
+  var msg = waText_([
+    '🔔 *iRIS · Pantauan Tagihan Mandor & Pekerjaan Waspang*',
+    'Laporan baru masuk dari Waspang *' + (pic || e.pic || '-') + '*:',
+    '- Site: *' + name + '* (' + sw + ')',
+    '- Mandor: *' + mandor + '*',
+    '- Progres fisik lapangan: *' + e.pct + '%*' + (/^rfs$/i.test(e.impl) ? ' (Status: *RFS*)' : '') + ' · Dokumentasi: ' + (e.foto > 0 ? (e.foto + ' foto') : '⚠️ belum ada foto'),
+    '- Status BA Pekerjaan RPM: ' + stBa,
+    '',
+    '👉 Progres sudah mencapai tahap *' + tahap + '%*' + (e.foto === 0 ? ' (ingatkan Waspang unggah foto dokumentasi dulu)' : '') +
+      '. Silakan cek kesiapan BA Pekerjaan & tagihan mandor (' + waKode_('tagihan ' + name.toLowerCase().split(/\s+/).slice(0, 2).join(' ')) + ').'
+  ].join('\n'));
+  PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + (now + 2) + '_baprt', JSON.stringify({
+    t: now + 2, n: 0, last: 0, files: [], mentions: [], to: ownerJid, text: msg
+  }));
+}
+
+// Notifikasi real-time ke pribadi pemilik (WA_OWNER) saat ada BA Pekerjaan RPM baru diterbitkan di sheet BA PEKERJAAN.
+function botBaPekerjaanBaru_() {
+  var cache = CacheService.getScriptCache();
+  if (cache.get('bot_bap_cek')) return;
+  cache.put('bot_bap_cek', '1', 60);
+  var ownerJid = botOwnerJid_();
+  if (!ownerJid) return;
+  var props = PropertiesService.getScriptProperties();
+  var ss = SpreadsheetApp.openById(CONFIG.SARAN_SPREADSHEET_ID);
+  botBersihkanSungaiKupangBa100_(ss);
+  var sh = ss.getSheetByName('BA PEKERJAAN');
+  if (!sh) return;
+  var last = sh.getLastRow(), seen = Number(props.getProperty('BOT_BAP_LAST') || 0);
+  if (!seen || last < seen || last < 5) { props.setProperty('BOT_BAP_LAST', String(Math.max(last, 4))); return; }
+  if (last === seen) return;
+  var rows = sh.getRange(seen + 1, 1, Math.min(last - seen, 10), Math.min(sh.getLastColumn(), 15)).getValues();
+  props.setProperty('BOT_BAP_LAST', String(last));
+  var fp = botFieldProgressMap_(), todayHari = botHari_(botWita_(Date.now(), 'yyyyMMdd'));
+  rows.forEach(function (r, i) {
+    var id = String(r[0] || '').trim(), site = siteName_(r[2]);
+    if (!id && !site) return;
+    var sow = normSow_(r[3]) || String(r[3] || '').trim() || 'Cluster';
+    var jenis = String(r[4] || '').trim() || 'Instalasi';
+    var pRaw = r[6];
+    var prog = typeof pRaw === 'number'
+      ? (pRaw > 0 && pRaw <= 1 ? Math.round(pRaw * 100) : Math.round(pRaw))
+      : Math.round(Number(String(pRaw || '').replace(/[^0-9.]/g, '')) || 0);
+    var mandor = String(r[7] || '').trim() || '-';
+    var fid = String(r[14] || '').trim(), fname = String(r[12] || (id + '.pdf')).trim();
+    var e = fp[site.toLowerCase() + '|' + sow];
+    var text = waText_([
+      '📄 *BA Pekerjaan Mandor Baru Terbit*',
+      '- ID BA: ' + waKode_(id || '-'),
+      '- Site: *' + site + '* (' + sow + ') · ' + jenis,
+      '- Mandor: *' + mandor + '* · Progres BA: *' + prog + '%*',
+      e ? ('- Kondisi Waspang: Fisik *' + e.pct + '%*' + botWaspangInfoRingkas_(e, todayHari)) : '- Kondisi Waspang: belum ada data Daily Report',
+      '',
+      prog >= 100
+        ? '✅ BA Pekerjaan sudah *100%* (siap proses tagihan akhir/pelunasan dan otomatis dikeluarkan dari daftar pengingat tagihan).'
+        : '⏳ BA Pekerjaan masih bertahap (*' + prog + '%*), tetap dipantau di pengingat tagihan sampai mencapai 100%.'
+    ].join('\n'));
+    var t = Date.now() + 10 + i;
+    props.setProperty(WAQ_PREFIX_ + t + '_bapnew', JSON.stringify({
+      t: t, n: 0, last: 0, files: fid ? [{ id: fid, name: fname }] : [], mentions: [], to: ownerJid, text: text
+    }));
+  });
 }
 
 // Pengingat & cek Tagihan Mandor + BA Pekerjaan RPM + Progres Lapangan + Supabase Database-mandor.
@@ -3186,12 +3297,13 @@ function botTagihanMandor_(arg, isScheduled) {
     if (!cocokFilter(e.name, e.sow, mandor)) return;
     var isRfs = /^rfs$/i.test(e.impl) || e.pct >= 95;
     var mLabel = mandor ? ' · Mandor: *' + mandor + '*' : '';
+    var wInfo = botWaspangInfoRingkas_(e, todayHari);
     if (isRfs) {
       var stLap = /^rfs$/i.test(e.impl) ? 'RFS' : ('Fisik ' + e.pct + '%');
       var stBa = b ? ('BA baru *' + curBa + '%* (' + botTglPendek_(b.lastTgl) + ')') : '*Belum ada BA Pekerjaan*';
-      belum100Rfs.push('- ' + e.name + ' (' + e.sow + ')' + mLabel + ' → ' + stLap + ', ' + stBa);
+      belum100Rfs.push('- ' + e.name + ' (' + e.sow + ')' + mLabel + ' → ' + stLap + ', ' + stBa + wInfo);
     } else if (e.pct >= 50 && curBa === 0 && (e.hasReport || e.mandorBa)) {
-      belum50Ongoing.push('- ' + e.name + ' (' + e.sow + ')' + mLabel + ' → Fisik *' + e.pct + '%*, belum ada BA 50%');
+      belum50Ongoing.push('- ' + e.name + ' (' + e.sow + ')' + mLabel + ' → Fisik *' + e.pct + '%*, belum ada BA 50%' + wInfo);
     }
   });
 
@@ -3209,7 +3321,7 @@ function botTagihanMandor_(arg, isScheduled) {
       var s = mo.sites[k], e = fp[k], sp = findSpk(s.name, s.sow);
       totalAktif++;
       var hr = s.lastTgl ? (todayHari - botHari_(s.lastTgl.replace(/-/g, ''))) : 0;
-      var lap = e ? (/^rfs$/i.test(e.impl) ? ' · Lapangan: *RFS*' : (e.pct ? ' · Fisik ' + e.pct + '%' : '')) : '';
+      var lap = e ? ((/^rfs$/i.test(e.impl) ? ' · Lapangan: *RFS*' : (e.pct ? ' · Fisik ' + e.pct + '%' : '')) + botWaspangInfoRingkas_(e, todayHari)) : '';
       var infoSpk = sp ? (' · SPK ' + sp.status + (Number(sp.sisa_tagihan) > 0 ? ' (sisa Rp' + botNum_(Math.round(Number(sp.sisa_tagihan))) + ')' : ' (Lunas)')) : '';
       return '  • ' + s.name + ' (' + s.sow + '): BA *' + s.maxProg + '%* (' + botTglPendek_(s.lastTgl) + (hr > 0 ? ', ' + hr + ' hr lalu' : '') + ')' + lap + infoSpk;
     });
