@@ -827,7 +827,12 @@ function waCmdIsi_(p) {
       out = /^kirim\b/i.test(arg) ? botSoreKirim_(soreJ) : (botSore_(Date.now(), soreJ).text || 'Semua tim sudah lapor, pengingat ' + soreJ + ' tidak dikirim.'); break;
     default:
       if (owner && /\s+ok$/i.test(text)) { out = botBoqOk_(text.replace(/\s+ok$/i, '').trim()); break; }   // "<site> ok" (BOQ melebihi Plan)
-      out = p.chat === 'group' ? '' : 'Perintah "' + cmd + '" belum ada. Ketik \\`bantu\\` untuk daftar perintah.';
+      if (owner && p.chat !== 'group' && (/^(halo|hai|hi|pagi|siang|sore|malam|tes|test|ping|makasih|terima\s*kasih|thanks|sip|oke|ok|mantap|siap|bos)\b/i.test(text) || /\biris\b/i.test(text))) {
+        BOT_SAPA_PAKSA_ = true;
+        try { out = botSapa_(p, text); } finally { BOT_SAPA_PAKSA_ = false; }
+        break;
+      }
+      out = p.chat === 'group' ? '' : (owner ? 'Siap *Bos*, perintah "' + cmd + '" belum ada. Ketik \\`bantu\\` untuk daftar perintah.' : 'Perintah "' + cmd + '" belum ada. Ketik \\`bantu\\` untuk daftar perintah.');
   }
   p.cmd = out ? cmd : '';
   if (!out) return { status: 'success', reply: '' };
@@ -911,8 +916,9 @@ function botSapa_(p, text) {
     if (cache.get(kunci)) return '';
     cache.put(kunci, '1', BOT_SAPA_JEDA_);
   }
-  var props = PropertiesService.getScriptProperties(), nama = String(p.fromName || '').split(/\s*\|\s*|\s+[-•]\s+/)[0].replace(/[*_~`]/g, '').trim();
-  var bantu = '> Ketik ' + waKode_('!menu') + ' untuk pilihan' + (props.getProperty('BOT_AI') === 'on' && props.getProperty('GROQ_API_KEY') ? ', atau ' + waKode_('!iris <pertanyaan>') + ' untuk tanya apa saja.' : '.');
+  var isOwner = waOwner_(p.from);
+  var props = PropertiesService.getScriptProperties(), nama = isOwner ? 'Bos' : String(p.fromName || '').split(/\s*\|\s*|\s+[-•]\s+/)[0].replace(/[*_~`]/g, '').trim();
+  var bantu = '> Ketik ' + waKode_(p.chat === 'group' ? '!menu' : 'menu') + ' untuk pilihan' + (props.getProperty('BOT_AI') === 'on' && props.getProperty('GROQ_API_KEY') ? ', atau ' + waKode_((p.chat === 'group' ? '!' : '') + 'iris <pertanyaan>') + ' untuk tanya apa saja.' : '.');
   var key = props.getProperty('GROQ_API_KEY');
   if (key && props.getProperty('BOT_AI') === 'on') {
     var hari = botWita_(Date.now(), 'yyyy-MM-dd'), q = {}, kuota = Number(props.getProperty('BOT_AI_KUOTA')) || BOT_AI_KUOTA_;
@@ -920,9 +926,11 @@ function botSapa_(p, text) {
     if (q.d !== hari) q = { d: hari, n: 0 };
     if (kuota - q.n > botAiCadangan_(kuota)) {   // sisa jatah disimpan untuk pertanyaan proyek
       var res = botAiPanggil_(key, props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_, String(text).slice(0, 300), '',
-        'TUGAS KHUSUS: anggota grup' + (nama ? ' bernama ' + nama : '') + ' menyebut namamu dalam obrolan (pesannya di bawah). ' +
-        'Balas 1-3 kalimat saja: sopan dan hangat, sapa namanya bila ada, tanggapi isi pesannya dengan wajar, lalu tanyakan ' +
-        'apakah ada yang bisa kamu bantu. Jangan memberi daftar perintah, jangan memakai poin, jangan memakai catatan sumber.');
+        isOwner
+          ? 'TUGAS KHUSUS: pimpinanmu (WA_OWNER) menyapamu atau mengajak ngobrol (pesannya di bawah). Selalu panggil dia dengan sebutan "Bos" (jangan panggil nama lain). Balas 1-3 kalimat saja: sopan, hangat, dan sigap, tanggapi isi pesannya dengan wajar, lalu tanyakan apakah ada yang bisa kamu bantu, Bos. Jangan memberi daftar perintah, jangan memakai poin, jangan memakai catatan sumber.'
+          : ('TUGAS KHUSUS: anggota grup' + (nama ? ' bernama ' + nama : '') + ' menyebut namamu dalam obrolan (pesannya di bawah). ' +
+            'Balas 1-3 kalimat saja: sopan dan hangat, sapa namanya bila ada, tanggapi isi pesannya dengan wajar, lalu tanyakan ' +
+            'apakah ada yang bisa kamu bantu. Jangan memberi daftar perintah, jangan memakai poin, jangan memakai catatan sumber.'));
       if (res.ok) {
         q.n++;
         props.setProperty('BOT_AI_HARI', JSON.stringify(q));
@@ -930,7 +938,9 @@ function botSapa_(p, text) {
       }
     }
   }
-  return 'Halo' + (nama ? ' *' + nama + '*' : '') + ', terima kasih sudah menyapa. 🙏 Ada yang bisa saya bantu?\n\n' + bantu;
+  return isOwner
+    ? ('Siap *Bos*, terima kasih sudah menyapa. 🙏 Ada yang bisa saya bantu, Bos?\n\n' + bantu)
+    : ('Halo' + (nama ? ' *' + nama + '*' : '') + ', terima kasih sudah menyapa. 🙏 Ada yang bisa saya bantu?\n\n' + bantu);
 }
 
 // Admin: iris sapa <nama> [| pesannya] = IRIS menyapa anggota yang menyapanya saat gateway belum bisa membaca sapaan.
@@ -1133,7 +1143,8 @@ function botTanya_(p, owner, arg) {
   if (sisa <= 0) return botAiTanpaAi_(data, g, 'habis');
   // Sisa jatah disimpan untuk pertanyaan proyek: pertanyaan umum tidak dijawab AI lagi hari ini.
   if (!proyek && sisa <= cadangan) return botAiTanpaAi_(data, g, 'umum', cadangan);
-  var res = botAiPanggil_(key, props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_, arg, data.teks);
+  var res = botAiPanggil_(key, props.getProperty('BOT_AI_MODEL') || BOT_AI_MODEL_, arg, data.teks,
+    owner ? 'PENANYA ADALAH PIMPINANMU (WA_OWNER): selalu panggil/sapa dia dengan sebutan "Bos" (mis. "Siap Bos," atau "...ya, Bos.") secara natural dan sopan.' : '');
   if (!res.ok) return res.pesan;
   q.n++;
   var peringatan = !q.w && kuota - q.n <= cadangan;
@@ -1326,7 +1337,7 @@ function waAntreBagian_(parts, job, akhiran) {
 function botHelp_(owner) {
   var g = owner ? '' : '!', K = function (c) { return waKode_(g + c); }, A = waKode_;
   var s = ['📖 *IRIS · Asisten Proyek BMI*',
-    owner ? '> Ketik perintahnya langsung di chat ini.' : '> Di grup, awali perintah dengan tanda *!*',
+    owner ? '> Siap *Bos*, ketik perintahnya langsung di chat ini.' : '> Di grup, awali perintah dengan tanda *!*',
     '', '📦 *CEK DATA*',
     '- ' + K('stok [material] [gudang]') + ' saldo gudang',
     '   _contoh:_ ' + K('stok kabel batola'),
@@ -3176,13 +3187,13 @@ function botCekTagihanSaatDaily_(name, sow, pic, now) {
   var mandor = (b && b.mandor !== '-' ? b.mandor : '') || e.mandorBa || '-';
   var stBa = b ? ('BA Pekerjaan baru *' + curBa + '%* (' + botTglPendek_(b.lastTgl) + ')') : '*Belum ada BA Pekerjaan*';
   var msg = waText_([
-    '🔔 *iRIS · Pengingat BA Pekerjaan & Tagihan Mandor*',
+    '🔔 *iRIS · Pengingat BA Pekerjaan untuk Bos*',
     '- Site: *' + name + '* (' + sw + ')',
     '- Mandor: *' + mandor + '*',
     '- Progres lapangan: *' + e.pct + '%*' + (/^rfs$/i.test(e.impl) ? ' (*RFS*)' : ''),
     '- Status BA Pekerjaan: ' + stBa,
     '',
-    '👉 Progres sudah mencapai tahap *' + tahap + '%*, silakan siapkan BA Pekerjaan / tagihan mandor (' + waKode_('tagihan ' + name.toLowerCase().split(/\s+/).slice(0, 2).join(' ')) + ').'
+    '👉 Progres sudah mencapai tahap *' + tahap + '%*, silakan siapkan BA Pekerjaan / tagihan mandor ya, *Bos* (' + waKode_('tagihan ' + name.toLowerCase().split(/\s+/).slice(0, 2).join(' ')) + ').'
   ].join('\n'));
   PropertiesService.getScriptProperties().setProperty(WAQ_PREFIX_ + (now + 2) + '_baprt', JSON.stringify({
     t: now + 2, n: 0, last: 0, files: [], mentions: [], to: ownerJid, text: msg
@@ -3218,14 +3229,14 @@ function botBaPekerjaanBaru_() {
     var mandor = String(r[7] || '').trim() || '-';
     var fid = String(r[14] || '').trim(), fname = String(r[12] || (id + '.pdf')).trim();
     var text = waText_([
-      '📄 *BA Pekerjaan Mandor Baru Terbit*',
+      '📄 *Info untuk Bos · BA Pekerjaan Mandor Baru Terbit*',
       '- ID BA: ' + waKode_(id || '-'),
       '- Site: *' + site + '* (' + sow + ') · ' + jenis,
       '- Mandor: *' + mandor + '* · Status BA: *' + prog + '%*',
       '',
       prog >= 100
-        ? '✅ Status BA Pekerjaan sudah *100%* (siap proses tagihan akhir/pelunasan dan otomatis dikeluarkan dari daftar pengingat tagihan).'
-        : '⏳ Status BA Pekerjaan masih bertahap (*' + prog + '%*), tetap dipantau di pengingat tagihan sampai mencapai 100%.'
+        ? '✅ Status BA Pekerjaan sudah *100%* ya, *Bos* (siap proses tagihan akhir/pelunasan dan otomatis dikeluarkan dari daftar pengingat tagihan).'
+        : '⏳ Status BA Pekerjaan masih bertahap (*' + prog + '%*), tetap saya pantau di pengingat tagihan untuk *Bos* sampai mencapai 100%.'
     ].join('\n'));
     var t = Date.now() + 10 + i;
     props.setProperty(WAQ_PREFIX_ + t + '_bapnew', JSON.stringify({
@@ -3332,7 +3343,8 @@ function botTagihanMandor_(arg, isScheduled) {
     });
   }
 
-  var head = ['📋 *PENGINGAT TAGIHAN & BA PEKERJAAN MANDOR* · ' + botWita_(now, 'dd/MM/yyyy') + botFilterLabel_(pf.f), BOT_GARIS_];
+  var head = ['📋 *PENGINGAT TAGIHAN & BA PEKERJAAN MANDOR* · ' + botWita_(now, 'dd/MM/yyyy') + botFilterLabel_(pf.f),
+    'Siap *Bos*, berikut pantauan status BA Pekerjaan mandor:', BOT_GARIS_];
   var body = [];
 
   if (belum100Rfs.length || belum50Ongoing.length) {
