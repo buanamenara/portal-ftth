@@ -1691,6 +1691,7 @@ function botJadwal_() {
     if (j.day && Number(botWita_(now, 'u')) !== j.day) return;   // u: 1 = Senin
     if (j.days && j.days.indexOf(Number(botWita_(now, 'u'))) < 0) return;   // beberapa hari dalam seminggu (mis. [1, 4] = Senin & Kamis)
     if (j.date && Number(botWita_(now, 'd')) !== j.date) return;   // tanggal dalam bulan
+    if (j.ownerOnly && !botOwnerJid_()) return;
     var lock = LockService.getScriptLock();
     if (!lock.tryLock(5000)) return;
     try {
@@ -3248,6 +3249,7 @@ function botFieldProgressMap_(onlyName, onlySow) {
       }
       var pObj = planFromRow_(bh, row);
       var ct = clusterTotals_(dsh, nm, pObj && pObj.items ? pObj.items.map(function (x) { return x.key; }) : [], sw, pObj || { skipPlan: true });
+      if (ct.found) e.hasReport = true;
       var t = sumByMaterial_(ct.totals), sumR = 0, cnt = 0;
       bmats.forEach(function (m) {
         if (/^(digging|casting) pole$/i.test(m.col)) return;
@@ -3361,7 +3363,7 @@ function botTagihanMandor_(arg, isScheduled) {
   if (sb.ok) {
     sb.spk.forEach(function (s) {
       if (s.status === 'BATAL') return;
-      var lk = siteName_(s.lokasi).toLowerCase(), sw = normSow_(s.segmen1) || 'Cluster';
+      var lk = siteName_(s.lokasi).toLowerCase(), sw = normSow_(s.segmen1) || sowFromId_(s.lokasi) || 'Cluster';
       var jKey = String(s.segmen2 || '').trim().toLowerCase(), sk = lk + '|' + sw;
       (spkListBySite[sk] = spkListBySite[sk] || []).push(s);
       if (jKey && !spkBySite[sk + '|' + jKey]) spkBySite[sk + '|' + jKey] = s;
@@ -3443,7 +3445,7 @@ function botTagihanMandor_(arg, isScheduled) {
       if (s.status === 'BATAL' || s.status === 'DRAFT') return;
       if (!cocokFilter(s.lokasi, s.segmen1, s.mandor, s.segmen2)) return;
       var sisa = Math.round(Number(s.sisa_tagihan) || 0), nilai = Math.round(Number(s.nilai_mandor) || 0), byr = Math.round(Number(s.dibayar) || 0);
-      var lk = siteName_(s.lokasi).toLowerCase(), sw = normSow_(s.segmen1) || 'Cluster';
+      var lk = siteName_(s.lokasi).toLowerCase(), sw = normSow_(s.segmen1) || sowFromId_(s.lokasi) || 'Cluster';
       var jKey = String(s.segmen2 || '').trim().toLowerCase();
       var bSite = bap.bySite[lk + '|' + sw];
       var bj = bSite ? (jKey ? (bSite.byJenis && bSite.byJenis[jKey] ? bSite.byJenis[jKey] : null) : bSite) : null;
@@ -6259,7 +6261,7 @@ function waCmdBaca_(p) {
   var arg = String(p.text || '').trim().replace(/^[!\/]?\S+\s*/, '');
   if (/^(bantu|bantuan|menu|help|\?|stok|stock|saldo|progres|progress|rekap|harian|site|cari|catatan|pengingat|stokmin|menipis|mingguan|mangkrak|bulanan|status|potongan|ba|panduan|pagi|belum|foto|izin|atp|rfs|mandor|selisih|log|sapa|tanya|mandorkey)$/.test(p.cmd)) return true;
   if (/^(tagihan|bapekerjaan|tagihanmandor)$/.test(p.cmd)) return !/^hapus\b/i.test(arg);
-  if (p.cmd === 'iris') return !/^((on|off|nyala|mati|aktif)\b|kuota\s+\d+|model\s+\S+|sapa\b|perkenalan\b.*\bkirim\b|(stiker|sticker)\s+otomatis\s+(on|off))/i.test(arg);
+  if (p.cmd === 'iris') return !/^((on|off|nyala|mati|aktif)\b|kuota\s+\d+|model\s+\S+|sapa\b|perkenalan\b.*\bkirim\b|(stiker|sticker)\s+(?:(?:otomatis|jadwal|auto)\s+(?:on|off|nyala|mati)\b|\S+\s+kirim\b))/i.test(arg);
   if (p.cmd === 'sore') return !/^kirim\b/i.test(arg);
   if (p.cmd === 'boq') return !/^ok\b/i.test(arg);
   if (/^(tim|batas|wh|grup|group|tunda|ok)$/.test(p.cmd)) return !arg;

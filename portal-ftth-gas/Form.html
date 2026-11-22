@@ -6144,10 +6144,10 @@ function cocokCari(teks, q) {
     var pre = takePrefetch_('sc');
     if (pre) {
       pre.then(function (d) {
-        if (reqAccess !== ACCESS) return;
+        if (reqAccess !== ACCESS) { loading = false; return; }
         if (d && d.error) callScurve(); else done(d);
       }, function () {
-        if (reqAccess !== ACCESS) return;
+        if (reqAccess !== ACCESS) { loading = false; return; }
         callScurve();
       });
       return;

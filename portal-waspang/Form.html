@@ -3782,8 +3782,12 @@
       const isCluster = isClusterSow(clusterName);
 
       try {
-        const raw = localStorage.getItem(STORAGE_BOQ_CUSTOM + '_' + cleanKey);
-        const parsed = raw ? JSON.parse(raw) : (sharedPlanMem[cleanKey] ? JSON.parse(JSON.stringify(sharedPlanMem[cleanKey])) : null);
+        let parsed = sharedPlanMem[cleanKey] ? JSON.parse(JSON.stringify(sharedPlanMem[cleanKey])) : null;
+        if (!parsed) {
+          let raw = null;
+          try { raw = localStorage.getItem(STORAGE_BOQ_CUSTOM + '_' + cleanKey); } catch (e) {}
+          if (raw) parsed = JSON.parse(raw);
+        }
         if (parsed) {
           // Format Array of Items [{ key, name, cat, unit, volume }]
           if (Array.isArray(parsed)) {
