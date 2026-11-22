@@ -7614,7 +7614,7 @@ function logHistory_(sumber, user, peran, aksi, detail) {
     var vals = [new Date(), sumber, user || '', peran || '', aksi || '', String(detail || '').slice(0, 500)];
     // appendRow: aman bila Portal Waspang atau pemicu edit menulis di saat yang sama (tidak saling menimpa baris).
     if (sh.getLastRow() >= 4) sh.appendRow(vals); else sh.getRange(5, 1, 1, 6).setValues([vals]);
-    if (!/^(BA Gudang|Unduh|Login|Logout|Lihat)/i.test(String(aksi || '').trim())) ftthDbCacheReset_();
+    if (/^(Edit (DATA BASE|DASHBOARD)\b|FORM ATP)/i.test(String(aksi || '').trim())) ftthDbCacheReset_();
     var row = sh.getLastRow(), w = Math.min(10, row - 4);
     // Format 10 baris terakhir saja (baris lain bisa ditulis bersamaan oleh pemicu edit/portal lain).
     sh.getRange(row - w + 1, 1, w, 1).setNumberFormat('dd mmm yyyy HH:mm');

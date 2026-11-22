@@ -707,11 +707,14 @@ function waCmd_(p) {
   try { return waCmdIsi_(p); } finally { BOT_GRUP_CTX_ = lama; }
 }
 
+var BOT_OWNER_SAPA_RE_ = /^(?:(?:selamat\s+)?(pagi|siang|sore|malam)|halo|hai|hi|tes|test|ping|makasih|terima\s*kasih|thanks|sip|oke|ok|mantap|siap|bos)(?:[\s,!.?]+(?:halo|hai|hi|makasih|terima\s*kasih|thanks|sip|oke|ok|mantap|siap|bos|iris|ya|min|dong|nih|kak|bro|pak|bu|semua))*[!.,?\s]*$/i;
+
 function waCmdIsi_(p) {
   waPcAuth_(p);
   var owner = waOwner_(p.from), text = String(p.text || '').trim();
   if (p.chat !== 'group' && !owner) return { status: 'success', reply: '' };
-  if (text.charAt(0) === '!' || text.charAt(0) === '/') text = text.slice(1).trim();
+  var hadPrefix = text.charAt(0) === '!' || text.charAt(0) === '/';
+  if (hadPrefix) text = text.slice(1).trim();
   else if (p.chat === 'group') {
     // Pesan grup tanpa "!" yang menyebut IRIS (kata "iris" atau tag nomor IRIS, ditandai gateway): IRIS menyapa balik.
     if (!p.sebut && !/\biris\b/i.test(text)) return { status: 'success', reply: '' };
@@ -723,14 +726,19 @@ function waCmdIsi_(p) {
   var m = text.match(/^(\S+)\s*([\s\S]*)$/);
   if (!m) return { status: 'success', reply: '' };
   var cmd = m[1].toLowerCase(), arg = m[2].trim(), out;
-  switch (cmd) {
+  var isOwnerSapaDm = owner && p.chat !== 'group' && !hadPrefix && !p._fromMenu && BOT_OWNER_SAPA_RE_.test(text);
+  if (isOwnerSapaDm) {
+    BOT_SAPA_PAKSA_ = true;
+    try { out = botSapa_(p, text); } finally { BOT_SAPA_PAKSA_ = false; }
+    cmd = 'sapa';
+  } else switch (cmd) {
     case 'menu':
-      if (p.canPoll) return botMenuPoll_(owner, arg);   // gateway baru: kirim polling
-      out = botHelp_(owner); break;
+      if (p.canPoll) return botMenuPoll_(owner, arg, p.chat === 'group');   // gateway baru: kirim polling
+      out = botHelp_(owner && p.chat !== 'group'); break;
     case 'pilih':   // pilihan dari polling Menu IRIS (dikirim gateway saat anggota menekan pilihan)
       return botMenuPilih_(p, owner, arg);
     case 'bantu': case 'bantuan': case 'help': case '?':
-      out = botHelp_(owner); break;
+      out = botHelp_(owner && p.chat !== 'group'); break;
     case 'stok': case 'stock': case 'saldo':
       out = botStok_(arg); break;
     case 'progres': case 'progress':
@@ -813,6 +821,12 @@ function waCmdIsi_(p) {
       if (cmd === 'iris' && BOT_IRIS_KENALAN_.test(arg)) { out = owner ? botPerkenalan_(p, /\bkirim\b/i.test(arg)) : ''; break; }   // khusus admin
       if (cmd === 'iris' && /^sapa\b/i.test(arg)) { out = owner ? botSapaOrang_(p, arg.replace(/^sapa\s*/i, '')) : ''; if (!out) return { status: 'success', reply: '' }; break; }
       if (cmd === 'iris' && /^(stiker|sticker)\b/i.test(arg)) { out = owner ? botStiker_(p, arg.replace(/^\S+\s*/, '')) : ''; if (!out) return { status: 'success', reply: '' }; break; }
+      if (cmd === 'iris' && owner && p.chat !== 'group' && !hadPrefix && !p._fromMenu && BOT_OWNER_SAPA_RE_.test(arg)) {
+        BOT_SAPA_PAKSA_ = true;
+        try { out = botSapa_(p, text); } finally { BOT_SAPA_PAKSA_ = false; }
+        cmd = 'sapa';
+        break;
+      }
       out = owner && BOT_AI_PENGATURAN_.test(arg) ? botAiCmd_(arg) : botTanya_(p, owner, arg); break;
     case 'setuju':
       out = owner && p.chat !== 'group' ? botStokWhSetuju_(p.fromName || p.from) : ''; break;
@@ -826,13 +840,15 @@ function waCmdIsi_(p) {
       soreJ = soreJ ? soreJ.toLowerCase() : '';
       out = /^kirim\b/i.test(arg) ? botSoreKirim_(soreJ) : (botSore_(Date.now(), soreJ).text || 'Semua tim sudah lapor, pengingat ' + soreJ + ' tidak dikirim.'); break;
     default:
-      if (owner && /\s+ok$/i.test(text)) { out = botBoqOk_(text.replace(/\s+ok$/i, '').trim()); break; }   // "<site> ok" (BOQ melebihi Plan)
-      if (owner && p.chat !== 'group' && (/^(halo|hai|hi|pagi|siang|sore|malam|tes|test|ping|makasih|terima\s*kasih|thanks|sip|oke|ok|mantap|siap|bos)\b/i.test(text) || /\biris\b/i.test(text))) {
+      if (owner && p.chat !== 'group' && !hadPrefix && (/^(halo|hai|hi|pagi|siang|sore|malam|tes|test|ping|makasih|terima\s*kasih|thanks|sip|oke|ok|mantap|siap|bos)\b/i.test(text) || /\biris\b/i.test(text))) {
         BOT_SAPA_PAKSA_ = true;
         try { out = botSapa_(p, text); } finally { BOT_SAPA_PAKSA_ = false; }
+        cmd = 'sapa';
         break;
       }
+      if (owner && /\s+ok$/i.test(text)) { out = botBoqOk_(text.replace(/\s+ok$/i, '').trim()); break; }   // "<site> ok" (BOQ melebihi Plan)
       out = p.chat === 'group' ? '' : (owner ? 'Siap *Bos*, perintah "' + cmd + '" belum ada. Ketik \\`bantu\\` untuk daftar perintah.' : 'Perintah "' + cmd + '" belum ada. Ketik \\`bantu\\` untuk daftar perintah.');
+      cmd = '';
   }
   p.cmd = out ? cmd : '';
   if (!out) return { status: 'success', reply: '' };
@@ -877,9 +893,9 @@ var BOT_MENU_ADMIN_ = [
   { label: '📜 Log aktivitas portal', cmd: 'log' }
 ];
 
-function botMenuPoll_(owner, arg) {
+function botMenuPoll_(owner, arg, isGroup) {
   var admin = /^admin\b/i.test(arg || '');
-  if (admin && !owner) return { status: 'success', reply: '' };
+  if (admin && (!owner || isGroup)) return { status: 'success', reply: '' };
   var list = admin ? BOT_MENU_ADMIN_ : BOT_MENU_;
   return { status: 'success', reply: '', poll: { name: admin ? '✦ Menu Admin IRIS' : '✦ Menu IRIS', values: list.map(function (x) { return x.label; }) } };
 }
@@ -887,11 +903,12 @@ function botMenuPoll_(owner, arg) {
 function botMenuPilih_(p, owner, label) {
   var it = BOT_MENU_.concat(BOT_MENU_ADMIN_).filter(function (x) { return x.label === label; })[0];
   if (!it) return { status: 'success', reply: '' };   // polling lama yang isinya sudah berubah
-  if (BOT_MENU_ADMIN_.indexOf(it) >= 0 && !owner) return { status: 'success', reply: '' };
+  if (BOT_MENU_ADMIN_.indexOf(it) >= 0 && (!owner || p.chat === 'group')) return { status: 'success', reply: '' };
   if (it.tanya) return { status: 'success', reply: waText_('✦ ' + (p.chat === 'group' ? it.tanya : it.tanya.replace(/`!/g, '`'))) };
   var q = {};
   Object.keys(p).forEach(function (k) { q[k] = p[k]; });
   q.text = (p.chat === 'group' ? '!' : '') + it.cmd;
+  q._fromMenu = true;
   var r = waCmd_(q);
   p.cmd = q.cmd;
   return r;
@@ -1400,7 +1417,7 @@ function botHelp_(owner) {
     '   _isi:_ ' + A('- Nama Site') + ' = site · ' + A('-Pulling Cable') + ' = aktivitas',
     '- ' + A('implementasi buang <nama site>') + ' buang site otomatis',
     '- ' + A('implementasi hapus') + ' kembali ke daftar otomatis',
-    '- ' + A('pagi') + ' ' + A('sore') + ' lihat contoh pesan',
+    '- ' + A('!pagi') + ' ' + A('!sore') + ' lihat contoh pesan',
     '- ' + A('sore kirim') + ' kirim pengingat laporan sekarang (' + A('sore kirim siang') + ' / ' + A('sore kirim malam') + ' = versi 12:00 / 19:00)',
     '', '👥 *TIM*',
     '- ' + A('tim <nama> <nomor>') + ' di-tag jam 17:30 · ' + A('tim hapus <nama>'),
@@ -1652,14 +1669,14 @@ var BOT_JADWAL_ = [
   { id: 'SIANG', from: '12:00', until: '14:00', perGrup: true, build: function (now) { return botSore_(now, 'siang'); } },   // hanya bila ada yang belum lapor
   { id: 'SORE', from: '17:30', until: '19:30', perGrup: true, build: function (now) { return botSore_(now); } },
   { id: 'MALAM', from: '19:00', until: '21:00', perGrup: true, build: function (now) { return botSore_(now, 'malam'); } },   // hanya bila masih ada yang belum
-  { id: 'STOK', from: '07:00', until: '10:00', build: function (now) { return { text: botStokMenipis_(Number(botWita_(now, 'u')) === 1), to: botOwnerJid_() }; } },   // Senin: daftar lengkap
+  { id: 'STOK', from: '07:00', until: '10:00', ownerOnly: true, build: function (now) { return { text: botStokMenipis_(Number(botWita_(now, 'u')) === 1), to: botOwnerJid_() }; } },   // Senin: daftar lengkap
   { id: 'MINGGU', from: '07:00', until: '10:00', day: 1, perGrup: true, build: function (now) { return { text: botMingguan_(now) }; } },
   { id: 'BULAN', from: '07:00', until: '10:00', date: 1, perGrup: true, build: function (now) { return { text: botBulanan_(now) }; } },
   { id: 'MANGKRAK', from: '07:05', until: '10:00', perGrup: true, build: function (now) { return botMangkrak_(now, Number(botWita_(now, 'u')) === 1 ? 'senin' : false); } },
-  { id: 'BOQ', from: '07:05', until: '10:00', day: 1, build: function (now) { return { text: botBoqLewat_(now), to: botOwnerJid_() }; } },   // Senin saja
+  { id: 'BOQ', from: '07:05', until: '10:00', day: 1, ownerOnly: true, build: function (now) { return { text: botBoqLewat_(now), to: botOwnerJid_() }; } },   // Senin saja
   { id: 'WH', from: '08:00', until: '11:00', build: function (now) { return botWhIngat_(now); } },   // Senin, tanggal 28 dan tanggal 1
-  { id: 'WHBASI', from: '07:10', until: '10:00', build: function (now) { return { text: botWhBasi_(now), to: botOwnerJid_() }; } },
-  { id: 'TAGIHAN', from: '07:15', until: '10:30', days: [1, 4], build: function (now) { return { text: botTagihanMandor_('', true), to: botOwnerJid_() }; } }   // Senin & Kamis ke pribadi pemilik
+  { id: 'WHBASI', from: '07:10', until: '10:00', ownerOnly: true, build: function (now) { return { text: botWhBasi_(now), to: botOwnerJid_() }; } },
+  { id: 'TAGIHAN', from: '07:15', until: '10:30', days: [1, 4], ownerOnly: true, build: function (now) { return { text: botTagihanMandor_('', true), to: botOwnerJid_() }; } }   // Senin & Kamis ke pribadi pemilik
 ];
 var BOT_GARIS_ = new Array(38).join('≡');
 
@@ -1686,6 +1703,7 @@ function botJadwal_() {
         try {
           var msg = j.build(now);
           if (!msg || !msg.text) return;
+          if ((j.ownerOnly || 'to' in msg) && !msg.to) return;
           if (ctx) msg.grup = ctx;
           waAntreBagian_(waPecah_(waText_(msg.text)), msg, '_' + j.id.toLowerCase() + (ctx ? '_' + ctx.toLowerCase().replace(/\W+/g, '') : ''));   // pesan panjang (rekap bulanan) jadi beberapa bagian
           if (!msg.to) try { botStikerJadwal_(j.id, msg, now, ctx); } catch (e) { console.error('Stiker jadwal ' + j.id + ': ' + e); }
@@ -2944,7 +2962,7 @@ function botMandorKeyCmd_(arg) {
   var sb = botMandorSupabase_();
   if (!sb.ok) {
     return '⚠️ Key disimpan, tetapi uji baca ke Supabase belum berhasil: ' + (sb.error || sb.reason || 'gagal') +
-      '\nPastikan menggunakan key `service_role` / `sb_secret_...` dari proyek Supabase Database-mandor.';
+      '\nPastikan menggunakan key ' + waKode_('service_role') + ' / ' + waKode_('sb_secret_...') + ' dari proyek Supabase Database-mandor.';
   }
   return '✅ *Database Mandor terhubung!*\nTerbaca *' + sb.spk.length + ' SPK* dan *' + sb.kasbon.length + ' data kasbon mandor*. Ketik ' + waKode_('tagihan') + ' untuk melihat rekap lengkap.';
 }
@@ -2991,7 +3009,7 @@ function botBersihkanSungaiKupangBa100_(ssOpt) {
     var sh = ss.getSheetByName('BA PEKERJAAN');
     if (!sh || sh.getLastRow() < 5) { props.setProperty('DEL_BA100_SUNGAI_KUPANG', '1'); return 0; }
     var vals = sh.getRange(5, 1, sh.getLastRow() - 4, Math.min(sh.getLastColumn(), 15)).getValues();
-    var removed = 0;
+    var removed = 0, seen = Number(props.getProperty('BOT_BAP_LAST') || 0), dec = 0;
     for (var i = vals.length - 1; i >= 0; i--) {
       var site = String(vals[i][2] || '').toLowerCase();
       var pRaw = vals[i][6];
@@ -2999,10 +3017,13 @@ function botBersihkanSungaiKupangBa100_(ssOpt) {
         ? (pRaw > 0 && pRaw <= 1 ? Math.round(pRaw * 100) : Math.round(pRaw))
         : Math.round(Number(String(pRaw || '').replace(/[^0-9.]/g, '')) || 0);
       if (site.indexOf('sungai kupang') >= 0 && prog >= 100) {
-        sh.deleteRow(i + 5);
+        var rowNum = i + 5;
+        sh.deleteRow(rowNum);
         removed++;
+        if (seen && rowNum <= seen) dec++;
       }
     }
+    if (seen && dec) props.setProperty('BOT_BAP_LAST', String(Math.max(4, seen - dec)));
     props.setProperty('DEL_BA100_SUNGAI_KUPANG', '1');
     return removed;
   } catch (e) { console.error('botBersihkanSungaiKupangBa100_: ' + e); return 0; }
@@ -3010,37 +3031,72 @@ function botBersihkanSungaiKupangBa100_(ssOpt) {
 
 // Hapus baris BA PEKERJAAN lewat perintah pemilik: tagihan hapus <id_ba | nama site> [progres%]
 function botTagihanHapusBa_(arg) {
-  var q = String(arg || '').trim();
-  if (!q) return 'Format: ' + waKode_('tagihan hapus <ID BA atau nama site> [progres%]') + '\nContoh: ' + waKode_('tagihan hapus sungai kupang 100');
+  var qRaw = String(arg || '').trim();
+  if (!qRaw) return 'Format: ' + waKode_('tagihan hapus <ID BA atau nama site> [progres%]') + '\nContoh: ' + waKode_('tagihan hapus sungai kupang 100');
+  var confirmAll = /\bkonfirmasi\s*$/i.test(qRaw);
+  var q = confirmAll ? qRaw.replace(/\s+\bkonfirmasi\s*$/i, '').trim() : qRaw;
+  if (!q) return 'Format: ' + waKode_('tagihan hapus <ID BA atau nama site> [progres%]');
   var ss = SpreadsheetApp.openById(CONFIG.SARAN_SPREADSHEET_ID);
   var sh = ss.getSheetByName('BA PEKERJAAN');
   if (!sh || sh.getLastRow() < 5) return 'Sheet BA PEKERJAAN masih kosong.';
   var vals = sh.getRange(5, 1, sh.getLastRow() - 4, Math.min(sh.getLastColumn(), 15)).getValues();
-  var mProg = q.match(/\b(\d{1,3})%?\s*$/), wantProg = mProg ? Number(mProg[1]) : null;
-  var kata = (mProg ? q.slice(0, mProg.index) : q).toLowerCase().split(/\s+/).filter(Boolean);
-  var matches = [];
-  for (var i = vals.length - 1; i >= 0; i--) {
-    var r = vals[i], id = String(r[0] || '').trim(), site = siteName_(r[2]), sow = normSow_(r[3]) || String(r[3] || '').trim() || 'Cluster';
-    if (!id && !site) continue;
-    var pRaw = r[6];
-    var prog = typeof pRaw === 'number'
-      ? (pRaw > 0 && pRaw <= 1 ? Math.round(pRaw * 100) : Math.round(pRaw))
-      : Math.round(Number(String(pRaw || '').replace(/[^0-9.]/g, '')) || 0);
-    if (wantProg !== null && prog !== wantProg) continue;
-    var gab = (id + ' ' + site + ' ' + sow + ' ' + String(r[7] || '')).toLowerCase();
-    if (kata.every(function (w) { return gab.indexOf(w) >= 0; })) {
-      matches.push({ row: i + 5, id: id, site: site, sow: sow, prog: prog, mandor: String(r[7] || '').trim() });
+  var mPct = q.match(/(?:^|\s)(\d{1,3})%\s*$/);
+  var mNum = !mPct ? q.match(/(?:^|\s)([1-9]\d?|100)\s*$/) : null;
+  var wantProg = null, qKata = q;
+  if (mPct && Number(mPct[1]) <= 100) {
+    wantProg = Number(mPct[1]);
+    qKata = q.slice(0, mPct.index).trim();
+  } else if (mNum) {
+    var beforeNum = q.slice(0, mNum.index).trim();
+    var prevWord = (beforeNum.match(/(\S+)\s*$/) || [])[1] || '';
+    if (beforeNum && !/^(rt|rw|no|fdt|fat|olt|emr|line|blok|paket|cluster|site|bap|tahap|hp)$/i.test(prevWord)) {
+      wantProg = Number(mNum[1]);
+      qKata = beforeNum;
     }
   }
-  if (!matches.length) return 'Tidak ditemukan baris BA PEKERJAAN yang cocok dengan "' + q + '".';
-  if (matches.length > 1 && wantProg === null && !/^ba-/i.test(q)) {
-    return ['Ada *' + matches.length + ' baris BA PEKERJAAN* yang cocok, sebutkan ID BA atau persennya:'].concat(matches.map(function (x) {
-      return '- ' + waKode_('tagihan hapus ' + (x.id || (x.site.toLowerCase() + ' ' + x.prog))) + ' → ' + x.site + ' (' + x.sow + ') *' + x.prog + '%* · ' + x.mandor;
-    })).join('\n');
+  function cariBaris(kataList, filterProg) {
+    var out = [];
+    for (var i = vals.length - 1; i >= 0; i--) {
+      var r = vals[i], id = String(r[0] || '').trim(), site = siteName_(r[2]), sow = normSow_(r[3]) || String(r[3] || '').trim() || 'Cluster';
+      if (!id && !site) continue;
+      var pRaw = r[6];
+      var prog = typeof pRaw === 'number'
+        ? (pRaw > 0 && pRaw <= 1 ? Math.round(pRaw * 100) : Math.round(pRaw))
+        : Math.round(Number(String(pRaw || '').replace(/[^0-9.]/g, '')) || 0);
+      if (filterProg !== null && prog !== filterProg) continue;
+      var gab = (id + ' ' + site + ' ' + sow + ' ' + String(r[4] || '') + ' ' + String(r[7] || '')).toLowerCase();
+      if (kataList.every(function (w) { return gab.indexOf(w) >= 0; })) {
+        out.push({ row: i + 5, id: id, site: site, sow: sow, jenis: String(r[4] || '').trim(), prog: prog, mandor: String(r[7] || '').trim() });
+      }
+    }
+    return out;
   }
-  matches.forEach(function (x) { sh.deleteRow(x.row); });
+  var kata = qKata.toLowerCase().split(/\s+/).filter(Boolean);
+  var matches = kata.length ? cariBaris(kata, wantProg) : (wantProg !== null ? cariBaris([], wantProg) : []);
+  if (!matches.length && mNum && wantProg !== null) {
+    // Angka di belakang ternyata bagian dari nama site/ID (bukan progres%): coba cari utuh sebagai kata.
+    wantProg = null;
+    matches = cariBaris(q.toLowerCase().split(/\s+/).filter(Boolean), null);
+  }
+  if (!matches.length) return 'Tidak ditemukan baris BA PEKERJAAN yang cocok dengan "' + q + '".';
+  if (/^bap-/i.test(q)) {
+    var exactId = matches.filter(function (x) { return x.id.toLowerCase() === q.toLowerCase(); });
+    if (exactId.length) matches = exactId;
+  }
+  if (matches.length > 1 && !confirmAll) {
+    return ['Ada *' + matches.length + ' baris BA PEKERJAAN* yang cocok, sebutkan ID BA atau tambahkan ' + waKode_('konfirmasi') + ':'].concat(matches.map(function (x) {
+      return '- ' + waKode_('tagihan hapus ' + (x.id || (x.site.toLowerCase() + ' ' + x.prog))) + ' → ' + x.site + ' (' + x.sow + (x.jenis ? ' · ' + x.jenis : '') + ') *' + x.prog + '%* · ' + x.mandor;
+    })).concat(['> Hapus semua di atas: ' + waKode_('tagihan hapus ' + q + ' konfirmasi')]).join('\n');
+  }
+  var props = PropertiesService.getScriptProperties();
+  var seen = Number(props.getProperty('BOT_BAP_LAST') || 0), dec = 0;
+  matches.forEach(function (x) {
+    sh.deleteRow(x.row);
+    if (seen && x.row <= seen) dec++;
+  });
+  if (seen && dec) props.setProperty('BOT_BAP_LAST', String(Math.max(4, seen - dec)));
   return '🗑️ Dihapus dari sheet *BA PEKERJAAN*:\n' + matches.map(function (x) {
-    return '- ' + (x.id ? x.id + ' · ' : '') + x.site + ' (' + x.sow + ') *' + x.prog + '%* · ' + x.mandor;
+    return '- ' + (x.id ? x.id + ' · ' : '') + x.site + ' (' + x.sow + (x.jenis ? ' · ' + x.jenis : '') + ') *' + x.prog + '%* · ' + x.mandor;
   }).join('\n');
 }
 
@@ -3059,6 +3115,7 @@ function botBaPekerjaanRows_() {
       var tgl = botTglBa_(r[1]);
       var sow = normSow_(r[3]) || String(r[3] || '').trim() || 'Cluster';
       var jenis = String(r[4] || '').trim() || 'Instalasi';
+      var jenisKey = jenis.toLowerCase();
       var judul = String(r[5] || '').trim();
       var pRaw = r[6];
       var prog = typeof pRaw === 'number'
@@ -3068,41 +3125,57 @@ function botBaPekerjaanRows_() {
       var item = { id: id, tgl: tgl, site: site, sow: sow, jenis: jenis, judul: judul, prog: prog, mandor: mandor };
       out.rows.push(item);
       var sk = site.toLowerCase() + '|' + sow;
-      var sObj = out.bySite[sk] || (out.bySite[sk] = { name: site, sow: sow, maxProg: 0, lastTgl: '', lastId: '', mandor: mandor, count: 0, byJenis: {}, items: [] });
+      var sObj = out.bySite[sk] || (out.bySite[sk] = { name: site, sow: sow, maxProg: 0, minProg: 100, lastTgl: '', lastId: '', mandor: mandor, count: 0, byJenis: {}, items: [] });
       sObj.count++;
       sObj.items.push(item);
       if (prog >= sObj.maxProg) sObj.maxProg = prog;
       if (tgl >= sObj.lastTgl) { sObj.lastTgl = tgl; sObj.lastId = id; if (mandor && mandor !== '-') sObj.mandor = mandor; }
-      var jObj = sObj.byJenis[jenis] || (sObj.byJenis[jenis] = { maxProg: 0, lastTgl: '', mandor: mandor, count: 0 });
+      var jObj = sObj.byJenis[jenisKey] || (sObj.byJenis[jenisKey] = { jenis: jenis, maxProg: 0, lastTgl: '', lastId: '', mandor: mandor, count: 0, items: [] });
       jObj.count++;
+      jObj.items.push(item);
       if (prog >= jObj.maxProg) jObj.maxProg = prog;
-      if (tgl >= jObj.lastTgl) { jObj.lastTgl = tgl; if (mandor && mandor !== '-') jObj.mandor = mandor; }
+      if (tgl >= jObj.lastTgl) { jObj.lastTgl = tgl; jObj.lastId = id; if (mandor && mandor !== '-') jObj.mandor = mandor; }
       if (mandor && mandor !== '-') {
-        var mObj = out.byMandor[mandor] || (out.byMandor[mandor] = { mandor: mandor, sites: {}, count: 0, lastTgl: '' });
+        var mKey = mandor.toLowerCase();
+        var mObj = out.byMandor[mKey] || (out.byMandor[mKey] = { mandor: mandor, sites: {}, count: 0, lastTgl: '' });
+        if (mObj.mandor === mObj.mandor.toUpperCase() && mandor !== mandor.toUpperCase()) mObj.mandor = mandor;
         mObj.count++;
         if (tgl > mObj.lastTgl) mObj.lastTgl = tgl;
-        var ms = mObj.sites[sk] || (mObj.sites[sk] = { name: site, sow: sow, maxProg: 0, lastTgl: '', count: 0 });
+        var msKey = sk + '|' + jenisKey;
+        var ms = mObj.sites[msKey] || (mObj.sites[msKey] = { name: site, sow: sow, jenis: jenis, maxProg: 0, lastTgl: '', count: 0 });
         ms.count++;
         if (prog > ms.maxProg) ms.maxProg = prog;
         if (tgl > ms.lastTgl) ms.lastTgl = tgl;
       }
     });
+    Object.keys(out.bySite).forEach(function (sk) {
+      var sObj = out.bySite[sk], jKeys = Object.keys(sObj.byJenis);
+      if (!jKeys.length) { sObj.minProg = sObj.maxProg; return; }
+      var minP = 100;
+      jKeys.forEach(function (jk) { if (sObj.byJenis[jk].maxProg < minP) minP = sObj.byJenis[jk].maxProg; });
+      sObj.minProg = minP;
+    });
   } catch (e) { console.error('botBaPekerjaanRows_: ' + e); }
   return out;
 }
 
-// Peta progres fisik lapangan (MASTER BOQ CLUSTER + DAILY REPORT EMR), foto Waspang (LOG FOTO WASPANG), status DATA BASE, dan mandor dari BA TRANSAKSI.
-function botFieldProgressMap_() {
+// Peta progres fisik lapangan (MASTER BOQ CLUSTER + DAILY REPORT EMR, memakai clusterTotals_()), status DATA BASE, dan mandor dari BA TRANSAKSI.
+function botFieldProgressMap_(onlyName, onlySow) {
   var map = {};
+  var onlyCk = onlyName ? totalsClusterKey_(onlyName) : '';
+  var onlySw = onlySow ? (normSow_(onlySow) || String(onlySow || '').trim() || 'Cluster') : '';
   function entry(name, sow) {
     sow = normSow_(sow) || String(sow || '').trim() || 'Cluster';
-    var k = String(name || '').trim().toLowerCase() + '|' + sow;
-    return map[k] || (map[k] = { key: k, name: String(name || '').trim(), sow: sow, pct: 0, planItems: 0, hasReport: false, lastReport: '', pic: '', foto: 0, impl: '', atp: '', opname: '', closing: '', mandorBa: '', lastBaMat: '' });
+    var nm = siteName_(name);
+    var k = nm.toLowerCase() + '|' + sow;
+    return map[k] || (map[k] = { key: k, name: nm, sow: sow, pct: 0, planItems: 0, hasReport: false, lastReport: '', pic: '', impl: '', atp: '', opname: '', closing: '', mandorBa: '', lastBaMat: '' });
   }
   try {
     var db = botDb_();
     if (db.ok) db.rows.forEach(function (x) {
-      var e = entry(x.name, x.sow);
+      var sw = normSow_(x.sow) || String(x.sow || '').trim() || 'Cluster';
+      if (onlyCk && (totalsClusterKey_(x.name) !== onlyCk || (onlySw && sw !== onlySw))) return;
+      var e = entry(x.name, sw);
       e.impl = botDbTeks_(botDbV_(db, x, 'implementation status'));
       e.atp = botDbTeks_(botDbV_(db, x, 'atp status'));
       e.opname = botDbTeks_(botDbV_(db, x, 'opname'));
@@ -3116,47 +3189,66 @@ function botFieldProgressMap_() {
       ba.rows.forEach(function (r) {
         var nm = String(r[c.n] || '').trim(), sw = normSow_(r[c.s]) || String(r[c.s] || '').trim() || 'Cluster';
         if (!nm) return;
+        if (onlyCk && (totalsClusterKey_(nm) !== onlyCk || (onlySw && sw !== onlySw))) return;
         var e = entry(nm, sw), m = String(r[c.m] || '').trim().replace(/\s+/g, ' '), t = botTglBa_(r[c.t]);
         if (m && m !== '-' && t >= e.lastBaMat) { e.mandorBa = m; e.lastBaMat = t; }
       });
     }
   } catch (e) {}
   try {
-    var fsh = getWaspangSpreadsheet_().getSheetByName('LOG FOTO WASPANG');
-    if (fsh && fsh.getLastRow() >= 2) {
-      var fh = sheetHeader_(fsh), fN = fh.idx['site name'], fS = fh.idx['sow'];
-      if (fN !== undefined) {
-        fsh.getRange(2, 1, fsh.getLastRow() - 1, fh.width).getValues().forEach(function (r) {
-          var nm = siteName_(r[fN]), sw = (fS !== undefined ? normSow_(r[fS]) : '') || 'Cluster';
-          if (nm) entry(nm, sw).foto++;
-        });
-      }
-    }
-  } catch (e) {}
-  try {
     var bsh = boqSheet_(), bh = sheetHeader_(bsh), bdata = boqData_(bsh, bh), bmats = materialCols_(bh);
-    var dsh = dailySheet_(), dh = sheetHeader_(dsh), dmats = materialCols_(dh), last = dsh.getLastRow(), tot = {};
-    var cN = dh.idx['cluster name'], cS = dh.idx['sow'], cD = dh.idx['date'] !== undefined ? dh.idx['date'] : dh.idx['tanggal'], cP = dh.idx['pic'];
-    if (last >= 2) dsh.getRange(2, 1, last - 1, dh.width).getValues().forEach(function (r) {
-      var nm = siteName_(r[cN]), sw = (cS === undefined ? '' : normSow_(r[cS])) || sowFromId_(r[cN]) || 'Cluster';
-      if (!nm) return;
-      var e = entry(nm, sw), k = e.key;
-      e.hasReport = true;
-      var pName = cP !== undefined ? String(r[cP] || '').trim() : '';
-      if (cD !== undefined && r[cD]) {
-        var dk = botTglBa_(r[cD]);
-        if (dk >= e.lastReport) { e.lastReport = dk; if (pName) e.pic = pName; }
-      } else if (pName) {
-        e.pic = pName;
-      }
-      var t = tot[k] = tot[k] || {};
-      dmats.forEach(function (m) { var v = cellNumber_(r[m.idx]); if (v) t[m.col] = (t[m.col] || 0) + v; });
-    });
+    var dsh = dailySheet_(), dh = sheetHeader_(dsh), last = dsh.getLastRow();
+    var cN = dh.idx['cluster name'], cS = dh.idx['sow'], cD = dh.idx['tanggal'] !== undefined ? dh.idx['tanggal'] : dh.idx['date'], cP = dh.idx['pic'];
+    var dailyByCk = {};
+    if (onlyCk) {
+      var singleRows = clusterRows_(dsh, dh, onlyName, onlySw);
+      singleRows.forEach(function (r) {
+        var nm = siteName_(r[cN]), sw = (cS === undefined ? '' : normSow_(r[cS])) || sowFromId_(r[cN]) || onlySw || 'Cluster';
+        if (!nm) return;
+        var e = entry(nm, sw), pName = cP !== undefined ? String(r[cP] || '').trim() : '';
+        e.hasReport = true;
+        if (cD !== undefined && r[cD]) {
+          var dk = botTglBa_(r[cD]);
+          if (dk >= e.lastReport) { e.lastReport = dk; if (pName) e.pic = pName; }
+        } else if (pName) {
+          e.pic = pName;
+        }
+      });
+    } else if (last >= 2 && cN !== undefined) {
+      dsh.getRange(2, 1, last - 1, dh.width).getValues().forEach(function (r) {
+        var ck = totalsClusterKey_(r[cN]);
+        if (!ck) return;
+        (dailyByCk[ck] = dailyByCk[ck] || []).push(r);
+        var nm = siteName_(r[cN]), sw = (cS === undefined ? '' : normSow_(r[cS])) || sowFromId_(r[cN]) || 'Cluster';
+        if (!nm) return;
+        var e = entry(nm, sw), pName = cP !== undefined ? String(r[cP] || '').trim() : '';
+        e.hasReport = true;
+        if (cD !== undefined && r[cD]) {
+          var dk = botTglBa_(r[cD]);
+          if (dk >= e.lastReport) { e.lastReport = dk; if (pName) e.pic = pName; }
+        } else if (pName) {
+          e.pic = pName;
+        }
+      });
+    }
     var bN = bh.idx['cluster name'], bS = bh.idx['sow'];
     bdata.forEach(function (row) {
       var nm = siteName_(row[bN]), sw = normSow_(row[bS]) || 'Cluster';
       if (!nm) return;
-      var e = entry(nm, sw), t = tot[e.key] || {}, sumR = 0, cnt = 0;
+      if (onlyCk && (totalsClusterKey_(nm) !== onlyCk || (onlySw && sw !== onlySw))) return;
+      var e = entry(nm, sw);
+      if (!onlyCk) {
+        var ck = totalsClusterKey_(nm), want = normSow_(sw) || sowFromId_(nm), memoKey = ck + '|' + (want || '*');
+        if (!wsDailyRowsMemo_[memoKey]) {
+          wsDailyRowsMemo_[memoKey] = (dailyByCk[ck] || []).filter(function (r) {
+            var rowSow = (cS === undefined ? '' : normSow_(r[cS])) || sowFromId_(r[cN]);
+            return !want || !rowSow || rowSow === want;
+          });
+        }
+      }
+      var pObj = planFromRow_(bh, row);
+      var ct = clusterTotals_(dsh, nm, pObj && pObj.items ? pObj.items.map(function (x) { return x.key; }) : [], sw, pObj || { skipPlan: true });
+      var t = sumByMaterial_(ct.totals), sumR = 0, cnt = 0;
       bmats.forEach(function (m) {
         if (/^(digging|casting) pole$/i.test(m.col)) return;
         var p = cellNumber_(row[m.idx]);
@@ -3173,10 +3265,10 @@ function botFieldProgressMap_() {
 function botCekTagihanSaatDaily_(name, sow, pic, now) {
   var ownerJid = botOwnerJid_();
   if (!ownerJid || !name) return;
-  var sw = normSow_(sow) || 'Cluster', sk = name.toLowerCase() + '|' + sw;
-  var fp = botFieldProgressMap_(), e = fp[sk];
+  var nm = siteName_(name), sw = normSow_(sow) || 'Cluster', sk = nm.toLowerCase() + '|' + sw;
+  var fp = botFieldProgressMap_(nm, sw), e = fp[sk];
   if (!e || /^drop$/i.test(e.impl)) return;
-  var bap = botBaPekerjaanRows_(), b = bap.bySite[sk], curBa = b ? b.maxProg : 0;
+  var bap = botBaPekerjaanRows_(), b = bap.bySite[sk], curBa = b ? b.minProg : 0;
   if (curBa >= 100) return;
   var isRfs = /^rfs$/i.test(e.impl) || e.pct >= 95;
   var tahap = isRfs ? 100 : (e.pct >= 50 && curBa === 0 ? 50 : 0);
@@ -3257,81 +3349,111 @@ function botTagihanMandor_(arg, isScheduled) {
   var now = Date.now(), todayHari = botHari_(botWita_(now, 'yyyyMMdd'));
   var bap = botBaPekerjaanRows_(), fp = botFieldProgressMap_(), sb = botMandorSupabase_();
   var km = botKotaMap_(), pf = botPisahFilter_(cleanArg, km), kata = pf.kata;
-  function cocokFilter(name, sow, mandor) {
+  function cocokFilter(name, sow, mandor, jenis) {
     if (!botSiteLolos_(name, sow, pf.f, km)) return false;
     if (!kata.length) return true;
-    var gab = (String(name || '') + ' ' + String(sow || '') + ' ' + String(mandor || '')).toLowerCase();
+    var gab = (String(name || '') + ' ' + String(sow || '') + ' ' + String(mandor || '') + ' ' + String(jenis || '')).toLowerCase();
     return kata.every(function (w) { return gab.indexOf(w) >= 0; });
   }
 
-  // Petakan SPK Supabase ke site bila ada, untuk melengkapi nama mandor & status bayar.
-  var spkBySite = {};
+  // Petakan SPK Supabase ke site + SOW + Jenis Pekerjaan (segmen2: Civil/Electrical), untuk melengkapi mandor & status bayar.
+  var spkBySite = {}, spkListBySite = {};
   if (sb.ok) {
     sb.spk.forEach(function (s) {
       if (s.status === 'BATAL') return;
       var lk = siteName_(s.lokasi).toLowerCase(), sw = normSow_(s.segmen1) || 'Cluster';
-      spkBySite[lk + '|' + sw] = s;
+      var jKey = String(s.segmen2 || '').trim().toLowerCase(), sk = lk + '|' + sw;
+      (spkListBySite[sk] = spkListBySite[sk] || []).push(s);
+      if (jKey && !spkBySite[sk + '|' + jKey]) spkBySite[sk + '|' + jKey] = s;
+      if (!spkBySite[sk]) spkBySite[sk] = s;
       if (!spkBySite[lk]) spkBySite[lk] = s;
     });
   }
-  function findSpk(name, sow) {
-    var lk = String(name || '').toLowerCase();
-    return spkBySite[lk + '|' + sow] || spkBySite[lk] || null;
+  function findSpk(name, sow, jenis) {
+    var lk = siteName_(name).toLowerCase(), sw = normSow_(sow) || 'Cluster', jKey = String(jenis || '').trim().toLowerCase();
+    return (jKey && spkBySite[lk + '|' + sw + '|' + jKey]) || spkBySite[lk + '|' + sw] || spkBySite[lk] || null;
   }
 
-  // 1. Pekerjaan lapangan sudah jalan (>=50%) atau RFS, tapi BA Pekerjaan RPM belum dibuat / belum 100%.
+  // 1. Pekerjaan lapangan sudah jalan (>=50%) atau RFS, tapi BA Pekerjaan RPM belum dibuat / belum 100% (dipisah per Civil vs Electrical bila ada).
   var belum100Rfs = [], belum50Ongoing = [];
   Object.keys(fp).sort().forEach(function (k) {
-    var e = fp[k], b = bap.bySite[k], sp = findSpk(e.name, e.sow);
+    var e = fp[k], b = bap.bySite[k], spks = spkListBySite[k] || [];
     if (/^drop$/i.test(e.impl)) return;
-    var curBa = b ? b.maxProg : 0;
-    if (curBa >= 100) return;   // sudah BA 100%: tidak perlu diingatkan lagi
-    var mandor = (b && b.mandor !== '-' ? b.mandor : '') || e.mandorBa || (sp && sp.mandor) || '';
-    if (!cocokFilter(e.name, e.sow, mandor)) return;
     var isRfs = /^rfs$/i.test(e.impl) || e.pct >= 95;
-    var mLabel = mandor ? ' · Mandor: *' + mandor + '*' : '';
-    if (isRfs) {
-      var stBa = b ? ('BA baru *' + curBa + '%* (' + botTglPendek_(b.lastTgl) + ')') : '*Belum ada BA Pekerjaan*';
-      belum100Rfs.push('- ' + e.name + ' (' + e.sow + ')' + mLabel + ' → ' + stBa);
-    } else if (e.pct >= 50 && curBa === 0 && (e.hasReport || e.mandorBa)) {
-      belum50Ongoing.push('- ' + e.name + ' (' + e.sow + ')' + mLabel + ' → *Belum ada BA Pekerjaan 50%*');
+    var jSet = {}, jKeys = [];
+    if (b && b.byJenis) Object.keys(b.byJenis).forEach(function (jk) { if (!jSet[jk]) { jSet[jk] = true; jKeys.push(jk); } });
+    spks.forEach(function (s) {
+      var jk = String(s.segmen2 || '').trim().toLowerCase();
+      if (jk && !jSet[jk]) { jSet[jk] = true; jKeys.push(jk); }
+    });
+    if (!jKeys.length) {
+      var sp0 = findSpk(e.name, e.sow, '');
+      var m0 = (b && b.mandor !== '-' ? b.mandor : '') || e.mandorBa || (sp0 && sp0.mandor) || '';
+      if (!cocokFilter(e.name, e.sow, m0, '')) return;
+      var mLbl0 = m0 ? ' · Mandor: *' + m0 + '*' : '';
+      if (isRfs) belum100Rfs.push('- ' + e.name + ' (' + e.sow + ')' + mLbl0 + ' → *Belum ada BA Pekerjaan*');
+      else if (e.pct >= 50 && (e.hasReport || e.mandorBa || sp0)) belum50Ongoing.push('- ' + e.name + ' (' + e.sow + ')' + mLbl0 + ' → *Belum ada BA Pekerjaan 50%*');
+      return;
     }
+    jKeys.forEach(function (jk) {
+      var bj = b && b.byJenis ? b.byJenis[jk] : null;
+      var curBa = bj ? bj.maxProg : 0;
+      if (curBa >= 100) return;   // sudah BA 100% untuk jenis pekerjaan ini
+      var sp = findSpk(e.name, e.sow, jk);
+      var mandor = (bj && bj.mandor !== '-' ? bj.mandor : '') || (b && b.mandor !== '-' ? b.mandor : '') || e.mandorBa || (sp && sp.mandor) || '';
+      var jLbl = (bj && bj.jenis) || (sp && sp.segmen2) || jk;
+      if (!cocokFilter(e.name, e.sow, mandor, jLbl)) return;
+      var showJenis = jKeys.length > 1 || (jLbl && !/^instalasi$/i.test(jLbl));
+      var siteLbl = e.name + ' (' + e.sow + (showJenis ? ' · ' + jLbl : '') + ')';
+      var mLabel = mandor ? ' · Mandor: *' + mandor + '*' : '';
+      if (isRfs) {
+        var stBa = bj ? ('BA baru *' + curBa + '%* (' + botTglPendek_(bj.lastTgl) + ')') : '*Belum ada BA Pekerjaan*';
+        belum100Rfs.push('- ' + siteLbl + mLabel + ' → ' + stBa);
+      } else if (e.pct >= 50 && curBa === 0 && (e.hasReport || e.mandorBa || sp)) {
+        belum50Ongoing.push('- ' + siteLbl + mLabel + ' → *Belum ada BA Pekerjaan 50%*');
+      }
+    });
   });
 
   // 2. BA Pekerjaan yang masih bertahap (< 100%) per Mandor (yang sudah 100% tidak dimasukkan ke pengingat).
   var mandorLines = [], totalAktif = 0;
-  Object.keys(bap.byMandor).sort().forEach(function (m) {
-    var mo = bap.byMandor[m], sks = Object.keys(mo.sites).filter(function (k) {
+  Object.keys(bap.byMandor).sort().forEach(function (mKey) {
+    var mo = bap.byMandor[mKey], mName = mo.mandor, sks = Object.keys(mo.sites).filter(function (k) {
       var s = mo.sites[k];
       if (!tampilSemua && s.maxProg >= 100) return false;
-      return cocokFilter(s.name, s.sow, m);
+      return cocokFilter(s.name, s.sow, mName, s.jenis);
     });
     if (!sks.length) return;
     sks.sort(function (a, b) { return mo.sites[b].lastTgl < mo.sites[a].lastTgl ? -1 : 1; });
     var rincian = sks.map(function (k) {
-      var s = mo.sites[k], sp = findSpk(s.name, s.sow);
+      var s = mo.sites[k], sp = findSpk(s.name, s.sow, s.jenis);
       totalAktif++;
       var hr = s.lastTgl ? (todayHari - botHari_(s.lastTgl.replace(/-/g, ''))) : 0;
+      var jLbl = s.jenis && !/^instalasi$/i.test(s.jenis) ? (' · ' + s.jenis) : '';
       var infoSpk = sp ? (' · SPK ' + sp.status + (Number(sp.sisa_tagihan) > 0 ? ' (sisa Rp' + botNum_(Math.round(Number(sp.sisa_tagihan))) + ')' : ' (Lunas)')) : '';
-      return '  • ' + s.name + ' (' + s.sow + '): BA *' + s.maxProg + '%* (' + botTglPendek_(s.lastTgl) + (hr > 0 ? ', ' + hr + ' hr lalu' : '') + ')' + infoSpk;
+      return '  • ' + s.name + ' (' + s.sow + jLbl + '): BA *' + s.maxProg + '%* (' + botTglPendek_(s.lastTgl) + (hr > 0 ? ', ' + hr + ' hr lalu' : '') + ')' + infoSpk;
     });
-    mandorLines.push('👷 *' + m + '* (' + sks.length + ' site)\n' + botDaftar_(rincian, 12).join('\n'));
+    mandorLines.push('👷 *' + mName + '* (' + sks.length + ' item)\n' + botDaftar_(rincian, 12).join('\n'));
   });
 
-  // 3. Data SPK, Termin & Kasbon dari Supabase Database-mandor (bila terhubung; lewati yang BA sudah 100% & lunas).
+  // 3. Data SPK, Termin & Kasbon dari Supabase Database-mandor (bila terhubung; lewati yang BA sudah 100%, centang BA SPK, & lunas).
   var spkTagihan = [], kasbonAktif = [];
   if (sb.ok) {
     sb.spk.forEach(function (s) {
       if (s.status === 'BATAL' || s.status === 'DRAFT') return;
-      if (!cocokFilter(s.lokasi, s.segmen1, s.mandor)) return;
+      if (!cocokFilter(s.lokasi, s.segmen1, s.mandor, s.segmen2)) return;
       var sisa = Math.round(Number(s.sisa_tagihan) || 0), nilai = Math.round(Number(s.nilai_mandor) || 0), byr = Math.round(Number(s.dibayar) || 0);
       var lk = siteName_(s.lokasi).toLowerCase(), sw = normSow_(s.segmen1) || 'Cluster';
-      var b = bap.bySite[lk + '|' + sw];
-      if (!tampilSemua && b && b.maxProg >= 100 && sisa <= 0) return;
-      if (sisa > 0 || (b && b.maxProg < 100 && !s.ba_dibuat)) {
-        var baInfo = b ? ('BA RPM *' + b.maxProg + '%*') : (s.ba_dibuat ? 'BA SPK ✓' : 'Belum ada BA RPM');
-        spkTagihan.push('- *' + s.mandor + '* · ' + s.lokasi + ' (' + s.no_spk + ', ' + s.status + '): ' + baInfo +
-          (!s.ba_dibuat && b ? ' ⚠️ _belum centang BA di SPK_' : '') +
+      var jKey = String(s.segmen2 || '').trim().toLowerCase();
+      var bSite = bap.bySite[lk + '|' + sw];
+      var bj = bSite ? (jKey ? (bSite.byJenis && bSite.byJenis[jKey] ? bSite.byJenis[jKey] : null) : bSite) : null;
+      var bProg = bj ? bj.maxProg : 0;
+      if (!tampilSemua && bj && bProg >= 100 && sisa <= 0 && s.ba_dibuat) return;
+      if (tampilSemua || sisa > 0 || !s.ba_dibuat || (bj && bProg < 100)) {
+        var baInfo = bj ? ('BA RPM *' + bProg + '%*') : (s.ba_dibuat ? 'BA SPK ✓' : 'Belum ada BA RPM');
+        var spkMeta = [s.no_spk, s.segmen2, s.status].filter(Boolean).join(', ');
+        spkTagihan.push('- *' + s.mandor + '* · ' + s.lokasi + ' (' + spkMeta + '): ' + baInfo +
+          (!s.ba_dibuat && bj ? ' ⚠️ _belum centang BA di SPK_' : '') +
           ' · Nilai Rp' + botNum_(nilai) + ' · Dibayar Rp' + botNum_(byr) + ' · *Sisa Rp' + botNum_(sisa) + '*');
       }
     });
@@ -3348,7 +3470,7 @@ function botTagihanMandor_(arg, isScheduled) {
   var body = [];
 
   if (belum100Rfs.length || belum50Ongoing.length) {
-    body.push('🚨 *Perlu Dibuat / Di-update BA Pekerjaan RPM* (' + (belum100Rfs.length + belum50Ongoing.length) + ' site)');
+    body.push('🚨 *Perlu Dibuat / Di-update BA Pekerjaan RPM* (' + (belum100Rfs.length + belum50Ongoing.length) + ' item)');
     if (belum100Rfs.length) {
       body.push('_Sudah RFS / Fisik >=95% tapi BA belum 100%:_');
       body = body.concat(botDaftar_(belum100Rfs, 15));
@@ -3363,10 +3485,10 @@ function botTagihanMandor_(arg, isScheduled) {
   }
 
   if (mandorLines.length) {
-    body.push('', (tampilSemua ? '📂 *Daftar BA Pekerjaan per Mandor*' : '⏳ *BA Pekerjaan Masih Bertahap / Belum 100%*') + ' (' + totalAktif + ' site)');
+    body.push('', (tampilSemua ? '📂 *Daftar BA Pekerjaan per Mandor*' : '⏳ *BA Pekerjaan Masih Bertahap / Belum 100%*') + ' (' + totalAktif + ' item)');
     body.push(mandorLines.join('\n\n'));
   } else {
-    body.push('', '✅ *BA Pekerjaan Bertahap:* Tidak ada BA Pekerjaan yang menggantung di bawah 100%._');
+    body.push('', '✅ *BA Pekerjaan Bertahap:* Tidak ada BA Pekerjaan yang menggantung di bawah 100%.');
   }
 
   if (sb.ok) {
@@ -4149,7 +4271,7 @@ function botRevisi_(p, owner, arg) {
   var to = botOwnerJid_(), t = Date.now() + Math.floor(Math.random() * 1000);   // dua permintaan di milidetik yang sama tidak saling menimpa
   if (to) props.setProperty(WAQ_PREFIX_ + t + '_revisi', JSON.stringify({ t: t, n: 0, last: 0, to: to, mentions: [], files: [],
     text: '✏️ *Permintaan revisi Daily Report* dari ' + who + '\n' + pend.text + '\n\n> Balas \\`revisi ya\\` atau \\`revisi batal\\`.' + lagi }));
-  return '📨 Permintaan revisi diteruskan ke admin untuk dikonfirmasi:\n' + pend.text + '\n> Salah? Kirim ulang perubahannya (menggantikan yang ini) atau \`!revisi batal\`.';
+  return '📨 Permintaan revisi diteruskan ke admin untuk dikonfirmasi:\n' + pend.text + '\n> Salah? Kirim ulang perubahannya (menggantikan yang ini) atau ' + waKode_('!revisi batal') + '.';
 }
 
 function botRevisiJalan_(pend, who) {
@@ -6107,7 +6229,7 @@ function logWaspang_(p, res) {
         // hanya membaca data (stok, progres, ba, status, ...) tidak dicatat, supaya LOG HISTORY tidak cepat penuh.
         if (!p.cmd || waCmdBaca_(p)) return;
         aksi = 'Perintah Bot WA';
-        detail = p.cmd + (/^(catat|ingatkan|permit|implementasi|impl|tim)$/.test(p.cmd) ? '' : ' ' + String(p.text || '').replace(/^[!\/]?\S+\s*/, '')).slice(0, 80);
+        detail = p.cmd + (/^(catat|ingatkan|permit|implementasi|impl|tim|wh)$/.test(p.cmd) ? '' : ' ' + String(p.text || '').replace(/^[!\/]?\S+\s*/, '')).slice(0, 80);
         who = { name: String(p.fromName || '').trim() || String(p.from || ''), role: p.chat === 'group' ? 'Grup WA' : 'WA pribadi' };
         break;
       case 'SET_TOTAL':
@@ -6135,10 +6257,12 @@ function logWaspang_(p, res) {
 // Perintah bot yang hanya membaca/menampilkan data (tidak mengubah Script Properties, sheet atau mengirim ke grup).
 function waCmdBaca_(p) {
   var arg = String(p.text || '').trim().replace(/^[!\/]?\S+\s*/, '');
-  if (/^(bantu|bantuan|menu|help|\?|stok|stock|saldo|progres|progress|rekap|site|cari|catatan|pengingat|stokmin|menipis|mingguan|mangkrak|bulanan|status|potongan|ba|panduan|pagi|tagihan|bapekerjaan|tagihanmandor|mandorkey)$/.test(p.cmd)) return true;
+  if (/^(bantu|bantuan|menu|help|\?|stok|stock|saldo|progres|progress|rekap|harian|site|cari|catatan|pengingat|stokmin|menipis|mingguan|mangkrak|bulanan|status|potongan|ba|panduan|pagi|belum|foto|izin|atp|rfs|mandor|selisih|log|sapa|tanya|mandorkey)$/.test(p.cmd)) return true;
+  if (/^(tagihan|bapekerjaan|tagihanmandor)$/.test(p.cmd)) return !/^hapus\b/i.test(arg);
+  if (p.cmd === 'iris') return !/^((on|off|nyala|mati|aktif)\b|kuota\s+\d+|model\s+\S+|sapa\b|perkenalan\b.*\bkirim\b|(stiker|sticker)\s+otomatis\s+(on|off))/i.test(arg);
   if (p.cmd === 'sore') return !/^kirim\b/i.test(arg);
   if (p.cmd === 'boq') return !/^ok\b/i.test(arg);
-  if (/^(tim|batas|wh)$/.test(p.cmd)) return !arg;
+  if (/^(tim|batas|wh|grup|group|tunda|ok)$/.test(p.cmd)) return !arg;
   return false;
 }
 

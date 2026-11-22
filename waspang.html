@@ -4739,7 +4739,7 @@ ${todayActivity}`;
         try { d = JSON.parse(raw); } catch (_) { throw new Error('Respons server tidak valid (HTTP ' + res.status + '). Muat ulang halaman lalu coba lagi.'); }
         if (d.status === 'success') {
           showToast(d.waSent ? "🎉 Daily Report EMR berhasil terkirim ke WhatsApp!" : "⚠️ Daily Report tersimpan, tetapi belum terkirim ke WhatsApp.");
-          showWaShare('Daily Report', text);
+          showWaShare('Daily Report', d.syncedText || text);
           if (d.totalsError) alert('Laporan sudah terkirim, tetapi belum tercatat di sheet DAILY REPORT EMR (server sedang sibuk). Beri tahu RPM supaya dicatat.');
           if (d.totals) {
             // Total bersama dari server sudah termasuk Today: simpan, lalu kosongkan Today & segarkan pratinjau.
@@ -5832,10 +5832,12 @@ ${todayActivity}`;
       btn.disabled = true;
       btn.innerText = '⏳ Menyimpan & Menyelaraskan BOQ ke Seluruh Sistem...';
 
-      // 1. Simpan per cluster ke localStorage sebagai array material tersusun
+      // 1. Simpan per cluster ke memori & localStorage sebagai array material tersusun
       clusterNames.forEach(cl => {
         const items = parsedBoqData[cl];
-        localStorage.setItem(STORAGE_BOQ_CUSTOM + '_' + cl.toLowerCase(), JSON.stringify(items));
+        const ck = normalizeClusterKey(cl);
+        sharedPlanMem[ck] = items;
+        try { localStorage.setItem(STORAGE_BOQ_CUSTOM + '_' + ck, JSON.stringify(items)); } catch (e) {}
       });
 
       // 2. Simpan master list cluster terdaftar
@@ -5843,7 +5845,7 @@ ${todayActivity}`;
       clusterNames.forEach(cl => {
         if (!allClusters.includes(cl)) allClusters.push(cl);
       });
-      localStorage.setItem(STORAGE_CLUSTERS_LIST, JSON.stringify(allClusters));
+      try { localStorage.setItem(STORAGE_CLUSTERS_LIST, JSON.stringify(allClusters)); } catch (e) {}
 
       // 3. Update Dropdowns di Seluruh Aplikasi
       refreshAllClusterDropdowns(clusterNames[0]);
@@ -5875,16 +5877,17 @@ ${todayActivity}`;
             };
           });
 
-          await fetch(cfg.scriptUrl, {
+          const res = await fetch(String(cfg.scriptUrl).trim(), {
             method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
               action: 'SYNC_BOQ_EXCEL',
               session: wsSid(),
               clusters: clustersPayload
             })
           });
+          const d = await res.json();
+          if (!d || d.status !== 'success') throw new Error((d && d.message) || 'Sinkronisasi server gagal.');
           showToast(`✅ Berhasil disinkronkan ke Spreadsheet MASTER BOQ CLUSTER!`);
         } catch (err) {
           console.warn('Gagal sync ke Google Sheet:', err);
@@ -5949,7 +5952,7 @@ ${todayActivity}`;
         const d = await res.json();
         if (timer) clearTimeout(timer);
         if (d.status !== 'success') { failed(d.message || ''); return; }
-        const sig = () => JSON.stringify(MASTER_DATABASE_SOW.map(it => [it.name, it.sow]));
+        const sig = () => JSON.stringify(MASTER_DATABASE_SOW.map(it => [it.name, it.sow, it.region || '']));
         const before = sig(), dailyBefore = getActiveDailyCluster();
         if (!applyDatabaseSites(d.sites)) return;
         try { localStorage.setItem(STORAGE_DATABASE_SITES, JSON.stringify(d.sites)); } catch (e) {}
@@ -6049,7 +6052,7 @@ ${todayActivity}`;
         const sel = document.getElementById(selId);
         const before = sel ? sel.value : '';
         refreshAllClusterDropdowns(null, selId);
-        if (sel && sel.value && sel.value !== before) sel.dispatchEvent(new Event('change'));
+        if (sel && sel.value !== before) sel.dispatchEvent(new Event('change'));
       }, 300);
     }
 
@@ -6095,7 +6098,7 @@ ${todayActivity}`;
       refreshAllClusterDropdowns();
       ['dailyClusterSelect', 'boqTargetCluster', 'photoSiteSelect'].forEach(id => {
         const el = document.getElementById(id);
-        if (el && el.value && el.value !== before[id]) el.dispatchEvent(new Event('change'));
+        if (el && el.value !== before[id]) el.dispatchEvent(new Event('change'));
       });
     }
 
@@ -6157,7 +6160,7 @@ ${todayActivity}`;
     }
 
     // Muat Tabel Penyesuaian Material Manual untuk Cluster Terpilih
-    function loadBoqForSelectedCluster(fromSheet) {
+    function loadBoqForSelectedCluster(fromSheet, force) {
       const cluster = getBoqTargetCluster();
       const tbody = document.getElementById('boqSubmitTableBody');
       if (!tbody) return;
@@ -6184,7 +6187,7 @@ ${todayActivity}`;
       if (fromSheet === true) return;
       const snapshot = JSON.stringify(currentManualEditingRows);
       const before = JSON.stringify(getClusterItems(cluster));
-      fetchClusterData(cluster).then(d => {
+      fetchClusterData(cluster, force).then(d => {
         if (!d || !d.plan) return;
         applySharedPlan(cluster, d.plan);
         if (getBoqTargetCluster() !== cluster) return;
@@ -6340,12 +6343,14 @@ ${todayActivity}`;
         }
       });
 
-      localStorage.setItem(STORAGE_BOQ_CUSTOM + '_' + cluster.toLowerCase(), JSON.stringify(validRows));
+      const ck = normalizeClusterKey(cluster);
+      sharedPlanMem[ck] = validRows;
+      try { localStorage.setItem(STORAGE_BOQ_CUSTOM + '_' + ck, JSON.stringify(validRows)); } catch (e) {}
 
       let boqClusters = getBoqRegisteredClusters();
       if (!boqClusters.includes(cluster)) {
         boqClusters.push(cluster);
-        localStorage.setItem(STORAGE_CLUSTERS_LIST, JSON.stringify(boqClusters));
+        try { localStorage.setItem(STORAGE_CLUSTERS_LIST, JSON.stringify(boqClusters)); } catch (e) {}
         refreshAllClusterDropdowns(cluster);
       }
 
@@ -6360,10 +6365,9 @@ ${todayActivity}`;
           const sowType = getSowType(cluster);
 
           showToast("⏳ Mengirim perubahan ke Spreadsheet MASTER BOQ CLUSTER...");
-          await fetch(cfg.scriptUrl, {
+          const res = await fetch(String(cfg.scriptUrl).trim(), {
             method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
               action: 'SYNC_BOQ_EXCEL',
               session: wsSid(),
@@ -6375,6 +6379,8 @@ ${todayActivity}`;
               }]
             })
           });
+          const d = await res.json();
+          if (!d || d.status !== 'success') throw new Error((d && d.message) || 'Sinkronisasi server gagal.');
           showToast(`✅ Berhasil menyimpan ${validRows.length} material BOQ & sinkron ke Sheet MASTER BOQ CLUSTER!`);
         } catch (err) {
           console.warn('Gagal sync ke Google Sheet:', err);
@@ -6387,7 +6393,7 @@ ${todayActivity}`;
       renderDailyTable();
       renderDailyPreview();
       renderBoqSummaryTable();
-      loadBoqForSelectedCluster();
+      loadBoqForSelectedCluster(true);
     }
 
     var boqSummaryClusters = [];
