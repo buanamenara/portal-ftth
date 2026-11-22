@@ -9,7 +9,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
 | waspang | @158 | 2026-11-22 09:09 | 648cc9b | fix(waspang,ftth): resolve 13 stability, cache, bot security, and sync bugs |
-| ftth | @273 | 2026-11-16 17:38 | d2781f7 | feat(gateway,ftth): host UI directly on GitHub Pages with Apps Script JSON RPC |
+| ftth | @274 | 2026-11-22 09:10 | 648cc9b | fix(waspang,ftth): resolve 13 stability, cache, bot security, and sync bugs |
 | gateway | @26 | 2026-11-18 10:05 | 9156bdc | Merge pull request #126 from buanamenara/gateway-login-segar |
 <!-- LIVE:END -->
 
@@ -234,6 +234,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-22 09:10 · **ftth @274** · 648cc9b · fix(waspang,ftth): resolve 13 stability, cache, bot security, and sync bugs · GitHub Actions
 - 2026-11-22 09:09 · **waspang @158** · 648cc9b · fix(waspang,ftth): resolve 13 stability, cache, bot security, and sync bugs · GitHub Actions
 - 2026-11-20 10:34 · **waspang @157** · 91c45e6 · feat(waspang): address WA_OWNER as Bos across iRIS greetings, AI, and reminders · GitHub Actions
 - 2026-11-19 21:13 · **waspang @156** · 8288ee7 · fix(waspang): simplify mandor billing output to BA Pekerjaan status only · GitHub Actions
