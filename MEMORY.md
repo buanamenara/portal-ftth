@@ -8,7 +8,7 @@ di commit yang sama dengan perubahannya. Repo ini publik: tanpa rahasia, nomor H
 <!-- LIVE:START -->
 | Project | Versi live | Waktu (WITA) | Commit | Keterangan |
 |---|---|---|---|---|
-| waspang | @159 | 2026-11-22 09:24 | 4bbaea8 | fix(waspang,ftth): harden edge cases in Kurva S, sharedPlanMem, botJadwal, and logging |
+| waspang | @160 | 2026-11-23 18:37 | 397abf1 | feat(waspang): show Start Implementasi date in bot !progres output |
 | ftth | @275 | 2026-11-22 09:25 | 4bbaea8 | fix(waspang,ftth): harden edge cases in Kurva S, sharedPlanMem, botJadwal, and logging |
 | gateway | @26 | 2026-11-18 10:05 | 9156bdc | Merge pull request #126 from buanamenara/gateway-login-segar |
 <!-- LIVE:END -->
@@ -235,6 +235,7 @@ URL web app tetap: `https://script.google.com/macros/s/<deploymentId>/exec`. Dep
 
 ## Riwayat deploy *(otomatis, terbaru di atas)*
 <!-- LOG:START -->
+- 2026-11-23 18:37 · **waspang @160** · 397abf1 · feat(waspang): show Start Implementasi date in bot !progres output · GitHub Actions
 - 2026-11-22 09:25 · **ftth @275** · 4bbaea8 · fix(waspang,ftth): harden edge cases in Kurva S, sharedPlanMem, botJadwal, and logging · GitHub Actions
 - 2026-11-22 09:24 · **waspang @159** · 4bbaea8 · fix(waspang,ftth): harden edge cases in Kurva S, sharedPlanMem, botJadwal, and logging · GitHub Actions
 - 2026-11-22 09:10 · **ftth @274** · 648cc9b · fix(waspang,ftth): resolve 13 stability, cache, bot security, and sync bugs · GitHub Actions
