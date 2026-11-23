@@ -1533,14 +1533,21 @@ function botProgres_(arg) {
   if (!hit.length) return 'Tidak ada site yang cocok dengan "' + arg + '". Coba \\`site ' + arg.split(/\s+/)[0] + '\\`.';
   if (hit.length > 3) return botSite_(arg) + '\n\nPerjelas nama site-nya.';
   var bsh = boqSheet_(), bh = sheetHeader_(bsh), bdata = boqData_(bsh, bh), bmats = materialCols_(bh);
-  var dsh = dailySheet_(), dh = sheetHeader_(dsh), cTgl = dh.idx['tanggal'];
+  var dsh = dailySheet_(), dh = sheetHeader_(dsh), cTgl = dh.idx['tanggal'], cStart = dh.idx['start implementation'];
   return hit.map(function (s) {
     var r = boqRowIndex_(bdata, bh, s.name, s.sow), plan = {}, pObj = r >= 0 ? planFromRow_(bh, bdata[r]) : null;
     if (r >= 0) bmats.forEach(function (m) { var v = cellNumber_(bdata[r][m.idx]); if (v) plan[m.col] = v; });
-    var rows = clusterRows_(dsh, dh, s.name, s.sow), last = '';
+    var rows = clusterRows_(dsh, dh, s.name, s.sow), last = '', startImpl = '', startRef = '';
     rows.forEach(function (row) {
-      var t = botDmy_(row[cTgl]);
-      if (t && (!last || botDmyKey_(t) > botDmyKey_(last))) last = t;
+      var t = botDmy_(row[cTgl]), tk = t ? botDmyKey_(t) : '';
+      if (t && (!last || tk > botDmyKey_(last))) last = t;
+      if (cStart !== undefined) {
+        var si = botDmy_(row[cStart]);
+        if (si && (!startImpl || (tk && (!startRef || tk >= startRef)))) {
+          startImpl = si;
+          if (tk) startRef = tk;
+        }
+      }
     });
     var ct = clusterTotals_(dsh, s.name, pObj ? pObj.items.map(function (x) { return x.key; }) : [], s.sow, pObj || { skipPlan: true });
     var tot = sumByMaterial_(ct.totals);
@@ -1551,7 +1558,7 @@ function botProgres_(arg) {
       var t = Math.max(0, tot[k] || 0), p = plan[k] || 0, title = MATERIAL_HEADERS_[MATERIAL_HEADERS_.map(normHeader_).indexOf(k)].replace(/\s*\(.*$/, '');
       return title + ': ' + botNum_(t) + (p ? ' / ' + botNum_(p) + ' (' + Math.round(t / p * 100) + '%)' : ' (tanpa plan)');
     });
-    return [head, 'Laporan terakhir: ' + (last || '-')].concat(lines).join('\n');
+    return [head, 'Start Implementasi: ' + (startImpl || '-'), 'Laporan terakhir: ' + (last || '-')].concat(lines).join('\n');
   }).join('\n\n');
 }
 
